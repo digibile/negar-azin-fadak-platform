@@ -16,7 +16,7 @@ app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.jso
 
 app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  const input=loginSchema.parse(req.body);
- const r=await query<any>("select id,email,password_hash,full_name,role from users where email=$1 and status='active'",[input.email.toLowerCase()]);
+ const r=await query("select id,email,password_hash,full_name,role from users where email=$1 and status='active'",[input.email.toLowerCase()]);
  if(!r.rowCount||!(await verifyPassword(input.password,r.rows[0].password_hash)))return res.status(401).json({error:"اطلاعات ورود نادرست است"});
  const u=r.rows[0];
  res.json({token:sign({id:u.id,email:u.email,role:u.role}),user:{id:u.id,email:u.email,fullName:u.full_name,role:u.role}});
