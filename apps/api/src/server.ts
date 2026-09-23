@@ -3,38 +3,56 @@ import cors from "cors";
 import "dotenv/config";
 import {query} from "./db.js";
 import {ensureAdmin,hashPassword,verifyPassword,sign,requireAuth,requireAdmin} from "./auth.js";
+import {asyncHandler,errorHandler,notFound} from "./http.js";
+import {loginSchema,userCreateSchema,formSchema,pageSchema,menuUpdateSchema} from "./validation.js";
+
 const app=express();
-app.use(cors({origin:process.env.CORS_ORIGIN?.split(",")||true,credentials:true}));
+const allowedOrigins=(process.env.CORS_ORIGIN||"http://localhost:3000").split(",").map(x=>x.trim()).filter(Boolean);
+app.disable("x-powered-by");
+app.use(cors({origin:(origin,callback)=>{if(!origin||allowedOrigins.includes(origin))return callback(null,true);callback(new Error("مبدأ درخواست مجاز نیست"))},credentials:true}));
 app.use(express.json({limit:"2mb"}));
-app.get("/health",async(_req,res)=>{try{await query("select 1");res.json({status:"ok",database:"ok"});}catch{res.status(503).json({status:"error",database:"unavailable"});}});
-app.post("/api/auth/login",async(req,res)=>{
-  const email=String(req.body?.email||"").trim().toLowerCase(),password=String(req.body?.password||"");
-  if(!email||!password)return res.status(400).json({error:"ایمیل و رمز عبور الزامی است"});
-  const r=await query<any>("select id,email,password_hash,full_name,role from users where email=$1 and status='active'",[email]);
-  if(!r.rowCount||!(await verifyPassword(password,r.rows[0].password_hash)))return res.status(401).json({error:"اطلاعات ورود نادرست است"});
-  const u=r.rows[0];res.json({token:sign({id:u.id,email:u.email,role:u.role}),user:{id:u.id,email:u.email,fullName:u.full_name,role:u.role}});
-});
+
+app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.json({status:"ok",database:"ok"});}));
+
+app.post("/api/auth/login",asyncHandler(async(req,res)=>{
+ const input=loginSchema.parse(req.body);
+ const r=await query<any>("select id,email,password_hash,full_name,role from users where email=$1 and status='active'",[input.email.toLowerCase()]);
+ if(!r.rowCount||!(await verifyPassword(input.password,r.rows[0].password_hash)))return res.status(401).json({error:"اطلاعات ورود نادرست است"});
+ const u=r.rows[0];
+ res.json({token:sign({id:u.id,email:u.email,role:u.role}),user:{id:u.id,email:u.email,fullName:u.full_name,role:u.role}});
+}));
+
 app.get("/api/auth/me",requireAuth,(req,res)=>res.json({user:(req as any).user}));
-app.get("/api/dashboard/menu-tree",requireAuth,async(req,res)=>{
-  const r=await query("select id,parent_id,title,path,icon,sort_order,permission from menu_items where is_active=true order by sort_order,id");
-  res.json(r.rows);
-});
-app.get("/api/admin/users",requireAuth,requireAdmin,async(_req,res)=>{const r=await query("select id,email,full_name,role,status,created_at from users order by created_at desc");res.json(r.rows);});
-app.post("/api/admin/users",requireAuth,requireAdmin,async(req,res)=>{
-  const email=String(req.body?.email||"").trim().toLowerCase(),name=String(req.body?.fullName||"").trim(),password=String(req.body?.password||"");
-  if(!email||!name||password.length<8)return res.status(400).json({error:"ایمیل، نام و رمز حداقل ۸ کاراکتری لازم است"});
-  const hash=await hashPassword(password);
-  const r=await query("insert into users(email,password_hash,full_name,role) values($1,$2,$3,$4) returning id,email,full_name,role,status", [email,hash,name,req.body.role||"viewer"]);
-  res.status(201).json(r.rows[0]);
-});
-app.get("/api/content/forms",requireAuth,requireAdmin,async(_req,res)=>res.json((await query("select * from form_definitions order by updated_at desc")).rows));
-app.post("/api/content/forms",requireAuth,requireAdmin,async(req,res)=>{const r=await query("insert into form_definitions(name,slug,schema) values($1,$2,$3) returning *",[req.body.name,req.body.slug,req.body.schema]);res.status(201).json(r.rows[0]);});
-app.put("/api/content/forms/:id",requireAuth,requireAdmin,async(req,res)=>{const r=await query("update form_definitions set name=$1,schema=$2,updated_at=now() where id=$3 returning *",[req.body.name,req.body.schema,req.params.id]);res.json(r.rows[0]);});
-app.get("/api/content/pages",requireAuth,requireAdmin,async(_req,res)=>res.json((await query("select * from page_definitions order by updated_at desc")).rows));
-app.post("/api/content/pages",requireAuth,requireAdmin,async(req,res)=>{const r=await query("insert into page_definitions(name,slug,definition) values($1,$2,$3) returning *",[req.body.name,req.body.slug,req.body.definition]);res.status(201).json(r.rows[0]);});
-app.put("/api/content/pages/:id",requireAuth,requireAdmin,async(req,res)=>{const r=await query("update page_definitions set name=$1,definition=$2,updated_at=now() where id=$3 returning *",[req.body.name,req.body.definition,req.params.id]);res.json(r.rows[0]);});
-app.get("/api/content/menus",requireAuth,requireAdmin,async(_req,res)=>res.json((await query("select * from menu_items order by sort_order,id")).rows));
-app.put("/api/content/menus/:id",requireAuth,requireAdmin,async(req,res)=>{const r=await query("update menu_items set title=$1,path=$2,permission=$3,updated_at=now() where id=$4 returning *",[req.body.title,req.body.path,req.body.permission,req.params.id]);res.json(r.rows[0]);});
+app.get("/api/dashboard/menu-tree",requireAuth,asyncHandler(async(req,res)=>{
+ const user=(req as any).user;
+ const r=await query("select id,parent_id,title,path,icon,sort_order,permission from menu_items where is_active=true order by sort_order,id");
+ const rows=r.rows as any[];
+ res.json(user.role==="admin"||user.role==="manager"?rows:rows.filter(x=>!x.permission||x.permission.endsWith(":read")));
+}));
+
+app.get("/api/admin/users",requireAuth,requireAdmin,asyncHandler(async(_req,res)=>res.json((await query("select id,email,full_name,role,status,created_at from users order by created_at desc")).rows)));
+app.post("/api/admin/users",requireAuth,requireAdmin,asyncHandler(async(req,res)=>{
+ const input=userCreateSchema.parse(req.body),hash=await hashPassword(input.password);
+ const r=await query("insert into users(email,password_hash,full_name,role) values($1,$2,$3,$4) returning id,email,full_name,role,status",[input.email.toLowerCase(),hash,input.fullName,input.role]);
+ res.status(201).json(r.rows[0]);
+}));
+
+app.get("/api/content/forms",requireAuth,requireAdmin,asyncHandler(async(_req,res)=>res.json((await query("select * from form_definitions order by updated_at desc")).rows)));
+app.post("/api/content/forms",requireAuth,requireAdmin,asyncHandler(async(req,res)=>{const input=formSchema.parse(req.body);const r=await query("insert into form_definitions(name,slug,schema) values($1,$2,$3) returning *",[input.name,input.slug,input.schema]);res.status(201).json(r.rows[0]);}));
+app.put("/api/content/forms/:id",requireAuth,requireAdmin,asyncHandler(async(req,res)=>{const input=formSchema.parse(req.body);const r=await query("update form_definitions set name=$1,schema=$2,updated_at=now() where id=$3 returning *",[input.name,input.schema,req.params.id]);if(!r.rowCount)return res.status(404).json({error:"فرم پیدا نشد"});res.json(r.rows[0]);}));
+
+app.get("/api/content/pages",requireAuth,requireAdmin,asyncHandler(async(_req,res)=>res.json((await query("select * from page_definitions order by updated_at desc")).rows)));
+app.post("/api/content/pages",requireAuth,requireAdmin,asyncHandler(async(req,res)=>{const input=pageSchema.parse(req.body);const r=await query("insert into page_definitions(name,slug,definition) values($1,$2,$3) returning *",[input.name,input.slug,input.definition]);res.status(201).json(r.rows[0]);}));
+app.put("/api/content/pages/:id",requireAuth,requireAdmin,asyncHandler(async(req,res)=>{const input=pageSchema.parse(req.body);const r=await query("update page_definitions set name=$1,definition=$2,updated_at=now() where id=$3 returning *",[input.name,input.definition,req.params.id]);if(!r.rowCount)return res.status(404).json({error:"صفحه پیدا نشد"});res.json(r.rows[0]);}));
+
+app.get("/api/content/menus",requireAuth,requireAdmin,asyncHandler(async(_req,res)=>res.json((await query("select * from menu_items order by sort_order,id")).rows)));
+app.put("/api/content/menus/:id",requireAuth,requireAdmin,asyncHandler(async(req,res)=>{const input=menuUpdateSchema.parse(req.body);const r=await query("update menu_items set title=$1,path=$2,permission=$3,updated_at=now() where id=$4 returning *",[input.title,input.path,input.permission??null,req.params.id]);if(!r.rowCount)return res.status(404).json({error:"آیتم منو پیدا نشد"});res.json(r.rows[0]);}));
+
+app.use(notFound);
+app.use(errorHandler);
+
 const port=Number(process.env.PORT||4000);
-app.listen(port,()=>console.log("NAF API listening on",port));
+const server=app.listen(port,()=>console.log("NAF API listening on",port));
+const shutdown=async()=>{server.close();const {pool}=await import("./db.js");await pool.end();process.exit(0)};
+process.on("SIGTERM",shutdown);process.on("SIGINT",shutdown);
 if(process.env.ADMIN_EMAIL&&process.env.ADMIN_PASSWORD)ensureAdmin(process.env.ADMIN_EMAIL,process.env.ADMIN_PASSWORD).catch(console.error);
