@@ -8,14 +8,18 @@ export function sign(user:AuthUser){return jwt.sign(user,secret,{expiresIn:"8h"}
 export async function hashPassword(value:string){return bcrypt.hash(value,12);}
 export async function verifyPassword(value:string,hash:string){return bcrypt.compare(value,hash);}
 export function requireAuth(req:Request,res:Response,next:NextFunction){
-  const header=req.headers.authorization;
-  if(!header?.startsWith("Bearer ")) return res.status(401).json({error:"احراز هویت لازم است"});
-  try{(req as any).user=jwt.verify(header.slice(7),secret) as AuthUser;next();}
-  catch{return res.status(401).json({error:"نشست نامعتبر یا منقضی شده است"});}
+ const header=req.headers.authorization;
+ if(!header?.startsWith("Bearer ")) return res.status(401).json({error:"احراز هویت لازم است"});
+ try{(req as any).user=jwt.verify(header.slice(7),secret) as AuthUser;next();}catch{return res.status(401).json({error:"نشست نامعتبر یا منقضی شده است"});}
+}
+export function requireAdmin(req:Request,res:Response,next:NextFunction){
+ const user=(req as any).user as AuthUser|undefined;
+ if(!user||!["admin","manager"].includes(user.role)) return res.status(403).json({error:"دسترسی مدیریتی لازم است"});
+ next();
 }
 export async function ensureAdmin(email:string,password:string){
-  const found=await query("select id from users where email=$1",[email]);
-  if(found.rowCount) return;
-  const hash=await hashPassword(password);
-  await query("insert into users(email,password_hash,full_name,role) values($1,$2,$3,'admin')",[email,hash,"مدیر سامانه"]);
+ const found=await query("select id from users where email=$1",[email]);
+ if(found.rowCount)return;
+ const hash=await hashPassword(password);
+ await query("insert into users(email,password_hash,full_name,role) values($1,$2,$3,'admin')",[email,hash,"مدیر سامانه"]);
 }
