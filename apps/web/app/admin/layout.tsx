@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function AdminLayout({children}:{children:React.ReactNode}){return <div className="admin-shell"><aside className="admin-nav"><strong>مرکز مدیریت نگار آذین فدک</strong><Link href="/admin">داشبورد</Link><Link href="/admin/editors">ویرایشگرهای سامانه</Link><Link href="/login">خروج / ورود</Link></aside><main className="admin-main">{children}</main></div>}
