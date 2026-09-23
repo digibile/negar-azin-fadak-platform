@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import "dotenv/config";
 import {query} from "./db.js";
-import {ensureAdmin,hashPassword,verifyPassword,sign,requireAuth,requirePermission} from "./auth.js";
+import {ensureAdmin,hashPassword,verifyPassword,issueSession,clearSession,requireAuth,requireCsrf,requirePermission} from "./auth.js";
 import {asyncHandler,errorHandler,notFound} from "./http.js";
 import {loginSchema,userCreateSchema,formSchema,pageSchema,menuUpdateSchema} from "./validation.js";
 
@@ -11,6 +11,7 @@ const allowedOrigins=(process.env.CORS_ORIGIN||"http://localhost:3000").split(",
 app.disable("x-powered-by");
 app.use(cors({origin:(origin,callback)=>{if(!origin||allowedOrigins.includes(origin))return callback(null,true);callback(new Error("مبدأ درخواست مجاز نیست"))},credentials:true}));
 app.use(express.json({limit:"2mb"}));
+app.use((req,res,next)=>{if(["GET","HEAD","OPTIONS"].includes(req.method)||req.path==="/api/auth/login")return next();return requireCsrf(req,res,next);});
 
 app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.json({status:"ok",database:"ok"});}));
 
@@ -19,10 +20,12 @@ app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  const r=await query("select id,email,password_hash,full_name,role from users where email=$1 and status='active'",[input.email.toLowerCase()]);
  if(!r.rowCount||!(await verifyPassword(input.password,r.rows[0].password_hash)))return res.status(401).json({error:"اطلاعات ورود نادرست است"});
  const u=r.rows[0];
- res.json({token:sign({id:u.id,email:u.email,role:u.role}),user:{id:u.id,email:u.email,fullName:u.full_name,role:u.role}});
+ issueSession(res,{id:u.id,email:u.email,role:u.role});
+ res.json({user:{id:u.id,email:u.email,fullName:u.full_name,role:u.role}});
 }));
 
 app.get("/api/auth/me",requireAuth,(req,res)=>res.json({user:(req as any).user}));
+app.post("/api/auth/logout",requireAuth,(req,res)=>{clearSession(res);res.status(204).end();});
 app.get("/api/dashboard/menu-tree",requireAuth,asyncHandler(async(req,res)=>{
  const user=(req as any).user;
  const r=await query("select id,parent_id,title,path,icon,sort_order,permission from menu_items where is_active=true order by sort_order,id");
