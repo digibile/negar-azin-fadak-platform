@@ -1,15 +1,15 @@
 "use client";
-import {useState} from "react";
+import {useEffect,useState} from "react";
 type Field={id:string,label:string,type:string,required:boolean};
 type Block={id:string,type:string,content:string};
 const newId=()=>Math.random().toString(36).slice(2)+Date.now();
 export function FormBuilder({initial,onSave}:{initial?:Field[];onSave:(v:Field[])=>Promise<void>}){
- const [fields,setFields]=useState<Field[]>(initial||[]),[label,setLabel]=useState(""),[type,setType]=useState("text");
+ const [fields,setFields]=useState<Field[]>(initial||[]),[label,setLabel]=useState(""),[type,setType]=useState("text"); useEffect(()=>setFields(initial||[]),[initial]);
  const add=()=>{if(!label.trim())return;setFields(v=>[...v,{id:newId(),label:label.trim(),type,required:false}]);setLabel("")};
  return <div className="builder"><div className="builder-toolbar"><input value={label} onChange={e=>setLabel(e.target.value)} placeholder="عنوان فیلد"/><select value={type} onChange={e=>setType(e.target.value)}><option value="text">متن</option><option value="number">عدد</option><option value="date">تاریخ</option><option value="textarea">متن چندخطی</option><option value="select">انتخابی</option><option value="file">فایل</option></select><button onClick={add}>افزودن</button></div>{fields.map((f,i)=><div className="builder-row" key={f.id}><b>{i+1}</b><input value={f.label} onChange={e=>setFields(v=>v.map(x=>x.id===f.id?{...x,label:e.target.value}:x))}/><select value={f.type} onChange={e=>setFields(v=>v.map(x=>x.id===f.id?{...x,type:e.target.value}:x))}><option value="text">متن</option><option value="number">عدد</option><option value="date">تاریخ</option><option value="textarea">متن چندخطی</option><option value="select">انتخابی</option><option value="file">فایل</option></select><label><input type="checkbox" checked={f.required} onChange={e=>setFields(v=>v.map(x=>x.id===f.id?{...x,required:e.target.checked}:x))}/> الزامی</label><button className="danger" onClick={()=>setFields(v=>v.filter(x=>x.id!==f.id))}>حذف</button></div>)}<button className="primary" onClick={()=>onSave(fields)}>ذخیره فرم</button></div>
 }
 export function PageBuilder({initial,onSave}:{initial?:Block[];onSave:(v:Block[])=>Promise<void>}){
- const [blocks,setBlocks]=useState<Block[]>(initial||[]),[content,setContent]=useState(""),[type,setType]=useState("heading");
+ const [blocks,setBlocks]=useState<Block[]>(initial||[]),[content,setContent]=useState(""),[type,setType]=useState("heading"); useEffect(()=>setBlocks(initial||[]),[initial]);
  const add=()=>{if(!content.trim())return;setBlocks(v=>[...v,{id:newId(),type,content:content.trim()}]);setContent("")};
  return <div className="builder"><div className="builder-toolbar"><select value={type} onChange={e=>setType(e.target.value)}><option value="heading">عنوان</option><option value="text">متن</option><option value="form">فرم</option><option value="spacer">فاصله</option></select><input value={content} onChange={e=>setContent(e.target.value)} placeholder="محتوای بلوک یا شناسه فرم"/><button onClick={add}>افزودن بلوک</button></div>{blocks.map((b,i)=><div className="builder-row" key={b.id}><b>{i+1}</b><span className="pill">{b.type}</span><input value={b.content} onChange={e=>setBlocks(v=>v.map(x=>x.id===b.id?{...x,content:e.target.value}:x))}/><button className="danger" onClick={()=>setBlocks(v=>v.filter(x=>x.id!==b.id))}>حذف</button></div>)}<button className="primary" onClick={()=>onSave(blocks)}>ذخیره صفحه</button></div>
 }
