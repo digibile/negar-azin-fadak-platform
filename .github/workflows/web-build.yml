@@ -12,17 +12,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 12.3.4
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+          cache: npm
+          cache-dependency-path: apps/web/package.json
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm install
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: npm install
       - name: Build API
-        run: pnpm --filter @naf/api build
+        working-directory: apps/api
+        run: npm run build
       - name: Build web
-        run: pnpm --filter @naf/web build
+        working-directory: apps/web
+        run: npm run build
