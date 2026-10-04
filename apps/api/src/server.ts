@@ -30,7 +30,7 @@ app.post("/api/auth/logout",requireAuth,(req,res)=>{clearSession(res);res.status
 // Platform module catalog
 app.get("/api/platform/modules",requireAuth,asyncHandler(async(req,res)=>{
  const user=(req as any).user;
- const r=await query("select id,code,title,core,parent_id,sort_order,is_active from platform_modules where is_active=true order by sort_order,id");
+ const r=await query("select m.id,m.code,m.title,m.core,m.parent_id,m.sort_order,m.is_active,mp.permission from platform_modules m left join module_permissions mp on mp.module_id=m.id where m.is_active=true order by m.sort_order,m.id");
  if(user.role==="admin") return res.json(r.rows);
  const permissions=await query("select permission from role_permissions where role=$1",[user.role]);
  const allowed=new Set(permissions.rows.map((x:any)=>x.permission));
