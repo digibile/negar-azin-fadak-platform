@@ -14,6 +14,7 @@ import {domainCommandPlatformRouter} from "./domain-command-platform.js";
 import {domainMarketplaceRouter} from "./domain-marketplace.js";
 import {platformOperationsRouter} from "./platform-operations.js";
 import {sellerSurfaceRouter} from "./seller-surface.js";
+import {issueHumanCheck,verifyHumanCheck} from "./human-check.js";
 
 const app=express();
 
@@ -42,8 +43,10 @@ app.use(domainMarketplaceRouter);
 app.use(sellerSurfaceRouter);
 app.use(platformOperationsRouter);
 
+app.get("/api/auth/human-check",(_req,res)=>res.json(issueHumanCheck()));
 app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  const input=loginSchema.parse(req.body);
+ if(!verifyHumanCheck(String(req.body?.humanCheck||""),String(req.body?.humanAnswer||"")))return res.status(400).json({error:"تأیید انسانی نامعتبر یا منقضی شده است"});
  const r=await query("select id,email,password_hash,full_name,role from users where email=$1 and status='active'",[input.email.toLowerCase()]);
  if(!r.rowCount||!(await verifyPassword(input.password,r.rows[0].password_hash)))return res.status(401).json({error:"اطلاعات ورود نادرست است"});
  const u=r.rows[0];
