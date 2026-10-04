@@ -1,5 +1,10 @@
 name: Build Platform
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 on:
   push:
     branches: [main]
@@ -67,6 +72,8 @@ jobs:
       - name: Platform integrity
         run: pnpm verify:platform
       - name: Build
+        env:
+          GITHUB_PAGES: "true"
         run: pnpm build
 
       - name: Test
@@ -77,3 +84,14 @@ jobs:
         with:
           path: apps/web/out
 
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
