@@ -10,6 +10,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: platform-${{ github.workflow }}-${{ github.ref }}
@@ -58,6 +59,7 @@ jobs:
 
       - name: Database migrations
         run: pnpm --filter @naf/api migrate
+
       - name: Platform policy checks
         run: |
           test -f database/migrations/008_all_45_module_storage.sql
@@ -73,6 +75,7 @@ jobs:
 
       - name: Platform integrity
         run: pnpm verify:platform
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
@@ -88,7 +91,6 @@ jobs:
         uses: actions/upload-pages-artifact@v4
         with:
           path: apps/web/out
-
 
   deploy:
     needs: verify
