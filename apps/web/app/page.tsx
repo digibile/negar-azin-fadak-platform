@@ -57,6 +57,7 @@ const cores=["همه","هسته مرکزی","مالی","اعتبار","تجار�
 export default function HomePage(){
  const [core,setCore]=useState("همه");
  const [query,setQuery]=useState("");
+ const [selected,setSelected]=useState<Module|null>(null);
  const filtered=useMemo(()=>modules.filter(m=>(core==="همه"||m.core===core)&&m.title.toLowerCase().includes(query.toLowerCase())),[core,query]);
  return <main className="shell">
   <aside className="sidebar">
@@ -80,7 +81,7 @@ export default function HomePage(){
     <input aria-label="جستجوی ماژول" placeholder="جستجو در ماژول‌ها..." value={query} onChange={e=>setQuery(e.target.value)}/>
     <div className="tabs">{cores.map(c=><button key={c} className={core===c?"primary":""} onClick={()=>setCore(c)}>{c}</button>)}</div>
    </section>
-   <div className="module-grid">{filtered.map(m=><article className="module-card" key={m.id}><div className="module-head"><span className="module-id">{String(m.id).padStart(2,"0")}</span><span className="pill">{m.core}</span></div><h3>{m.title}</h3><small>{m.code}</small><div className="module-state">در معماری مرکزی</div></article>)}</div>
+   <div className="module-grid">{filtered.map(m=><article className="module-card" key={m.id} onClick={()=>setSelected(m)} role="button" tabIndex={0} onKeyDown={e=>e.key==="Enter"&&setSelected(m)}><div className="module-head"><span className="module-id">{String(m.id).padStart(2,"0")}</span><span className="pill">{m.core}</span></div><h3>{m.title}</h3><small>{m.code}</small><div className="module-state">در معماری مرکزی</div></article>)}</div>
   </section>
  </main>;
 }
