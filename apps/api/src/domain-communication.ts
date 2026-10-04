@@ -24,7 +24,17 @@ router.get("/:code",requireAuth,async(req:any,res:any)=>{
  const def=modules[req.params.code as keyof typeof modules]; if(!def)return res.status(404).json({error:"ماژول ارتباطی پیدا نشد"});
  const m=await moduleFor(req.params.code); if(!m)return res.status(404).json({error:"ماژول فعال نیست"});
  if(!(await allowed(req.user,m.id,"read")))return res.status(403).json({error:"دسترسی مشاهده مجاز نیست"});
- const r=await query("select * from "+def[0]+" order by updated_at desc"); res.json({module:m,items:r.rows});
+ const page=Math.max(1,Number(req.query.page)||1);
+ const pageSize=Math.min(100,Math.max(1,Number(req.query.pageSize)||25));
+ const q=typeof req.query.q==="string"?req.query.q.trim():"";
+ const params:any[]=[]; const where:string[]=[];
+ if(q){params.push("%"+q+"%");where.push("cast(row_to_json(t) as text) ilike $"+params.length);}
+ const whereSql=where.length?" where "+where.join(" and "):"";
+ const count=await query("select count(*)::int as total from "+def[0]+" t"+whereSql,params);
+ const total=count.rows[0].total; const offset=(page-1)*pageSize;
+ params.push(pageSize,offset);
+ const r=await query("select t.* from "+def[0]+" t"+whereSql+" order by t.updated_at desc limit $"+(params.length-1)+" offset $"+params.length,params);
+ res.json({module:m,items:r.rows,pagination:{page,pageSize,total,totalPages:Math.ceil(total/pageSize)}});
 });
 router.post("/:code",requireAuth,async(req:any,res:any)=>{
  const def=modules[req.params.code as keyof typeof modules]; if(!def)return res.status(404).json({error:"ماژول ارتباطی پیدا نشد"});
