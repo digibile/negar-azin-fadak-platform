@@ -38,7 +38,7 @@ settlementRouter.post("/api/marketplace/settlements/generate",requireAuth,requir
    for(const o of rows)await client.query("insert into seller_settlement_items(tenant_id,settlement_id,order_id,gross_amount,commission_amount,net_amount) values($1,$2,$3,$4,$5,$6)",[t.id,sr.rows[0].id,o.id,o.total_amount,o.commission_amount,o.seller_payable]);
    created.push(sr.rows[0]);
   }
-  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,after_data) values($1,$2,'settlement.generated','seller_settlement',$3)",[t.id,req.user.id,JSON.stringify({count:created.length,periodStart:periodStart.toISOString(),periodEnd:periodEnd.toISOString()})]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,after_data) values($1,$2,'settlement.generated','seller_settlement',$3)",[t.id,(req as any).user.id,JSON.stringify({count:created.length,periodStart:periodStart.toISOString(),periodEnd:periodEnd.toISOString()})]);
   await client.query("commit");res.status(201).json({items:created,total:created.length});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
@@ -50,7 +50,7 @@ settlementRouter.patch("/api/marketplace/settlements/:id/approve",requireAuth,re
   await client.query("begin");
   const r=await client.query("update seller_settlements set status='approved',updated_at=now() where id=$1 and tenant_id=$2 and status='pending' returning *",[req.params.id,t.id]);
   if(!r.rowCount){await client.query("rollback");return res.status(409).json({error:"تسویه در وضعیت قابل تأیید نیست"});}
-  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.approved','seller_settlement',$3,$4)",[t.id,req.user.id,r.rows[0].id,JSON.stringify(r.rows[0])]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.approved','seller_settlement',$3,$4)",[t.id,(req as any).user.id,r.rows[0].id,JSON.stringify(r.rows[0])]);
   await client.query("commit");res.json(r.rows[0]);
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
@@ -64,13 +64,13 @@ settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,require
   if(!r.rowCount)return res.status(404).json({error:"تسویه پیدا نشد"});
   const settlement=r.rows[0];
   if(settlement.status!=="approved")return res.status(409).json({error:"فقط تسویه تأییدشده قابل پرداخت است"});
-  const entryId=await postLedgerEntry(client,{tenantId:t.id,entryNo:"SET-"+settlement.settlement_no,sourceType:"seller_settlement",sourceId:settlement.id,description:"پرداخت تسویه فروشنده "+settlement.settlement_no,createdBy:req.user.id,lines:[
+  const entryId=await postLedgerEntry(client,{tenantId:t.id,entryNo:"SET-"+settlement.settlement_no,sourceType:"seller_settlement",sourceId:settlement.id,description:"پرداخت تسویه فروشنده "+settlement.settlement_no,createdBy:(req as any).user.id,lines:[
    {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",debit:Number(settlement.net_amount)},
    {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:Number(settlement.net_amount)}
   ]});
   const paidRef=s(req.body?.paymentRef,160)||null;
   const u=await client.query("update seller_settlements set status='paid',updated_at=now() where id=$1 and tenant_id=$2 and status='approved' returning *",[settlement.id,t.id]);
-  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.paid','seller_settlement',$3,$4)",[t.id,req.user.id,settlement.id,JSON.stringify({settlement:u.rows[0],ledgerEntryId:entryId,paymentRef:paidRef})]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.paid','seller_settlement',$3,$4)",[t.id,(req as any).user.id,settlement.id,JSON.stringify({settlement:u.rows[0],ledgerEntryId:entryId,paymentRef:paidRef})]);
   await client.query("commit");res.json({settlement:u.rows[0],ledgerEntryId:entryId,paymentRef:paidRef});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
