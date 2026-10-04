@@ -129,3 +129,33 @@ platformOperationsRouter.get("/api/platform/slas",requireAuth,requirePermission(
 platformOperationsRouter.get("/api/platform/calendar",requireAuth,requirePermission("calendar:view"),asyncHandler(async(req,res)=>{
  const c=await ctx(req,(req as any).user);if(!c)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const r=await query("select * from calendar_definitions where tenant_id=$1 order by name",[c.id]);res.json({items:r.rows,total:r.rowCount});
 }));
+
+platformOperationsRouter.post("/api/platform/companies",requireAuth,requirePermission("company:manage"),asyncHandler(async(req,res)=>{
+ const u=(req as any).user as User,c=await ctx(req,u);if(!c)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const code=s(req.body?.code,80),name=s(req.body?.name,200);if(!code||!name)return res.status(400).json({error:"کد و نام شرکت الزامی است"});
+ const r=await query("insert into companies(tenant_id,code,name) values($1,$2,$3) returning *",[c.id,code,name]);await audit(c,u,"company.create","company",String(r.rows[0].id),r.rows[0]);res.status(201).json(r.rows[0]);
+}));
+platformOperationsRouter.post("/api/platform/brands",requireAuth,requirePermission("brand:manage"),asyncHandler(async(req,res)=>{
+ const u=(req as any).user as User,c=await ctx(req,u);if(!c)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const code=s(req.body?.code,80),name=s(req.body?.name,200),companyId=s(req.body?.companyId,100)||null;if(!code||!name)return res.status(400).json({error:"کد و نام برند الزامی است"});
+ if(companyId&&!(await query("select 1 from companies where id=$1 and tenant_id=$2",[companyId,c.id])).rowCount)return res.status(404).json({error:"شرکت پیدا نشد"});
+ const r=await query("insert into brands(tenant_id,company_id,code,name) values($1,$2,$3,$4) returning *",[c.id,companyId,code,name]);await audit(c,u,"brand.create","brand",String(r.rows[0].id),r.rows[0]);res.status(201).json(r.rows[0]);
+}));
+platformOperationsRouter.post("/api/platform/branches",requireAuth,requirePermission("branch:manage"),asyncHandler(async(req,res)=>{
+ const u=(req as any).user as User,c=await ctx(req,u);if(!c)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const code=s(req.body?.code,80),name=s(req.body?.name,200),companyId=s(req.body?.companyId,100)||null,brandId=s(req.body?.brandId,100)||null;if(!code||!name)return res.status(400).json({error:"کد و نام شعبه الزامی است"});
+ const r=await query("insert into branches(tenant_id,company_id,brand_id,code,name) values($1,$2,$3,$4,$5) returning *",[c.id,companyId,brandId,code,name]);await audit(c,u,"branch.create","branch",String(r.rows[0].id),r.rows[0]);res.status(201).json(r.rows[0]);
+}));
+platformOperationsRouter.post("/api/marketplace/settlements/generate",requireAuth,requirePermission("settlement:manage"),asyncHandler(async(req,res)=>{
+ const u=(req as any).user as User,c=await ctx(req,u);if(!c)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const sellerId=s(req.body?.sellerId,100),start=req.body?.periodStart,end=req.body?.periodEnd;if(!sellerId||!start||!end)return res.status(400).json({error:"فروشنده و بازه تسویه الزامی است"});
+ const seller=await query("select id,display_name from sellers where id=$1 and tenant_id=$2",[sellerId,c.id]);if(!seller.rowCount)return res.status(404).json({error:"فروشنده پیدا نشد"});
+ const sums=await query("select coalesce(sum(total_amount),0) gross,coalesce(sum(commission_amount),0) commission,coalesce(sum(seller_payable),0) net from marketplace_orders where tenant_id=$1 and seller_id=$2 and status in ('paid','processing','shipped','delivered') and created_at>= $3 and created_at<=$4",[c.id,sellerId,start,end]);
+ const x=sums.rows[0],no="SET-"+Date.now().toString(36).toUpperCase();
+ const r=await query("insert into seller_settlements(tenant_id,seller_id,settlement_no,period_start,period_end,gross_amount,commission_amount,net_amount,status) values($1,$2,$3,$4,$5,$6,$7,$8,'pending') returning *",[c.id,sellerId,no,start,end,x.gross,x.commission,x.net]);
+ await audit(c,u,"settlement.generate","seller_settlement",String(r.rows[0].id),r.rows[0]);res.status(201).json(r.rows[0]);
+}));
+platformOperationsRouter.patch("/api/platform/notifications/:id/read",requireAuth,requirePermission("notification:view"),asyncHandler(async(req,res)=>{
+ const u=(req as any).user,c=await ctx(req,u);if(!c)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query("update platform_notifications set status='read',read_at=now() where id=$1 and tenant_id=$2 and (user_id=$3 or user_id is null) returning *",[req.params.id,c.id,u.id]);if(!r.rowCount)return res.status(404).json({error:"اعلان پیدا نشد"});res.json(r.rows[0]);
+}));
