@@ -73,6 +73,9 @@ jobs:
 
       - name: Platform integrity
         run: pnpm verify:platform
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
       - name: Build
         env:
           GITHUB_PAGES: "true"
@@ -82,7 +85,7 @@ jobs:
         run: pnpm test
 
       - name: Upload web preview artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: apps/web/out
 
