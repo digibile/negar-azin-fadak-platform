@@ -2,16 +2,10 @@ import {Router} from "express";
 import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
+import {resolveTenant} from "./tenant-context.js";
 export const platformOperationsRouter=Router();
 type User={id:string;role:string}; type Ctx={id:string;name:string;code:string};
-async function ctx(req:any,user:User):Promise<Ctx|null>{
- const requested=typeof req.headers["x-tenant-id"]==="string"?req.headers["x-tenant-id"].trim():"";
- const r=user.role==="admin"
-  ?(requested?await query("select id,name,code from tenants where id=$1 and status='active'",[requested]):await query("select id,name,code from tenants where status='active' order by created_at limit 1"))
-  :(requested?await query("select t.id,t.name,t.code from tenants t join user_tenants ut on ut.tenant_id=t.id where ut.user_id=$1 and ut.tenant_id=$2 and t.status='active'",[user.id,requested]):await query("select t.id,t.name,t.code from tenants t join user_tenants ut on ut.tenant_id=t.id where ut.user_id=$1 and t.status='active' order by ut.is_default desc,t.created_at limit 1",[user.id]));
- return r.rowCount?r.rows[0]:null;
-}
-const s=(v:unknown,max=200)=>typeof v==="string"?v.trim().slice(0,max):"";
+async function ctx(req:any,user:User):Promise<Ctx|null>{return resolveTenant(req,user);}const s=(v:unknown,max=200)=>typeof v==="string"?v.trim().slice(0,max):"";
 const n=(v:unknown)=>{const x=Number(v);return Number.isFinite(x)?x:null};
 async function audit(c:Ctx,u:User,action:string,type:string,id:string|null,after:any,before:any=null){await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data,before_data) values($1,$2,$3,$4,$5,$6,$7)",[c.id,u.id,action,type,id,after,before]);}
 

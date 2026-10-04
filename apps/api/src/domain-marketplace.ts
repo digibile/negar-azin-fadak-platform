@@ -2,30 +2,14 @@ import {Router} from "express";
 import {query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
+import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
 
 export const domainMarketplaceRouter=Router();
 
 type User={id:string;role:string};
 type TenantContext={id:string;name:string;code:string};
 
-async function tenantContext(req:any,user:User):Promise<TenantContext|null>{
-  const requested=typeof req.headers["x-tenant-id"]==="string"?req.headers["x-tenant-id"].trim():"";
-  if(user.role==="admin"){
-    if(requested){
-      const r=await query("select id,name,code from tenants where id=$1 and status='active'",[requested]);
-      return r.rowCount?r.rows[0]:null;
-    }
-    const r=await query("select id,name,code from tenants where status='active' order by created_at limit 1");
-    return r.rowCount?r.rows[0]:null;
-  }
-  const sql=requested
-    ?"select t.id,t.name,t.code from tenants t join user_tenants ut on ut.tenant_id=t.id where ut.user_id=$1 and t.id=$2 and t.status='active'"
-    :"select t.id,t.name,t.code from tenants t join user_tenants ut on ut.tenant_id=t.id where ut.user_id=$1 and t.status='active' order by ut.is_default desc,t.created_at limit 1";
-  const params=requested?[user.id,requested]:[user.id];
-  const r=await query(sql,params);
-  return r.rowCount?r.rows[0]:null;
-}
-
+async function tenantContext(req:any,user:User):Promise<TenantContext|null>{return resolveTenant(req,user);}
 function bodyString(value:unknown,max=500){return typeof value==="string"?value.trim().slice(0,max):""}
 function bodyNumber(value:unknown){const n=Number(value);return Number.isFinite(n)?n:null}
 
@@ -148,16 +132,14 @@ domainMarketplaceRouter.get("/api/marketplace/settlements",requireAuth,requirePe
 
 domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res)=>{
   const code=typeof req.query.tenant==="string"?req.query.tenant.trim():"";
-  const tenant=code
-    ?await query("select id,code,name from tenants where code=$1 and status='active'",[code])
-    :await query("select id,code,name from tenants where status='active' order by created_at limit 1");
-  if(!tenant.rowCount)return res.status(404).json({error:"بازارگاه فعال پیدا نشد"});
-  const tenantId=tenant.rows[0].id;
+  const tenant=await resolvePublicTenant(req,code);
+  if(!tenant)return res.status(404).json({error:"بازارگاه فعال پیدا نشد"});
+  const tenantId=tenant.id;
   const [stores,products]=await Promise.all([
     query("select s.id,s.name,s.slug,s.domain,s.seller_id,sl.display_name as seller_name from stores s join sellers sl on sl.id=s.seller_id where s.tenant_id=$1 and s.status='active' order by s.name",[tenantId]),
     query("select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,sl.display_name as seller_name from products p join sellers sl on sl.id=p.seller_id where p.tenant_id=$1 and p.status='active' order by p.updated_at desc",[tenantId])
   ]);
-  res.json({tenant:tenant.rows[0],stores:stores.rows,products:products.rows});
+  res.json({tenant,stores:stores.rows,products:products.rows});
 }));
 
 domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/status",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{

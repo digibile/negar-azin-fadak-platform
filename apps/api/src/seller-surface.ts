@@ -3,22 +3,12 @@ import {randomBytes} from "node:crypto";
 import {query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
+import {resolveTenant} from "./tenant-context.js";
 
 type User={id:string;role:string};
 const router=Router();
 const str=(v:unknown,max=500)=>typeof v==="string"?v.trim().slice(0,max):"";
-async function context(req:any,user:User){
- const requested=typeof req.headers["x-tenant-id"]==="string"?req.headers["x-tenant-id"].trim():"";
- if(user.role==="admin"){
-  const r=requested?await query("select id,name,code from tenants where id=$1 and status='active'",[requested]):await query("select id,name,code from tenants where status='active' order by created_at limit 1");
-  return r.rowCount?r.rows[0]:null;
- }
- const r=requested
-  ?await query("select t.id,t.name,t.code from tenants t join user_tenants ut on ut.tenant_id=t.id where ut.user_id=$1 and t.id=$2 and t.status='active'",[user.id,requested])
-  :await query("select t.id,t.name,t.code from tenants t join user_tenants ut on ut.tenant_id=t.id where ut.user_id=$1 and t.status='active' order by ut.is_default desc,t.created_at limit 1",[user.id]);
- return r.rowCount?r.rows[0]:null;
-}
-async function sellerAccess(req:any,user:User,sellerId:string){
+async function context(req:any,user:User){return resolveTenant(req,user);}async function sellerAccess(req:any,user:User,sellerId:string){
  const ctx=await context(req,user); if(!ctx)return null;
  const r=user.role==="admin"||user.role==="manager"
   ?await query("select id from sellers where id=$1 and tenant_id=$2",[sellerId,ctx.id])
