@@ -84,7 +84,12 @@ platformOperationsRouter.post("/api/marketplace/cart/:id/checkout",requireAuth,r
    const seller=await client.query("select commission_rate from sellers where id=$1 and tenant_id=$2",[g.sellerId,c.id]);const rate=Number(seller.rows[0]?.commission_rate||0),commission=Number((g.subtotal*rate/100).toFixed(2)),payable=g.subtotal-commission;
    const orderNo="ORD-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).slice(2,7).toUpperCase();
    const o=await client.query("insert into marketplace_orders(tenant_id,store_id,seller_id,order_no,customer_ref,subtotal,total_amount,commission_amount,seller_payable,payment_method) values($1,$2,$3,$4,$5,$6,$6,$7,$8,$9) returning *",[c.id,g.storeId,g.sellerId,orderNo,cart.rows[0].customer_ref,g.subtotal,commission,payable,s(req.body?.paymentMethod,50)||"pending"]);
-   for(const item of g.items)await client.query("insert into marketplace_order_items(order_id,product_id,quantity,unit_price,line_total) values($1,$2,$3,$4,$5)",[o.rows[0].id,item.product_id,item.quantity,item.unit_price,Number(item.quantity)*Number(item.unit_price)]);
+   for(const item of g.items){
+    const inv=await client.query("select id,quantity,reserved_quantity from product_inventory where tenant_id=$1 and product_id=$2 and store_id is not distinct from $3 for update",[c.id,item.product_id,g.storeId]);
+    if(!inv.rowCount||Number(inv.rows[0].quantity)-Number(inv.rows[0].reserved_quantity)<Number(item.quantity))throw Object.assign(new Error("موجودی کافی نیست"),{status:409});
+    await client.query("update product_inventory set reserved_quantity=reserved_quantity+$1,updated_at=now() where id=$2",[item.quantity,inv.rows[0].id]);
+    await client.query("insert into marketplace_order_items(order_id,product_id,quantity,unit_price,line_total) values($1,$2,$3,$4,$5)",[o.rows[0].id,item.product_id,item.quantity,item.unit_price,Number(item.quantity)*Number(item.unit_price)]);
+  }
    created.push(o.rows[0]);
   }
   await client.query("update cart_sessions set status='checked_out',updated_at=now() where id=$1",[req.params.id]);await client.query("commit");await audit(c,u,"commerce.checkout","cart",String(req.params.id),{orders:created.map(x=>x.id)});res.status(201).json({orders:created});
