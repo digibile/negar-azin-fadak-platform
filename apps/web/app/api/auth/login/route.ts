@@ -3,9 +3,13 @@ import {NextResponse} from "next/server";
 function publicOrigin(request:Request){
  const forwardedHost=request.headers.get("x-forwarded-host");
  const forwardedProto=request.headers.get("x-forwarded-proto");
- const host=forwardedHost||request.headers.get("host")||"localhost:3000";
- const proto=forwardedProto||"http";
- return `${proto}://${host}`;
+ if(forwardedHost)return `${forwardedProto||"https"}://${forwardedHost}`;
+ const codespace=process.env.CODESPACE_NAME;
+ if(codespace)return `https://${codespace}-3000.app.github.dev`;
+ const publicUrl=process.env.NEXT_PUBLIC_APP_URL;
+ if(publicUrl)return publicUrl.replace(/\/$/,"");
+ const host=request.headers.get("host")||"localhost:3000";
+ return `http://${host}`;
 }
 
 export async function POST(request:Request){
