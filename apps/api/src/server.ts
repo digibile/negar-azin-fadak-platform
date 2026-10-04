@@ -17,6 +17,7 @@ import {sellerSurfaceRouter} from "./seller-surface.js";
 import {tenantContentRouter} from "./tenant-content.js";
 import {checkoutRouter} from "./domain-checkout.js";
 import {settlementRouter} from "./domain-settlement.js";
+import {platformEnginesRouter,sweepSlaCases} from "./platform-engines.js";
 import {issueHumanCheck,verifyHumanCheck} from "./human-check.js";
 
 const app=express();
@@ -47,6 +48,7 @@ app.use(sellerSurfaceRouter);
 app.use("/api/content",tenantContentRouter);
 app.use(checkoutRouter);
 app.use(settlementRouter);
+app.use(platformEnginesRouter);
 app.use(platformOperationsRouter);
 
 app.get("/api/auth/human-check",(_req,res)=>res.json(issueHumanCheck()));
@@ -201,4 +203,6 @@ const port=Number(process.env.PORT||4000);
 const server=app.listen(port,()=>console.log("NAF API listening on",port));
 const shutdown=async()=>{server.close();const {pool}=await import("./db.js");await pool.end();process.exit(0)};
 process.on("SIGTERM",shutdown);process.on("SIGINT",shutdown);
+const slaSweep=setInterval(()=>sweepSlaCases().catch(console.error),60000);
+slaSweep.unref();
 if(process.env.ADMIN_EMAIL&&process.env.ADMIN_PASSWORD)ensureAdmin(process.env.ADMIN_EMAIL,process.env.ADMIN_PASSWORD).catch(console.error);
