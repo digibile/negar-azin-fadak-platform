@@ -1,8 +1,17 @@
 "use client";
 import {useEffect,useState} from "react";
 import {api} from "../../../lib/api";
-export default function OrdersPage(){const [items,setItems]=useState<any[]>([]),[error,setError]=useState("");
+const nextStatus:Record<string,string>={pending:"confirmed",confirmed:"paid",paid:"processing",processing:"shipped",shipped:"delivered",delivered:"returned",returned:"refunded"};
+export default function OrdersPage(){
+ const [items,setItems]=useState<any[]>([]),[error,setError]=useState("");
  async function load(){try{const r:any=await api("/api/marketplace/orders");setItems(r.items||[])}catch(e){setError(e instanceof Error?e.message:"خطا")}}
  useEffect(()=>{load()},[]);
  async function move(id:string,status:string){try{await api("/api/marketplace/orders/"+id+"/status",{method:"PATCH",body:JSON.stringify({status})});await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}}
- return <main className="enterprise-main" dir="rtl"><header className="platform-header"><div><span className="section-kicker">عملیات تجارت</span><h1>سفارش‌ها</h1><p>چرخه وضعیت کنترل‌شده و ثبت ممیزی</p></div><a href="/platform">مرکز عملیات</a></header><section className="platform-panel">{error&&<p className="enterprise-loading error">{error}</p>}{items.map(x=><div className="platform-row" key={x.id}><div><b>{x.order_no}</b><small>{x.customer_ref||"مشتری ثبت نشده"} · {x.total_amount} {x.currency}</small></div><strong>{x.status}</strong><div className="platform-actions">{({pending:"confirmed",confirmed:"paid",paid:"processing",processing:"shipped",shipped:"delivered",delivered:"returned",returned:"refunded"} as any)[x.status]&&<button onClick={()=>move(x.id,({pending:"confirmed",confirmed:"paid",paid:"processing",processing:"shipped",shipped:"delivered",delivered:"returned",returned:"refunded"} as any)[x.status])}>مرحله بعد</button>}</div></div>)}{!items.length&&<p className="empty">سفارشی ثبت نشده است.</p>}</section></main>
+ return <main className="enterprise-main" dir="rtl">
+  <header className="platform-header"><div><span className="section-kicker">عملیات تجارت</span><h1>سفارش‌ها</h1><p>چرخه وضعیت کنترل‌شده و ثبت ممیزی</p></div><a href="/platform">مرکز عملیات</a></header>
+  <section className="platform-panel">{error&&<p className="enterprise-loading error">{error}</p>}
+   {items.map(x=><div className="platform-row" key={x.id}><div><b>{x.order_no}</b><small>{x.customer_ref||"مشتری ثبت نشده"} · {x.total_amount} {x.currency}</small></div><strong>{x.status}</strong><div className="platform-actions">{nextStatus[x.status]&&<button onClick={()=>move(x.id,nextStatus[x.status])}>مرحله بعد</button>}</div></div>)}
+   {!items.length&&<p className="empty">سفارشی ثبت نشده است.</p>}
+  </section>
+ </main>;
+}
