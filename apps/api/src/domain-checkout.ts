@@ -151,7 +151,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/cancel",requireAuth,requirePerm
   await client.query("begin");
   const o=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
   if(!o.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}
-  if(["delivered","cancelled","refunded"].includes(o.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"لغو این سفارش مجاز نیست"});}
+  if(["paid","processing","shipped","delivered","returned","cancelled","refunded"].includes(o.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"این سفارش باید از مسیر بازگشت وجه یا چرخه مجاز مدیریت شود"});}
   if(["pending","confirmed"].includes(o.rows[0].status)){
    const items=await client.query("select * from marketplace_order_items where order_id=$1",[o.rows[0].id]);
    for(const item of items.rows)await client.query("update product_inventory set reserved_quantity=greatest(0,reserved_quantity-$1),updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[item.quantity,t.id,item.product_id,o.rows[0].store_id]);
