@@ -32,9 +32,9 @@ router.get("/api/marketplace/sellers/:sellerId/domains",requireAuth,requirePermi
 }));
 router.post("/api/marketplace/sellers/:sellerId/domains",requireAuth,requirePermission("seller:domain:manage"),asyncHandler(async(req,res)=>{
  const ctx=await sellerAccess(req,(req as any).user,req.params.sellerId);if(!ctx)return res.status(403).json({error:"دسترسی به فروشنده مجاز نیست"});
- const hostname=str(req.body?.hostname,253).toLowerCase().replace(/^https?:\\/\\//,"").split("/")[0];
+ const hostname=str(req.body?.hostname,253).toLowerCase().replace(/^https?:\/\//,"").split("/")[0];
  const storeId=str(req.body?.storeId,100)||null;
- if(!/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$/.test(hostname))return res.status(400).json({error:"نام دامنه معتبر نیست"});
+ if(!/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(hostname))return res.status(400).json({error:"نام دامنه معتبر نیست"});
  if(storeId){const s=await query("select id from stores where id=$1 and tenant_id=$2 and seller_id=$3",[storeId,ctx.id,req.params.sellerId]);if(!s.rowCount)return res.status(404).json({error:"فروشگاه معتبر نیست"});}
  const r=await query("insert into seller_domains(tenant_id,seller_id,store_id,hostname,verification_token,is_primary,ssl_mode) values($1,$2,$3,$4,$5,$6,$7) returning *",[ctx.id,req.params.sellerId,storeId,hostname,randomBytes(24).toString("hex"),Boolean(req.body?.isPrimary),req.body?.sslMode==="external"?"external":"managed"]);
  res.status(201).json(r.rows[0]);
