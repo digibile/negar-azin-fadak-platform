@@ -65,6 +65,29 @@ app.put("/api/content/pages/:id",requireAuth,requirePermission("frontend:manage"
 app.get("/api/content/menus",requireAuth,requirePermission("menus:manage"),asyncHandler(async(_req,res)=>res.json((await query("select * from menu_items order by sort_order,id")).rows)));
 app.put("/api/content/menus/:id",requireAuth,requirePermission("menus:manage"),asyncHandler(async(req,res)=>{const input=menuUpdateSchema.parse(req.body);const r=await query("update menu_items set title=$1,path=$2,permission=$3,updated_at=now() where id=$4 returning *",[input.title,input.path,input.permission??null,req.params.id]);if(!r.rowCount)return res.status(404).json({error:"آیتم منو پیدا نشد"});res.json(r.rows[0]);}));
 
+app.get("/api/platform/modules/:code",requireAuth,asyncHandler(async(req,res)=>{
+ const user=(req as any).user;
+ const r=await query("select m.id,m.code,m.title,m.core,m.parent_id,m.sort_order,m.is_active,rt.lifecycle,rt.route,rt.api_prefix,rt.owner_team,rt.description from platform_modules m left join module_runtime rt on rt.module_id=m.id where m.code=$1 and m.is_active=true",[req.params.code]);
+ if(!r.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
+ const moduleRow=r.rows[0];
+ if(user.role!=="admin"){
+  const p=await query("select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=$2",[user.role,moduleRow.id]);
+  if(!p.rowCount)return res.status(403).json({error:"دسترسی به ماژول مجاز نیست"});
+ }
+ const actions=await query("select id,action_code,title,permission,is_active from module_actions where module_id=$1 and is_active=true order by id",[moduleRow.id]);
+ res.json({...moduleRow,actions:actions.rows});
+}));
+
+app.get("/api/platform/modules/:code/actions",requireAuth,asyncHandler(async(req,res)=>{
+ const user=(req as any).user;
+ const r=await query("select m.id from platform_modules m where m.code=$1 and m.is_active=true",[req.params.code]);
+ if(!r.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
+ const p=await query("select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=$2",[user.role,r.rows[0].id]);
+ if(user.role!=="admin"&&!p.rowCount)return res.status(403).json({error:"دسترسی مجاز نیست"});
+ const actions=await query("select id,action_code,title,permission,is_active from module_actions where module_id=$1 and is_active=true order by id",[r.rows[0].id]);
+ res.json(actions.rows);
+}));
+
 app.use(notFound);
 app.use(errorHandler);
 
