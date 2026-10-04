@@ -17,7 +17,10 @@ create table if not exists platform_audit_events(
  id uuid primary key default gen_random_uuid(),tenant_id uuid references tenants(id) on delete cascade,
  actor_user_id uuid references users(id) on delete set null,action text not null,entity_type text not null,
  entity_id uuid,request_id text,before_data jsonb,after_data jsonb,created_at timestamptz not null default now());
-create table if not exists notifications(id uuid primary key default gen_random_uuid(),tenant_id uuid not null references tenants(id) on delete cascade,user_id uuid references users(id) on delete cascade,channel text not null,title text not null,body text not null,status text not null default 'queued',created_at timestamptz not null default now(),read_at timestamptz);
+create table if not exists platform_notifications(
+ id uuid primary key default gen_random_uuid(),tenant_id uuid not null references tenants(id) on delete cascade,
+ user_id uuid references users(id) on delete cascade,channel text not null,title text not null,body text not null,
+ status text not null default 'queued',created_at timestamptz not null default now(),read_at timestamptz);
 create index if not exists idx_cart_tenant on cart_sessions(tenant_id,status,updated_at desc);
 create index if not exists idx_inventory_tenant_product on inventory_movements(tenant_id,product_id,created_at desc);
 create index if not exists idx_ledger_tenant on ledger_entries(tenant_id,posted_at desc);
@@ -26,5 +29,5 @@ create index if not exists idx_rules_tenant on business_rules(tenant_id,enabled,
 create index if not exists idx_sla_tenant on sla_policies(tenant_id,enabled);
 create index if not exists idx_calendar_tenant on calendar_definitions(tenant_id,enabled);
 create index if not exists idx_platform_audit_tenant on platform_audit_events(tenant_id,created_at desc);
-create index if not exists idx_notifications_user on notifications(user_id,status,created_at desc);
+create index if not exists idx_platform_notifications_user on platform_notifications(user_id,status,created_at desc);
 insert into role_permissions(role,permission) values('admin','inventory:view'),('admin','inventory:manage'),('admin','cart:manage'),('admin','checkout:manage'),('admin','ledger:view'),('admin','ledger:manage'),('admin','rule:view'),('admin','rule:manage'),('admin','sla:view'),('admin','sla:manage'),('admin','calendar:view'),('admin','calendar:manage'),('admin','audit:view'),('admin','notification:view'),('manager','inventory:view'),('manager','inventory:manage'),('manager','cart:manage'),('manager','checkout:manage'),('manager','ledger:view'),('manager','ledger:manage'),('manager','rule:view'),('manager','rule:manage'),('manager','sla:view'),('manager','sla:manage'),('manager','calendar:view'),('manager','calendar:manage'),('manager','audit:view'),('manager','notification:view'),('viewer','inventory:view'),('viewer','ledger:view'),('viewer','rule:view'),('viewer','sla:view'),('viewer','calendar:view'),('viewer','audit:view'),('viewer','notification:view') on conflict do nothing;
