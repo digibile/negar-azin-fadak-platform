@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 import {useEffect,useMemo,useState} from "react";
+
+function HomeIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v10.5a1 1 0 0 1-1 1h-5.5v-6h-4v6H4.5a1 1 0 0 1-1-1V10Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>}
+function ChevronIcon({open=false}:{open?:boolean}){return <svg className={open?"is-open":""} viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+function GridIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1" fill="currentColor"/><rect x="14" y="4" width="6" height="6" rx="1" fill="currentColor"/><rect x="4" y="14" width="6" height="6" rx="1" fill="currentColor"/><rect x="14" y="14" width="6" height="6" rx="1" fill="currentColor"/></svg>}
+function SearchIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.7"/><path d="m16 16 4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>}
+
 import {usePathname,useRouter,useSearchParams} from "next/navigation";
 import {api} from "../../lib/api";
 
@@ -73,7 +79,7 @@ export default function AdminSidebar(){
  const [modules,setModules]=useState<ModuleItem[]>([]);
  const [error,setError]=useState("");
  const [query,setQuery]=useState("");
- const [openGroups,setOpenGroups]=useState<Record<string,boolean>>({core:true,finance:true,credit:false,commerce:false,communication:false,"documents-content":false,organization:false,"command-platform":true});
+ const [openGroups,setOpenGroups]=useState<Record<string,boolean>>({core:false,finance:false,credit:false,commerce:false,communication:false,"documents-content":false,organization:false,"command-platform":false});
  const [openModule,setOpenModule]=useState<string|null>(null);
 
  useEffect(()=>{let alive=true;
@@ -107,8 +113,8 @@ export default function AdminSidebar(){
   </div>
 
   <div className="sidebar-command">
-   <Link className={"sidebar-command-main "+(pathname==="/admin"?"active":"")} href="/admin"><span>⌂</span><div><b>مرکز فرماندهی</b><small>نمای کلی و وضعیت سامانه</small></div></Link>
-   <div className="sidebar-search"><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="جستجوی بخش، ماژول یا قابلیت..." /></div>
+   <Link className={"sidebar-command-main "+(pathname==="/admin"?"active":"")} href="/admin"><span className="sidebar-command-icon"><HomeIcon/></span><div><b>مرکز فرماندهی</b><small>نمای کلی و وضعیت سامانه</small></div></Link>
+   <div className="sidebar-search"><span><SearchIcon/></span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="جستجوی بخش، ماژول یا قابلیت..." /></div>
   </div>
 
   <div className="sidebar-caption"><span>کاتالوگ عملیاتی</span><b>{modules.length}/45</b></div>
@@ -118,10 +124,10 @@ export default function AdminSidebar(){
    {groups.map(([key,label,range])=>{
     const groupItems=filtered.filter(m=>m.core===key);
     if(query && !groupItems.length)return null;
-    const expanded=Boolean(openGroups[key]);
+    const expanded=query ? true : Boolean(openGroups[key]);
     return <section className="tree-group" key={key}>
      <button className={"tree-group-head "+(expanded?"expanded":"")} type="button" onClick={()=>setOpenGroups(v=>({...v,[key]:!v[key]}))}>
-      <span className="tree-group-chevron">{expanded?"⌄":"‹"}</span>
+      <span className="tree-group-chevron"><ChevronIcon open={expanded}/></span>
       <div><b>{label}</b><small>{range} · {groupItems.length} بخش</small></div>
      </button>
      {expanded&&<div className="tree-module-list">
@@ -133,7 +139,7 @@ export default function AdminSidebar(){
           <span className="tree-module-number">{m.title.match(/^\d+/)?.[0]||""}</span>
           <span>{m.title.replace(/^\d+\. /,"")}</span>
          </button>
-         <button className="tree-module-expand" type="button" aria-label="نمایش قابلیت‌ها" onClick={()=>setOpenModule(expandedModule?null:m.code)}>{expandedModule?"⌃":"⌄"}</button>
+         <button className={"tree-module-expand "+(expandedModule?"active":"")} type="button" aria-label="نمایش قابلیت‌ها" aria-expanded={expandedModule} onClick={()=>setOpenModule(expandedModule?null:m.code)}><ChevronIcon open={expandedModule}/></button>
         </div>
         {expandedModule&&<div className="tree-capabilities-panel">
           <div className="capability-title">قابلیت‌های این بخش</div>
@@ -147,7 +153,7 @@ export default function AdminSidebar(){
   </nav>
 
   <div className="sidebar-footer">
-   <Link href="/admin/editors"><span>▦</span> استودیوهای طراحی و ویرایش</Link>
+   <Link href="/admin/editors"><span><GridIcon/></span> استودیوهای طراحی و ویرایش</Link>
    <small>ساختار منو از کاتالوگ واقعی سامانه دریافت می‌شود.</small>
   </div>
  </aside>;
