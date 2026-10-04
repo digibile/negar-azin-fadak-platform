@@ -8,7 +8,7 @@ import {postLedgerEntry} from "./ledger.js";
 export const checkoutRouter=Router();
 const s=(v:unknown,n=200)=>typeof v==="string"?v.trim().slice(0,n):"";
 const n=(v:unknown)=>{const x=Number(v);return Number.isFinite(x)?x:null;};
-async function ctx(req:any){return resolveTenant(req,req.user);}
+async function ctx(req:any){return resolveTenant(req,(req as any).user);}
 
 checkoutRouter.post("/api/checkout/carts",requireAuth,requirePermission("cart:manage"),asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
@@ -65,7 +65,7 @@ checkoutRouter.post("/api/checkout/carts/:id/checkout",requireAuth,requirePermis
   const o=await client.query("insert into marketplace_orders(tenant_id,store_id,seller_id,order_no,customer_ref,subtotal,total_amount,commission_amount,seller_payable,payment_method,delivery_due_at) values($1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10) returning *",[t.id,c.rows[0].store_id,sellers[0],orderNo,c.rows[0].customer_ref,subtotal,commission,payable,s(req.body?.paymentMethod,50)||"online",req.body?.deliveryDueAt||null]);
   for(const item of items.rows)await client.query("insert into marketplace_order_items(order_id,product_id,quantity,unit_price,line_total) values($1,$2,$3,$4,$5)",[o.rows[0].id,item.product_id,item.quantity,item.unit_price,Number(item.quantity)*Number(item.unit_price)]);
   await client.query("update cart_sessions set status='checked_out',updated_at=now() where id=$1",[req.params.id]);
-  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'checkout.created','marketplace_order',$3,$4)",[t.id,req.user.id,o.rows[0].id,JSON.stringify(o.rows[0])]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'checkout.created','marketplace_order',$3,$4)",[t.id,(req as any).user.id,o.rows[0].id,JSON.stringify(o.rows[0])]);
   await client.query("commit");res.status(201).json({order:o.rows[0]});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
@@ -80,7 +80,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,requirePer
   if(!["pending","confirmed"].includes(o.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"وضعیت سفارش برای پرداخت مجاز نیست"});}
   const p=await client.query("insert into marketplace_payments(tenant_id,order_id,payment_no,amount,method,status,provider_ref,paid_at) values($1,$2,$3,$4,$5,'paid',$6,now()) returning *",[t.id,o.rows[0].id,s(req.body?.paymentNo,100)||("PAY-"+Date.now()),Number(o.rows[0].total_amount),s(req.body?.method,50)||"online",s(req.body?.providerRef,200)||null]);
   await client.query("update marketplace_orders set status='paid',updated_at=now() where id=$1",[o.rows[0].id]);
-  await postLedgerEntry(client,{tenantId:t.id,entryNo:"PAY-"+p.rows[0].payment_no,sourceType:"marketplace_payment",sourceId:p.rows[0].id,description:"ثبت پرداخت سفارش "+o.rows[0].order_no,createdBy:req.user.id,lines:[
+  await postLedgerEntry(client,{tenantId:t.id,entryNo:"PAY-"+p.rows[0].payment_no,sourceType:"marketplace_payment",sourceId:p.rows[0].id,description:"ثبت پرداخت سفارش "+o.rows[0].order_no,createdBy:(req as any).user.id,lines:[
    {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",debit:Number(o.rows[0].total_amount)},
    {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",credit:Number(o.rows[0].seller_payable)},
    {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",credit:Number(o.rows[0].commission_amount)}
@@ -88,9 +88,9 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,requirePer
   const items=await client.query("select * from marketplace_order_items where order_id=$1",[o.rows[0].id]);
   for(const item of items.rows){
    await client.query("update product_inventory set quantity=quantity-$1,reserved_quantity=reserved_quantity-$1,updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[item.quantity,t.id,item.product_id,o.rows[0].store_id]);
-   await client.query("insert into inventory_movements(tenant_id,product_id,store_id,movement_type,quantity,reference_type,reference_id,created_by) values($1,$2,$3,'sale',$4,'marketplace_order',$5,$6)",[t.id,item.product_id,o.rows[0].store_id,-Number(item.quantity),o.rows[0].id,req.user.id]);
+   await client.query("insert into inventory_movements(tenant_id,product_id,store_id,movement_type,quantity,reference_type,reference_id,created_by) values($1,$2,$3,'sale',$4,'marketplace_order',$5,$6)",[t.id,item.product_id,o.rows[0].store_id,-Number(item.quantity),o.rows[0].id,(req as any).user.id]);
   }
-  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'payment.paid','marketplace_order',$3,$4)",[t.id,req.user.id,o.rows[0].id,JSON.stringify({status:"paid",amount:o.rows[0].total_amount})]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'payment.paid','marketplace_order',$3,$4)",[t.id,(req as any).user.id,o.rows[0].id,JSON.stringify({status:"paid",amount:o.rows[0].total_amount})]);
   await client.query("commit");res.status(201).json({payment:p.rows[0],order:{id:o.rows[0].id,status:"paid"}});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
@@ -108,7 +108,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/cancel",requireAuth,requirePerm
    for(const item of items.rows)await client.query("update product_inventory set reserved_quantity=greatest(0,reserved_quantity-$1),updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[item.quantity,t.id,item.product_id,o.rows[0].store_id]);
   }
   await client.query("update marketplace_orders set status='cancelled',updated_at=now() where id=$1",[o.rows[0].id]);
-  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id) values($1,$2,'order.cancelled','marketplace_order',$3)",[t.id,req.user.id,o.rows[0].id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id) values($1,$2,'order.cancelled','marketplace_order',$3)",[t.id,(req as any).user.id,o.rows[0].id]);
   await client.query("commit");res.json({id:o.rows[0].id,status:"cancelled"});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
