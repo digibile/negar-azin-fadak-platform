@@ -2,3 +2,5 @@ services:
   api:
     ports:
       - "4000:4000"
+    environment:
+      CORS_ORIGIN: https://${CODESPACE_NAME}-3000.app.github.dev
