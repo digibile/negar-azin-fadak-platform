@@ -5,6 +5,7 @@ import {query} from "./db.js";
 import {ensureAdmin,hashPassword,verifyPassword,issueSession,clearSession,requireAuth,requireCsrf,requirePermission} from "./auth.js";
 import {asyncHandler,errorHandler,notFound} from "./http.js";
 import {loginSchema,userCreateSchema,formSchema,pageSchema,menuUpdateSchema} from "./validation.js";
+import {domainFinanceRouter} from "./domain-finance.js";
 
 const app=express();
 
@@ -23,6 +24,7 @@ app.use(express.json({limit:"2mb"}));
 app.use((req,res,next)=>{if(["GET","HEAD","OPTIONS"].includes(req.method)||req.path==="/api/auth/login")return next();return requireCsrf(req,res,next);});
 
 app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.json({status:"ok",database:"ok"});}));
+app.use("/api/domain",domainFinanceRouter);
 
 app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  const input=loginSchema.parse(req.body);
