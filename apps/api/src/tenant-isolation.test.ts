@@ -50,3 +50,9 @@ test("refund flow is tenant scoped, provider-backed and ledger-reversing",()=>{
  assert.match(source,/movement_type,quantity,reference_type,reference_id,created_by/);
  assert.match(source,/eventKey:"payment.refunded"/);
 });
+
+test("legacy cancel endpoint rejects paid and fulfilled lifecycle states",()=>{
+ const source=fs.readFileSync(new URL("./domain-checkout.ts",import.meta.url),"utf8");
+ assert.match(source,/\["paid","processing","shipped","delivered","returned","cancelled","refunded"\]/);
+ assert.match(source,/این سفارش باید از مسیر بازگشت وجه یا چرخه مجاز مدیریت شود/);
+});
