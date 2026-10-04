@@ -1,15 +1,22 @@
 {
   "name": "Negar Azin Fadak Platform",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
   "forwardPorts": [3000, 4000],
   "portsAttributes": {
     "3000": {
       "label": "مرکز مدیریت",
-      "onAutoForward": "openBrowser",
+      "onAutoForward": "openPreview",
       "protocol": "http"
     },
     "4000": {
       "label": "API مرکزی",
       "protocol": "http"
     }
+  },
+  "postCreateCommand": "corepack enable && pnpm install --frozen-lockfile",
+  "postAttachCommand": {
+    "preview": "bash .devcontainer/start-preview.sh"
   }
 }
