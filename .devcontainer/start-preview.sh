@@ -3,6 +3,13 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
+# Keep an existing Codespace aligned with the latest main branch.
+# Never overwrite local work: sync only when the working tree is clean.
+if git diff --quiet && git diff --cached --quiet; then
+  git fetch origin main --quiet
+  git merge --ff-only origin/main --quiet || true
+fi
+
 ENV_FILE=".env.codespaces"
 
 if [ ! -f "$ENV_FILE" ]; then
