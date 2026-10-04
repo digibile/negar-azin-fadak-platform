@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useState} from "react";
 import AccountingWorkspace from "./AccountingWorkspace";
+import DashboardWorkspace from "./DashboardWorkspace";
 
 type Field={field_key:string;title:string;field_type:string;required:boolean;sort_order:number;options?:{options?:string[]}};
 type ModuleInfo={id:number;code:string;title:string};
@@ -84,6 +85,7 @@ export default function ModulesPage(){
    return <input value={String(v)} onChange={e=>setField(f.field_key,e.target.value)} required={f.required}/>;
  };
  const visible=useMemo(()=>items,[items]);
+ if(code==="command-center")return <DashboardWorkspace/>;
  if(code==="accounting-finance")return <AccountingWorkspace/>;
  return <main className="module-runtime">
   <header className="page-head">
