@@ -6,6 +6,7 @@ import {ensureAdmin,hashPassword,verifyPassword,issueSession,clearSession,requir
 import {asyncHandler,errorHandler,notFound} from "./http.js";
 import {loginSchema,userCreateSchema,formSchema,pageSchema,menuUpdateSchema} from "./validation.js";
 import {domainFinanceRouter} from "./domain-finance.js";
+import {domainCommerceRouter} from "./domain-commerce.js";
 
 const app=express();
 
@@ -25,6 +26,7 @@ app.use((req,res,next)=>{if(["GET","HEAD","OPTIONS"].includes(req.method)||req.p
 
 app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.json({status:"ok",database:"ok"});}));
 app.use("/api/domain",domainFinanceRouter);
+app.use("/api/domain",domainCommerceRouter);
 
 app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  const input=loginSchema.parse(req.body);
