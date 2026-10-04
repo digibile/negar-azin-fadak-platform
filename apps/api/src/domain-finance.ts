@@ -29,8 +29,14 @@ router.get("/:code",requireAuth,async(req:Request,res:Response)=>{
  const def=byCode.get(req.params.code); if(!def)return res.status(404).json({error:"ماژول دامنه‌ای پیدا نشد"});
  const user=(req as any).user, mod=await moduleId(def.code); if(!mod)return res.status(404).json({error:"ماژول فعال نیست"});
  if(!(await permission(user,mod.id,"read")))return res.status(403).json({error:"دسترسی مشاهده مجاز نیست"});
- const r=await query("select * from "+def.table+" order by updated_at desc");
- res.json({module:{code:def.code,title:mod.title},items:r.rows});
+ const page=Math.max(1,Number(req.query.page)||1),pageSize=Math.min(100,Math.max(1,Number(req.query.pageSize)||20));
+ const q=typeof req.query.q==="string"?req.query.q.trim():""; const params:any[]=[];
+ const where=q?" where cast(row_to_json(t) as text) ilike $1":""; if(q)params.push("%"+q+"%");
+ const count=await query("select count(*)::int as total from "+def.table+" t"+where,params);
+ params.push(pageSize,(page-1)*pageSize);
+ const r=await query("select * from "+def.table+" t"+where+" order by updated_at desc limit $"+(params.length-1)+" offset $"+params.length,params);
+ const total=count.rows[0].total;
+ res.json({module:{code:def.code,title:mod.title},items:r.rows,pagination:{page,pageSize,total,totalPages:Math.ceil(total/pageSize)}});
 });
 
 router.post("/:code",requireAuth,async(req:Request,res:Response)=>{
