@@ -9,6 +9,7 @@ export default function CentralSettingsWorkspace(){
  const [items,setItems]=useState<Setting[]>([]),[audit,setAudit]=useState<any[]>([]),[tab,setTab]=useState("general"),[error,setError]=useState(""),[saving,setSaving]=useState<string|null>(null);
  const load=async()=>{try{setError("");const [a,b]=await Promise.all([fetch(base+"/api/settings/central",{credentials:"include"}),fetch(base+"/api/settings/central/audit",{credentials:"include"})]);const x=await a.json();const y=await b.json();if(!a.ok)throw new Error(x?.error||"خطا");setItems(x.items||[]);setAudit(Array.isArray(y)?y:[])}catch(e){setError(e instanceof Error?e.message:"خطا در دریافت تنظیمات")}};
  useEffect(()=>{const t=new URLSearchParams(window.location.search).get("tab");if(t)setTab(t);load()},[]);
+ useEffect(()=>{if(tab!=="audit")history.replaceState(null,"","/modules/?code=central-settings&tab="+encodeURIComponent(tab))},[tab]);
  const cats=useMemo(()=>[...new Set(items.map(x=>x.category))], [items]);
  useEffect(()=>{if(cats.length&&!cats.includes(tab))setTab(cats[0])},[cats,tab]);
  const setValue=(id:string,value:any)=>setItems(v=>v.map(x=>x.id===id?{...x,value}:x));
