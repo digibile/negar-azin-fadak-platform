@@ -17,10 +17,13 @@ import {sellerSurfaceRouter} from "./seller-surface.js";
 import {tenantContentRouter} from "./tenant-content.js";
 import {checkoutRouter} from "./domain-checkout.js";
 import {settlementRouter} from "./domain-settlement.js";
+import {resolveTenant} from "./tenant-context.js";
 import {platformEnginesRouter,sweepSlaCases} from "./platform-engines.js";
 import {issueHumanCheck,verifyHumanCheck} from "./human-check.js";
 
 const app=express();
+
+const resolveRequestTenant=async(req:any)=>resolveTenant(req,(req as any).user);
 
 const requireModulePermission=async(user:any,moduleId:number,action:"read"|"write"|"delete")=>{
  if(user.role==="admin") return true;
@@ -127,73 +130,43 @@ app.get("/api/platform/modules/:code/actions",requireAuth,asyncHandler(async(req
 }));
 
 
-// Persistent module record runtime
+// // Persistent module record runtime, always scoped to the authenticated tenant.
 app.get("/api/platform/modules/:code/schema",requireAuth,asyncHandler(async(req,res)=>{
- const user=(req as any).user;
+ const user=(req as any).user,t=await resolveRequestTenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const m=await query("select id,code,title from platform_modules where code=$1 and is_active=true",[req.params.code]);
  if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
  if(!(await requireModulePermission(user,m.rows[0].id,"read")))return res.status(403).json({error:"دسترسی مشاهده مجاز نیست"});
- const r=await query("select field_key,title,field_type,required,sort_order,options from module_field_definitions where module_id=$1 order by sort_order,id",[m.rows[0].id]);
- res.json({module:m.rows[0],fields:r.rows});
+ const r=await query("select field_key,title,field_type,required,sort_order,options from module_field_definitions where module_id=$1 order by sort_order,id",[m.rows[0].id]);res.json({module:m.rows[0],fields:r.rows});
 }));
-
 app.get("/api/platform/modules/:code/records",requireAuth,asyncHandler(async(req,res)=>{
- const user=(req as any).user;
- const m=await query("select id,code,title from platform_modules where code=$1 and is_active=true",[req.params.code]);
- if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
- if(user.role!=="admin"){
-  const p=await query("select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=$2",[user.role,m.rows[0].id]);
-  if(!p.rowCount)return res.status(403).json({error:"دسترسی به ماژول مجاز نیست"});
- }
- const page=Math.max(1,Number(req.query.page)||1);
- const pageSize=Math.min(100,Math.max(1,Number(req.query.pageSize)||20));
- const q=typeof req.query.q==="string"?req.query.q.trim():"";
- const status=typeof req.query.status==="string"?req.query.status.trim():"";
- const where=["module_id=$1"];
- const params:any[]=[m.rows[0].id];
- if(q){params.push("%"+q+"%");where.push("(title ilike $"+params.length+" or record_type ilike $"+params.length+" or data::text ilike $"+params.length+")");}
- if(status){params.push(status);where.push("status=$"+params.length);}
- const count=await query("select count(*)::int as total from module_records where "+where.join(" and "),params);
- const total=count.rows[0].total;
- const offset=(page-1)*pageSize;
- params.push(pageSize,offset);
+ const user=(req as any).user,t=await resolveRequestTenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const m=await query("select id,code,title from platform_modules where code=$1 and is_active=true",[req.params.code]);if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
+ if(!(await requireModulePermission(user,m.rows[0].id,"read")))return res.status(403).json({error:"دسترسی مشاهده مجاز نیست"});
+ const page=Math.max(1,Number(req.query.page)||1),pageSize=Math.min(100,Math.max(1,Number(req.query.pageSize)||20)),q=typeof req.query.q==="string"?req.query.q.trim():"",status=typeof req.query.status==="string"?req.query.status.trim():"";
+ const where=["tenant_id=$1","module_id=$2"],params:any[]=[t.id,m.rows[0].id];
+ if(q){params.push("%"+q+"%");where.push("(title ilike $"+params.length+" or record_type ilike $"+params.length+" or data::text ilike $"+params.length+")")}if(status){params.push(status);where.push("status=$"+params.length)}
+ const count=await query("select count(*)::int total from module_records where "+where.join(" and "),params),total=count.rows[0].total,offset=(page-1)*pageSize;params.push(pageSize,offset);
  const r=await query("select id,record_type,title,status,data,created_by,created_at,updated_at from module_records where "+where.join(" and ")+" order by updated_at desc limit $"+(params.length-1)+" offset $"+params.length,params);
  res.json({items:r.rows,page,pageSize,total,totalPages:Math.ceil(total/pageSize)});
 }));
-
 app.post("/api/platform/modules/:code/records",requireAuth,asyncHandler(async(req,res)=>{
- const user=(req as any).user;
- const m=await query("select id from platform_modules where code=$1 and is_active=true",[req.params.code]);
- if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
- if(!(await requireModulePermission(user,m.rows[0].id,"write")))
-  return res.status(403).json({error:"دسترسی ثبت و ویرایش مجاز نیست"});
- const {recordType,title,status="active",data={}}=req.body||{};
- if(typeof recordType!=="string"||typeof title!=="string"||!data||typeof data!=="object"||Array.isArray(data))return res.status(400).json({error:"ساختار رکورد نامعتبر است"});
- const r=await query("insert into module_records(module_id,record_type,title,status,data,created_by,updated_by) values($1,$2,$3,$4,$5,$6,$6) returning *",[m.rows[0].id,recordType,title,status,data,user.id]);
- res.status(201).json(r.rows[0]);
+ const user=(req as any).user,t=await resolveRequestTenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const m=await query("select id from platform_modules where code=$1 and is_active=true",[req.params.code]);if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
+ if(!(await requireModulePermission(user,m.rows[0].id,"write")))return res.status(403).json({error:"دسترسی ثبت و ویرایش مجاز نیست"});
+ const {recordType,title,status="active",data={}}=req.body||{};if(typeof recordType!=="string"||typeof title!=="string"||!data||typeof data!=="object"||Array.isArray(data))return res.status(400).json({error:"ساختار رکورد نامعتبر است"});
+ const r=await query("insert into module_records(tenant_id,module_id,record_type,title,status,data,created_by,updated_by) values($1,$2,$3,$4,$5,$6,$7,$7) returning *",[t.id,m.rows[0].id,recordType,title,status,data,user.id]);res.status(201).json(r.rows[0]);
 }));
-
 app.patch("/api/platform/modules/:code/records/:id",requireAuth,asyncHandler(async(req,res)=>{
- const user=(req as any).user;
- const m=await query("select id from platform_modules where code=$1 and is_active=true",[req.params.code]);
- if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
- if(!(await requireModulePermission(user,m.rows[0].id,"write")))
-  return res.status(403).json({error:"دسترسی ویرایش مجاز نیست"});
- const {title,status,data}=req.body||{};
- const r=await query("update module_records set title=coalesce($1,title),status=coalesce($2,status),data=coalesce($3,data),updated_by=$6,updated_at=now() where id=$4 and module_id=$5 returning *",[title,status,data,req.params.id,m.rows[0].id,user.id]);
- if(!r.rowCount)return res.status(404).json({error:"رکورد پیدا نشد"});
- res.json(r.rows[0]);
+ const user=(req as any).user,t=await resolveRequestTenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const m=await query("select id from platform_modules where code=$1 and is_active=true",[req.params.code]);if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
+ if(!(await requireModulePermission(user,m.rows[0].id,"write")))return res.status(403).json({error:"دسترسی ویرایش مجاز نیست"});
+ const {title,status,data}=req.body||{};const r=await query("update module_records set title=coalesce($1,title),status=coalesce($2,status),data=coalesce($3,data),updated_by=$6,updated_at=now() where id=$4 and module_id=$5 and tenant_id=$7 returning *",[title,status,data,req.params.id,m.rows[0].id,user.id,t.id]);if(!r.rowCount)return res.status(404).json({error:"رکورد پیدا نشد"});res.json(r.rows[0]);
 }));
-
 app.delete("/api/platform/modules/:code/records/:id",requireAuth,asyncHandler(async(req,res)=>{
- const user=(req as any).user;
- const m=await query("select id from platform_modules where code=$1 and is_active=true",[req.params.code]);
- if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
- if(!(await requireModulePermission(user,m.rows[0].id,"delete")))
-  return res.status(403).json({error:"دسترسی حذف مجاز نیست"});
- const r=await query("delete from module_records where id=$1 and module_id=$2 returning id",[req.params.id,m.rows[0].id]);
- if(!r.rowCount)return res.status(404).json({error:"رکورد پیدا نشد"});
- res.status(204).end();
+ const user=(req as any).user,t=await resolveRequestTenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const m=await query("select id from platform_modules where code=$1 and is_active=true",[req.params.code]);if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
+ if(!(await requireModulePermission(user,m.rows[0].id,"delete")))return res.status(403).json({error:"دسترسی حذف مجاز نیست"});
+ const r=await query("delete from module_records where id=$1 and module_id=$2 and tenant_id=$3 returning id",[req.params.id,m.rows[0].id,t.id]);if(!r.rowCount)return res.status(404).json({error:"رکورد پیدا نشد"});res.status(204).end();
 }));
 
 app.use(notFound);
