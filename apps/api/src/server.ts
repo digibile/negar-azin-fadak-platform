@@ -11,8 +11,8 @@ const app=express();
 const requireModulePermission=async(user:any,moduleId:number,action:"read"|"write"|"delete")=>{
  if(user.role==="admin") return true;
  const p=await query(
-  "select 1 from role_permissions where role=$1 and permission=$2",
-  [user.role,"modules:"+moduleId+":"+action]
+  "select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=$2 and mp.permission='modules:'||(select code from platform_modules where id=$2)||':'||$3",
+  [user.role,moduleId,action]
  );
  return Boolean(p.rowCount);
 };
