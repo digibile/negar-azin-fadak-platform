@@ -99,6 +99,15 @@ app.get("/api/platform/modules/:code/actions",requireAuth,asyncHandler(async(req
 
 
 // Persistent module record runtime
+app.get("/api/platform/modules/:code/schema",requireAuth,asyncHandler(async(req,res)=>{
+ const user=(req as any).user;
+ const m=await query("select id,code,title from platform_modules where code=$1 and is_active=true",[req.params.code]);
+ if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
+ if(!(await requireModulePermission(user,m.rows[0].id,"read")))return res.status(403).json({error:"دسترسی مشاهده مجاز نیست"});
+ const r=await query("select field_key,title,field_type,required,sort_order,options from module_field_definitions where module_id=$1 order by sort_order,id",[m.rows[0].id]);
+ res.json({module:m.rows[0],fields:r.rows});
+}));
+
 app.get("/api/platform/modules/:code/records",requireAuth,asyncHandler(async(req,res)=>{
  const user=(req as any).user;
  const m=await query("select id,code,title from platform_modules where code=$1 and is_active=true",[req.params.code]);
@@ -107,8 +116,20 @@ app.get("/api/platform/modules/:code/records",requireAuth,asyncHandler(async(req
   const p=await query("select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=$2",[user.role,m.rows[0].id]);
   if(!p.rowCount)return res.status(403).json({error:"دسترسی به ماژول مجاز نیست"});
  }
- const r=await query("select id,record_type,title,status,data,created_by,created_at,updated_at from module_records where module_id=$1 order by updated_at desc",[m.rows[0].id]);
- res.json(r.rows);
+ const page=Math.max(1,Number(req.query.page)||1);
+ const pageSize=Math.min(100,Math.max(1,Number(req.query.pageSize)||20));
+ const q=typeof req.query.q==="string"?req.query.q.trim():"";
+ const status=typeof req.query.status==="string"?req.query.status.trim():"";
+ const where=["module_id=$1"];
+ const params:any[]=[m.rows[0].id];
+ if(q){params.push("%"+q+"%");where.push("(title ilike $"+params.length+" or record_type ilike $"+params.length+" or data::text ilike $"+params.length+")");}
+ if(status){params.push(status);where.push("status=$"+params.length);}
+ const count=await query("select count(*)::int as total from module_records where "+where.join(" and "),params);
+ const total=count.rows[0].total;
+ const offset=(page-1)*pageSize;
+ params.push(pageSize,offset);
+ const r=await query("select id,record_type,title,status,data,created_by,created_at,updated_at from module_records where "+where.join(" and ")+" order by updated_at desc limit $"+(params.length-1)+" offset $"+params.length,params);
+ res.json({items:r.rows,page,pageSize,total,totalPages:Math.ceil(total/pageSize)});
 }));
 
 app.post("/api/platform/modules/:code/records",requireAuth,asyncHandler(async(req,res)=>{
