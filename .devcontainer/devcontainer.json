@@ -1,0 +1,15 @@
+{
+  "name": "Negar Azin Fadak Platform",
+  "forwardPorts": [3000, 4000],
+  "portsAttributes": {
+    "3000": {
+      "label": "مرکز مدیریت",
+      "onAutoForward": "openBrowser",
+      "protocol": "http"
+    },
+    "4000": {
+      "label": "API مرکزی",
+      "protocol": "http"
+    }
+  }
+}
