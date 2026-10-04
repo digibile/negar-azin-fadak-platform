@@ -20,6 +20,7 @@ import {settlementRouter} from "./domain-settlement.js";
 import {resolveTenant} from "./tenant-context.js";
 import {platformEnginesRouter,sweepSlaCases} from "./platform-engines.js";
 import {issueHumanCheck,verifyHumanCheck} from "./human-check.js";
+import "./payment-provider.js";
 
 const app=express();
 
