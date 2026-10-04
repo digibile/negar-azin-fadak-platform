@@ -17,7 +17,7 @@ platformEnginesRouter.post("/api/platform/rules",requireAuth,requirePermission("
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const code=s(req.body?.code,80),name=s(req.body?.name,160),eventKey=s(req.body?.eventKey,120);
  if(!code||!name||!eventKey)return res.status(400).json({error:"code، name و eventKey الزامی هستند"});
- const r=await query("insert into rule_definitions(tenant_id,code,name,event_key,priority,enabled,conditions,actions,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *",[t.id,code,name,eventKey,Number(req.body?.priority)||100,req.body?.enabled!==false,obj(req.body?.conditions,{}),Array.isArray(req.body?.actions)?req.body.actions:[],req.user.id]);
+ const r=await query("insert into rule_definitions(tenant_id,code,name,event_key,priority,enabled,conditions,actions,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *",[t.id,code,name,eventKey,Number(req.body?.priority)||100,req.body?.enabled!==false,obj(req.body?.conditions,{}),Array.isArray(req.body?.actions)?req.body.actions:[],(req as any).user.id]);
  res.status(201).json(r.rows[0]);
 }));
 platformEnginesRouter.patch("/api/platform/rules/:id",requireAuth,requirePermission("rule:manage"),asyncHandler(async(req,res)=>{
@@ -31,7 +31,7 @@ platformEnginesRouter.post("/api/platform/rules/:id/execute",requireAuth,require
  if(!rr.rowCount)return res.status(404).json({error:"قاعده فعال پیدا نشد"});
  const rule=rr.rows[0],input=obj(req.body?.input,{});
  const r=await query("insert into rule_executions(tenant_id,rule_id,event_key,subject_type,subject_id,status,input_data,result_data) values($1,$2,$3,$4,$5,'executed',$6,$7) returning *",[t.id,rule.id,rule.event_key,s(req.body?.subjectType,80)||null,s(req.body?.subjectId,80)||null,input,{actions:rule.actions,matched:true}]);
- await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'rule.executed','rule_execution',$3,$4)",[t.id,req.user.id,r.rows[0].id,JSON.stringify(r.rows[0])]);
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'rule.executed','rule_execution',$3,$4)",[t.id,(req as any).user.id,r.rows[0].id,JSON.stringify(r.rows[0])]);
  res.status(201).json(r.rows[0]);
 }));
 
@@ -70,7 +70,7 @@ platformEnginesRouter.patch("/api/platform/sla/cases/:id",requireAuth,requirePer
 
 platformEnginesRouter.get("/api/platform/notifications",requireAuth,requirePermission("notification:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- res.json((await query("select * from platform_notifications where tenant_id=$1 and (user_id=$2 or user_id is null) order by created_at desc limit 100",[t.id,req.user.id])).rows);
+ res.json((await query("select * from platform_notifications where tenant_id=$1 and (user_id=$2 or user_id is null) order by created_at desc limit 100",[t.id,(req as any).user.id])).rows);
 }));
 platformEnginesRouter.post("/api/platform/notifications",requireAuth,requirePermission("notification:manage"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
@@ -79,7 +79,7 @@ platformEnginesRouter.post("/api/platform/notifications",requireAuth,requirePerm
 }));
 platformEnginesRouter.post("/api/platform/notifications/:id/read",requireAuth,requirePermission("notification:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("update platform_notifications set read_at=now(),status='read' where id=$1 and tenant_id=$2 and (user_id=$3 or user_id is null) returning *",[req.params.id,t.id,req.user.id]);if(!r.rowCount)return res.status(404).json({error:"اعلان پیدا نشد"});res.json(r.rows[0]);
+ const r=await query("update platform_notifications set read_at=now(),status='read' where id=$1 and tenant_id=$2 and (user_id=$3 or user_id is null) returning *",[req.params.id,t.id,(req as any).user.id]);if(!r.rowCount)return res.status(404).json({error:"اعلان پیدا نشد"});res.json(r.rows[0]);
 }));
 
 platformEnginesRouter.get("/api/platform/audit",requireAuth,requirePermission("audit:view"),asyncHandler(async(req,res)=>{
