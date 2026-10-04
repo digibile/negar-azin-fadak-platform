@@ -26,7 +26,7 @@ const moduleId=async(code:string)=>{
 const router=Router();
 
 router.get("/:code",requireAuth,async(req:Request,res:Response)=>{
- const def=byCode.get(req.params.code); if(!def)return res.status(404).json({error:"ماژول دامنه‌ای پیدا نشد"});
+ const def=byCode.get(String(req.params.code)); if(!def)return res.status(404).json({error:"ماژول دامنه‌ای پیدا نشد"});
  const user=(req as any).user, mod=await moduleId(def.code); if(!mod)return res.status(404).json({error:"ماژول فعال نیست"});
  if(!(await permission(user,mod.id,"read")))return res.status(403).json({error:"دسترسی مشاهده مجاز نیست"});
  const page=Math.max(1,Number(req.query.page)||1),pageSize=Math.min(100,Math.max(1,Number(req.query.pageSize)||20));
@@ -40,7 +40,7 @@ router.get("/:code",requireAuth,async(req:Request,res:Response)=>{
 });
 
 router.post("/:code",requireAuth,async(req:Request,res:Response)=>{
- const def=byCode.get(req.params.code); if(!def)return res.status(404).json({error:"ماژول دامنه‌ای پیدا نشد"});
+ const def=byCode.get(String(req.params.code)); if(!def)return res.status(404).json({error:"ماژول دامنه‌ای پیدا نشد"});
  const user=(req as any).user, mod=await moduleId(def.code); if(!mod)return res.status(404).json({error:"ماژول فعال نیست"});
  if(!(await permission(user,mod.id,"write")))return res.status(403).json({error:"دسترسی ثبت مجاز نیست"});
  const body=req.body||{};
@@ -53,7 +53,7 @@ router.post("/:code",requireAuth,async(req:Request,res:Response)=>{
 });
 
 router.patch("/:code/:id",requireAuth,async(req:Request,res:Response)=>{
- const def=byCode.get(req.params.code); if(!def)return res.status(404).json({error:"ماژول دامنه‌ای پیدا نشد"});
+ const def=byCode.get(String(req.params.code)); if(!def)return res.status(404).json({error:"ماژول دامنه‌ای پیدا نشد"});
  const user=(req as any).user, mod=await moduleId(def.code); if(!mod)return res.status(404).json({error:"ماژول فعال نیست"});
  if(!(await permission(user,mod.id,"write")))return res.status(403).json({error:"دسترسی ویرایش مجاز نیست"});
  const body=req.body||{}, cols=def.columns.filter(k=>body[k]!==undefined);
@@ -66,7 +66,7 @@ router.patch("/:code/:id",requireAuth,async(req:Request,res:Response)=>{
 });
 
 router.delete("/:code/:id",requireAuth,async(req:Request,res:Response)=>{
- const def=byCode.get(req.params.code); if(!def)return res.status(404).json({error:"ماژول دامنه‌ای پیدا نشد"});
+ const def=byCode.get(String(req.params.code)); if(!def)return res.status(404).json({error:"ماژول دامنه‌ای پیدا نشد"});
  const user=(req as any).user, mod=await moduleId(def.code); if(!mod)return res.status(404).json({error:"ماژول فعال نیست"});
  if(!(await permission(user,mod.id,"delete")))return res.status(403).json({error:"دسترسی حذف مجاز نیست"});
  const r=await query("delete from "+def.table+" where id=$1 returning id",[req.params.id]);
