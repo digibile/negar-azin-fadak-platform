@@ -78,7 +78,6 @@ export default function AdminSidebar(){
     return <details className={"master-item "+(isCurrent?"is-current":"")} key={item.code} open={Boolean(query)||isCurrent}>
      <summary>
       <span className="master-chevron"><ChevronIcon/></span>
-      <span className="master-icon" aria-hidden="true">{item.icon}</span>
       <span className="master-copy"><strong>{item.title}</strong><small>{item.children.length} قابلیت عملیاتی</small></span>
       {url?<Link className="master-open" href={url} onClick={e=>e.stopPropagation()} aria-label={"ورود به "+item.title}>↗</Link>:<span className="master-open disabled" aria-hidden="true">•</span>}
      </summary>
