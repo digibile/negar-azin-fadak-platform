@@ -53,7 +53,7 @@ jobs:
 
       - name: Database migrations
         run: pnpm --filter @naf/api migrate
-\n      - name: Platform policy checks
+      - name: Platform policy checks
         run: |
           test -f database/migrations/008_all_45_module_storage.sql
           test -f database/migrations/009_activate_45_module_runtime.sql
