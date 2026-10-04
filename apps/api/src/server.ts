@@ -140,7 +140,7 @@ app.post("/api/platform/modules/:code/records",requireAuth,asyncHandler(async(re
   return res.status(403).json({error:"دسترسی ثبت و ویرایش مجاز نیست"});
  const {recordType,title,status="active",data={}}=req.body||{};
  if(typeof recordType!=="string"||typeof title!=="string"||!data||typeof data!=="object"||Array.isArray(data))return res.status(400).json({error:"ساختار رکورد نامعتبر است"});
- const r=await query("insert into module_records(module_id,record_type,title,status,data,created_by) values($1,$2,$3,$4,$5,$6) returning *",[m.rows[0].id,recordType,title,status,data,user.id]);
+ const r=await query("insert into module_records(module_id,record_type,title,status,data,created_by,updated_by) values($1,$2,$3,$4,$5,$6,$6) returning *",[m.rows[0].id,recordType,title,status,data,user.id]);
  res.status(201).json(r.rows[0]);
 }));
 
@@ -151,7 +151,7 @@ app.patch("/api/platform/modules/:code/records/:id",requireAuth,asyncHandler(asy
  if(!(await requireModulePermission(user,m.rows[0].id,"write")))
   return res.status(403).json({error:"دسترسی ویرایش مجاز نیست"});
  const {title,status,data}=req.body||{};
- const r=await query("update module_records set title=coalesce($1,title),status=coalesce($2,status),data=coalesce($3,data),updated_at=now() where id=$4 and module_id=$5 returning *",[title,status,data,req.params.id,m.rows[0].id]);
+ const r=await query("update module_records set title=coalesce($1,title),status=coalesce($2,status),data=coalesce($3,data),updated_by=$6,updated_at=now() where id=$4 and module_id=$5 returning *",[title,status,data,req.params.id,m.rows[0].id,user.id]);
  if(!r.rowCount)return res.status(404).json({error:"رکورد پیدا نشد"});
  res.json(r.rows[0]);
 }));
