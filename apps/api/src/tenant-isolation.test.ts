@@ -56,3 +56,21 @@ test("legacy cancel endpoint rejects paid and fulfilled lifecycle states",()=>{
  assert.match(source,/\["paid","processing","shipped","delivered","returned","cancelled","refunded"\]/);
  assert.match(source,/این سفارش باید از مسیر بازگشت وجه یا چرخه مجاز مدیریت شود/);
 });
+
+
+test("paid and processing lifecycle require refund path",()=>{
+ const source=fs.readFileSync(new URL("./domain-marketplace.ts",import.meta.url),"utf8");
+ assert.match(source,/paid:\["processing","refunded"\]/);
+ assert.match(source,/processing:\["shipped","returned"\]/);
+ assert.match(source,/لغو سفارش پرداخت‌شده باید از مسیر بازپرداخت انجام شود/);
+});
+
+test("marketplace lifecycle has the database pool required for transactional transitions",()=>{
+ const source=fs.readFileSync(new URL("./domain-marketplace.ts",import.meta.url),"utf8");
+ assert.match(source,/import \{pool,query\} from "\.\/db\.js";/);
+});
+
+test("legacy cancel update remains tenant scoped",()=>{
+ const source=fs.readFileSync(new URL("./domain-checkout.ts",import.meta.url),"utf8");
+ assert.match(source,/update marketplace_orders set status='cancelled',updated_at=now\(\) where id=\\\$1 and tenant_id=\\\$2/);
+});
