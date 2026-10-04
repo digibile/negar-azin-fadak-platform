@@ -13,7 +13,7 @@ async function ctx(req:any,user:User):Promise<Ctx|null>{
 }
 const s=(v:unknown,max=200)=>typeof v==="string"?v.trim().slice(0,max):"";
 const n=(v:unknown)=>{const x=Number(v);return Number.isFinite(x)?x:null};
-async function audit(c:Ctx,u:User,action:string,type:string,id:string|null,after:any,before:any=null){await query("insert into audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data,before_data) values($1,$2,$3,$4,$5,$6,$7)",[c.id,u.id,action,type,id,after,before]);}
+async function audit(c:Ctx,u:User,action:string,type:string,id:string|null,after:any,before:any=null){await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data,before_data) values($1,$2,$3,$4,$5,$6,$7)",[c.id,u.id,action,type,id,after,before]);}
 
 platformOperationsRouter.get("/api/platform/context",requireAuth,asyncHandler(async(req,res)=>{
  const u=(req as any).user as User,c=await ctx(req,u); if(!c)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
@@ -115,7 +115,7 @@ platformOperationsRouter.post("/api/finance/ledger/post-order/:id",requireAuth,r
  }catch(e){await client.query("rollback");throw e}finally{client.release()}
 }));
 platformOperationsRouter.get("/api/platform/audit",requireAuth,requirePermission("audit:view"),asyncHandler(async(req,res)=>{
- const c=await ctx(req,(req as any).user);if(!c)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const r=await query("select id,action,entity_type,entity_id,actor_user_id,created_at,after_data,before_data from audit_events where tenant_id=$1 order by created_at desc limit 200",[c.id]);res.json({items:r.rows,total:r.rowCount});
+ const c=await ctx(req,(req as any).user);if(!c)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const r=await query("select id,action,entity_type,entity_id,actor_user_id,created_at,after_data,before_data from platform_audit_events where tenant_id=$1 order by created_at desc limit 200",[c.id]);res.json({items:r.rows,total:r.rowCount});
 }));
 platformOperationsRouter.get("/api/platform/notifications",requireAuth,requirePermission("notification:view"),asyncHandler(async(req,res)=>{
  const u=(req as any).user,c=await ctx(req,u);if(!c)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const r=await query("select id,channel,title,body,status,created_at,read_at from notifications where tenant_id=$1 and (user_id=$2 or user_id is null) order by created_at desc limit 100",[c.id,u.id]);res.json({items:r.rows,total:r.rowCount});
