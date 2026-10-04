@@ -82,6 +82,7 @@ jobs:
       - name: Build
         env:
           GITHUB_PAGES: "true"
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.PLATFORM_API_BASE_URL }}
         run: pnpm build
 
       - name: Test
