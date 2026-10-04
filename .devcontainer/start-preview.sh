@@ -22,6 +22,6 @@ EOF
   chmod 600 "$ENV_FILE"
 fi
 
-docker compose --env-file "$ENV_FILE" -f docker-compose.production.yml up -d --build
+docker compose --env-file "$ENV_FILE" -f docker-compose.production.yml -f docker-compose.codespaces.yml up -d --build
 echo "Preview: http://localhost:3000"
 echo "API: http://localhost:4000"
