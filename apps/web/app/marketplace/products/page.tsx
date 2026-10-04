@@ -1,0 +1,8 @@
+"use client";
+import {useEffect,useState} from "react";
+import {api} from "../../../lib/api";
+export default function ProductsPage(){const [items,setItems]=useState<any[]>([]),[sellerId,setSellerId]=useState(""),[sku,setSku]=useState(""),[title,setTitle]=useState(""),[price,setPrice]=useState(""),[error,setError]=useState("");
+ async function load(){try{const r:any=await api("/api/marketplace/products");setItems(r.items||[])}catch(e){setError(e instanceof Error?e.message:"خطا")}}
+ useEffect(()=>{load()},[]);
+ async function create(){setError("");try{await api("/api/marketplace/products",{method:"POST",body:JSON.stringify({sellerId,sku,title,price:Number(price)})});setSku("");setTitle("");setPrice("");await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}}
+ return <main className="enterprise-main" dir="rtl"><header className="platform-header"><div><span className="section-kicker">کاتالوگ واقعی</span><h1>محصولات</h1><p>ثبت و مشاهده محصول متصل به PostgreSQL</p></div><a href="/platform">مرکز عملیات</a></header><section className="platform-panel"><div className="platform-form"><input value={sellerId} onChange={e=>setSellerId(e.target.value)} placeholder="شناسه فروشنده"/><input value={sku} onChange={e=>setSku(e.target.value)} placeholder="SKU"/><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="عنوان محصول"/><input value={price} onChange={e=>setPrice(e.target.value)} type="number" min="0" placeholder="قیمت"/><button onClick={create}>ثبت محصول</button></div>{error&&<p className="enterprise-loading error">{error}</p>}{items.map(x=><div className="platform-row" key={x.id}><b>{x.title}</b><span>{x.sku}</span><small>{x.price} {x.currency} · {x.status}</small></div>)}</section></main>}
