@@ -1,91 +1,53 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {useMemo,useState} from "react";
 
 type Module={id:number;title:string;core:string;code:string};
+type Group={name:string;range:string;description:string};
 
-const modules:Module[]=[
-{id:1,title:"حاکمیت و ساختار سازمانی",core:"هسته مرکزی",code:"governance"},
-{id:2,title:"هویت، کاربران و امنیت",core:"هسته مرکزی",code:"identity"},
-{id:3,title:"داده‌های پایه سازمان",core:"هسته مرکزی",code:"master-data"},
-{id:4,title:"مشتری 360",core:"هسته مرکزی",code:"customer-360"},
-{id:5,title:"تقویم سازمانی هوشمند",core:"هسته مرکزی",code:"smart-calendar"},
-{id:6,title:"موتور قوانین کسب‌وکار",core:"هسته مرکزی",code:"business-rules"},
-{id:7,title:"موتور SLA",core:"هسته مرکزی",code:"sla"},
-{id:8,title:"حسابداری و مالی",core:"مالی",code:"accounting-finance"},
-{id:9,title:"خزانه و بانک",core:"مالی",code:"treasury-bank"},
-{id:10,title:"کیف پول و دفتر تراکنش",core:"مالی",code:"wallet-ledger"},
-{id:11,title:"اعتبار و تسهیلات",core:"اعتبار",code:"credit-facilities"},
-{id:12,title:"موتور اعتبارسنجی",core:"اعتبار",code:"credit-scoring"},
-{id:13,title:"وام و قرارداد",core:"اعتبار",code:"loans-contracts"},
-{id:14,title:"اقساط",core:"اعتبار",code:"installments"},
-{id:15,title:"وصول مطالبات",core:"اعتبار",code:"collections"},
-{id:16,title:"فروش و تجارت",core:"تجارت",code:"sales-trade"},
-{id:17,title:"Marketplace",core:"تجارت",code:"marketplace"},
-{id:18,title:"تحویل و لجستیک",core:"تجارت",code:"delivery-logistics"},
-{id:19,title:"کمیسیون",core:"تجارت",code:"commission"},
-{id:20,title:"تسویه",core:"تجارت",code:"settlement"},
-{id:21,title:"پرداخت",core:"تجارت",code:"payments"},
-{id:22,title:"مرکز ارائه‌دهندگان و یکپارچه‌سازی",core:"تجارت",code:"providers-integrations"},
-{id:23,title:"مرکز ارتباطات",core:"ارتباطات",code:"communications"},
-{id:24,title:"موتور رویداد و اعلان",core:"ارتباطات",code:"events-notifications"},
-{id:25,title:"CRM",core:"ارتباطات",code:"crm"},
-{id:26,title:"مرکز تماس",core:"ارتباطات",code:"contact-center"},
-{id:27,title:"تیکت و پشتیبانی",core:"ارتباطات",code:"tickets-support"},
-{id:28,title:"اسناد و اتوماسیون اداری",core:"اسناد و محتوا",code:"documents-office"},
-{id:29,title:"زونکن دیجیتال",core:"اسناد و محتوا",code:"digital-binder"},
-{id:30,title:"مدیریت وب‌سایت و دامنه",core:"اسناد و محتوا",code:"web-domain"},
-{id:31,title:"صفحه‌ساز",core:"اسناد و محتوا",code:"page-builder"},
-{id:32,title:"فرم‌ساز",core:"اسناد و محتوا",code:"form-builder"},
-{id:33,title:"مدیریت محتوا",core:"اسناد و محتوا",code:"content-management"},
-{id:34,title:"هوش نگار",core:"اسناد و محتوا",code:"negar-ai"},
-{id:35,title:"منابع انسانی",core:"سازمان و عملیات",code:"human-resources"},
-{id:36,title:"پروژه و عملیات",core:"سازمان و عملیات",code:"projects-operations"},
-{id:37,title:"گزارش و تحلیل",core:"سازمان و عملیات",code:"reports-analytics"},
-{id:38,title:"مرکز فرماندهی",core:"مرکز فرمان",code:"command-center"},
-{id:39,title:"مانیتورینگ و رخدادها",core:"مرکز فرمان",code:"monitoring-events"},
-{id:40,title:"حسابرسی و کنترل",core:"مرکز فرمان",code:"audit-control"},
-{id:41,title:"مستندات",core:"مرکز فرمان",code:"documentation"},
-{id:42,title:"API و یکپارچه‌سازی",core:"مرکز فرمان",code:"api-integration"},
-{id:43,title:"زیرساخت و داده",core:"مرکز فرمان",code:"infrastructure-data"},
-{id:44,title:"اپلیکیشن موبایل",core:"مرکز فرمان",code:"mobile-app"},
-{id:45,title:"کیفیت و چرخه توسعه",core:"مرکز فرمان",code:"quality-lifecycle"}
-];
-
-const cores=["همه","هسته مرکزی","مالی","اعتبار","تجارت","ارتباطات","اسناد و محتوا","سازمان و عملیات","مرکز فرمان"];
+const modules:Module[]=[[1,"حاکمیت و ساختار سازمانی","هسته مرکزی","governance"],[2,"هویت، کاربران و امنیت","هسته مرکزی","identity"],[3,"داده‌های پایه سازمان","هسته مرکزی","master-data"],[4,"مشتری 360","هسته مرکزی","customer-360"],[5,"تقویم سازمانی هوشمند","هسته مرکزی","smart-calendar"],[6,"موتور قوانین کسب‌وکار","هسته مرکزی","business-rules"],[7,"موتور SLA","هسته مرکزی","sla"],[8,"حسابداری و مالی","مالی","accounting-finance"],[9,"خزانه و بانک","مالی","treasury-bank"],[10,"کیف پول و دفتر تراکنش","مالی","wallet-ledger"],[11,"اعتبار و تسهیلات","اعتبار","credit-facilities"],[12,"موتور اعتبارسنجی","اعتبار","credit-scoring"],[13,"وام و قرارداد","اعتبار","loans-contracts"],[14,"اقساط","اعتبار","installments"],[15,"وصول مطالبات","اعتبار","collections"],[16,"فروش و تجارت","تجارت","sales-trade"],[17,"Marketplace","تجارت","marketplace"],[18,"تحویل و لجستیک","تجارت","delivery-logistics"],[19,"کمیسیون","تجارت","commission"],[20,"تسویه","تجارت","settlement"],[21,"پرداخت","تجارت","payments"],[22,"مرکز ارائه‌دهندگان و یکپارچه‌سازی","تجارت","providers-integrations"],[23,"مرکز ارتباطات","ارتباطات","communications"],[24,"موتور رویداد و اعلان","ارتباطات","events-notifications"],[25,"CRM","ارتباطات","crm"],[26,"مرکز تماس","ارتباطات","contact-center"],[27,"تیکت و پشتیبانی","ارتباطات","tickets-support"],[28,"اسناد و اتوماسیون اداری","اسناد و محتوا","documents-office"],[29,"زونکن دیجیتال","اسناد و محتوا","digital-binder"],[30,"مدیریت وب‌سایت و دامنه","اسناد و محتوا","web-domain"],[31,"صفحه‌ساز","اسناد و محتوا","page-builder"],[32,"فرم‌ساز","اسناد و محتوا","form-builder"],[33,"مدیریت محتوا","اسناد و محتوا","content-management"],[34,"هوش نگار","اسناد و محتوا","negar-ai"],[35,"منابع انسانی","سازمان و عملیات","human-resources"],[36,"پروژه و عملیات","سازمان و عملیات","projects-operations"],[37,"گزارش و تحلیل","سازمان و عملیات","reports-analytics"],[38,"مرکز فرماندهی","مرکز فرمان","command-center"],[39,"مانیتورینگ و رخدادها","مرکز فرمان","monitoring-events"],[40,"حسابرسی و کنترل","مرکز فرمان","audit-control"],[41,"مستندات","مرکز فرمان","documentation"],[42,"API و یکپارچه‌سازی","مرکز فرمان","api-integration"],[43,"زیرساخت و داده","مرکز فرمان","infrastructure-data"],[44,"اپلیکیشن موبایل","مرکز فرمان","mobile-app"],[45,"کیفیت و چرخه توسعه","مرکز فرمان","quality-lifecycle"]];
+const groups:Group[]=[["هسته مرکزی","01–07","حاکمیت، هویت، داده، مشتری و قواعد سازمانی"],["مالی","08–10","حسابداری، خزانه و دفتر تراکنش"],["اعتبار","11–15","تسهیلات، اعتبارسنجی، قرارداد، اقساط و وصول"],["تجارت","16–22","فروش، بازار، تحویل، کمیسیون، تسویه و پرداخت"],["ارتباطات","23–27","ارتباطات، اعلان، CRM، تماس و پشتیبانی"],["اسناد و محتوا","28–34","اسناد، زونکن، وب، صفحه‌ساز، فرم‌ساز و محتوا"],["سازمان و عملیات","35–37","منابع انسانی، پروژه و گزارش"],["مرکز فرمان","38–45","فرماندهی، مانیتورینگ، حسابرسی، API و زیرساخت"]];
 
 export default function HomePage(){
- const [core,setCore]=useState("همه");
+ const [open,setOpen]=useState<string>("هسته مرکزی");
  const [query,setQuery]=useState("");
- const [selected,setSelected]=useState<Module|null>(null);
- const filtered=useMemo(()=>modules.filter(m=>(core==="همه"||m.core===core)&&m.title.toLowerCase().includes(query.toLowerCase())),[core,query]);
- return <main className="shell">
-  <aside className="sidebar">
-   <div className="brand"><span className="brand-mark">ن</span><div><strong>نگار آذین فدک</strong><small>مرکز مدیریت</small></div></div>
-   <nav aria-label="منوی مرکزی سازمان">
-    <div className="nav-item active"><span className="nav-icon">⌂</span><span>داشبورد مرکزی</span></div>
-    <a className="nav-item" href="/operations/"><span className="nav-icon">27</span><span>مرکز عملیات ۱۹ تا ۲۷</span></a>
-    <a className="nav-item" href="/organization-center/"><span className="nav-icon">37</span><span>سازمان و عملیات ۳۵ تا ۳۷</span></a>
-    <a className="nav-item" href="/command-center/"><span className="nav-icon">45</span><span>مرکز فرمان ۳۸ تا ۴۵</span></a>
-    <div className="nav-item"><span className="nav-icon">45</span><span>هسته‌های کسب‌وکار</span></div>
-    <div className="nav-item"><span className="nav-icon">▦</span><span>صفحه‌ساز و فرم‌ساز</span></div>
-    <div className="nav-item"><span className="nav-icon">⚙</span><span>مدیریت دسترسی</span></div>
+ const filtered=useMemo(()=>modules.filter(m=>(m.title+" "+m.code+" "+m.core).toLowerCase().includes(query.toLowerCase())),[query]);
+ const count=(core:string)=>modules.filter(m=>m.core===core).length;
+ return <main className="enterprise-shell" dir="rtl">
+  <aside className="enterprise-sidebar">
+   <div className="enterprise-brand"><div className="brand-symbol">ن</div><div><strong>نگار آذین فدک</strong><span>مرکز مدیریت سازمان</span></div></div>
+   <div className="sidebar-section-title">منوی مرکزی سازمان</div>
+   <nav className="tree-nav">
+    <a className="tree-root active" href="/"><span className="tree-icon">⌂</span><span>داشبورد مرکزی</span></a>
+    {groups.map(g=><div className="tree-group" key={g.name}>
+      <button className="tree-group-head" onClick={()=>setOpen(open===g.name?"":g.name)}>
+       <span className="tree-chevron">{open===g.name?"⌄":"‹"}</span><span className="tree-index">{g.range}</span><span className="tree-group-name">{g.name}</span><b>{count(g.name)}</b>
+      </button>
+      {open===g.name&&<div className="tree-children">{modules.filter(m=>m.core===g.name).map(m=><a key={m.code} href={"/modules/?code="+encodeURIComponent(m.code)}><span>{String(m.id).padStart(2,"0")}</span><em>{m.title}</em></a>)}</div>}
+    </div>)}
    </nav>
+   <div className="sidebar-footer"><a href="/admin/">مدیریت دسترسی و تنظیمات</a><small>هسته مرکزی · ۴۵ ماژول · ۸ هسته</small></div>
   </aside>
-  <section className="content">
-   <header className="topbar"><div><span className="eyebrow">منوی مرکزی سازمان</span><h1>مرکز مدیریت نگار آذین فدک</h1></div><div className="status">معماری ۴۵ ماژول</div></header>
-   <section className="hero">
-    <span className="eyebrow">پلتفرم بیزینس نگار آذین فدک ایران</span>
-    <h2>هسته مرکزی کسب‌وکار</h2>
-    <p>نمایش زنده ساختار ماژولار سامانه. هر ماژول در مسیر توسعه به سرویس واقعی، مجوز، مهاجرت پایگاه داده، آزمون و رابط کاربری متصل می‌شود.</p>
-    <div className="hero-stats"><span><b>45</b> ماژول</span><span><b>8</b> هسته اجرایی</span><span><b>PostgreSQL</b> پایگاه داده</span></div>
+
+  <section className="enterprise-main">
+   <header className="enterprise-topbar">
+    <div><span className="section-kicker">منوی مرکزی سازمان</span><h1>مرکز مدیریت نگار آذین فدک</h1></div>
+    <div className="top-actions"><span className="system-state"><i/>ساختار سامانه</span><a href="/admin/">مدیریت</a></div>
+   </header>
+
+   <section className="command-hero">
+    <div><span className="hero-kicker">پلتفرم بیزینس نگار آذین فدک ایران</span><h2>مرکز فرمان مدیریت کسب‌وکار</h2><p>دسترسی یکپارچه به هشت هسته اجرایی و ۴۵ ماژول عملیاتی، بر پایه ساختار مرکزی سازمان.</p></div>
+    <div className="hero-metrics"><div><b>۴۵</b><span>ماژول فعال معماری</span></div><div><b>۸</b><span>هسته اجرایی</span></div><div><b>۱۴</b><span>مهاجرت پایگاه داده</span></div></div>
    </section>
-   <section className="module-toolbar">
-    <input aria-label="جستجوی ماژول" placeholder="جستجو در ماژول‌ها..." value={query} onChange={e=>setQuery(e.target.value)}/>
-    <div className="tabs">{cores.map(c=><button key={c} className={core===c?"primary":""} onClick={()=>setCore(c)}>{c}</button>)}</div>
+
+   <section className="workspace-head"><div><span className="section-kicker">ساختار عملیاتی</span><h2>درخت هسته‌های کسب‌وکار</h2></div><label className="global-search">جستجو در ساختار<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="نام ماژول، کد یا هسته..." /></label></section>
+
+   <section className="core-board">
+    {groups.map(g=><article className="core-panel" key={g.name}>
+      <button className="core-panel-head" onClick={()=>setOpen(g.name)}><div><span>{g.range}</span><h3>{g.name}</h3><p>{g.description}</p></div><strong>{count(g.name)}</strong></button>
+      <div className="core-module-list">{filtered.filter(m=>m.core===g.name).map(m=><a key={m.code} href={"/modules/?code="+encodeURIComponent(m.code)}><span className="module-number">{String(m.id).padStart(2,"0")}</span><span><b>{m.title}</b><small>{m.code}</small></span><i>›</i></a>)}</div>
+    </article>)}
    </section>
-   <div className="module-grid">{filtered.map(m=><article className="module-card" key={m.id} onClick={()=>setSelected(m)} role="button" tabIndex={0} onKeyDown={e=>e.key==="Enter"&&setSelected(m)}><div className="module-head"><span className="module-id">{String(m.id).padStart(2,"0")}</span><span className="pill">{m.core}</span></div><h3>{m.title}</h3><small>{m.code}</small><div className="module-state">در معماری مرکزی</div></article>)}</div>
   </section>
-  {selected&&<div className="modal-backdrop" role="presentation" onClick={()=>setSelected(null)}><section className="modal-card" role="dialog" aria-modal="true" aria-label={selected.title} onClick={e=>e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">ماژول {String(selected.id).padStart(2,"0")}</span><h2>{selected.title}</h2></div><button onClick={()=>setSelected(null)} aria-label="بستن">×</button></div><div className="modal-meta"><span className="pill">{selected.core}</span><code>{selected.code}</code></div><p>این ماژول به رجیستری مرکزی، مجوز، API و چرخه اجرای واقعی سامانه متصل می‌شود.</p><div className="modal-actions"><a href={"/modules?code="+encodeURIComponent(selected.code)}>ورود به فضای ماژول</a><button onClick={()=>setSelected(null)}>بستن</button></div></section></div>}
  </main>;
 }
