@@ -14,6 +14,7 @@ import {domainCommandPlatformRouter} from "./domain-command-platform.js";
 import {domainMarketplaceRouter} from "./domain-marketplace.js";
 import {platformOperationsRouter} from "./platform-operations.js";
 import {sellerSurfaceRouter} from "./seller-surface.js";
+import {tenantContentRouter} from "./tenant-content.js";
 import {issueHumanCheck,verifyHumanCheck} from "./human-check.js";
 
 const app=express();
@@ -41,6 +42,7 @@ app.use("/api/domain",domainOrganizationRouter);
 app.use("/api/domain",domainCommandPlatformRouter);
 app.use(domainMarketplaceRouter);
 app.use(sellerSurfaceRouter);
+app.use("/api/content",tenantContentRouter);
 app.use(platformOperationsRouter);
 
 app.get("/api/auth/human-check",(_req,res)=>res.json(issueHumanCheck()));
