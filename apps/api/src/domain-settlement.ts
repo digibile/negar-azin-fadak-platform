@@ -4,6 +4,7 @@ import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
 import {postLedgerEntry} from "./ledger.js";
+import {emitBusinessEvent} from "./business-events.js";
 
 export const settlementRouter=Router();
 const s=(v:unknown,n=120)=>typeof v==="string"?v.trim().slice(0,n):"";
@@ -39,7 +40,9 @@ settlementRouter.post("/api/marketplace/settlements/generate",requireAuth,requir
    created.push(sr.rows[0]);
   }
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,after_data) values($1,$2,'settlement.generated','seller_settlement',$3)",[t.id,(req as any).user.id,JSON.stringify({count:created.length,periodStart:periodStart.toISOString(),periodEnd:periodEnd.toISOString()})]);
-  await client.query("commit");res.status(201).json({items:created,total:created.length});
+  await client.query("commit");
+  for(const item of created)await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.generated",subjectType:"seller_settlement",subjectId:item.id,userId:(req as any).user.id,input:{settlementId:item.id,sellerId:item.seller_id,netAmount:Number(item.net_amount)}});
+  res.status(201).json({items:created,total:created.length});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
@@ -51,7 +54,9 @@ settlementRouter.patch("/api/marketplace/settlements/:id/approve",requireAuth,re
   const r=await client.query("update seller_settlements set status='approved',updated_at=now() where id=$1 and tenant_id=$2 and status='pending' returning *",[req.params.id,t.id]);
   if(!r.rowCount){await client.query("rollback");return res.status(409).json({error:"تسویه در وضعیت قابل تأیید نیست"});}
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.approved','seller_settlement',$3,$4)",[t.id,(req as any).user.id,r.rows[0].id,JSON.stringify(r.rows[0])]);
-  await client.query("commit");res.json(r.rows[0]);
+  await client.query("commit");
+  await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.approved",subjectType:"seller_settlement",subjectId:r.rows[0].id,userId:(req as any).user.id,input:{settlementId:r.rows[0].id,netAmount:Number(r.rows[0].net_amount)}});
+  res.json(r.rows[0]);
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
@@ -71,7 +76,9 @@ settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,require
   const paidRef=s(req.body?.paymentRef,160)||null;
   const u=await client.query("update seller_settlements set status='paid',updated_at=now() where id=$1 and tenant_id=$2 and status='approved' returning *",[settlement.id,t.id]);
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.paid','seller_settlement',$3,$4)",[t.id,(req as any).user.id,settlement.id,JSON.stringify({settlement:u.rows[0],ledgerEntryId:entryId,paymentRef:paidRef})]);
-  await client.query("commit");res.json({settlement:u.rows[0],ledgerEntryId:entryId,paymentRef:paidRef});
+  await client.query("commit");
+  await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.paid",subjectType:"seller_settlement",subjectId:u.rows[0].id,userId:(req as any).user.id,input:{settlementId:u.rows[0].id,netAmount:Number(u.rows[0].net_amount),ledgerEntryId:entryId}});
+  res.json({settlement:u.rows[0],ledgerEntryId:entryId,paymentRef:paidRef});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
