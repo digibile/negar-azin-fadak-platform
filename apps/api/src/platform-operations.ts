@@ -87,7 +87,7 @@ platformOperationsRouter.post("/api/marketplace/cart/:id/checkout",requireAuth,r
    for(const item of g.items)await client.query("insert into marketplace_order_items(order_id,product_id,quantity,unit_price,line_total) values($1,$2,$3,$4,$5)",[o.rows[0].id,item.product_id,item.quantity,item.unit_price,Number(item.quantity)*Number(item.unit_price)]);
    created.push(o.rows[0]);
   }
-  await client.query("update cart_sessions set status='checked_out',updated_at=now() where id=$1",[req.params.id]);await client.query("commit");await audit(c,u,"commerce.checkout","cart",req.params.id,{orders:created.map(x=>x.id)});res.status(201).json({orders:created});
+  await client.query("update cart_sessions set status='checked_out',updated_at=now() where id=$1",[req.params.id]);await client.query("commit");await audit(c,u,"commerce.checkout","cart",String(req.params.id),{orders:created.map(x=>x.id)});res.status(201).json({orders:created});
  }catch(e){await client.query("rollback");throw e}finally{client.release()}
 }));
 const transitions:any={pending:["confirmed","cancelled"],confirmed:["paid","cancelled"],paid:["processing","refunded"],processing:["shipped","cancelled"],shipped:["delivered","returned"],delivered:["returned"],returned:["refunded"],cancelled:[],refunded:[]};
