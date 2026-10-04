@@ -95,7 +95,7 @@ platformOperationsRouter.patch("/api/marketplace/orders/:id/status",requireAuth,
  const u=(req as any).user as User,c=await ctx(req,u);if(!c)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const next=s(req.body?.status,30),r=await query("select * from marketplace_orders where id=$1 and tenant_id=$2",[req.params.id,c.id]);if(!r.rowCount)return res.status(404).json({error:"سفارش پیدا نشد"});
  const current=r.rows[0].status;if(!transitions[current]?.includes(next))return res.status(409).json({error:"تغییر وضعیت سفارش مجاز نیست",current,allowed:transitions[current]||[]});
- const out=await query("update marketplace_orders set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[next,req.params.id,c.id]);await audit(c,u,"order.status","marketplace_order",req.params.id,out.rows[0],r.rows[0]);res.json(out.rows[0]);
+ const out=await query("update marketplace_orders set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[next,req.params.id,c.id]);await audit(c,u,"order.status","marketplace_order",String(req.params.id),out.rows[0],r.rows[0]);res.json(out.rows[0]);
 }));
 platformOperationsRouter.get("/api/finance/ledger",requireAuth,requirePermission("ledger:view"),asyncHandler(async(req,res)=>{
  const c=await ctx(req,(req as any).user);if(!c)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
@@ -111,7 +111,7 @@ platformOperationsRouter.post("/api/finance/ledger/post-order/:id",requireAuth,r
   const e=await client.query("insert into ledger_entries(tenant_id,entry_no,source_type,source_id,description,created_by) values($1,$2,'marketplace_order',$3,$4,$5) returning *",[c.id,entryNo,order.id,"ثبت مالی سفارش "+order.order_no,u.id]);
   const total=Number(order.total_amount),commission=Number(order.commission_amount),payable=Number(order.seller_payable);
   await client.query("insert into ledger_lines(entry_id,account_id,debit,credit,description) values($1,$2,$3,0,'مطالبات مشتری'),($1,$4,0,$5,'درآمد فروش'),($1,$6,0,$7,'بستانکاری فروشنده'),($1,$8,0,$9,'کارمزد خدمات')",[e.rows[0].id,byCode.get("1100"),total,byCode.get("4100"),payable,byCode.get("2100"),commission,byCode.get("5100")]);
-  await client.query("commit");await audit(c,u,"ledger.post","ledger_entry",e.rows[0].id,e.rows[0]);res.status(201).json(e.rows[0]);
+  await client.query("commit");await audit(c,u,"ledger.post","ledger_entry",String(e.rows[0].id),e.rows[0]);res.status(201).json(e.rows[0]);
  }catch(e){await client.query("rollback");throw e}finally{client.release()}
 }));
 platformOperationsRouter.get("/api/platform/audit",requireAuth,requirePermission("audit:view"),asyncHandler(async(req,res)=>{
