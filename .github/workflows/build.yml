@@ -64,6 +64,8 @@ jobs:
             exit 1
           fi
 
+      - name: Platform integrity
+        run: pnpm verify:platform
       - name: Build
         run: pnpm build
 
