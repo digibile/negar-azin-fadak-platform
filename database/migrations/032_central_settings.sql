@@ -1,32 +1,18 @@
-create table if not exists central_settings(
- id uuid primary key default gen_random_uuid(),
- tenant_id uuid not null references tenants(id) on delete cascade,
- setting_key text not null,
- category text not null,
- title text not null,
- value jsonb not null default '{}'::jsonb,
- is_sensitive boolean not null default false,
- is_editable boolean not null default true,
- updated_by uuid references users(id) on delete set null,
- updated_at timestamptz not null default now(),
- unique(tenant_id,setting_key)
-);
-create index if not exists idx_central_settings_tenant_category on central_settings(tenant_id,category,setting_key);
+insert into role_permissions(role,permission) values
+('admin','settings:manage'),
+('manager','settings:manage')
+on conflict do nothing;
 
-insert into menu_items(title,path,sort_order,permission)
-select 'تنظیمات مرکزی','/modules/?code=central-settings',40,'settings:manage'
-where not exists (select 1 from menu_items where path='/modules/?code=central-settings');
+insert into menu_item_panels(menu_item_id,panel_code,is_shared,sort_order,is_visible)
+select id,'admin',true,40,true
+from menu_items where path='/modules/?code=central-settings'
+on conflict(menu_item_id,panel_code) do update set is_shared=true,sort_order=40,is_visible=true;
 
-create table if not exists central_setting_audit(
- id bigserial primary key,
- tenant_id uuid not null references tenants(id) on delete cascade,
- setting_id uuid references central_settings(id) on delete set null,
- user_id uuid references users(id) on delete set null,
- old_value jsonb,
- new_value jsonb,
- changed_at timestamptz not null default now()
-);
-create index if not exists idx_central_setting_audit_tenant on central_setting_audit(tenant_id,changed_at desc);
+insert into menu_item_panels(menu_item_id,panel_code,is_shared,sort_order,is_visible)
+select id,'admin',true,sort_order,true
+from menu_items
+where parent_id=(select id from menu_items where path='/modules/?code=central-settings' limit 1)
+on conflict(menu_item_id,panel_code) do update set is_shared=true,is_visible=true;
 
 insert into menu_items(title,path,sort_order,permission,parent_id)
 select v.title,v.path,v.sort_order,'settings:manage',m.id
@@ -43,3 +29,9 @@ from (values
 ) v(title,path,sort_order)
 cross join lateral (select id from menu_items where path='/modules/?code=central-settings' order by created_at desc limit 1) m
 where not exists(select 1 from menu_items x where x.path=v.path);
+
+insert into menu_item_panels(menu_item_id,panel_code,is_shared,sort_order,is_visible)
+select x.id,'admin',true,x.sort_order,true
+from menu_items x
+where x.parent_id=(select id from menu_items where path='/modules/?code=central-settings' limit 1)
+on conflict(menu_item_id,panel_code) do update set is_shared=true,is_visible=true,sort_order=excluded.sort_order;
