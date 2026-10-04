@@ -6,6 +6,8 @@ import {ensureAdmin,hashPassword,verifyPassword,issueSession,clearSession,requir
 import {asyncHandler,errorHandler,notFound} from "./http.js";
 import {loginSchema,userCreateSchema,formSchema,pageSchema,menuUpdateSchema} from "./validation.js";
 import {domainFinanceRouter} from "./domain-finance.js";
+import {dynamicMenuRouter} from "./dynamic-menu.js";
+import {accountingRouter} from "./accounting.js";
 import {domainCommerceRouter} from "./domain-commerce.js";
 import {domainCommunicationRouter} from "./domain-communication.js";
 import {domainDocumentsRouter} from "./domain-documents.js";
@@ -41,6 +43,8 @@ app.use(express.json({limit:"2mb"}));
 app.use((req,res,next)=>{if(["GET","HEAD","OPTIONS"].includes(req.method)||req.path==="/api/auth/login")return next();return requireCsrf(req,res,next);});
 
 app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.json({status:"ok",database:"ok"});}));
+app.use(dynamicMenuRouter);
+app.use(accountingRouter);
 app.use("/api/domain",domainFinanceRouter);
 app.use("/api/domain",domainCommerceRouter);
 app.use("/api/domain",domainCommunicationRouter);
