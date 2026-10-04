@@ -10,6 +10,7 @@ import {domainCommerceRouter} from "./domain-commerce.js";
 import {domainCommunicationRouter} from "./domain-communication.js";
 import {domainDocumentsRouter} from "./domain-documents.js";
 import {domainOrganizationRouter} from "./domain-organization.js";
+import {domainCommandPlatformRouter} from "./domain-command-platform.js";
 
 const app=express();
 
@@ -33,6 +34,7 @@ app.use("/api/domain",domainCommerceRouter);
 app.use("/api/domain",domainCommunicationRouter);
 app.use("/api/domain",domainDocumentsRouter);
 app.use("/api/domain",domainOrganizationRouter);
+app.use("/api/domain",domainCommandPlatformRouter);
 
 app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  const input=loginSchema.parse(req.body);
