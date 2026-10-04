@@ -4,6 +4,7 @@ import {useEffect,useMemo,useState} from "react";
 import AccountingWorkspace from "./AccountingWorkspace";
 import DashboardWorkspace from "./DashboardWorkspace";
 import OrganizationWorkspace from "./OrganizationWorkspace";
+import SecurityWorkspace from "./SecurityWorkspace";
 
 type Field={field_key:string;title:string;field_type:string;required:boolean;sort_order:number;options?:{options?:string[]}};
 type ModuleInfo={id:number;code:string;title:string};
@@ -89,6 +90,7 @@ export default function ModulesPage(){
  if(code==="command-center")return <DashboardWorkspace/>;
  if(code==="accounting-finance")return <AccountingWorkspace/>;
  if(code==="governance")return <OrganizationWorkspace/>;
+ if(code==="security")return <SecurityWorkspace/>;
  return <main className="module-runtime">
   <header className="page-head">
    <div><span className="eyebrow">هسته مرکزی کسب‌وکار</span><h1>{module?.title||"فضای عملیاتی ماژول"}</h1><p className="muted">کد ماژول: {code}</p></div>
