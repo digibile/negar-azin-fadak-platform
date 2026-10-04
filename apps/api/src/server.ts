@@ -13,6 +13,7 @@ import {domainOrganizationRouter} from "./domain-organization.js";
 import {domainCommandPlatformRouter} from "./domain-command-platform.js";
 import {domainMarketplaceRouter} from "./domain-marketplace.js";
 import {platformOperationsRouter} from "./platform-operations.js";
+import {sellerSurfaceRouter} from "./seller-surface.js";
 
 const app=express();
 
@@ -38,6 +39,7 @@ app.use("/api/domain",domainDocumentsRouter);
 app.use("/api/domain",domainOrganizationRouter);
 app.use("/api/domain",domainCommandPlatformRouter);
 app.use(domainMarketplaceRouter);
+app.use(sellerSurfaceRouter);
 app.use(platformOperationsRouter);
 
 app.post("/api/auth/login",asyncHandler(async(req,res)=>{
