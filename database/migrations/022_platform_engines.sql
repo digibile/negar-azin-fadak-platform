@@ -17,7 +17,7 @@ create table if not exists calendar_holidays(
  title text not null, recurring boolean not null default false, unique(calendar_id,holiday_date,title));
 create table if not exists sla_cases(
  id uuid primary key default gen_random_uuid(), tenant_id uuid not null references tenants(id) on delete cascade,
- policy_id uuid, subject_type text not null, subject_id uuid,
+ policy_id bigint, subject_type text not null, subject_id uuid,
  status text not null default 'open' check(status in ('open','paused','resolved','breached','cancelled')),
  opened_at timestamptz not null default now(), due_at timestamptz, resolved_at timestamptz,
  breached_at timestamptz, metadata jsonb not null default '{}'::jsonb, created_at timestamptz not null default now(),
