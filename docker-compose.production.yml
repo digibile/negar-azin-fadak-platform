@@ -32,6 +32,23 @@ services:
       postgres:
         condition: service_healthy
 
+  notification-worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    command: ["node","dist/notification-worker.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-platform}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-negara_fadak}
+      NOTIFICATION_WORKER_BATCH: ${NOTIFICATION_WORKER_BATCH:-25}
+      NOTIFICATION_WORKER_POLL_MS: ${NOTIFICATION_WORKER_POLL_MS:-3000}
+      NOTIFICATION_WORKER_MAX_ATTEMPTS: ${NOTIFICATION_WORKER_MAX_ATTEMPTS:-8}
+      NOTIFICATION_WORKER_LOCK_TTL_MS: ${NOTIFICATION_WORKER_LOCK_TTL_MS:-300000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   web:
     build:
       context: .
