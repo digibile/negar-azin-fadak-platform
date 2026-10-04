@@ -53,6 +53,16 @@ jobs:
 
       - name: Database migrations
         run: pnpm --filter @naf/api migrate
+\n      - name: Platform policy checks
+        run: |
+          test -f database/migrations/008_all_45_module_storage.sql
+          test -f database/migrations/009_activate_45_module_runtime.sql
+          test -f database/migrations/010_module_field_definitions.sql
+          test -f database/migrations/011_module_record_audit.sql
+          if git grep -n -i -E '\\bERP\\b' -- ':!pnpm-lock.yaml'; then
+            echo "Forbidden product terminology detected"
+            exit 1
+          fi
 
       - name: Build
         run: pnpm build
