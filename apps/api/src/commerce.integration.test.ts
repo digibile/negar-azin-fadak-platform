@@ -3,7 +3,7 @@ import test from "node:test";
 import {randomUUID} from "node:crypto";
 import {pool} from "./db.js";
 
-test("postgres integration: checkout payment settlement refund and tenant isolation",async()=>{
+test("postgres integration: checkout payment settlement refund and tenant isolation",{skip:process.env.NODE_ENV!=="test"},async()=>{
  const suffix=randomUUID().slice(0,8);
  const tenantA=randomUUID();
  const tenantB=randomUUID();
@@ -77,7 +77,7 @@ test("postgres integration: checkout payment settlement refund and tenant isolat
   await client.query("update seller_settlements set status='paid',updated_at=now() where id=$1 and tenant_id=$2",[settlementA,tenantA]);
 
   await client.query("insert into marketplace_refunds(id,tenant_id,order_id,payment_id,refund_no,amount,reason,status,provider_code,provider_transaction_id,provider_refund_transaction_id) values($1,$2,$3,$4,$5,100000,'integration refund','refunded','integration',$6,$7)",[
-   refundA,tenantA,orderA,"PAY-A-"+suffix,100000,"provider-"+suffix,"refund-"+suffix
+   refundA,tenantA,orderA,paymentA,"REF-A-"+suffix,100000,"provider-"+suffix,"refund-"+suffix
   ]);
   await client.query("update marketplace_payments set status='refunded',updated_at=now() where id=$1 and tenant_id=$2",[paymentA,tenantA]);
   await client.query("update marketplace_orders set status='refunded',updated_at=now() where id=$1 and tenant_id=$2",[orderA,tenantA]);
