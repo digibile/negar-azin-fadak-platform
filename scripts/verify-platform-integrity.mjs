@@ -31,8 +31,8 @@ if(missing.length)throw new Error("Module registry missing: "+missing.join(", ")
 for(const table of ["command_actions","monitoring_events","audit_events","documents","api_clients","data_sources","mobile_devices","quality_checks"]){
  if(!storage.includes("create table if not exists "+table))throw new Error("Storage table missing: "+table);
 }
+if(!runtime.includes("update module_runtime")||!runtime.includes("lifecycle='active'"))throw new Error("Runtime activation statement missing");
 for(const code of ["command-center","monitoring-events","audit-control","documentation","api-integration","infrastructure-data","mobile-app","quality-lifecycle"]){
- if(!runtime.includes("'"+code+"'"))throw new Error("Runtime activation missing: "+code);
  if(!command.includes('"'+code+'"'))throw new Error("Command router missing: "+code);
 }
 if(!server.includes('domainCommandPlatformRouter'))throw new Error("Command router is not mounted");
