@@ -21,7 +21,8 @@ export default function ModulesPage(){
  const [status,setStatus]=useState("active");
  const [q,setQ]=useState("");
  const [loading,setLoading]=useState(true);
- const [saving,setSaving]=useState(false);\n const [editingId,setEditingId]=useState<number|null>(null);
+ const [saving,setSaving]=useState(false);
+ const [editingId,setEditingId]=useState<number|null>(null);
  const [error,setError]=useState("");
 
  useEffect(()=>{const c=new URLSearchParams(window.location.search).get("code")||"governance";setCode(c)},[]);
@@ -56,7 +57,8 @@ export default function ModulesPage(){
    }catch(e){setError(e instanceof Error?e.message:"خطا در ثبت")}
    finally{setSaving(false)}
  };
- const edit=(r:RecordItem)=>{setEditingId(r.id);setTitle(r.title);setRecordType(r.record_type);setStatus(r.status);setForm(r.data||{});window.scrollTo({top:0,behavior:"smooth"})};\n const remove=async(id:number)=>{
+ const edit=(r:RecordItem)=>{setEditingId(r.id);setTitle(r.title);setRecordType(r.record_type);setStatus(r.status);setForm(r.data||{});window.scrollTo({top:0,behavior:"smooth"})};
+ const remove=async(id:number)=>{
    setError("");
    try{
     const r=await fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/records/"+id),{method:"DELETE",credentials:"include",headers:{"X-CSRF-Token":csrf()}});
