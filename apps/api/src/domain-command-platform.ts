@@ -56,7 +56,7 @@ router.post("/:code",requireAuth,async(req:any,res:any)=>{
   const body=req.body||{};
   for(const k of def.required)if(body[k]===undefined||body[k]===null||body[k]==="")return res.status(400).json({error:"فیلد الزامی: "+k});
   const cols=def.columns.filter(k=>body[k]!==undefined),vals=cols.map(k=>body[k]),p=vals.map((_,i)=>"$"+(i+1)).join(",");
-  const r=await query("insert into "+def[0]+" ("+cols.join(",")+") values ("+p+") returning *",vals);
+  const r=await query("insert into "+def.table+" ("+cols.join(",")+") values ("+p+") returning *",vals);
   res.status(201).json(r.rows[0]);
 });
 
@@ -67,7 +67,7 @@ router.patch("/:code/:id",requireAuth,async(req:any,res:any)=>{
   if(!m)return res.status(404).json({error:"ماژول فعال نیست"});
   if(!(await allowed(req.user,m.id,"write")))return res.status(403).json({error:"دسترسی ویرایش مجاز نیست"});
   if(req.params.code==="audit-control")return res.status(405).json({error:"ثبت تاریخچه حسابرسی فقط از مسیرهای ثبت‌شده سیستم انجام می‌شود"});
-  const body=req.body||{},cols=def[1].filter(k=>body[k]!==undefined);
+  const body=req.body||{},cols=def.columns.filter(k=>body[k]!==undefined);
   if(!cols.length)return res.status(400).json({error:"فیلدی برای ویرایش ارسال نشده است"});
   const vals=cols.map(k=>body[k]); vals.push(req.params.id);
   const sets=cols.map((k,i)=>k+"=$"+(i+1)).join(",");
