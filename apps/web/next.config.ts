@@ -6,17 +6,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: "standalone",
   images: { unoptimized: true },
-  trailingSlash: true,
+  trailingSlash: false,
   async rewrites() {
     return [
-      {
-        source: "/api/:path*",
-        destination: apiInternalUrl + "/api/:path*"
-      },
-      {
-        source: "/health",
-        destination: apiInternalUrl + "/health"
-      }
+      { source: "/api/:path*", destination: apiInternalUrl + "/api/:path*" },
+      { source: "/health", destination: apiInternalUrl + "/health" }
     ];
   }
 };
