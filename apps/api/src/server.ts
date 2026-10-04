@@ -7,6 +7,15 @@ import {asyncHandler,errorHandler,notFound} from "./http.js";
 import {loginSchema,userCreateSchema,formSchema,pageSchema,menuUpdateSchema} from "./validation.js";
 
 const app=express();
+
+const requireModulePermission=async(user:any,moduleId:number,action:"read"|"write"|"delete")=>{
+ if(user.role==="admin") return true;
+ const p=await query(
+  "select 1 from role_permissions where role=$1 and permission=$2",
+  [user.role,"modules:"+moduleId+":"+action]
+ );
+ return Boolean(p.rowCount);
+};
 const allowedOrigins=(process.env.CORS_ORIGIN||"http://localhost:3000").split(",").map(x=>x.trim()).filter(Boolean);
 app.disable("x-powered-by");
 app.use(cors({origin:(origin,callback)=>{if(!origin||allowedOrigins.includes(origin))return callback(null,true);callback(new Error("مبدأ درخواست مجاز نیست"))},credentials:true}));
@@ -106,10 +115,8 @@ app.post("/api/platform/modules/:code/records",requireAuth,asyncHandler(async(re
  const user=(req as any).user;
  const m=await query("select id from platform_modules where code=$1 and is_active=true",[req.params.code]);
  if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
- if(user.role!=="admin"){
-  const p=await query("select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=$2",[user.role,m.rows[0].id]);
-  if(!p.rowCount)return res.status(403).json({error:"دسترسی به ماژول مجاز نیست"});
- }
+ if(!(await requireModulePermission(user,m.rows[0].id,"write")))
+  return res.status(403).json({error:"دسترسی ثبت و ویرایش مجاز نیست"});
  const {recordType,title,status="active",data={}}=req.body||{};
  if(typeof recordType!=="string"||typeof title!=="string"||!data||typeof data!=="object"||Array.isArray(data))return res.status(400).json({error:"ساختار رکورد نامعتبر است"});
  const r=await query("insert into module_records(module_id,record_type,title,status,data,created_by) values($1,$2,$3,$4,$5,$6) returning *",[m.rows[0].id,recordType,title,status,data,user.id]);
@@ -120,10 +127,8 @@ app.patch("/api/platform/modules/:code/records/:id",requireAuth,asyncHandler(asy
  const user=(req as any).user;
  const m=await query("select id from platform_modules where code=$1 and is_active=true",[req.params.code]);
  if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
- if(user.role!=="admin"){
-  const p=await query("select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=$2",[user.role,m.rows[0].id]);
-  if(!p.rowCount)return res.status(403).json({error:"دسترسی به ماژول مجاز نیست"});
- }
+ if(!(await requireModulePermission(user,m.rows[0].id,"write")))
+  return res.status(403).json({error:"دسترسی ویرایش مجاز نیست"});
  const {title,status,data}=req.body||{};
  const r=await query("update module_records set title=coalesce($1,title),status=coalesce($2,status),data=coalesce($3,data),updated_at=now() where id=$4 and module_id=$5 returning *",[title,status,data,req.params.id,m.rows[0].id]);
  if(!r.rowCount)return res.status(404).json({error:"رکورد پیدا نشد"});
@@ -134,10 +139,8 @@ app.delete("/api/platform/modules/:code/records/:id",requireAuth,asyncHandler(as
  const user=(req as any).user;
  const m=await query("select id from platform_modules where code=$1 and is_active=true",[req.params.code]);
  if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
- if(user.role!=="admin"){
-  const p=await query("select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=$2",[user.role,m.rows[0].id]);
-  if(!p.rowCount)return res.status(403).json({error:"دسترسی به ماژول مجاز نیست"});
- }
+ if(!(await requireModulePermission(user,m.rows[0].id,"delete")))
+  return res.status(403).json({error:"دسترسی حذف مجاز نیست"});
  const r=await query("delete from module_records where id=$1 and module_id=$2 returning id",[req.params.id,m.rows[0].id]);
  if(!r.rowCount)return res.status(404).json({error:"رکورد پیدا نشد"});
  res.status(204).end();
