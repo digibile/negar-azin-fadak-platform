@@ -26,6 +26,17 @@ app.post("/api/auth/login",asyncHandler(async(req,res)=>{
 
 app.get("/api/auth/me",requireAuth,(req,res)=>res.json({user:(req as any).user}));
 app.post("/api/auth/logout",requireAuth,(req,res)=>{clearSession(res);res.status(204).end();});
+
+// Platform module catalog
+app.get("/api/platform/modules",requireAuth,asyncHandler(async(req,res)=>{
+ const user=(req as any).user;
+ const r=await query("select id,code,title,core,parent_id,sort_order,is_active from platform_modules where is_active=true order by sort_order,id");
+ if(user.role==="admin") return res.json(r.rows);
+ const permissions=await query("select permission from role_permissions where role=$1",[user.role]);
+ const allowed=new Set(permissions.rows.map((x:any)=>x.permission));
+ res.json(r.rows.filter((x:any)=>!x.permission||allowed.has(x.permission)));
+}));
+
 app.get("/api/dashboard/menu-tree",requireAuth,asyncHandler(async(req,res)=>{
  const user=(req as any).user;
  const r=await query("select id,parent_id,title,path,icon,sort_order,permission from menu_items where is_active=true order by sort_order,id");
