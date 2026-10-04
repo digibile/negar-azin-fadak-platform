@@ -11,6 +11,7 @@ import {domainCommunicationRouter} from "./domain-communication.js";
 import {domainDocumentsRouter} from "./domain-documents.js";
 import {domainOrganizationRouter} from "./domain-organization.js";
 import {domainCommandPlatformRouter} from "./domain-command-platform.js";
+import {domainMarketplaceRouter} from "./domain-marketplace.js";
 
 const app=express();
 
@@ -35,6 +36,7 @@ app.use("/api/domain",domainCommunicationRouter);
 app.use("/api/domain",domainDocumentsRouter);
 app.use("/api/domain",domainOrganizationRouter);
 app.use("/api/domain",domainCommandPlatformRouter);
+app.use(domainMarketplaceRouter);
 
 app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  const input=loginSchema.parse(req.body);
