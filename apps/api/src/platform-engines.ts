@@ -92,4 +92,29 @@ platformEnginesRouter.get("/api/platform/audit",requireAuth,requirePermission("a
  if(q){params.push("%"+q+"%");where.push("(action ilike $"+params.length+" or entity_type ilike $"+params.length+" or request_id ilike $"+params.length+")")}
  params.push(limit);res.json((await query("select * from platform_audit_events where "+where.join(" and ")+" order by created_at desc limit $"+params.length,params)).rows);
 }));
-export async function sweepSlaCases(){await query("update sla_cases set status='breached',breached_at=coalesce(breached_at,now()),updated_at=now() where status='open' and due_at is not null and due_at<now()");}
+export async function sweepSlaCases(){
+ const breached=await query(
+  `update sla_cases
+   set status='breached',breached_at=coalesce(breached_at,now()),updated_at=now()
+   where status='open' and due_at is not null and due_at<now()
+   returning *`
+ );
+ for(const sla of breached.rows){
+  const meta=sla.metadata&&typeof sla.metadata==="object"?sla.metadata:{};
+  const title="نقض SLA";
+  const body=`موعد SLA برای ${sla.subject_type}${sla.subject_id?" ("+sla.subject_id+")":""} سپری شده است.`;
+  const n=await query(
+   "insert into platform_notifications(tenant_id,user_id,channel,title,body) values($1,$2,'in_app',$3,$4) returning id",
+   [sla.tenant_id,meta.userId||null,title,body]
+  );
+  await query(
+   "insert into notification_outbox(tenant_id,notification_id,channel,destination,payload) values($1,$2,'in_app',null,$3)",
+   [sla.tenant_id,n.rows[0].id,JSON.stringify({type:"sla.breached",slaId:sla.id,subjectType:sla.subject_type,subjectId:sla.subject_id})]
+  );
+  await query(
+   "insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'sla.breached','sla_case',$3,$4)",
+   [sla.tenant_id,meta.userId||null,sla.id,JSON.stringify({status:"breached",dueAt:sla.due_at})]
+  );
+ }
+ return breached.rowCount;
+}
