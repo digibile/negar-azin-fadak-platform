@@ -2,16 +2,17 @@ import {Router} from "express";
 import {query} from "./db.js";
 import {requireAuth} from "./auth.js";
 
-const modules={
-  "command-center":["command_actions",["command_no","action_type","payload"],["command_no","action_type"]],
-  "monitoring-events":["monitoring_events",["event_type","severity","message","occurred_at"],["event_type","severity","message"]],
-  "audit-control":["audit_events",["event_type","actor_ref","entity_type","entity_id","payload"],["event_type","actor_ref","entity_type"]],
-  "documentation":["documents",["document_no","title","content"],["document_no","title"]],
-  "api-integration":["api_clients",["client_id","name","scopes"],["client_id","name"]],
-  "infrastructure-data":["data_sources",["code","name","source_type","config"],["code","name","source_type"]],
-  "mobile-app":["mobile_devices",["device_id","owner_ref","platform"],["device_id","platform"]],
-  "quality-lifecycle":["quality_checks",["check_no","title","score"],["check_no","title"]]
-} as const;
+type ModuleDefinition={table:string;columns:string[];required:string[]};
+const modules:Record<string,ModuleDefinition>={
+  "command-center":{table:"command_actions",columns:["command_no","action_type","payload"],required:["command_no","action_type"]},
+  "monitoring-events":{table:"monitoring_events",columns:["event_type","severity","message","occurred_at"],required:["event_type","severity","message"]},
+  "audit-control":{table:"audit_events",columns:["event_type","actor_ref","entity_type","entity_id","payload"],required:["event_type","actor_ref","entity_type"]},
+  "documentation":{table:"documents",columns:["document_no","title","content"],required:["document_no","title"]},
+  "api-integration":{table:"api_clients",columns:["client_id","name","scopes"],required:["client_id","name"]},
+  "infrastructure-data":{table:"data_sources",columns:["code","name","source_type","config"],required:["code","name","source_type"]},
+  "mobile-app":{table:"mobile_devices",columns:["device_id","owner_ref","platform"],required:["device_id","platform"]},
+  "quality-lifecycle":{table:"quality_checks",columns:["check_no","title","score"],required:["check_no","title"]}
+};
 
 const router=Router();
 
@@ -35,7 +36,7 @@ router.get("/:code",requireAuth,async(req:any,res:any)=>{
   const m=await moduleFor(req.params.code);
   if(!m)return res.status(404).json({error:"ماژول فعال نیست"});
   if(!(await allowed(req.user,m.id,"read")))return res.status(403).json({error:"دسترسی مشاهده مجاز نیست"});
-  const r=await query("select * from "+def[0]+" order by updated_at desc");
+  const r=await query("select * from "+def.table+" order by updated_at desc");
   res.json({module:m,items:r.rows});
 });
 
@@ -46,8 +47,8 @@ router.post("/:code",requireAuth,async(req:any,res:any)=>{
   if(!m)return res.status(404).json({error:"ماژول فعال نیست"});
   if(!(await allowed(req.user,m.id,"write")))return res.status(403).json({error:"دسترسی ثبت مجاز نیست"});
   const body=req.body||{};
-  for(const k of def[2])if(body[k]===undefined||body[k]===null||body[k]==="")return res.status(400).json({error:"فیلد الزامی: "+k});
-  const cols=def[1].filter(k=>body[k]!==undefined),vals=cols.map(k=>body[k]),p=vals.map((_,i)=>"$"+(i+1)).join(",");
+  for(const k of def.required)if(body[k]===undefined||body[k]===null||body[k]==="")return res.status(400).json({error:"فیلد الزامی: "+k});
+  const cols=def.columns.filter(k=>body[k]!==undefined),vals=cols.map(k=>body[k]),p=vals.map((_,i)=>"$"+(i+1)).join(",");
   const r=await query("insert into "+def[0]+" ("+cols.join(",")+") values ("+p+") returning *",vals);
   res.status(201).json(r.rows[0]);
 });
