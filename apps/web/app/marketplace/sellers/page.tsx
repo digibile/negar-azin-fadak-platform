@@ -1,0 +1,8 @@
+"use client";
+import {useEffect,useState} from "react";
+import {api} from "../../../lib/api";
+export default function SellersPage(){const [items,setItems]=useState<any[]>([]),[legal,setLegal]=useState(""),[display,setDisplay]=useState(""),[rate,setRate]=useState("0"),[error,setError]=useState("");
+ async function load(){try{const r:any=await api("/api/marketplace/sellers");setItems(r.items||[])}catch(e){setError(e instanceof Error?e.message:"خطا")}}
+ useEffect(()=>{load()},[]);
+ async function create(){setError("");try{await api("/api/marketplace/sellers",{method:"POST",body:JSON.stringify({legalName:legal,displayName:display,commissionRate:Number(rate)})});setLegal("");setDisplay("");await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}}
+ return <main className="enterprise-main" dir="rtl"><header className="platform-header"><div><span className="section-kicker">مرکز فروشندگان</span><h1>فروشندگان</h1><p>مدیریت واقعی فروشندگان در محدوده سازمانی</p></div><a href="/platform">مرکز عملیات</a></header><section className="platform-panel"><div className="platform-form"><input value={legal} onChange={e=>setLegal(e.target.value)} placeholder="نام حقوقی"/><input value={display} onChange={e=>setDisplay(e.target.value)} placeholder="نام نمایشی"/><input value={rate} onChange={e=>setRate(e.target.value)} type="number" min="0" max="100" placeholder="درصد کارمزد"/><button onClick={create}>ثبت فروشنده</button></div>{error&&<p className="enterprise-loading error">{error}</p>}{items.map(x=><div className="platform-row" key={x.id}><b>{x.display_name}</b><span>{x.legal_name}</span><small>{x.status} · {x.commission_rate}%</small></div>)}</section></main>}
