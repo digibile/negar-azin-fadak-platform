@@ -2,8 +2,6 @@ name: Build Platform
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 on:
   push:
@@ -76,30 +74,9 @@ jobs:
       - name: Platform integrity
         run: pnpm verify:platform
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
       - name: Build
-        env:
-          GITHUB_PAGES: "true"
-          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.PLATFORM_API_BASE_URL }}
         run: pnpm build
 
       - name: Test
         run: pnpm test
 
-      - name: Upload web preview artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: apps/web/out
-
-  deploy:
-    needs: verify
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
