@@ -1,5 +1,13 @@
 import {NextResponse} from "next/server";
 
+function publicOrigin(request:Request){
+ const forwardedHost=request.headers.get("x-forwarded-host");
+ const forwardedProto=request.headers.get("x-forwarded-proto");
+ const host=forwardedHost||request.headers.get("host")||"localhost:3000";
+ const proto=forwardedProto||"http";
+ return `${proto}://${host}`;
+}
+
 export async function POST(request:Request){
  const form=await request.formData();
  const base=process.env.API_INTERNAL_URL||"http://api:4000";
@@ -9,12 +17,13 @@ export async function POST(request:Request){
   humanCheck:String(form.get("humanCheck")||""),
   humanAnswer:String(form.get("humanAnswer")||"")
  }),cache:"no-store"});
+ const origin=publicOrigin(request);
  if(!upstream.ok){
   const data=await upstream.json().catch(()=>({error:"ورود ناموفق بود"}));
-  const url=new URL("/login",request.url);url.searchParams.set("error",String(data.error||"ورود ناموفق بود"));
+  const url=new URL("/login",origin);url.searchParams.set("error",String(data.error||"ورود ناموفق بود"));
   return NextResponse.redirect(url,303);
  }
- const response=NextResponse.redirect(new URL("/admin",request.url),303);
+ const response=NextResponse.redirect(new URL("/admin",origin),303);
  const cookies=upstream.headers.getSetCookie?.()||[];
  for(const cookie of cookies)response.headers.append("set-cookie",cookie);
  return response;
