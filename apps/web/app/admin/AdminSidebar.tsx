@@ -4,11 +4,10 @@ import Link from "next/link";
 import {useEffect,useMemo,useState} from "react";
 import {usePathname} from "next/navigation";
 import {api} from "../../lib/api";
-import {MASTER_MENU} from "./master-menu";
-import type {MasterMenuItem} from "./master-menu";
 import styles from "./AdminSidebar.module.css";
 
 type ModuleItem={id:number;code:string;title:string;core:string;route?:string|null;is_active?:boolean};
+type DynamicMenuItem={id:string;menu_key:string|null;parent_id:string|null;title:string;path:string;permission:string|null;children:string[];sort_order:number;panel_sort_order:number;is_shared:boolean};
 
 function SearchIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m16 16 4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
 function ChevronIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -17,12 +16,15 @@ function HomeIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="
 export default function AdminSidebar(){
  const pathname=usePathname();
  const [modules,setModules]=useState<ModuleItem[]>([]);
+ const [menuItems,setMenuItems]=useState<DynamicMenuItem[]>([]);
  const [query,setQuery]=useState("");
  const [error,setError]=useState("");
 
  useEffect(()=>{let alive=true;
-  api<{items:ModuleItem[]}>("/api/platform/modules")
-   .then(x=>{if(alive)setModules(x.items||[])})
+  Promise.all([
+   api<{items:ModuleItem[]}>("/api/platform/modules"),
+   api<{items:DynamicMenuItem[]}>("/api/dashboard/menu-tree?panel=admin")
+  ]).then(([mods,menus])=>{if(alive){setModules(mods.items||[]);setMenuItems(menus.items||[])}})
    .catch(e=>{if(alive)setError(e instanceof Error?e.message:"خطا در دریافت ساختار سامانه")});
   return()=>{alive=false};
  },[]);
@@ -30,19 +32,19 @@ export default function AdminSidebar(){
  const visible=useMemo(()=>new Map(modules.map(m=>[m.code,m])),[modules]);
  const filtered=useMemo(()=>{
   const q=query.trim().toLocaleLowerCase("fa-IR");
-  if(!q)return MASTER_MENU;
-  return MASTER_MENU.filter(item=>
-   (item.number+" "+item.title+" "+item.children.join(" ")).toLocaleLowerCase("fa-IR").includes(q)
+  if(!q)return menuItems;
+  return menuItems.filter(item=>
+   (item.title+" "+(item.children||[]).join(" ")).toLocaleLowerCase("fa-IR").includes(q)
   );
- },[query]);
+ },[query,menuItems]);
 
- const moduleUrl=(item:MasterMenuItem)=>{
-  const code=item.moduleCode;
-  return code&&visible.has(code)?"/modules/?code="+encodeURIComponent(code):null;
+ const moduleUrl=(item:DynamicMenuItem)=>{
+  if(item.path&&item.path!=="#")return item.path;
+  return null;
  };
- const active=(item:MasterMenuItem)=>{
+ const active=(item:DynamicMenuItem)=>{
   const url=moduleUrl(item);
-  return Boolean(url&&pathname==="/modules");
+  return Boolean(url&&pathname===url.split("?")[0]);
  };
 
  return <aside className={styles["enterprise-sidebar"]} aria-label="منوی مرکزی سازمان">
@@ -68,7 +70,7 @@ export default function AdminSidebar(){
 
   <div className={styles["sidebar-caption"]}>
    <span>کاتالوگ عملیاتی</span>
-   <b>{filtered.length}/۵۰</b>
+   <b>{filtered.length}/{menuItems.length||۵۰}</b>
   </div>
   {error&&<div className={styles["sidebar-menu-error"]}>{error}</div>}
 
@@ -76,10 +78,10 @@ export default function AdminSidebar(){
    {filtered.map(item=>{
     const url=moduleUrl(item);
     const isCurrent=active(item);
-    return <details className={styles["master-item"]+" "+(isCurrent?styles["is-current"]:"")} key={item.code} open={Boolean(query)||isCurrent}>
+    return <details className={styles["master-item"]+" "+(isCurrent?styles["is-current"]:"")} key={item.id} open={Boolean(query)||isCurrent}>
      <summary>
       <span className={styles["master-chevron"]}><ChevronIcon/></span>
-      <span className={styles["master-copy"]}><strong>{item.title}</strong><small>{item.children.length} قابلیت عملیاتی</small></span>
+      <span className={styles["master-copy"]}><strong>{item.title}</strong><small>{(item.children||[]).length} قابلیت عملیاتی{item.is_shared?" · مشترک":"")}</small></span>
       {url?<Link className={styles["master-open"]} href={url} onClick={e=>e.stopPropagation()} aria-label={"ورود به "+item.title}>↗</Link>:<span className={styles["master-open"]+" "+styles["disabled"]} aria-hidden="true">•</span>}
      </summary>
      <div className={styles["master-children"]}>
