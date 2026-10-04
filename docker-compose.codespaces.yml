@@ -1,9 +1,17 @@
 services:
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+
   api:
     ports:
       - "4000:4000"
     environment:
       CORS_ORIGIN: https://${CODESPACE_NAME}-3000.app.github.dev
+
+  web:
+    ports:
+      - "3000:3000"
 
   notification-worker:
     environment:
