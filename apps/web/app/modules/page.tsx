@@ -6,7 +6,7 @@ type Field={field_key:string;title:string;field_type:string;required:boolean;sor
 type ModuleInfo={id:number;code:string;title:string};
 type RecordItem={id:number;record_type:string;title:string;status:string;data:Record<string,unknown>;created_at:string;updated_at:string};
 
-const api=(process.env.NEXT_PUBLIC_API_BASE_URL||"").replace(/\/$/,"");
+const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
 const url=(path:string)=>api+path;
 const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
 
