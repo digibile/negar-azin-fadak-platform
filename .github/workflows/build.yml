@@ -64,8 +64,8 @@ jobs:
           test -f database/migrations/009_activate_45_module_runtime.sql
           test -f database/migrations/010_module_field_definitions.sql
           test -f database/migrations/011_module_record_audit.sql
-          forbidden=$(printf '\\x45\\x52\\x50')
-          pattern="\\b\${forbidden}\\b"
+          forbidden=$(printf '\x45\x52\x50')
+          pattern="(^|[^A-Za-z])${forbidden}([^A-Za-z]|$)"
           if git grep -n -i -E "$pattern" -- ':!pnpm-lock.yaml'; then
             echo "Forbidden product terminology detected"
             exit 1
