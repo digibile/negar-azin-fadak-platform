@@ -26,3 +26,16 @@ test("order lifecycle locks and scopes the order by tenant",()=>{
  assert.match(source,/update marketplace_orders set \$\{set\} where id=\$3 and tenant_id=\$4/);
  assert.match(source,/tenant_id=\$1.*marketplace_order/);
 });
+
+test("payment flow records paid timestamp and tenant guard",()=>{
+ const source=fs.readFileSync(new URL("./domain-checkout.ts",import.meta.url),"utf8");
+ assert.match(source,/set status='paid',paid_at=coalesce\(paid_at,now\(\)\),updated_at=now\(\) where id=\$1 and tenant_id=\$2/);
+ assert.match(source,/insert into marketplace_payments\(tenant_id,order_id/);
+});
+test("settlement flow is tenant scoped and ledger-backed",()=>{
+ const source=fs.readFileSync(new URL("./domain-settlement.ts",import.meta.url),"utf8");
+ assert.match(source,/where o\.tenant_id=\$1 and o\.status='paid'/);
+ assert.match(source,/where id=\$1 and tenant_id=\$2 for update/);
+ assert.match(source,/postLedgerEntry\(client/);
+ assert.match(source,/sourceType:"seller_settlement"/);
+});
