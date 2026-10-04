@@ -1,5 +1,5 @@
 import {Router} from "express";
-import {query} from "./db.js";
+import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
@@ -130,8 +130,8 @@ domainMarketplaceRouter.patch("/api/marketplace/orders/:id/status",requireAuth,r
  const allowed:Record<string,string[]>={
   pending:["confirmed","cancelled"],
   confirmed:["paid","cancelled"],
-  paid:["processing","cancelled","refunded"],
-  processing:["shipped","cancelled","returned"],
+  paid:["processing","refunded"],
+  processing:["shipped","returned"],
   shipped:["delivered","returned"],
   delivered:["returned","refunded"],
   returned:["refunded"],
