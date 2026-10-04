@@ -64,7 +64,7 @@ app.get("/api/dashboard/menu-tree",requireAuth,asyncHandler(async(req,res)=>{
 }));
 
 app.get("/api/admin/users",requireAuth,requirePermission("users:manage"),asyncHandler(async(_req,res)=>res.json((await query("select id,email,full_name,role,status,created_at from users order by created_at desc")).rows)));
-app.post("/api/admin/users",requireAuth,requirePermission,asyncHandler(async(req,res)=>{
+app.post("/api/admin/users",requireAuth,requirePermission("users:manage"),asyncHandler(async(req,res)=>{
  const input=userCreateSchema.parse(req.body),hash=await hashPassword(input.password);
  const r=await query("insert into users(email,password_hash,full_name,role) values($1,$2,$3,$4) returning id,email,full_name,role,status",[input.email.toLowerCase(),hash,input.fullName,input.role]);
  res.status(201).json(r.rows[0]);
