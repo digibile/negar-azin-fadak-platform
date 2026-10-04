@@ -1,4 +1,5 @@
 import type {Metadata} from "next";
+import PasswordField from "./PasswordField";
 
 export const dynamic="force-dynamic";
 export const metadata:Metadata={title:"ورود | مرکز مدیریت نگار آذین فدک",robots:{index:false,follow:false}};
@@ -19,7 +20,7 @@ export default async function Login({searchParams}:{searchParams:Promise<{error?
    {params.error&&<div className="error" role="alert">{params.error}</div>}
    <form method="post" action="/api/auth/login" className="auth-form">
     <label>ایمیل<input name="email" type="email" autoComplete="username" defaultValue="admin@localhost.test" required/></label>
-    <label>رمز عبور<input name="password" type="password" autoComplete="current-password" required/></label>
+    <label>رمز عبور<PasswordField/></label>
     <input type="hidden" name="humanCheck" value={check.challenge}/>
     <label>تأیید انسانی <span className="captcha-question">{check.question}</span><input name="humanAnswer" inputMode="numeric" pattern="[0-9]+" autoComplete="off" required/></label>
     <button className="primary wide" type="submit">ورود به سامانه</button>
