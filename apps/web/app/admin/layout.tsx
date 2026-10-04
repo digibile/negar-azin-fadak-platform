@@ -1,9 +1,26 @@
 "use client";
-import Link from "next/link";
+
 import {useRouter} from "next/navigation";
 import {api} from "../../lib/api";
+import AdminSidebar from "./AdminSidebar";
+
 export default function AdminLayout({children}:{children:React.ReactNode}){
  const router=useRouter();
- async function logout(){try{await api("/api/auth/logout",{method:"POST"})}finally{router.replace("/login");router.refresh()}}
- return <div className="admin-shell"><aside className="admin-nav"><strong>مرکز مدیریت نگار آذین فدک</strong><Link href="/admin">داشبورد</Link><Link href="/admin/editors">ویرایشگرهای سامانه</Link><button onClick={logout}>خروج</button></aside><main className="admin-main">{children}</main></div>
+ async function logout(){
+  try{await api("/api/auth/logout",{method:"POST"})}
+  finally{router.replace("/login");router.refresh()}
+ }
+ return <div className="enterprise-shell">
+  <AdminSidebar/>
+  <main className="enterprise-main">
+   <div className="enterprise-topbar">
+    <div><span className="section-kicker">پلتفرم بیزینس نگار آذین فدک ایران</span><h1>مرکز مدیریت</h1></div>
+    <div className="top-actions">
+     <span className="system-state"><i/> سرویس مرکزی متصل</span>
+     <button className="admin-link" type="button" onClick={logout}>خروج</button>
+    </div>
+   </div>
+   {children}
+  </main>
+ </div>
 }
