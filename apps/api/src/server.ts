@@ -8,6 +8,7 @@ import {loginSchema,userCreateSchema,formSchema,pageSchema,menuUpdateSchema} fro
 import {domainFinanceRouter} from "./domain-finance.js";
 import {dynamicMenuRouter} from "./dynamic-menu.js";
 import {accountingRouter} from "./accounting.js";
+import {dashboardOverviewRouter} from "./dashboard-overview.js";
 import {domainCommerceRouter} from "./domain-commerce.js";
 import {domainCommunicationRouter} from "./domain-communication.js";
 import {domainDocumentsRouter} from "./domain-documents.js";
@@ -45,6 +46,7 @@ app.use((req,res,next)=>{if(["GET","HEAD","OPTIONS"].includes(req.method)||req.p
 app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.json({status:"ok",database:"ok"});}));
 app.use(dynamicMenuRouter);
 app.use(accountingRouter);
+app.use(dashboardOverviewRouter);
 app.use("/api/domain",domainFinanceRouter);
 app.use("/api/domain",domainCommerceRouter);
 app.use("/api/domain",domainCommunicationRouter);
