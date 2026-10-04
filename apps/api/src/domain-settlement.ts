@@ -33,7 +33,7 @@ settlementRouter.post("/api/marketplace/settlements/generate",requireAuth,requir
    const gross=rows.reduce((a,o)=>a+Number(o.total_amount),0);
    const commission=rows.reduce((a,o)=>a+Number(o.commission_amount),0);
    const net=rows.reduce((a,o)=>a+Number(o.seller_payable),0);
-   const settlementNo=s(req.body?.settlementNo,100)||("SET-"+Date.now()+"-"+Math.random().toString(36).slice(2,7));
+   const settlementNo=s(req.body?.settlementNo,100)||("SET-"+Date.now()+"-"+sellerId.slice(0,8));
    const sr=await client.query("insert into seller_settlements(tenant_id,seller_id,settlement_no,period_start,period_end,gross_amount,commission_amount,adjustment_amount,net_amount,status) values($1,$2,$3,$4,$5,$6,$7,0,$8,'pending') returning *",[t.id,sellerId,settlementNo,periodStart.toISOString(),periodEnd.toISOString(),gross,commission,net]);
    for(const o of rows)await client.query("insert into seller_settlement_items(tenant_id,settlement_id,order_id,gross_amount,commission_amount,net_amount) values($1,$2,$3,$4,$5,$6)",[t.id,sr.rows[0].id,o.id,o.total_amount,o.commission_amount,o.seller_payable]);
    created.push(sr.rows[0]);
