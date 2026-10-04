@@ -1,14 +1,23 @@
 import type { NextConfig } from "next";
 
-const isPages = process.env.GITHUB_PAGES === "true";
+const apiInternalUrl = process.env.API_INTERNAL_URL || "http://api:4000";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: "export",
-  basePath: isPages ? "/negar-azin-fadak-platform" : "",
-  assetPrefix: isPages ? "/negar-azin-fadak-platform/" : undefined,
   images: { unoptimized: true },
-  trailingSlash: true
+  trailingSlash: true,
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: apiInternalUrl + "/api/:path*"
+      },
+      {
+        source: "/health",
+        destination: apiInternalUrl + "/health"
+      }
+    ];
+  }
 };
 
 export default nextConfig;
