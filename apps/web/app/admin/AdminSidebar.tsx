@@ -4,7 +4,8 @@ import Link from "next/link";
 import {useEffect,useMemo,useState} from "react";
 import {usePathname} from "next/navigation";
 import {api} from "../../lib/api";
-import {MASTER_MENU,MasterMenuItem} from "./master-menu";
+import {MASTER_MENU} from "./master-menu";
+import type {MasterMenuItem} from "./master-menu";
 
 type ModuleItem={id:number;code:string;title:string;core:string;route?:string|null;is_active?:boolean};
 
