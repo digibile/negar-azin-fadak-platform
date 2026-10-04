@@ -71,7 +71,7 @@ router.patch("/:code/:id",requireAuth,async(req:any,res:any)=>{
   if(!cols.length)return res.status(400).json({error:"فیلدی برای ویرایش ارسال نشده است"});
   const vals=cols.map(k=>body[k]); vals.push(req.params.id);
   const sets=cols.map((k,i)=>k+"=$"+(i+1)).join(",");
-  const r=await query("update "+def[0]+" set "+sets+",updated_at=now() where id=$"+vals.length+" returning *",vals);
+  const r=await query("update "+def.table+" set "+sets+",updated_at=now() where id=$"+vals.length+" returning *",vals);
   if(!r.rowCount)return res.status(404).json({error:"رکورد پیدا نشد"});
   res.json(r.rows[0]);
 });
@@ -83,7 +83,7 @@ router.delete("/:code/:id",requireAuth,async(req:any,res:any)=>{
   if(!m)return res.status(404).json({error:"ماژول فعال نیست"});
   if(!(await allowed(req.user,m.id,"delete")))return res.status(403).json({error:"دسترسی حذف مجاز نیست"});
   if(req.params.code==="audit-control")return res.status(405).json({error:"حذف تاریخچه حسابرسی مجاز نیست"});
-  const r=await query("delete from "+def[0]+" where id=$1 returning id",[req.params.id]);
+  const r=await query("delete from "+def.table+" where id=$1 returning id",[req.params.id]);
   if(!r.rowCount)return res.status(404).json({error:"رکورد پیدا نشد"});
   res.status(204).end();
 });
