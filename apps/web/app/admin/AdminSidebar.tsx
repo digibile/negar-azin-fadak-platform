@@ -70,7 +70,7 @@ const CORES=[
 
 export default function AdminSidebar(){
  const pathname=usePathname(),search=useSearchParams(),router=useRouter();
- const [modules,setModules]=useState<ModuleItem[]>([]),[error,setError]=useState(""),[open,setOpen]=useState<Record<string,boolean>>({});
+ const [modules,setModules]=useState<ModuleItem[]>([]),[error,setError]=useState(""),[open,setOpen]=useState<Record<string,boolean>>(()=>Object.fromEntries(CORES.map(([core])=>[core,true])));
  useEffect(()=>{let alive=true;api<{items:ModuleItem[]}>("/api/platform/modules").then(x=>{if(alive)setModules(x.items||[])}).catch(e=>{if(alive)setError(e instanceof Error?e.message:"خطا در دریافت منوی سامانه")});return()=>{alive=false}},[]);
  const visible=useMemo(()=>new Map(modules.map(m=>[m.code,m])),[modules]);
  const isModule=(code:string)=>pathname==="/modules"&&search.get("code")===code;
