@@ -21,7 +21,7 @@ export default function ModulesPage(){
  const [status,setStatus]=useState("active");
  const [q,setQ]=useState("");
  const [loading,setLoading]=useState(true);
- const [saving,setSaving]=useState(false);
+ const [saving,setSaving]=useState(false);\n const [editingId,setEditingId]=useState<number|null>(null);
  const [error,setError]=useState("");
 
  useEffect(()=>{const c=new URLSearchParams(window.location.search).get("code")||"governance";setCode(c)},[]);
@@ -46,17 +46,17 @@ export default function ModulesPage(){
    if(!title.trim())return setError("عنوان رکورد الزامی است.");
    setSaving(true);setError("");
    try{
-    const r=await fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/records"),{
+    const r=await fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/records"+(editingId?"/"+editingId:"")),{
       method:"POST",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},
       body:JSON.stringify({recordType,title,status,data:form})
     });
     const body=await r.json().catch(()=>null);
     if(!r.ok)throw new Error(body?.error||"ثبت رکورد انجام نشد");
-    setTitle("");setForm({});await load();
+    setTitle("");setForm({});setEditingId(null);await load();
    }catch(e){setError(e instanceof Error?e.message:"خطا در ثبت")}
    finally{setSaving(false)}
  };
- const remove=async(id:number)=>{
+ const edit=(r:RecordItem)=>{setEditingId(r.id);setTitle(r.title);setRecordType(r.record_type);setStatus(r.status);setForm(r.data||{});window.scrollTo({top:0,behavior:"smooth"})};\n const remove=async(id:number)=>{
    setError("");
    try{
     const r=await fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/records/"+id),{method:"DELETE",credentials:"include",headers:{"X-CSRF-Token":csrf()}});
@@ -82,16 +82,16 @@ export default function ModulesPage(){
   {error&&<div className="error runtime-error">{error}</div>}
   {loading?<div className="runtime-panel">در حال دریافت داده واقعی...</div>:<div className="runtime-layout">
    <section className="runtime-panel">
-    <div className="panel-title"><h2>ثبت رکورد</h2><span>{fields.length} فیلد</span></div>
+    <div className="panel-title"><h2>{editingId?"ویرایش رکورد":"ثبت رکورد"}</h2><span>{fields.length} فیلد</span></div>
     <div className="field-pair"><label>عنوان رکورد<input value={title} onChange={e=>setTitle(e.target.value)} /></label><label>نوع رکورد<input value={recordType} onChange={e=>setRecordType(e.target.value)} /></label></div>
     <label>وضعیت<select value={status} onChange={e=>setStatus(e.target.value)}><option value="active">فعال</option><option value="pending">در انتظار</option><option value="closed">بسته</option></select></label>
     <div className="runtime-fields">{fields.map(f=><label key={f.field_key}>{f.title}{f.required?" *":""}{fieldInput(f)}</label>)}</div>
-    <button className="primary wide" onClick={save} disabled={saving}>{saving?"در حال ثبت...":"ثبت در PostgreSQL"}</button>
+    <button className="primary wide" onClick={save} disabled={saving}>{saving?"در حال ذخیره...":editingId?"ذخیره تغییرات":"ثبت در PostgreSQL"}</button>
    </section>
    <section className="runtime-panel">
     <div className="panel-title"><h2>رکوردهای ثبت‌شده</h2><span>{items.length}</span></div>
     <div className="runtime-search"><input placeholder="جستجو در عنوان و داده..." value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&load()}/><button onClick={load}>جستجو</button></div>
-    <div className="record-list">{visible.map(r=><article className="record-row" key={r.id}><div><strong>{r.title}</strong><small>{r.record_type} · {r.status}</small><code>{JSON.stringify(r.data)}</code></div><button className="danger" onClick={()=>remove(r.id)}>حذف</button></article>)}{!visible.length&&<div className="empty">رکوردی ثبت نشده است.</div>}</div>
+    <div className="record-list">{visible.map(r=><article className="record-row" key={r.id}><div><strong>{r.title}</strong><small>{r.record_type} · {r.status}</small><code>{JSON.stringify(r.data)}</code></div><div className="record-actions"><button onClick={()=>edit(r)}>ویرایش</button><button className="danger" onClick={()=>remove(r.id)}>حذف</button></div></article>)}{!visible.length&&<div className="empty">رکوردی ثبت نشده است.</div>}</div>
    </section>
   </div>}
  </main>;
