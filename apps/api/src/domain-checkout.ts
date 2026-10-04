@@ -156,7 +156,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/cancel",requireAuth,requirePerm
    const items=await client.query("select * from marketplace_order_items where order_id=$1",[o.rows[0].id]);
    for(const item of items.rows)await client.query("update product_inventory set reserved_quantity=greatest(0,reserved_quantity-$1),updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[item.quantity,t.id,item.product_id,o.rows[0].store_id]);
   }
-  await client.query("update marketplace_orders set status='cancelled',updated_at=now() where id=$1",[o.rows[0].id]);
+  await client.query("update marketplace_orders set status='cancelled',cancelled_at=now(),updated_at=now(),cancellation_reason=$2 where id=$1 and tenant_id=$3",[o.rows[0].id,s(req.body?.reason,500)||null,t.id]);
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id) values($1,$2,'order.cancelled','marketplace_order',$3)",[t.id,(req as any).user.id,o.rows[0].id]);
   await client.query("commit");
   await emitBusinessEvent({tenantId:t.id,eventKey:"order.cancelled",subjectType:"marketplace_order",subjectId:o.rows[0].id,userId:(req as any).user.id,input:{orderId:o.rows[0].id}});
