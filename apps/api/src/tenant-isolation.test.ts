@@ -72,5 +72,5 @@ test("marketplace lifecycle has the database pool required for transactional tra
 
 test("legacy cancel update remains tenant scoped",()=>{
  const source=fs.readFileSync(new URL("./domain-checkout.ts",import.meta.url),"utf8");
- assert.match(source,/update marketplace_orders set status='cancelled',updated_at=now\(\) where id=\\\$1 and tenant_id=\\\$2/);
+ assert.match(source,/update marketplace_orders set status='cancelled',cancelled_at=now\(\),updated_at=now\(\),cancellation_reason=\$2 where id=\$1 and tenant_id=\$3/);
 });
