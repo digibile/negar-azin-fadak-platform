@@ -27,15 +27,16 @@ export default function Admin(){
  useEffect(()=>{let alive=true;
   (async()=>{
    try{
-    const [session,catalog,h]=await Promise.all([
+    const [session,catalog,h]=await Promise.allSettled([
      api<any>("/api/auth/me"),
      api<any>("/api/platform/modules"),
      fetch("/health",{credentials:"include"}).then(x=>x.ok?x.json():{})
     ]);
     if(!alive)return;
-    setMe(session.user);
-    setModules(catalog.items||[]);
-    setHealth(h);
+    if(session.status==="fulfilled")setMe(session.value.user);
+    if(catalog.status==="fulfilled")setModules(catalog.value.items||[]);
+    if(h.status==="fulfilled")setHealth(h.value);
+    if(session.status==="rejected" && catalog.status==="rejected")setError("نشست یا سرویس مرکزی در دسترس نیست.");
    }catch(e){
     if(alive)setError(e instanceof Error?e.message:"نشست معتبر نیست.");
    }finally{if(alive)setLoading(false)}
