@@ -47,7 +47,7 @@ export default function ModulesPage(){
    setSaving(true);setError("");
    try{
     const r=await fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/records"+(editingId?"/"+editingId:"")),{
-      method:"POST",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},
+      method:editingId?"PATCH":"POST",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},
       body:JSON.stringify({recordType,title,status,data:form})
     });
     const body=await r.json().catch(()=>null);
