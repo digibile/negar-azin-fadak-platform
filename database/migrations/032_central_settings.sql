@@ -27,3 +27,19 @@ create table if not exists central_setting_audit(
  changed_at timestamptz not null default now()
 );
 create index if not exists idx_central_setting_audit_tenant on central_setting_audit(tenant_id,changed_at desc);
+
+insert into menu_items(title,path,sort_order,permission,parent_id)
+select v.title,v.path,v.sort_order,'settings:manage',m.id
+from (values
+ ('تنظیمات عمومی','/modules/?code=central-settings&tab=general',10),
+ ('تقویم و منطقه','/modules/?code=central-settings&tab=localization',20),
+ ('شماره‌گذاری اسناد','/modules/?code=central-settings&tab=numbering',30),
+ ('اعلان‌ها','/modules/?code=central-settings&tab=notifications',40),
+ ('امنیت مرکزی','/modules/?code=central-settings&tab=security',50),
+ ('مدیریت فایل','/modules/?code=central-settings&tab=files',60),
+ ('گردش‌کار','/modules/?code=central-settings&tab=workflow',70),
+ ('نگهداری و عملیات','/modules/?code=central-settings&tab=maintenance',80),
+ ('تاریخچه تغییرات','/modules/?code=central-settings&tab=audit',90)
+) v(title,path,sort_order)
+cross join lateral (select id from menu_items where path='/modules/?code=central-settings' order by created_at desc limit 1) m
+where not exists(select 1 from menu_items x where x.path=v.path);
