@@ -30,7 +30,7 @@ router.post("/api/accounting/books",requireAuth,requirePermission("ledger:manage
 
 router.get("/api/accounting/accounts",requireAuth,async(req:Request,res:Response)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"سازمان معتبر پیدا نشد"});
- const params:any[]=[t.id],where=" where a.tenant_id=$1";
+ const params:any[]=[t.id]; let where=" where a.tenant_id=$1";
  if(typeof req.query.bookId==="string"){params.push(req.query.bookId);where+=" and a.book_id=$"+params.length}
  if(typeof req.query.mode==="string"&&modes.includes(req.query.mode as any)){params.push(req.query.mode);where+=" and a.account_mode=$"+params.length}
  const r=await query("select a.id,a.code,a.external_code,a.name,a.account_type,a.account_mode,a.book_id,a.parent_id,a.status,b.code as book_code,b.title as book_title from ledger_accounts a left join accounting_books b on b.id=a.book_id"+where+" order by a.code",params);
