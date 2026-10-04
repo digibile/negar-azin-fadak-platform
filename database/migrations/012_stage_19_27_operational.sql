@@ -2,7 +2,7 @@
 create index if not exists idx_commission_rules_rate on commission_rules(rate);
 create index if not exists idx_settlements_party_updated on settlements(party_ref,updated_at desc);
 create index if not exists idx_payments_method_updated on payments(payment_method,updated_at desc);
-create index if not exists idx_service_providers_type_updated on service_providers(source_type,updated_at desc);
+create index if not exists idx_service_providers_updated on service_providers(updated_at desc);
 create index if not exists idx_messages_recipient_updated on messages(recipient,updated_at desc);
 create index if not exists idx_notifications_recipient_type on notifications(recipient_ref,notification_type,updated_at desc);
 create index if not exists idx_crm_leads_status_updated on crm_leads(status,updated_at desc);
