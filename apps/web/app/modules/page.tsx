@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect,useMemo,useState} from "react";
+import AccountingWorkspace from "./AccountingWorkspace";
 
 type Field={field_key:string;title:string;field_type:string;required:boolean;sort_order:number;options?:{options?:string[]}};
 type ModuleInfo={id:number;code:string;title:string};
@@ -83,6 +84,7 @@ export default function ModulesPage(){
    return <input value={String(v)} onChange={e=>setField(f.field_key,e.target.value)} required={f.required}/>;
  };
  const visible=useMemo(()=>items,[items]);
+ if(code==="accounting-finance")return <AccountingWorkspace/>;
  return <main className="module-runtime">
   <header className="page-head">
    <div><span className="eyebrow">هسته مرکزی کسب‌وکار</span><h1>{module?.title||"فضای عملیاتی ماژول"}</h1><p className="muted">کد ماژول: {code}</p></div>
