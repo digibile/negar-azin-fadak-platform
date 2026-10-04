@@ -86,6 +86,15 @@ app.put("/api/content/pages/:id",requireAuth,requirePermission("frontend:manage"
 app.get("/api/content/menus",requireAuth,requirePermission("menus:manage"),asyncHandler(async(_req,res)=>res.json((await query("select * from menu_items order by sort_order,id")).rows)));
 app.put("/api/content/menus/:id",requireAuth,requirePermission("menus:manage"),asyncHandler(async(req,res)=>{const input=menuUpdateSchema.parse(req.body);const r=await query("update menu_items set title=$1,path=$2,permission=$3,updated_at=now() where id=$4 returning *",[input.title,input.path,input.permission??null,req.params.id]);if(!r.rowCount)return res.status(404).json({error:"آیتم منو پیدا نشد"});res.json(r.rows[0]);}));
 
+app.get("/api/platform/modules",requireAuth,asyncHandler(async(req,res)=>{
+ const user=(req as any).user;
+ const params:any[]=[user.role];
+ const access=user.role==="admin"?"":"and exists (select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=m.id)";
+ const sql="select m.id,m.code,m.title,m.core,m.parent_id,m.sort_order,m.is_active,coalesce(rt.lifecycle,'planned') as lifecycle,rt.route,rt.api_prefix,rt.owner_team,rt.description,coalesce(rc.record_count,0)::int as record_count from platform_modules m left join module_runtime rt on rt.module_id=m.id left join (select module_id,count(*)::int as record_count from module_records group by module_id) rc on rc.module_id=m.id where m.is_active=true "+access+" order by m.sort_order";
+ const r=await query(sql,access?params:[]);
+ res.json({items:r.rows,total:r.rowCount});
+}));
+
 app.get("/api/platform/modules/:code",requireAuth,asyncHandler(async(req,res)=>{
  const user=(req as any).user;
  const r=await query("select m.id,m.code,m.title,m.core,m.parent_id,m.sort_order,m.is_active,rt.lifecycle,rt.route,rt.api_prefix,rt.owner_team,rt.description from platform_modules m left join module_runtime rt on rt.module_id=m.id where m.code=$1 and m.is_active=true",[req.params.code]);
