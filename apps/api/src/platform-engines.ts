@@ -8,6 +8,8 @@ export const platformEnginesRouter=Router();
 const s=(v:unknown,n=200)=>typeof v==="string"?v.trim().slice(0,n):"";
 const obj=(v:unknown,d:any)=>v&&typeof v==="object"?v:d;
 const tenant=async(req:any)=>resolveTenant(req,req.user);
+function matches(actual:any,rule:any):boolean{if(!rule||typeof rule!=="object")return true;for(const [k,v] of Object.entries(rule)){if(k==="equals"&&actual!==v)return false;if(k==="notEquals"&&actual===v)return false;if(k==="in"&&(!Array.isArray(v)||!v.includes(actual)))return false;if(k==="exists"&&Boolean(actual)!==Boolean(v))return false;if(k==="gt"&&!(Number(actual)>Number(v)))return false;if(k==="gte"&&!(Number(actual)>=Number(v)))return false;if(k==="lt"&&!(Number(actual)<Number(v)))return false;if(k==="lte"&&!(Number(actual)<=Number(v)))return false;}return true;}
+async function businessDue(tenantId:string,calendarId:string|undefined,start:Date,minutes:number){if(!calendarId||minutes<=0)return new Date(start.getTime()+minutes*60000);const r=await query("select week_days from calendar_definitions where id=$1 and tenant_id=$2 and enabled=true",[calendarId,tenantId]);if(!r.rowCount)return new Date(start.getTime()+minutes*60000);const days=new Set<number>(Array.isArray(r.rows[0].week_days)?r.rows[0].week_days:[]);const h=await query("select holiday_date from calendar_holidays where calendar_id=$1 and tenant_id=$2",[calendarId,tenantId]);const holidays=new Set(h.rows.map((x:any)=>String(x.holiday_date)));let cursor=new Date(start),left=minutes;while(left>0){const day=cursor.getUTCDay(),key=cursor.toISOString().slice(0,10);if(days.has(day)&&!holidays.has(key)){const available=1440-(cursor.getUTCHours()*60+cursor.getUTCMinutes());const take=Math.min(left,available);cursor=new Date(cursor.getTime()+take*60000);left-=take;if(left<=0)break;}cursor=new Date(Date.UTC(cursor.getUTCFullYear(),cursor.getUTCMonth(),cursor.getUTCDate()+1));}return cursor;}
 
 platformEnginesRouter.get("/api/platform/rules",requireAuth,requirePermission("rule:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
@@ -29,7 +31,9 @@ platformEnginesRouter.post("/api/platform/rules/:id/execute",requireAuth,require
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const rr=await query("select * from rule_definitions where id=$1 and tenant_id=$2 and enabled=true",[req.params.id,t.id]);
  if(!rr.rowCount)return res.status(404).json({error:"قاعده فعال پیدا نشد"});
- const rule=rr.rows[0],input=obj(req.body?.input,{});
+ const rule=rr.rows[0],input=obj(req.body?.input,{}),matched=matches(input,rule.conditions||{});
+ if(!matched){const skipped=await query("insert into rule_executions(tenant_id,rule_id,event_key,subject_type,subject_id,status,input_data,result_data) values($1,$2,$3,$4,$5,'skipped',$6,$7) returning *",[t.id,rule.id,rule.event_key,s(req.body?.subjectType,80)||null,s(req.body?.subjectId,80)||null,input,{matched:false}]);return res.status(201).json(skipped.rows[0]);}
+ for(const action of (Array.isArray(rule.actions)?rule.actions:[])){if(action?.type==="notify"){const n=await query("insert into platform_notifications(tenant_id,user_id,channel,title,body) values($1,$2,$3,$4,$5) returning id",[t.id,s(action.userId,80)||null,s(action.channel,30)||"in_app",s(action.title,200)||rule.name,s(action.body,4000)||("اجرای قاعده "+rule.code)]);await query("insert into notification_outbox(tenant_id,notification_id,channel,destination,payload) values($1,$2,$3,$4,$5)",[t.id,n.rows[0].id,s(action.channel,30)||"in_app",s(action.destination,300)||null,JSON.stringify(action)]);}}
  const r=await query("insert into rule_executions(tenant_id,rule_id,event_key,subject_type,subject_id,status,input_data,result_data) values($1,$2,$3,$4,$5,'executed',$6,$7) returning *",[t.id,rule.id,rule.event_key,s(req.body?.subjectType,80)||null,s(req.body?.subjectId,80)||null,input,{actions:rule.actions,matched:true}]);
  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'rule.executed','rule_execution',$3,$4)",[t.id,(req as any).user.id,r.rows[0].id,JSON.stringify(r.rows[0])]);
  res.status(201).json(r.rows[0]);
@@ -59,7 +63,7 @@ platformEnginesRouter.post("/api/platform/sla/cases",requireAuth,requirePermissi
  const policyId=req.body?.policyId==null?null:Number(req.body.policyId);
  const p=policyId?await query("select * from sla_policies where id=$1 and tenant_id=$2 and enabled=true",[policyId,t.id]):{rowCount:0,rows:[]};
  if(policyId&&!p.rowCount)return res.status(404).json({error:"سیاست SLA پیدا نشد"});
- const target=Number(p.rowCount?p.rows[0].target_minutes:p.rows[0]?.response_minutes||0),due=target?new Date(Date.now()+target*60000):null;
+ const target=Number(p.rowCount?p.rows[0].target_minutes:p.rows[0]?.response_minutes||0),due=target?await businessDue(t.id,s(req.body?.calendarId,80)||undefined,new Date(),target):null;
  const r=await query("insert into sla_cases(tenant_id,policy_id,subject_type,subject_id,due_at,metadata) values($1,$2,$3,$4,$5,$6) returning *",[t.id,policyId,s(req.body?.subjectType,80)||"case",s(req.body?.subjectId,80)||null,due,obj(req.body?.metadata,{})]);res.status(201).json(r.rows[0]);
 }));
 platformEnginesRouter.patch("/api/platform/sla/cases/:id",requireAuth,requirePermission("sla:manage"),asyncHandler(async(req,res)=>{
