@@ -8,6 +8,7 @@ const isProduction=process.env.NODE_ENV==="production";
 const cookieOptions=`Path=/; HttpOnly; SameSite=${process.env.COOKIE_SAMESITE||"Lax"}${isProduction?"; Secure":""}`;
 const csrfOptions=`Path=/; SameSite=${process.env.COOKIE_SAMESITE||"Lax"}${isProduction?"; Secure":""}`;
 export type AuthUser={id:string,email:string,role:string};
+declare global { namespace Express { interface Request { user?: AuthUser } } }
 export function sign(user:AuthUser){return jwt.sign(user,secret,{expiresIn:"8h"});}
 export function hashPassword(value:string){return bcrypt.hash(value,12);}
 export function verifyPassword(value:string,hash:string){return bcrypt.compare(value,hash);}
