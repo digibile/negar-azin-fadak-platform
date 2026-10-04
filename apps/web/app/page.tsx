@@ -65,6 +65,8 @@ export default function HomePage(){
    <nav aria-label="منوی مرکزی سازمان">
     <div className="nav-item active"><span className="nav-icon">⌂</span><span>داشبورد مرکزی</span></div>
     <a className="nav-item" href="/operations/"><span className="nav-icon">27</span><span>مرکز عملیات ۱۹ تا ۲۷</span></a>
+    <a className="nav-item" href="/organization-center/"><span className="nav-icon">37</span><span>سازمان و عملیات ۳۵ تا ۳۷</span></a>
+    <a className="nav-item" href="/command-center/"><span className="nav-icon">45</span><span>مرکز فرمان ۳۸ تا ۴۵</span></a>
     <div className="nav-item"><span className="nav-icon">45</span><span>هسته‌های کسب‌وکار</span></div>
     <div className="nav-item"><span className="nav-icon">▦</span><span>صفحه‌ساز و فرم‌ساز</span></div>
     <div className="nav-item"><span className="nav-icon">⚙</span><span>مدیریت دسترسی</span></div>
