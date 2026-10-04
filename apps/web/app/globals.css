@@ -487,3 +487,87 @@ html,body{font-family:"IRANSansX","Vazirmatn","Segoe UI",Tahoma,sans-serif;backg
  .master-nav{max-height:none!important}
  .master-item summary{min-height:56px}
 }
+
+
+/* 2026 enterprise login, CSS-first and fully usable without JavaScript */
+.naf-login{
+ min-height:100vh;
+ display:grid;
+ grid-template-columns:1.05fr 1fr;
+ direction:rtl;
+ position:relative;
+ overflow:hidden;
+ background:
+  radial-gradient(1100px 650px at 8% -12%,rgba(201,162,39,.12),transparent 62%),
+  #0a101c;
+ color:#edefF3;
+ font-family:"Vazirmatn","Segoe UI",Tahoma,sans-serif;
+}
+.naf-login *{box-sizing:border-box}
+.naf-login-panel{display:flex;align-items:center;justify-content:center;padding:42px 32px;order:1}
+.naf-login-box{width:min(420px,100%)}
+.naf-brand{display:flex;align-items:center;gap:11px;margin-bottom:42px}
+.naf-brand-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(145deg,#c9a227,#8a6c17);color:#12100a;display:grid;place-items:center;font-weight:900;box-shadow:0 10px 25px rgba(201,162,39,.18)}
+.naf-brand-name{font-weight:800;font-size:18px;letter-spacing:.1px}
+.naf-brand-sub{font-family:"Space Grotesk",sans-serif;font-size:10px;color:#5e6a87;letter-spacing:1.8px;margin-top:2px;direction:ltr}
+.naf-login-box h1{font-size:27px;line-height:1.45;margin:0 0 7px;font-weight:800}
+.naf-subtitle{margin:0 0 30px;color:#9aa4bd;font-size:14px}
+.naf-login-form{display:grid;gap:15px}
+.naf-login-form label>span{display:block;color:#9aa4bd;font-size:12px;font-weight:600;margin-bottom:7px}
+.naf-login-form input[type=email],
+.naf-login-form input[type=password]{
+ width:100%;height:46px;padding:0 14px;border-radius:10px;border:1px solid #243250;
+ background:#182238;color:#edefF3;outline:none;font-family:inherit;font-size:14px;transition:border-color .2s,box-shadow .2s
+}
+.naf-login-form input[type=email]:focus,
+.naf-login-form input[type=password]:focus{border-color:#c9a227;box-shadow:0 0 0 3px rgba(201,162,39,.14)}
+.naf-login-form input::placeholder{color:#5e6a87}
+.naf-form-row{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#9aa4bd;margin:1px 0 4px}
+.naf-remember{display:flex!important;align-items:center;gap:7px;margin:0!important}
+.naf-remember input{width:15px;height:15px;accent-color:#c9a227}
+.naf-form-row a{color:#c9a227;text-decoration:none}
+.naf-primary{
+ width:100%;height:47px;border:0;border-radius:10px;background:linear-gradient(145deg,#c9a227,#a2801d);
+ color:#181405;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;
+ box-shadow:0 12px 24px -10px rgba(201,162,39,.45);transition:transform .15s,box-shadow .15s
+}
+.naf-primary:hover{transform:translateY(-1px);box-shadow:0 16px 28px -10px rgba(201,162,39,.55)}
+.naf-captcha{padding:12px;border:1px solid #243250;border-radius:11px;background:#121b2e}
+.naf-captcha-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;color:#9aa4bd;font-size:11px}
+.naf-captcha-head b{font-family:"Space Grotesk",sans-serif;font-size:9px;letter-spacing:1.2px;color:#5e6a87;direction:ltr}
+.naf-captcha-body{display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center}
+.naf-captcha-body strong{font-size:13px;color:#edefF3;font-weight:700}
+.naf-captcha-body input{height:38px;border:1px solid #243250;border-radius:8px;background:#182238;color:#edefF3;padding:0 9px;text-align:center;outline:none;font-family:"Space Grotesk","Vazirmatn",sans-serif}
+.naf-captcha-body input:focus{border-color:#c9a227}
+.naf-error{padding:10px 12px;border:1px solid rgba(229,89,92,.25);border-radius:10px;background:rgba(229,89,92,.1);color:#ff9a9d;font-size:12px;margin:-8px 0 16px}
+.naf-divider{display:flex;align-items:center;gap:12px;color:#5e6a87;font-size:12px;margin:20px 0}
+.naf-divider:before,.naf-divider:after{content:"";height:1px;flex:1;background:#243250}
+.naf-otp-form{margin:0}
+.naf-otp{width:100%;height:44px;border:1px solid #243250;border-radius:10px;background:#182238;color:#edefF3;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.naf-otp:hover{border-color:#c9a227;color:#c9a227}
+.naf-otp span{margin-right:5px;color:#c9a227}
+.naf-foot{text-align:center;color:#5e6a87;font-size:10.5px;margin:25px 0 0;line-height:1.8}
+.naf-theme{position:fixed;top:22px;left:22px;z-index:5;width:38px;height:38px;border:1px solid #243250;border-radius:10px;background:#121b2e;color:#9aa4bd;cursor:default}
+.naf-visual{
+ order:2;position:relative;display:flex;align-items:center;justify-content:center;padding:45px;
+ border-right:1px solid #1a2438;
+ background:
+  radial-gradient(700px 500px at 35% 22%,rgba(201,162,39,.1),transparent 60%),
+  linear-gradient(160deg,#0e1626,#0a101c)
+}
+.naf-orbit{position:relative;width:min(500px,90%);aspect-ratio:1}
+.naf-ring{position:absolute;inset:0;border:1px dashed #243250;border-radius:50%;animation:naf-pulse 8s ease-in-out infinite}
+.naf-ring.naf-r2{inset:13%;animation-delay:-2s}
+.naf-ring.naf-r3{inset:27%;animation-delay:-4s}
+.naf-core{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:108px;height:108px;border-radius:26px;background:linear-gradient(145deg,#1d2a45,#121b2e);border:1px solid #243250;box-shadow:0 20px 60px -20px rgba(0,0,0,.7);display:grid;place-items:center;align-content:center;color:#c9a227}
+.naf-core span{font-size:12px;color:#9aa4bd}.naf-core b{font-size:19px}
+.naf-node{position:absolute;width:62px;height:62px;border-radius:16px;background:#121b2e;border:1px solid #243250;box-shadow:0 20px 60px -20px rgba(0,0,0,.7);display:grid;place-items:center;align-content:center;gap:2px;color:#edefF3;animation:naf-float 5s ease-in-out infinite}
+.naf-node span{font-size:19px;color:#c9a227}.naf-node small{font-size:8px;color:#5e6a87}
+.naf-n1{top:2%;left:calc(50% - 31px);animation-delay:-.3s}.naf-n2{top:28%;left:3%;animation-delay:-1.2s}.naf-n3{bottom:5%;left:19%;animation-delay:-2.1s}.naf-n4{bottom:5%;right:19%;animation-delay:-2.8s}.naf-n5{top:28%;right:3%;animation-delay:-3.7s}.naf-n6{top:48%;left:calc(50% - 31px);transform:translateY(-50%);animation-delay:-4.5s}
+.naf-caption{position:absolute;left:0;right:0;bottom:-10px;text-align:center;color:#5e6a87;font-size:12px}
+@keyframes naf-float{0%,100%{translate:0 0}50%{translate:0 -5px}}
+@keyframes naf-pulse{0%,100%{opacity:.7}50%{opacity:1}}
+@media(max-width:900px){
+ .naf-login{grid-template-columns:1fr}.naf-visual{display:none}.naf-login-panel{padding:32px 22px}.naf-theme{top:16px;left:16px}
+}
+@media(prefers-reduced-motion:reduce){.naf-ring,.naf-node{animation:none}}
