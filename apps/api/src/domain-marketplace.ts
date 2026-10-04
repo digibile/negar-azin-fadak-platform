@@ -144,3 +144,18 @@ domainMarketplaceRouter.get("/api/marketplace/settlements",requireAuth,requirePe
   const r=await query("select id,settlement_no,seller_id,period_start,period_end,gross_amount,commission_amount,adjustment_amount,net_amount,status,created_at,updated_at from seller_settlements where tenant_id=$1 order by created_at desc",[ctx.id]);
   res.json({tenant:ctx,items:r.rows,total:r.rowCount});
 }));
+
+
+domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res)=>{
+  const code=typeof req.query.tenant==="string"?req.query.tenant.trim():"";
+  const tenant=code
+    ?await query("select id,code,name from tenants where code=$1 and status='active'",[code])
+    :await query("select id,code,name from tenants where status='active' order by created_at limit 1");
+  if(!tenant.rowCount)return res.status(404).json({error:"بازارگاه فعال پیدا نشد"});
+  const tenantId=tenant.rows[0].id;
+  const [stores,products]=await Promise.all([
+    query("select s.id,s.name,s.slug,s.domain,s.seller_id,sl.display_name as seller_name from stores s join sellers sl on sl.id=s.seller_id where s.tenant_id=$1 and s.status='active' order by s.name",[tenantId]),
+    query("select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,sl.display_name as seller_name from products p join sellers sl on sl.id=p.seller_id where p.tenant_id=$1 and p.status='active' order by p.updated_at desc",[tenantId])
+  ]);
+  res.json({tenant:tenant.rows[0],stores:stores.rows,products:products.rows});
+}));
