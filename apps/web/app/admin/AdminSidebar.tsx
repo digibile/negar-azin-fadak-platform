@@ -6,6 +6,7 @@ import {usePathname} from "next/navigation";
 import {api} from "../../lib/api";
 import {MASTER_MENU} from "./master-menu";
 import type {MasterMenuItem} from "./master-menu";
+import styles from "./AdminSidebar.module.css";
 
 type ModuleItem={id:number;code:string;title:string;core:string;route?:string|null;is_active?:boolean};
 
@@ -44,57 +45,57 @@ export default function AdminSidebar(){
   return Boolean(url&&pathname==="/modules");
  };
 
- return <aside className="enterprise-sidebar" aria-label="منوی مرکزی سازمان">
-  <div className="enterprise-brand">
-   <div className="brand-symbol" aria-hidden="true">ن</div>
-   <div className="enterprise-brand-copy">
+ return <aside className={styles["enterprise-sidebar"]} aria-label="منوی مرکزی سازمان">
+  <div className={styles["enterprise-brand"]}>
+   <div className={styles["brand-symbol"]} aria-hidden="true">ن</div>
+   <div className={styles["enterprise-brand-copy"]}>
     <strong>مرکز مدیریت نگار آذین فدک</strong>
     <span>منوی مرکزی سازمان · نسخه ۲۰۲۶</span>
    </div>
   </div>
 
-  <div className="sidebar-command">
-   <Link className={"sidebar-command-main "+(pathname==="/admin"?"active":"")} href="/admin">
-    <span className="sidebar-command-icon"><HomeIcon/></span>
+  <div className={styles["sidebar-command"]}>
+   <Link className={styles["sidebar-command-main"]+" "+(pathname==="/admin"?styles["active"]:"")} href="/admin">
+    <span className={styles["sidebar-command-icon"]}><HomeIcon/></span>
     <div><b>مرکز فرماندهی</b><small>نمای کلی و وضعیت سامانه</small></div>
    </Link>
-   <label className="sidebar-search">
+   <label className={styles["sidebar-search"]}>
     <span><SearchIcon/></span>
     <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="جستجوی منو و زیرمنو..." aria-label="جستجوی منو"/>
     {query&&<button type="button" aria-label="پاک کردن جستجو" onClick={()=>setQuery("")}>×</button>}
    </label>
   </div>
 
-  <div className="sidebar-caption">
+  <div className={styles["sidebar-caption"]}>
    <span>کاتالوگ عملیاتی</span>
    <b>{filtered.length}/۵۰</b>
   </div>
-  {error&&<div className="sidebar-menu-error">{error}</div>}
+  {error&&<div className={styles["sidebar-menu-error"]}>{error}</div>}
 
-  <nav className="master-nav">
+  <nav className={styles["master-nav"]}>
    {filtered.map(item=>{
     const url=moduleUrl(item);
     const isCurrent=active(item);
-    return <details className={"master-item "+(isCurrent?"is-current":"")} key={item.code} open={Boolean(query)||isCurrent}>
+    return <details className={styles["master-item"]+" "+(isCurrent?styles["is-current"]:"")} key={item.code} open={Boolean(query)||isCurrent}>
      <summary>
-      <span className="master-chevron"><ChevronIcon/></span>
-      <span className="master-copy"><strong>{item.title}</strong><small>{item.children.length} قابلیت عملیاتی</small></span>
-      {url?<Link className="master-open" href={url} onClick={e=>e.stopPropagation()} aria-label={"ورود به "+item.title}>↗</Link>:<span className="master-open disabled" aria-hidden="true">•</span>}
+      <span className={styles["master-chevron"]}><ChevronIcon/></span>
+      <span className={styles["master-copy"]}><strong>{item.title}</strong><small>{item.children.length} قابلیت عملیاتی</small></span>
+      {url?<Link className={styles["master-open"]} href={url} onClick={e=>e.stopPropagation()} aria-label={"ورود به "+item.title}>↗</Link>:<span className={styles["master-open"]+" "+styles["disabled"]} aria-hidden="true">•</span>}
      </summary>
-     <div className="master-children">
-      {item.children.map((child,i)=><div className="master-child" key={child}>
-       <span className="master-child-index">{String(i+1).padStart(2,"0")}</span>
+     <div className={styles["master-children"]}>
+      {item.children.map((child,i)=><div className={styles["master-child"]} key={child}>
+       <span className={styles["master-child-index"]}>{String(i+1).padStart(2,"0")}</span>
        <span>{child}</span>
       </div>)}
-      {url&&<Link className="master-enter" href={url}>ورود به ماژول <span>←</span></Link>}
+      {url&&<Link className={styles["master-enter"]} href={url}>ورود به ماژول <span>←</span></Link>}
      </div>
     </details>;
    })}
   </nav>
 
-  <footer className="sidebar-footer">
+  <footer className={styles["sidebar-footer"]}>
    <Link href="/admin/editors"><span>✦</span><div><b>ویرایشگرهای سامانه</b><small>قالب، صفحه، فرم و منو</small></div></Link>
-   <small className="sidebar-version">50 بخش · طراحی مینیمال · CSS-first · RTL</small>
+   <small className={styles["sidebar-version"]}>50 بخش · طراحی مینیمال · CSS-first · RTL</small>
   </footer>
  </aside>
 }
