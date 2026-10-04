@@ -124,7 +124,7 @@ export default function AdminSidebar(){
    {groups.map(([key,label,range])=>{
     const groupItems=filtered.filter(m=>m.core===key);
     if(query && !groupItems.length)return null;
-    const expanded=query ? true : Boolean(openGroups[key]);
+    const expanded=query ? true : Boolean(openGroups[key]) || groupItems.some(m=>isActive(m.code));
     return <section className="tree-group" key={key}>
      <button className={"tree-group-head "+(expanded?"expanded":"")} type="button" onClick={()=>setOpenGroups(v=>({...v,[key]:!v[key]}))}>
       <span className="tree-group-chevron"><ChevronIcon open={expanded}/></span>
