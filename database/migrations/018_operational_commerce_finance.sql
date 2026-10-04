@@ -8,7 +8,10 @@ alter table business_rules add column if not exists tenant_id uuid references te
 alter table business_rules add column if not exists event_key text not null default 'manual';
 alter table business_rules add column if not exists priority int not null default 100;
 alter table business_rules add column if not exists enabled boolean not null default true;
-create table if not exists sla_policies(id uuid primary key default gen_random_uuid(),tenant_id uuid not null references tenants(id) on delete cascade,code text not null,name text not null,target_minutes int not null,calendar_code text,enabled boolean not null default true,unique(tenant_id,code));
+alter table sla_policies add column if not exists tenant_id uuid references tenants(id) on delete cascade;
+alter table sla_policies add column if not exists target_minutes int not null default 0;
+alter table sla_policies add column if not exists calendar_code text;
+alter table sla_policies add column if not exists enabled boolean not null default true;
 create table if not exists calendar_definitions(id uuid primary key default gen_random_uuid(),tenant_id uuid not null references tenants(id) on delete cascade,code text not null,name text not null,timezone text not null default 'Asia/Tehran',week_days jsonb not null default '[6,0,1,2,3,4,5]'::jsonb,holidays jsonb not null default '[]'::jsonb,enabled boolean not null default true,unique(tenant_id,code));
 create table if not exists platform_audit_events(
  id uuid primary key default gen_random_uuid(),tenant_id uuid references tenants(id) on delete cascade,
