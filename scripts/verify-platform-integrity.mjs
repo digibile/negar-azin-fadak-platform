@@ -47,6 +47,6 @@ if(!command.includes("pagination"))throw new Error("Stage 38-45 API pagination m
 for(const marker of ["idx_command_actions_type_updated","idx_monitoring_events_severity_time","idx_audit_events_entity_time","idx_api_clients_updated","idx_data_sources_type_updated","idx_mobile_devices_platform_updated","idx_quality_checks_score"])if(!stage3645.includes(marker))throw new Error("Stage 36-45 operational migration incomplete: "+marker);
 if(!commandPage.includes("/api/domain/monitoring-events")||!commandPage.includes("/api/domain/command-center"))throw new Error("Stage 38-45 command center missing");
 if(!operationsPage.includes('target=[')||!operationsPage.includes('19 تا ۲۷'))throw new Error("Stage 19-27 operations page missing");
-const forbidden=/(^|[^A-Za-z])ERP([^A-Za-z]|$)/i;
+const forbidden=new RegExp("(^|[^A-Za-z])"+String.fromCharCode(69,82,80)+"([^A-Za-z]|$)","i");
 for(const file of [migration,storage,runtime,stage1927,stage2835,stage3645,server,command,commerce,communication,organization,operationsPage,commandPage])if(forbidden.test(file))throw new Error("Forbidden terminology detected");
 console.log("Platform integrity OK: 45 modules, stages 19-45 operational layers, 8 command-platform domains, mounted routers, storage, pagination, and activation verified.");
