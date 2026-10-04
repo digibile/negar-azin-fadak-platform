@@ -13,3 +13,6 @@ create index if not exists idx_marketplace_orders_lifecycle
 insert into role_permissions(role,permission) values
 ('admin','order:lifecycle'),('manager','order:lifecycle')
 on conflict do nothing;
+
+create unique index if not exists uq_sla_open_subject on sla_cases(tenant_id,subject_type,subject_id) where status in ('open','paused');
+create index if not exists idx_sla_breach_scan on sla_cases(status,due_at) where status='open' and due_at is not null;
