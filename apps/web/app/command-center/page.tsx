@@ -2,7 +2,17 @@
 
 import {useEffect,useState} from "react";
 
-type Item={id:number;event_type?:string;severity?:string;message?:string;occurred_at?:string;command_no?:string;action_type?:string};
+type Item={
+  id:number;
+  event_type?:string;
+  severity?:string;
+  message?:string;
+  occurred_at?:string;
+  command_no?:string;
+  action_type?:string;
+  entity_type?:string;
+  actor_ref?:string;
+};
 const api=process.env.NEXT_PUBLIC_API_BASE_URL||"";
 
 export default function CommandCenterPage(){
