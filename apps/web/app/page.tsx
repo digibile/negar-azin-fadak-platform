@@ -64,6 +64,7 @@ export default function HomePage(){
    <div className="brand"><span className="brand-mark">ن</span><div><strong>نگار آذین فدک</strong><small>مرکز مدیریت</small></div></div>
    <nav aria-label="منوی مرکزی سازمان">
     <div className="nav-item active"><span className="nav-icon">⌂</span><span>داشبورد مرکزی</span></div>
+    <a className="nav-item" href="/operations/"><span className="nav-icon">27</span><span>مرکز عملیات ۱۹ تا ۲۷</span></a>
     <div className="nav-item"><span className="nav-icon">45</span><span>هسته‌های کسب‌وکار</span></div>
     <div className="nav-item"><span className="nav-icon">▦</span><span>صفحه‌ساز و فرم‌ساز</span></div>
     <div className="nav-item"><span className="nav-icon">⚙</span><span>مدیریت دسترسی</span></div>
