@@ -640,3 +640,30 @@ html,body{font-family:"IRANSansX","Vazirmatn","Segoe UI",Tahoma,sans-serif;backg
   .master-copy small{font-size:9px !important}
   .master-child{font-size:12.5px !important;min-height:37px}
 }
+
+
+/* Main menu alignment: no icons, same clean hierarchy as submenus */
+.master-item summary{
+  grid-template-columns:22px minmax(0,1fr) 34px;
+  gap:10px;
+}
+.master-copy{
+  order:2;
+  padding-right:2px;
+}
+.master-copy strong{
+  font-size:15px !important;
+  font-weight:850 !important;
+}
+.master-open{
+  order:1;
+}
+.master-chevron{
+  order:3;
+}
+@media(max-width:760px){
+  .master-item summary{
+    grid-template-columns:20px minmax(0,1fr) 30px;
+    gap:8px;
+  }
+}
