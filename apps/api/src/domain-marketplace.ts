@@ -122,6 +122,75 @@ domainMarketplaceRouter.post("/api/marketplace/orders",requireAuth,requirePermis
   res.status(201).json(r.rows[0]);
 }));
 
+domainMarketplaceRouter.patch("/api/marketplace/orders/:id/status",requireAuth,requirePermission("order:lifecycle"),asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);
+ if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const next=bodyString(req.body?.status,30);
+ const reason=bodyString(req.body?.reason,500)||null;
+ const allowed:Record<string,string[]>={
+  pending:["confirmed","cancelled"],
+  confirmed:["paid","cancelled"],
+  paid:["processing","cancelled","refunded"],
+  processing:["shipped","cancelled","returned"],
+  shipped:["delivered","returned"],
+  delivered:["returned","refunded"],
+  returned:["refunded"],
+  cancelled:[],
+  refunded:[]
+ };
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const current=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.id,ctx.id]);
+  if(!current.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}
+  const order=current.rows[0];
+  if(!allowed[order.status]?.includes(next)){
+   await client.query("rollback");
+   return res.status(409).json({error:"تغییر وضعیت سفارش مجاز نیست",from:order.status,to:next});
+  }
+  if(next==="cancelled"&&["paid","processing"].includes(order.status)){
+   await client.query("rollback");
+   return res.status(409).json({error:"لغو سفارش پرداخت‌شده باید از مسیر بازپرداخت انجام شود"});
+  }
+  const nowColumn:Record<string,string>={
+   confirmed:"confirmed_at",paid:"paid_at",processing:"processing_at",
+   shipped:"shipped_at",delivered:"delivered_at",cancelled:"cancelled_at"
+  };
+  const column=nowColumn[next];
+  const set=column
+   ? `status=$1,updated_at=now(),${column}=now()${next==="cancelled"?",cancellation_reason=$2":""}`
+   : "status=$1,updated_at=now()";
+  const params=next==="cancelled"?[next,reason,order.id,ctx.id]:[next,order.id,ctx.id];
+  const sql=next==="cancelled"
+   ? `update marketplace_orders set ${set} where id=$3 and tenant_id=$4 returning *`
+   : `update marketplace_orders set ${set} where id=$2 and tenant_id=$3 returning *`;
+  const updated=await client.query(sql,params);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,$3,'marketplace_order',$4,$5,$6)",[
+   ctx.id,(req as any).user.id,"order.status."+next,order.id,JSON.stringify({status:order.status}),JSON.stringify({status:next})
+  ]);
+  if(next==="processing"){
+   await client.query(
+    `insert into sla_cases(tenant_id,subject_type,subject_id,status,due_at,metadata)
+     values($1,'marketplace_order',$2,'open',$3,$4)
+     on conflict do nothing`,
+    [ctx.id,order.id,order.delivery_due_at,JSON.stringify({stage:"processing",orderNo:order.order_no})]
+   );
+  }
+  await client.query("commit");
+  const eventMap:Record<string,string>={
+   confirmed:"order.confirmed",paid:"payment.paid",processing:"order.processing",
+   shipped:"order.shipped",delivered:"order.delivered",cancelled:"order.cancelled",
+   returned:"order.returned",refunded:"order.refunded"
+  };
+  const eventKey=eventMap[next];
+  if(eventKey)await emitBusinessEvent({
+   tenantId:ctx.id,eventKey,subjectType:"marketplace_order",subjectId:order.id,
+   userId:(req as any).user.id,input:{orderId:order.id,orderNo:order.order_no,status:next,previousStatus:order.status}
+  });
+  res.json({order:updated.rows[0]});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
 domainMarketplaceRouter.get("/api/marketplace/settlements",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
