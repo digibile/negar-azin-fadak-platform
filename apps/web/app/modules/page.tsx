@@ -43,6 +43,7 @@ import MenuBuilderWorkspace from "./MenuBuilderWorkspace";
 import PageBuilderWorkspace from "./PageBuilderWorkspace";
 import PageBlockEditorWorkspace from "./PageBlockEditorWorkspace";
 import PageTemplatesWorkspace from "./PageTemplatesWorkspace";
+import FrontendSectionsWorkspace from "./FrontendSectionsWorkspace";
 
 type Field={field_key:string;title:string;field_type:string;required:boolean;sort_order:number;options?:{options?:string[]}};
 type ModuleInfo={id:number;code:string;title:string};
@@ -181,6 +182,7 @@ if(code==="10-wallet-ledger")return <WalletLedgerWorkspace/>;
  if(code==="34-page-builder")return <PageBuilderWorkspace/>;
  if(code==="35-page-block-editor")return <PageBlockEditorWorkspace/>;
  if(code==="36-page-templates")return <PageTemplatesWorkspace/>;
+ if(code==="37-frontend-sections")return <FrontendSectionsWorkspace/>;
  return <main className="module-runtime">
   <header className="page-head">
    <div><span className="eyebrow">هسته مرکزی کسب‌وکار{activeMenu?" · "+activeMenu:""}</span><h1>{menuChildren.find(x=>x.path.includes("tab="+activeSection))?.title||module?.title||"فضای عملیاتی ماژول"}</h1><p className="muted">کد ماژول: {code}{activeSection?" · فضای عملیاتی: "+activeSection:""}</p></div>
