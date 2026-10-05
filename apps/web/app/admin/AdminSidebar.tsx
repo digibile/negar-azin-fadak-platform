@@ -136,6 +136,7 @@ export default function AdminSidebar(){
 
   <footer className={styles["sidebar-footer"]}>
    <Link href="/admin/editors"><span>✦</span><div><b>ویرایشگرهای سامانه</b><small>قالب، صفحه، فرم و منو</small></div></Link>
+   <Link href="/admin/updates"><span>↻</span><div><b>نسخه و بروزرسانی</b><small>بررسی نسخه و نصب امن از GitHub</small></div></Link>
    <small className={styles["sidebar-version"]}>50 بخش · طراحی مینیمال · CSS-first · RTL</small>
   </footer>
  </aside>
