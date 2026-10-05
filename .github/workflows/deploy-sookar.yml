@@ -5,20 +5,27 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: sookar-production
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Start SSH agent
+      - name: Configure SSH
         uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
 
-      - name: Prepare SSH
+      - name: Trust server
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
@@ -26,106 +33,64 @@ jobs:
           ssh-keyscan -T 15 -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Verify server
+      - name: Deploy application
+        shell: bash
         run: |
           set -euo pipefail
-          ssh -p "${{ secrets.DEPLOY_PORT }}"             -o BatchMode=yes             -o ConnectTimeout=15             -o ConnectionAttempts=3             -o ServerAliveInterval=10             -o ServerAliveCountMax=3             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"             'set -e; BASE=/home/sookar/domains/sookar.ir; test -d "$BASE/public_html"; test -d "$BASE/marketos"; test -f "$BASE/negar-platform/.env"; test "$(stat -c %a "$BASE/negar-platform/.env")" = "600"; mkdir -p "$BASE/negar-platform/releases"; echo SERVER_OK'
-
-      - name: Package
-        run: |
-          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"
+          PORT="${{ secrets.DEPLOY_PORT }}"
+          BASE=/home/sookar/domains/sookar.ir/negar-platform
+          SHA="${GITHUB_SHA}"
           tar --exclude='.git' --exclude='node_modules' --exclude='.next' --exclude='.cache' --exclude='*.log' --exclude='tmp' --exclude='temp' --exclude='backups' -czf /tmp/negar-platform.tar.gz .
-
-      - name: Upload
-        run: |
-          set -euo pipefail
-          ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" 'cat > /home/sookar/domains/sookar.ir/negar-platform/negar-platform.tar.gz' < /tmp/negar-platform.tar.gz
-
-      - name: Deploy Docker
-        run: |
-          set -euo pipefail
-          ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" 'set -e
-            BASE=/home/sookar/domains/sookar.ir/negar-platform
-            SHA=${{ github.sha }}
-            RELEASE="$BASE/releases/$SHA"
-            mkdir -p "$RELEASE"
-            tar -xzf "$BASE/negar-platform.tar.gz" -C "$RELEASE"
-            cp "$BASE/.env" "$RELEASE/.env"
+          ssh -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "mkdir -p '$BASE/releases/$SHA'"
+          scp -P "$PORT" -o BatchMode=yes /tmp/negar-platform.tar.gz "$HOST:$BASE/negar-platform.tar.gz"
+          ssh -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "set -e
+            RELEASE='$BASE/releases/$SHA'
+            tar -xzf '$BASE/negar-platform.tar.gz' -C "$RELEASE"
+            cp '$BASE/.env' "$RELEASE/.env"
             chmod 600 "$RELEASE/.env"
             cd "$RELEASE"
-            docker compose --project-name naf-sookar -f docker-compose.production.yml config >/dev/null
-            docker compose --project-name naf-sookar -f docker-compose.production.yml up -d --build --remove-orphans
-            docker compose --project-name naf-sookar -f docker-compose.production.yml ps
-            rm -f "$BASE/negar-platform.tar.gz"
-            ln -sfn "$RELEASE" "$BASE/current"
-          '
-
-      - name: Health
-        run: |
-          set -euo pipefail
-          for i in $(seq 1 30); do
-            if ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" 'curl -fsS http://127.0.0.1:3100/ >/dev/null'; then
-              echo DEPLOYMENT_HEALTH_OK
-              exit 0
-            fi
-            sleep 4
-          done
-          ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" 'cd /home/sookar/domains/sookar.ir/negar-platform/current && docker compose --project-name naf-sookar -f docker-compose.production.yml ps && docker compose --project-name naf-sookar -f docker-compose.production.yml logs --tail=80 web api'
-          exit 1
+            docker compose -p naf-sookar -f docker-compose.production.yml config >/dev/null
+            docker compose -p naf-sookar -f docker-compose.production.yml up -d --build --remove-orphans
+            ln -sfn "$RELEASE" '$BASE/current'
+            rm -f '$BASE/negar-platform.tar.gz'
+            docker compose -p naf-sookar -f docker-compose.production.yml ps
+          "
 
       - name: Configure Nginx
+        shell: bash
         run: |
           set -euo pipefail
-          ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" 'set -e
-            DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf
-            USER_NGINX=/usr/local/directadmin/data/users/sookar/nginx.conf
-            test -f "$DOMAIN_CONF"
-            test -f "$USER_NGINX"
-            cp -a "$USER_NGINX" "/root/sookar-nginx-backup-$(date +%Y%m%d-%H%M%S).conf"
-            /usr/local/directadmin/custombuild/build rewrite_confs >/dev/null
-            python3 - <<'PY'
+          HOST="${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"
+          PORT="${{ secrets.DEPLOY_PORT }}"
+          ssh -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" 'python3 - <<'"'"'PY'"'"'
 from pathlib import Path
-import re
+import re, shutil, subprocess
 
-path = Path("/usr/local/directadmin/data/users/sookar/nginx.conf")
-text = path.read_text()
+p = Path("/usr/local/directadmin/data/users/sookar/nginx.conf")
+backup = p.with_name("nginx.conf.before-platform-" + __import__("datetime").datetime.now().strftime("%Y%m%d-%H%M%S"))
+shutil.copy2(p, backup)
+subprocess.run(["/usr/local/directadmin/custombuild/build", "rewrite_confs"], check=True, stdout=subprocess.DEVNULL)
 
-def find_blocks(text, keyword):
-    out = []
-    for m in re.finditer(r"(?m)^\s*" + keyword + r"\b[^\{]*\{", text):
-        start = m.start()
-        depth = 0
-        for i in range(m.end() - 1, len(text)):
-            if text[i] == "{":
-                depth += 1
-            elif text[i] == "}":
-                depth -= 1
-                if depth == 0:
-                    out.append((start, i + 1))
-                    break
+text = p.read_text()
+
+def blocks(s, word):
+    out=[]
+    for m in re.finditer(r"(?m)^\s*"+word+r"\b[^\{]*\{", s):
+        d=0
+        for i in range(m.end()-1,len(s)):
+            if s[i]=="{": d+=1
+            elif s[i]=="}":
+                d-=1
+                if d==0:
+                    out.append((m.start(),i+1)); break
     return out
 
-servers = find_blocks(text, "server")
-targets = [
-    (a, b) for a, b in servers
-    if re.search(r"server_name\s+[^;]*\bsookar\.ir\b", text[a:b])
-]
+servers=[x for x in blocks(text,"server") if re.search(r"server_name\s+[^;]*\bsookar\.ir\b",text[x[0]:x[1]])]
+if not servers:
+    raise SystemExit("Sookar server block not found")
 
-if not targets:
-    raise SystemExit("No Sookar server blocks found")
-
-proxy_location = """    location / {
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_pass http://127.0.0.1:3100;
-    }"""
-
-api_location = """    location ^~ /api/ {
+api='''    location ^~ /api/ {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -134,61 +99,77 @@ api_location = """    location ^~ /api/ {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_pass http://127.0.0.1:4000;
-    }"""
+    }
+'''
+root='''    location / {
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_pass http://127.0.0.1:3100;
+    }
+'''
 
-parts = []
-cursor = 0
-for a, b in targets:
-    parts.append(text[cursor:a])
-    block = text[a:b]
-
-    first_location = re.search(r"(?m)^\s*location\s+", block)
-    if first_location:
-        block = block[:first_location.start()] + api_location + "\n" + block[first_location.start():]
+parts=[]; cur=0
+for a,b in servers:
+    parts.append(text[cur:a]); block=text[a:b]
+    locs=blocks(block,"location")
+    rootloc=None
+    for la,lb in locs:
+        if re.match(r"(?s)^\s*location\s+/\s*\{",block[la:lb]):
+            rootloc=(la,lb); break
+    if rootloc:
+        la,lb=rootloc
+        block=block[:la]+root+block[lb:]
     else:
-        insert = block.rfind("}")
-        block = block[:insert] + "\n" + api_location + "\n" + block[insert:]
+        block=block[:block.rfind("}")]+root+block[block.rfind("}"):]
+    block=re.sub(r"(?ms)^\s*location\s+\^~\s+/api/\s*\{.*?^\s*\}\s*\n?", "", block)
+    first=re.search(r"(?m)^\s*location\s+",block)
+    pos=first.start() if first else block.rfind("}")
+    block=block[:pos]+api+block[pos:]
+    parts.append(block); cur=b
+parts.append(text[cur:])
+p.write_text("".join(parts))
+subprocess.run(["nginx","-t"],check=True)
+subprocess.run(["systemctl","reload","nginx"],check=True)
+print("NGINX_OK")
+PY'
 
-    locations = find_blocks(block, "location")
-    root = None
-    for la, lb in locations:
-        if re.match(r"(?s)^\s*location\s+/\s*\{", block[la:lb]):
-            root = (la, lb)
-            break
-
-    if root:
-        la, lb = root
-        chunk = block[la:lb]
-        chunk = re.sub(r"(?ms)^\s*proxy_pass\s+[^;]+;\s*\n?", "", chunk)
-        insert = chunk.rfind("}")
-        chunk = chunk[:insert] + "        proxy_pass http://127.0.0.1:3100;\n" + chunk[insert:]
-        block = block[:la] + chunk + block[lb:]
-    else:
-        insert = block.rfind("}")
-        block = block[:insert] + "\n" + proxy_location + "\n" + block[insert:]
-
-    parts.append(block)
-    cursor = b
-
-parts.append(text[cursor:])
-path.write_text("".join(parts))
-print(f"NGINX_CONFIGURED_BLOCKS={len(targets)}")
-PY            nginx -t
-            systemctl reload nginx
-            echo NGINX_RELOADED
+      - name: Verify internal services
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"
+          PORT="${{ secrets.DEPLOY_PORT }}"
+          ssh -p "$PORT" -o BatchMode=yes "$HOST" '
+            set -e
+            curl -fsS http://127.0.0.1:3100/ >/dev/null
+            curl -fsS http://127.0.0.1:4000/health >/dev/null
+            docker ps --format "{{.Names}} {{.Ports}}" | grep -F "naf-sookar-api-1"
           '
 
-      - name: External domain health
+      - name: Verify public API
+        shell: bash
         run: |
           set -euo pipefail
           for i in $(seq 1 20); do
-            code=$(curl -k -L -sS -o /tmp/sookar-response.html -w '%{http_code}' https://sookar.ir/ || true)
-            if [ "$code" = "200" ] || [ "$code" = "301" ] || [ "$code" = "302" ]; then
-              echo "SOOKAR_EXTERNAL_OK HTTP $code"
+            code=$(curl -k -sS -o /tmp/api.txt -w '%{http_code}' https://sookar.ir/api/session/properties || true)
+            echo "attempt=$i http=$code"
+            if [ "$code" != "502" ] && [ "$code" != "000" ]; then
+              cat /tmp/api.txt
               exit 0
             fi
             sleep 3
           done
-          echo "SOOKAR_EXTERNAL_FAILED HTTP $code"
-          head -c 1000 /tmp/sookar-response.html || true
+          cat /tmp/api.txt || true
           exit 1
+
+      - name: Verify public site
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -k -fsS https://sookar.ir/login >/dev/null
+          echo SOOKAR_LOGIN_OK
