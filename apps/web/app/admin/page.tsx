@@ -13,7 +13,7 @@ const GROUPS=[
  ["communication","ارتباطات و مشتری","23 تا 27"],
  ["documents-content","اسناد و محتوا","28 تا 34"],
  ["organization","سازمان و عملیات","35 تا 37"],
- ["command-platform","مرکز فرماندهی و پلتفرم","38 تا 45"]
+ ["command-platform","مرکز فرماندهی و پلتفرم","38 تا 50"]
 ] as const;
 
 export default function Admin(){
@@ -65,14 +65,14 @@ export default function Admin(){
    </div>
    <div className="dashboard-hero-side">
     <div className="hero-status"><i className={health.database==="ok"?"online":""}/><span>وضعیت سرویس مرکزی</span><b>{health.database==="ok"?"فعال":"در حال بررسی"}</b></div>
-    <div className="hero-clock">45 بخش عملیاتی<br/><small>ساختار یکپارچه سازمان</small></div>
+    <div className="hero-clock">50 بخش عملیاتی<br/><small>ساختار یکپارچه سازمان</small></div>
    </div>
   </section>
 
   {error&&<div className="error dashboard-error">{error}</div>}
 
   <section className="executive-kpis">
-   <article><span>ماژول‌های در دسترس</span><b>{modules.length}</b><small>از ۴۵ بخش تعریف‌شده</small></article>
+   <article><span>ماژول‌های در دسترس</span><b>{modules.length}</b><small>از ۵۰ بخش تعریف‌شده</small></article>
    <article><span>بخش‌های عملیاتی</span><b>{totals.active}</b><small>وضعیت فعال یا عملیاتی</small></article>
    <article><span>رکوردهای واقعی</span><b>{totals.records.toLocaleString("fa-IR")}</b><small>ثبت‌شده در PostgreSQL</small></article>
    <article><span>هسته‌های سازمانی</span><b>{totals.cores}</b><small>گروه‌های عملیاتی</small></article>
