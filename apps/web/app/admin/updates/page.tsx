@@ -5,7 +5,7 @@ import Link from "next/link";
 import {api} from "../../../lib/api";
 
 type Run={id:number;status:string;conclusion:string|null;sha:string;createdAt:string;updatedAt:string;url:string};
-type Status={configured:boolean;repository:string;workflow:string;workflowState?:string;mainSha?:string|null;runs?:Run[]};
+type Status={configured:boolean;repository:string;workflow:string;workflowState?:string;mainSha?:string|null;deployedSha?:string|null;updateAvailable?:boolean;runs?:Run[]};
 
 export default function UpdatesPage(){
  const [status,setStatus]=useState<Status|null>(null);
@@ -42,7 +42,7 @@ export default function UpdatesPage(){
    <div>
     <span className="section-kicker">PLATFORM LIFECYCLE · 2026</span>
     <h2>نسخه و بروزرسانی سامانه</h2>
-    <p>نسخه منتشرشده از GitHub کنترل می‌شود. قبل از نصب، نسخه فعلی و پشتیبان پایگاه داده حفظ می‌شود.</p>
+    <p>نسخه منتشرشده از GitHub کنترل می‌شود. قبل از نصب، نسخه فعلی و پشتیبان پایگاه داده حفظ می‌شود.</p>{status?.updateAvailable&&<div className="update-badge online">نسخه جدید آماده نصب است</div>}
    </div>
    <Link className="admin-link" href="/admin">بازگشت به مرکز مدیریت</Link>
   </div>
@@ -64,7 +64,7 @@ export default function UpdatesPage(){
    <article className="update-card">
     <span className="update-label">مخزن</span>
     <strong>{status?.repository||"digibile/negar-azin-fadak-platform"}</strong>
-    <span className="update-label">Workflow</span>
+    <span className="update-label">نسخه نصب‌شده</span><code>{status?.deployedSha?.slice(0,12)||"در حال شناسایی"}</code><span className="update-label">آخرین نسخه GitHub</span><code>{status?.mainSha?.slice(0,12)||"در حال بررسی"}</code><span className="update-label">Workflow</span>
     <strong>{status?.workflow||"update.yml"}</strong>
     <span className="update-label">وضعیت Workflow</span>
     <strong>{status?.workflowState||"در حال بررسی"}</strong>
