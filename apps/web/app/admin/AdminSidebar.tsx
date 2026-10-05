@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import {useEffect,useMemo,useState} from "react";
-import {usePathname} from "next/navigation";
+import {usePathname,useRouter,useSearchParams} from "next/navigation";
 import {api} from "../../lib/api";
 import styles from "./AdminSidebar.module.css";
 
@@ -14,6 +14,9 @@ function HomeIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="
 
 export default function AdminSidebar(){
  const pathname=usePathname();
+ const router=useRouter();
+ const searchParams=useSearchParams();
+ const currentTab=searchParams.get("tab")||"";
  const [menuItems,setMenuItems]=useState<DynamicMenuItem[]>([]);
  const [query,setQuery]=useState("");
  const [error,setError]=useState("");
@@ -58,6 +61,17 @@ export default function AdminSidebar(){
   const url=moduleUrl(item);
   return Boolean(url&&pathname===url.split("?")[0]);
  };
+ const childActive=(item:DynamicMenuItem,child:string)=>{
+  const href=childUrl(item,child); if(!href)return false;
+  const u=new URL(href,"http://local");
+  return pathname===u.pathname && currentTab===u.searchParams.get("tab");
+ };
+ const openModule=(item:DynamicMenuItem,e:React.MouseEvent<HTMLElement>)=>{
+  const url=moduleUrl(item); if(!url)return;
+  const target=e.target as HTMLElement;
+  if(target.closest("summary .master-chevron"))return;
+  e.preventDefault(); router.push(url);
+ };
 
  return <aside className={styles["enterprise-sidebar"]} aria-label="منوی مرکزی سازمان">
   <div className={styles["enterprise-brand"]}>
@@ -91,7 +105,7 @@ export default function AdminSidebar(){
     const url=moduleUrl(item);
     const isCurrent=active(item);
     return <details className={styles["master-item"]+" "+(isCurrent?styles["is-current"]:"")} key={item.id} open={Boolean(query)||isCurrent}>
-     <summary>
+     <summary onClick={e=>openModule(item,e)}>
       <span className={styles["master-chevron"]}><ChevronIcon/></span>
       <span className={styles["master-copy"]}><strong>{item.title}</strong><small>{(item.children||[]).length} قابلیت عملیاتی{item.is_shared?" · مشترک":""}</small></span>
       {url?<Link className={styles["master-open"]} href={url} onClick={e=>e.stopPropagation()} aria-label={"ورود به "+item.title}>↗</Link>:<span className={styles["master-open"]+" "+styles["disabled"]} aria-hidden="true">•</span>}
