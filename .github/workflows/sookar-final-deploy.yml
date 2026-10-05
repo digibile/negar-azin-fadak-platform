@@ -1,8 +1,6 @@
 name: Sookar Final Deploy
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
