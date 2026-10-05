@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect,useState} from "react";
+import {useSearchParams} from "next/navigation";
 import styles from "./AccountingWorkspace.module.css";
 
 type Book={id:string;code:string;title:string;book_mode:"official"|"internal"|"hybrid";currency:string;fiscal_year:number|null;is_default:boolean;status:string};
@@ -15,7 +16,9 @@ async function request<T>(path:string,options:RequestInit={}):Promise<T>{
 }
 
 export default function AccountingWorkspace(){
+ const searchParams=useSearchParams();
  const [tab,setTab]=useState<"books"|"accounts"|"transfer">("books");
+ useEffect(()=>{const t=searchParams.get("tab") as "books"|"accounts"|"transfer"|null;if(t&&["books","accounts","transfer"].includes(t))setTab(t)},[searchParams]);
  const [books,setBooks]=useState<Book[]>([]); const [accounts,setAccounts]=useState<Account[]>([]);
  const [book,setBook]=useState({code:"",title:"",bookMode:"hybrid",currency:"IRR",fiscalYear:"",isDefault:false});
  const [account,setAccount]=useState({code:"",name:"",accountType:"general",accountMode:"hybrid",bookId:"",externalCode:""});
@@ -23,7 +26,7 @@ export default function AccountingWorkspace(){
  const [error,setError]=useState(""); const [saving,setSaving]=useState(false);
 
  const load=async()=>{try{const [b,a]=await Promise.all([request<{items:Book[]}>("/api/accounting/books"),request<{items:Account[]}>("/api/accounting/accounts")]);setBooks(b.items||[]);setAccounts(a.items||[])}catch(e){setError(e instanceof Error?e.message:"خطا در دریافت حسابداری")}};
- useEffect(()=>{load()},[]);
+ useEffect(()=>{load()},[searchParams]);
 
  const saveBook=async()=>{setSaving(true);setError("");try{await request("/api/accounting/books",{method:"POST",body:JSON.stringify({...book,fiscalYear:book.fiscalYear?Number(book.fiscalYear):null})});setBook({code:"",title:"",bookMode:"hybrid",currency:"IRR",fiscalYear:"",isDefault:false});await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}finally{setSaving(false)}};
  const saveAccount=async()=>{setSaving(true);setError("");try{await request("/api/accounting/accounts",{method:"POST",body:JSON.stringify({...account,bookId:account.bookId||null,externalCode:account.externalCode||null})});setAccount({code:"",name:"",accountType:"general",accountMode:"hybrid",bookId:"",externalCode:""});await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}finally{setSaving(false)}};
