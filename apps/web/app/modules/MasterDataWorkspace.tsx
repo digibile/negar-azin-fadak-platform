@@ -1,0 +1,20 @@
+"use client";
+import {useEffect,useState} from "react";
+import styles from "./MasterDataWorkspace.module.css";
+type Data={sets:any[];codes:any[];units:any[];audit:any[]};
+const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
+const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
+const tabs=[["master-1","تعاریف پایه"],["master-2","کدها و شناسه‌ها"],["master-3","دسته‌بندی‌ها"],["master-4","واحدها"],["master-5","سوابق تغییر"]];
+export default function MasterDataWorkspace(){
+ const [tab,setTab]=useState("master-1"),[d,setD]=useState<Data>({sets:[],codes:[],units:[],audit:[]}),[error,setError]=useState(""),[key,setKey]=useState(""),[title,setTitle]=useState(""),[saving,setSaving]=useState(false);
+ const load=async()=>{const r=await fetch(api+"/api/master-data/overview",{credentials:"include"});const b=await r.json();if(!r.ok)throw Error(b.error||"خطا");setD(b)};
+ useEffect(()=>{const p=new URLSearchParams(location.search);setTab(p.get("tab")||"master-1");load().catch(e=>setError(e.message))},[]);
+ const post=async(path:string,body:any)=>{setSaving(true);try{const r=await fetch(api+path,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:JSON.stringify(body)});const b=await r.json();if(!r.ok)throw Error(b.error||"خطا");await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}finally{setSaving(false)}};
+ return <main className={styles.wrap} dir="rtl"><header><div><span>منوی مرکزی سازمان · ۰۳</span><h1>داده‌های پایه</h1><p>مرجع کنترل‌شده تعاریف، کدها، دسته‌بندی‌ها، واحدها و سوابق تغییر</p></div><button onClick={()=>load()}>به‌روزرسانی</button></header><nav>{tabs.map(([k,t])=><a className={tab===k?"active":""} href={"/modules/?code=03-master-data&tab="+k} key={k}>{t}</a>)}</nav>{error&&<div className={styles.error}>{error}</div>}
+ {tab==="master-1"&&<section className={styles.panel}><h2>تعاریف پایه</h2><div className={styles.form}><input placeholder="شناسه مانند customer-types" value={key} onChange={e=>setKey(e.target.value)}/><input placeholder="عنوان" value={title} onChange={e=>setTitle(e.target.value)}/><button disabled={saving} onClick={()=>post("/api/master-data/sets",{dataKey:key,title})}>ثبت</button></div>{d.sets.map(x=><article key={x.id}><div><b>{x.title}</b><small>{x.data_key}</small></div><span>{x.is_system?"سیستمی":"سفارشی"}</span></article>)}</section>}
+ {tab==="master-2"&&<section className={styles.panel}><h2>کدها و شناسه‌ها</h2><div className={styles.form}><input placeholder="Namespace" value={key} onChange={e=>setKey(e.target.value)}/><input placeholder="کد" value={title} onChange={e=>setTitle(e.target.value)}/><button disabled={saving} onClick={()=>post("/api/master-data/codes",{namespace:key,code:title,title})}>ثبت کد</button></div>{d.codes.map(x=><article key={x.id}><div><b>{x.title}</b><small>{x.namespace} · {x.code}</small></div><span>{x.value||"بدون مقدار"}</span></article>)}</section>}
+ {tab==="master-3"&&<section className={styles.panel}><h2>دسته‌بندی‌ها</h2>{d.sets.map(x=><article key={x.id}><div><b>{x.title}</b><small>داده‌های قابل طبقه‌بندی</small></div><button onClick={()=>setTab("master-1")}>مدیریت تعریف</button></article>)}</section>}
+ {tab==="master-4"&&<section className={styles.panel}><h2>واحدها</h2><div className={styles.form}><input placeholder="شناسه واحد" value={key} onChange={e=>setKey(e.target.value)}/><input placeholder="عنوان واحد" value={title} onChange={e=>setTitle(e.target.value)}/><button disabled={saving} onClick={()=>post("/api/master-data/units",{unitKey:key,title,unitType:"custom"})}>ثبت واحد</button></div>{d.units.map(x=><article key={x.id}><div><b>{x.title}</b><small>{x.symbol||"-"} · {x.unit_type}</small></div><span>ضریب {x.factor}</span></article>)}</section>}
+ {tab==="master-5"&&<section className={styles.panel}><h2>سوابق تغییر</h2>{d.audit.map(x=><article key={x.id}><div><b>{x.action} · {x.entity_type}</b><small>{x.actor_name||"سیستم"} · {new Date(x.created_at).toLocaleString("fa-IR")}</small></div><span>#{x.entity_id||"-"}</span></article>)}</section>}
+ </main>
+}
