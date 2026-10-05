@@ -83,77 +83,79 @@ jobs:
             test -f "$USER_NGINX"
             cp -a "$USER_NGINX" "/root/sookar-nginx-backup-$(date +%Y%m%d-%H%M%S).conf"
             /usr/local/directadmin/custombuild/build rewrite_confs >/dev/null
-            python3 - <<'"'"'PY'"'"'
+            python3 - <<'PY'
 from pathlib import Path
 import re
 
-paths=[
-    Path("/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf"),
-    Path("/usr/local/directadmin/data/users/sookar/nginx.conf"),
-]
-target=None
-for p in paths:
-    if p.exists():
-        s=p.read_text()
-        if re.search(r"server_name[^;]*\bsookar\.ir\b", s):
-            target=p
-            break
-if target is None:
-    raise SystemExit("No Sookar nginx server config found")
-s=target.read_text()
+path = Path("/usr/local/directadmin/data/users/sookar/nginx.conf")
+text = path.read_text()
 
-def blocks(text, keyword):
-    out=[]
-    for m in re.finditer(r"(?m)^\s*"+keyword+r"\b[^\{]*\{", text):
-        start=m.start()
-        pos=m.end()-1
-        depth=0
-        i=pos
-        while i<len(text):
-            if text[i]=="{": depth+=1
-            elif text[i]=="}":
-                depth-=1
-                if depth==0:
-                    out.append((start,i+1))
+def find_blocks(text, keyword):
+    out = []
+    for m in re.finditer(r"(?m)^\s*" + keyword + r"\b[^\{]*\{", text):
+        start = m.start()
+        depth = 0
+        for i in range(m.end() - 1, len(text)):
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    out.append((start, i + 1))
                     break
-            i+=1
     return out
 
-servers=blocks(s,"server")
-server=None
-for a,b in servers:
-    if re.search(r"server_name[^;]*\bsookar\.ir\b",s[a:b]):
-        server=(a,b)
-        break
-if not server:
-    raise SystemExit("Sookar server block not found")
-a,b=server
-sb=s[a:b]
-locs=blocks(sb,"location")
-root=None
-for la,lb in locs:
-    if re.match(r"(?s)\s*location\s+/\s*\{",sb[la:lb]):
-        root=(la,lb)
-        break
-proxy="proxy_pass http://127.0.0.1:3100;"
-if root:
-    la,lb=root
-    chunk=sb[la:lb]
-    if re.search(r"(?m)^\s*proxy_pass\s+[^;]+;",chunk):
-        chunk=re.sub(r"(?m)^\s*proxy_pass\s+[^;]+;", "        "+proxy, chunk, count=1)
+servers = find_blocks(text, "server")
+targets = [
+    (a, b) for a, b in servers
+    if re.search(r"server_name\s+[^;]*\bsookar\.ir\b", text[a:b])
+]
+
+if not targets:
+    raise SystemExit("No Sookar server blocks found")
+
+proxy_location = """    location / {
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_pass http://127.0.0.1:3100;
+    }"""
+
+parts = []
+cursor = 0
+for a, b in targets:
+    parts.append(text[cursor:a])
+    block = text[a:b]
+
+    locations = find_blocks(block, "location")
+    root = None
+    for la, lb in locations:
+        if re.match(r"(?s)^\s*location\s+/\s*\{", block[la:lb]):
+            root = (la, lb)
+            break
+
+    if root:
+        la, lb = root
+        chunk = block[la:lb]
+        chunk = re.sub(r"(?ms)^\s*proxy_pass\s+[^;]+;\s*\n?", "", chunk)
+        insert = chunk.rfind("}")
+        chunk = chunk[:insert] + "        proxy_pass http://127.0.0.1:3100;\n" + chunk[insert:]
+        block = block[:la] + chunk + block[lb:]
     else:
-        insert=chunk.rfind("}")
-        chunk=chunk[:insert]+"        "+proxy+"\n"+chunk[insert:]
-    sb=sb[:la]+chunk+sb[lb:]
-else:
-    insert=sb.rfind("}")
-    location='\n    location / {\n        proxy_http_version 1.1;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n        proxy_pass http://127.0.0.1:3100;\n    }\n'
-    sb=sb[:insert]+location+sb[insert:]
-s=s[:a]+sb+s[b:]
-target.write_text(s)
-print(f"NGINX_CONFIGURED {target}")
-PY
-            nginx -t
+        insert = block.rfind("}")
+        block = block[:insert] + "\n" + proxy_location + "\n" + block[insert:]
+
+    parts.append(block)
+    cursor = b
+
+parts.append(text[cursor:])
+path.write_text("".join(parts))
+print(f"NGINX_CONFIGURED_BLOCKS={len(targets)}")
+PY            nginx -t
             systemctl reload nginx
             echo NGINX_RELOADED
           '
