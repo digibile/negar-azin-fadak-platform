@@ -13,7 +13,36 @@ permissions:
   contents: write
 
 jobs:
+  build:
+    name: Verify latest GitHub version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package.json
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm install
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: npm install
+      - name: Build API
+        working-directory: apps/api
+        run: npm run build
+      - name: Test API
+        working-directory: apps/api
+        run: npm test
+      - name: Build web
+        working-directory: apps/web
+        run: npm run build
+
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -22,14 +51,15 @@ jobs:
     steps:
       - name: Validate deployment configuration
         env:
-          DEPLOY_HOST: ${{secrets.DEPLOY_HOST}
-          DEPLOY_USER: ${{secrets.DEPLOY_USER}
-          DEPLOY_SSH_KEY: ${{secrets.DEPLOY_SSH_KEY}
-          DEPLOY_PATH: ${{secrets.DEPLOY_PATH}
-          POSTGRES_PASSWORD: ${{secrets.POSTGRES_PASSWORD}
-          JWT_SECRET: ${{secrets.JWT_SECRET}
-          ADMIN_EMAIL: ${{secrets.ADMIN_EMAIL}
-          ADMIN_PASSWORD: ${{secrets.ADMIN_PASSWORD}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          PLATFORM_GITHUB_TOKEN: ${{ secrets.PLATFORM_GITHUB_TOKEN }}
         run: |
           set -eu
           for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_PATH POSTGRES_PASSWORD JWT_SECRET ADMIN_EMAIL ADMIN_PASSWORD PLATFORM_GITHUB_TOKEN; do
@@ -47,8 +77,8 @@ jobs:
 
       - name: Configure SSH
         env:
-          DEPLOY_SSH_KEY: ${{secrets.DEPLOY_SSH_KEY}
-          DEPLOY_HOST: ${{secrets.DEPLOY_HOST}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           set -eu
           mkdir -p ~/.ssh
@@ -60,9 +90,9 @@ jobs:
       - name: Read currently deployed commit
         id: current
         env:
-          DEPLOY_HOST: ${{secrets.DEPLOY_HOST}
-          DEPLOY_USER: ${{secrets.DEPLOY_USER}
-          DEPLOY_PATH: ${{secrets.DEPLOY_PATH}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           set -eu
           CURRENT_SHA="$(ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && git rev-parse HEAD" || true)"
@@ -75,7 +105,7 @@ jobs:
 
       - name: Create immutable backup tag
         env:
-          CURRENT_SHA: ${{steps.current.outputs.sha}
+          CURRENT_SHA: ${{ steps.current.outputs.sha }}
         run: |
           set -eu
           TAG="backup/pre-deploy-$(date -u +%Y%m%d-%H%M%S)-${CURRENT_SHA:0:12}"
@@ -85,18 +115,19 @@ jobs:
 
       - name: Deploy application with database backup
         env:
-          DEPLOY_HOST: ${{secrets.DEPLOY_HOST}
-          DEPLOY_USER: ${{secrets.DEPLOY_USER}
-          DEPLOY_PATH: ${{secrets.DEPLOY_PATH}
-          POSTGRES_PASSWORD: ${{secrets.POSTGRES_PASSWORD}
-          JWT_SECRET: ${{secrets.JWT_SECRET}
-          ADMIN_EMAIL: ${{secrets.ADMIN_EMAIL}
-          ADMIN_PASSWORD: ${{secrets.ADMIN_PASSWORD}
-          CURRENT_SHA: ${{steps.current.outputs.sha}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          PLATFORM_GITHUB_TOKEN: ${{ secrets.PLATFORM_GITHUB_TOKEN }}
+          CURRENT_SHA: ${{ steps.current.outputs.sha }}
         run: |
           set -eu
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH'"
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "if [ -d '$DEPLOY_PATH/.git' ]; then git -C '$DEPLOY_PATH' fetch origin main && git -C '$DEPLOY_PATH' reset --hard origin/main; else git clone https://github.com/digibile/negar-azin-fadak-platform.git '$DEPLOY_PATH'; fi"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "if [ -d '$DEPLOY_PATH/.git' ]; then test -z \"\$(git -C '$DEPLOY_PATH' status --porcelain)\" || { echo 'Deployment host has uncommitted changes; refusing automatic update.'; exit 1; }; git -C '$DEPLOY_PATH' fetch origin main; git -C '$DEPLOY_PATH' reset --hard origin/main; else git clone https://github.com/digibile/negar-azin-fadak-platform.git '$DEPLOY_PATH'; fi"
 
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "cat > '$DEPLOY_PATH/.env' <<'EOF'
 POSTGRES_DB=negara_fadak
@@ -107,6 +138,8 @@ ADMIN_EMAIL=$ADMIN_EMAIL
 ADMIN_PASSWORD=$ADMIN_PASSWORD
 PLATFORM_UPDATE_WORKFLOW=deploy-production.yml
 GITHUB_TOKEN=$PLATFORM_GITHUB_TOKEN
+GITHUB_REPOSITORY=digibile/negar-azin-fadak-platform
+DEPLOYED_SHA=$GITHUB_SHA
 PUBLIC_ORIGIN=https://negarzinfadak.ir
 WEB_PORT=3000
 EOF"
@@ -128,9 +161,9 @@ EOF"
 
       - name: Deployment summary
         env:
-          CURRENT_SHA: ${{steps.current.outputs.sha}
+          CURRENT_SHA: ${{ steps.current.outputs.sha }}
         run: |
           echo "Previous version: $CURRENT_SHA"
           echo "Previous version retained as immutable backup tag."
-          echo "Database backup retained under ${{secrets.DEPLOY_PATH}/backups/releases/."
+          echo "Database backup retained under ${{ secrets.DEPLOY_PATH }}/backups/releases/."
           echo "Current version: $GITHUB_SHA"
