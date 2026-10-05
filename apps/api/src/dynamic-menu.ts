@@ -17,7 +17,7 @@ router.get("/api/dashboard/menu-tree",requireAuth,async(req:Request,res:Response
    mip.is_shared,mip.sort_order as panel_sort_order
    from menu_items mi
    join menu_item_panels mip on mip.menu_item_id=mi.id
-   where mi.is_active=true and mip.panel_code=$1 and mip.is_visible=true${access}
+   where mi.is_active=true and mi.parent_id is null and mip.panel_code=$1 and mip.is_visible=true${access}
    order by mip.sort_order,mi.sort_order,mi.id`;
  const rows=(await query(sql,params)).rows;
  res.json({panel,items:rows,total:rows.length});
