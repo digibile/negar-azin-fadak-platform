@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
+import {useSearchParams} from "next/navigation";
 import styles from "./OrganizationWorkspace.module.css";
 import {api} from "../../lib/api";
 
@@ -10,14 +11,15 @@ type Ownership={id:string;owner_name:string;owned_name:string;ownership_percent:
 
 export default function OrganizationWorkspace(){
  const [orgs,setOrgs]=useState<Org[]>([]),[entities,setEntities]=useState<Entity[]>([]),[centers,setCenters]=useState<Center[]>([]),[ownership,setOwnership]=useState<Ownership[]>([]);
+ const searchParams=useSearchParams();
  const [tab,setTab]=useState("structure"),[error,setError]=useState(""),[saving,setSaving]=useState(false);
- useEffect(()=>{const t=new URLSearchParams(window.location.search).get("tab");if(t)setTab(t)},[]);
+ useEffect(()=>{const t=searchParams.get("tab");if(t)setTab(t)},[searchParams]);
  const [orgForm,setOrgForm]=useState({code:"",name:"",organizationType:"company",nationalId:"",registrationNo:"",economicCode:""});
  const [entityForm,setEntityForm]=useState({organizationId:"",parentId:"",entityType:"company",code:"",name:"",managerName:""});
  const [centerForm,setCenterForm]=useState({organizationId:"",centerType:"cost",code:"",name:""});
  const [ownForm,setOwnForm]=useState({ownerEntityId:"",ownedEntityId:"",ownershipPercent:"100",ownershipType:"direct"});
  const load=async()=>{try{setError("");const r=await api<any>("/api/organization/overview");setOrgs(r.organizations||[]);setEntities(r.entities||[]);setCenters(r.centers||[]);setOwnership(r.ownership||[])}catch(e){setError(e instanceof Error?e.message:"خطا در دریافت اطلاعات")}};
- useEffect(()=>{load()},[]);
+ useEffect(()=>{load()},[searchParams]);
  const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
  const post=async(path:string,body:any)=>{setSaving(true);try{const r=await fetch((process.env.NEXT_PUBLIC_API_BASE_URL||"")+path,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:JSON.stringify(body)});const b=await r.json().catch(()=>null);if(!r.ok)throw new Error(b?.error||"عملیات انجام نشد");await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}finally{setSaving(false)}};
  const counts=useMemo(()=>({holding:entities.filter(x=>x.entity_type==="holding").length,company:entities.filter(x=>x.entity_type==="company").length,branch:entities.filter(x=>x.entity_type==="branch").length,unit:entities.filter(x=>x.entity_type==="unit"||x.entity_type==="department").length}),[entities]);
