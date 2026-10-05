@@ -10,7 +10,8 @@ type Ownership={id:string;owner_name:string;owned_name:string;ownership_percent:
 
 export default function OrganizationWorkspace(){
  const [orgs,setOrgs]=useState<Org[]>([]),[entities,setEntities]=useState<Entity[]>([]),[centers,setCenters]=useState<Center[]>([]),[ownership,setOwnership]=useState<Ownership[]>([]);
- const [tab,setTab]=useState("structure"),[error,setError]=useState(""),[saving,setSaving]=useState(false);\n useEffect(()=>{const t=new URLSearchParams(window.location.search).get("tab");if(t)setTab(t)},[]);
+ const [tab,setTab]=useState("structure"),[error,setError]=useState(""),[saving,setSaving]=useState(false);
+ useEffect(()=>{const t=new URLSearchParams(window.location.search).get("tab");if(t)setTab(t)},[]);
  const [orgForm,setOrgForm]=useState({code:"",name:"",organizationType:"company",nationalId:"",registrationNo:"",economicCode:""});
  const [entityForm,setEntityForm]=useState({organizationId:"",parentId:"",entityType:"company",code:"",name:"",managerName:""});
  const [centerForm,setCenterForm]=useState({organizationId:"",centerType:"cost",code:"",name:""});
@@ -28,7 +29,7 @@ export default function OrganizationWorkspace(){
   <header className={styles.head}><div><span className={styles.muted}>منوی مرکزی سازمان · ۰۲</span><h1>مدیریت سازمان و هلدینگ</h1><p className={styles.muted}>ساختار سازمانی، شرکت‌ها، شعب، واحدها و مراکز مدیریتی</p></div><button className={styles.primary} onClick={load}>به‌روزرسانی</button></header>
   {error&&<div className={styles.error}>{error}</div>}
   <section className={styles.grid}>{[["سازمان‌ها",orgs.length],["هلدینگ/شرکت",counts.holding+counts.company],["شعب",counts.branch],["واحدها و دپارتمان‌ها",counts.unit]].map(([a,b])=><div className={styles.card} key={String(a)}><span>{a}</span><strong>{b}</strong></div>)}</section>
-  <nav className={styles.tabs}>{[["structure","ساختار سازمان"],["companies","شرکت‌ها"],["branches","شعب"],["units","واحدها"],["departments","دپارتمان‌ها"],["cost","مراکز هزینه"],["revenue","مراکز درآمد"],["profit","مراکز سود"],["ownership","ساختار مالکیت"],["settings","تنظیمات سازمان"]].map(([k,t])=><button className={tab===k?styles.active:""} onClick={()=>setTab(k)} key={k}>{t}</button>)}</nav>
+  <nav className={styles.tabs}>{[["structure","ساختار سازمان"],["companies","شرکت‌ها"],["holdings","هلدینگ‌ها"],["branches","شعب"],["units","واحدها"],["departments","دپارتمان‌ها"],["cost","مراکز هزینه"],["revenue","مراکز درآمد"],["profit","مراکز سود"],["ownership","ساختار مالکیت"],["settings","تنظیمات سازمان"]].map(([k,t])=><button className={tab===k?styles.active:""} onClick={()=>setTab(k)} key={k}>{t}</button>)}</nav>
   <div className={styles.layout}>
    <section className={styles.panel}>
     <h2>{tab==="structure"?"درخت موجودیت‌های سازمان":tab==="holdings"?"هلدینگ‌ها":tab==="ownership"?"ساختار مالکیت":tab==="settings"?"تنظیمات سازمان":tab.includes("companies")?"شرکت‌ها":tab.includes("branches")?"شعب":"فهرست "+(["units","departments"].includes(tab)?"واحدها و دپارتمان‌ها":"مراکز")}</h2>
