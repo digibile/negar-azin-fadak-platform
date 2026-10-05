@@ -45,7 +45,7 @@ export default async function Login({searchParams}:{searchParams:Promise<{error?
     <form method="post" action="/api/auth/login" className="naf-login-form">
      <label>
       <span>نام کاربری یا ایمیل سازمانی</span>
-      <input name="email" type="email" autoComplete="username" placeholder="name@company.com" defaultValue="admin@localhost.test" required/>
+      <input name="email" type="email" autoComplete="username" placeholder="name@company.com" defaultValue="admin@localhost" required/>
      </label>
 
      <label>
