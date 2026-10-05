@@ -28,6 +28,8 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
       COOKIE_SAMESITE: Lax
       CORS_ORIGIN: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}
+    ports:
+      - "127.0.0.1:4000:4000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -40,7 +42,7 @@ services:
     command: ["node","apps/api/dist/notification-worker.js"]
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-platform}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-negara_fadak}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       NOTIFICATION_WORKER_BATCH: ${NOTIFICATION_WORKER_BATCH:-25}
       NOTIFICATION_WORKER_POLL_MS: ${NOTIFICATION_WORKER_POLL_MS:-3000}
       NOTIFICATION_WORKER_MAX_ATTEMPTS: ${NOTIFICATION_WORKER_MAX_ATTEMPTS:-8}
