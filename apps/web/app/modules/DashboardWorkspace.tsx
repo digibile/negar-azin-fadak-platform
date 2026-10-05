@@ -62,12 +62,6 @@ export default function DashboardWorkspace(){
    </div>
   </header>
 
-  <div className={styles.independentNav}>
-   {tabs.map((x,i)=><a key={x.key} className={tab===x.key?styles.activeNav:""} href={"/modules/?code=command-center&tab="+encodeURIComponent(x.key)}>
-    <span>{String(i+1).padStart(2,"0")}</span>{x.title}
-   </a>)}
-  </div>
-
   {error&&<div className={styles.error}><b>خطا</b><span>{error}</span></div>}
   {loading?<section className={styles.loading}><div className={styles.spinner}/><b>در حال دریافت داده واقعی</b><span>اطلاعات مستقیم از PostgreSQL خوانده می‌شود.</span></section>:data&&<section className={styles.content}>
 
