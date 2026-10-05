@@ -5,6 +5,7 @@ import {Suspense} from "react";
 import {useEffect,useMemo,useState} from "react";
 import AccountingWorkspace from "./AccountingWorkspace";
 import AccountingFinanceWorkspace from "./AccountingFinanceWorkspace";
+import TreasuryBankWorkspace from "./TreasuryBankWorkspace";
 import DashboardWorkspace from "./DashboardWorkspace";
 import OrganizationWorkspace from "./OrganizationWorkspace";
 import SecurityWorkspace from "./SecurityWorkspace";
@@ -115,6 +116,7 @@ function ModulesContent(){
  if(code==="command-center")return <DashboardWorkspace/>;
  if(code==="accounting-finance")return <AccountingWorkspace/>;
  if(code==="08-accounting-finance")return <AccountingFinanceWorkspace/>;
+ if(code==="09-treasury-bank")return <TreasuryBankWorkspace/>;
  if(code==="governance")return <OrganizationWorkspace/>;
  if(code==="security")return <SecurityWorkspace/>;
  if(code==="02-identity")return <IdentityWorkspace/>;
