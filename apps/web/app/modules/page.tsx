@@ -7,6 +7,7 @@ import AccountingWorkspace from "./AccountingWorkspace";
 import DashboardWorkspace from "./DashboardWorkspace";
 import OrganizationWorkspace from "./OrganizationWorkspace";
 import SecurityWorkspace from "./SecurityWorkspace";
+import IdentityWorkspace from "./IdentityWorkspace";
 import CentralSettingsWorkspace from "./CentralSettingsWorkspace";
 
 type Field={field_key:string;title:string;field_type:string;required:boolean;sort_order:number;options?:{options?:string[]}};
@@ -109,6 +110,7 @@ function ModulesContent(){
  if(code==="accounting-finance")return <AccountingWorkspace/>;
  if(code==="governance")return <OrganizationWorkspace/>;
  if(code==="security")return <SecurityWorkspace/>;
+ if(code==="02-identity")return <IdentityWorkspace/>;
  if(code==="central-settings")return <CentralSettingsWorkspace/>;
  return <main className="module-runtime">
   <header className="page-head">
