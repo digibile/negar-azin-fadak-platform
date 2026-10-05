@@ -30,3 +30,45 @@ jobs:
         run: |
           set -euo pipefail
           ssh -p "${{ secrets.DEPLOY_PORT }}"             -o BatchMode=yes             -o ConnectTimeout=15             -o ConnectionAttempts=3             -o ServerAliveInterval=10             -o ServerAliveCountMax=3             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"             'set -e; BASE=/home/sookar/domains/sookar.ir; test -d "$BASE/public_html"; test -d "$BASE/marketos"; test -f "$BASE/negar-platform/.env"; test "$(stat -c %a "$BASE/negar-platform/.env")" = "600"; mkdir -p "$BASE/negar-platform/releases"; echo SERVER_OK'
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          tar --exclude='.git' --exclude='node_modules' --exclude='.next' --exclude='.cache' --exclude='*.log' --exclude='tmp' --exclude='temp' --exclude='backups' -czf /tmp/negar-platform.tar.gz .
+
+      - name: Upload
+        run: |
+          set -euo pipefail
+          ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" 'cat > /home/sookar/domains/sookar.ir/negar-platform/negar-platform.tar.gz' < /tmp/negar-platform.tar.gz
+
+      - name: Deploy Docker
+        run: |
+          set -euo pipefail
+          ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" 'set -e
+            BASE=/home/sookar/domains/sookar.ir/negar-platform
+            SHA=${{ github.sha }}
+            RELEASE="$BASE/releases/$SHA"
+            mkdir -p "$RELEASE"
+            tar -xzf "$BASE/negar-platform.tar.gz" -C "$RELEASE"
+            cp "$BASE/.env" "$RELEASE/.env"
+            chmod 600 "$RELEASE/.env"
+            cd "$RELEASE"
+            docker compose --project-name naf-sookar -f docker-compose.production.yml config >/dev/null
+            docker compose --project-name naf-sookar -f docker-compose.production.yml up -d --build --remove-orphans
+            docker compose --project-name naf-sookar -f docker-compose.production.yml ps
+            rm -f "$BASE/negar-platform.tar.gz"
+            ln -sfn "$RELEASE" "$BASE/current"
+          '
+
+      - name: Health
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" 'curl -fsS http://127.0.0.1:3100/ >/dev/null'; then
+              echo DEPLOYMENT_HEALTH_OK
+              exit 0
+            fi
+            sleep 4
+          done
+          ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" 'cd /home/sookar/domains/sookar.ir/negar-platform/current && docker compose --project-name naf-sookar -f docker-compose.production.yml ps && docker compose --project-name naf-sookar -f docker-compose.production.yml logs --tail=80 web api'
+          exit 1
