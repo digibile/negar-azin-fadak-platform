@@ -1,14 +1,16 @@
 "use client";
 import {useEffect,useState} from "react";
+import {useSearchParams} from "next/navigation";
 import styles from "./SecurityWorkspace.module.css";
 type User={id:string;email:string;full_name:string;role:string;status:string};
 const base=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
 const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
 async function getData(){const r=await fetch(base+"/api/security/overview",{credentials:"include"});const b=await r.json();if(!r.ok)throw new Error(b?.error||"خطا");return b}
 export default function SecurityWorkspace(){
+ const searchParams=useSearchParams();
  const [tab,setTab]=useState("users"),[data,setData]=useState<any>({users:[],roles:[],sessions:[],logins:[],policies:[]}),[error,setError]=useState("");
  const load=async()=>{try{setError("");setData(await getData())}catch(e){setError(e instanceof Error?e.message:"خطا")}};
- useEffect(()=>{const t=new URLSearchParams(window.location.search).get("tab");if(t)setTab(t);load()},[]);
+ useEffect(()=>{const t=searchParams.get("tab");if(t)setTab(t);load()},[searchParams]);
  const revoke=async(id:string)=>{await fetch(base+"/api/security/sessions/"+id+"/revoke",{method:"POST",credentials:"include",headers:{"X-CSRF-Token":csrf()}});await load()};
  const toggle=async(p:any)=>{await fetch(base+"/api/security/policies/"+p.policy_key,{method:"PUT",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:JSON.stringify({...p,enabled:!p.enabled})});await load()};
  const names:any={users:"کاربران",profiles:"پروفایل کاربران",roles:"نقش‌ها",groups:"گروه‌های کاربری",permissions:"مجوزها",policies:"سیاست‌های دسترسی",login:"ورودها",sessions:"نشست‌ها",devices:"دستگاه‌های مجاز",auth:"احراز هویت",twofa:"2FA",audit:"گزارش امنیتی"};
