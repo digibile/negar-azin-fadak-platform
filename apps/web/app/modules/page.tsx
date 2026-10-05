@@ -20,6 +20,8 @@ const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith(
 
 function ModulesContent(){
  const [code,setCode]=useState("");
+ const [activeMenu,setActiveMenu]=useState("");
+ const [activeSection,setActiveSection]=useState("");
  const [module,setModule]=useState<ModuleInfo|null>(null);
  const [actions,setActions]=useState<Action[]>([]);
  const [fields,setFields]=useState<Field[]>([]);
@@ -35,7 +37,14 @@ function ModulesContent(){
  const [editingId,setEditingId]=useState<number|null>(null);
  const [error,setError]=useState("");
 
- useEffect(()=>{const c=new URLSearchParams(window.location.search).get("code")||"governance";setCode(c)},[]);
+ useEffect(()=>{
+   const p=new URLSearchParams(window.location.search);
+   const c=p.get("code")||"governance";
+   const menu=p.get("menu")||"";
+   const tab=p.get("tab")||"";
+   setCode(c);setActiveMenu(menu);setActiveSection(tab);
+   if(tab)setRecordType(tab);
+ },[]);
  const load=async()=>{
    if(!code)return;
    setLoading(true);setError("");
@@ -97,7 +106,7 @@ function ModulesContent(){
  if(code==="central-settings")return <CentralSettingsWorkspace/>;
  return <main className="module-runtime">
   <header className="page-head">
-   <div><span className="eyebrow">هسته مرکزی کسب‌وکار</span><h1>{module?.title||"فضای عملیاتی ماژول"}</h1><p className="muted">کد ماژول: {code}</p></div>
+   <div><span className="eyebrow">هسته مرکزی کسب‌وکار{activeMenu?" · "+activeMenu:""}</span><h1>{activeSection||module?.title||"فضای عملیاتی ماژول"}</h1><p className="muted">کد ماژول: {code}{activeSection?" · فضای عملیاتی: "+activeSection:""}</p></div>
    <a className="back-link" href="/">بازگشت به منوی مرکزی</a>
   </header>
   {error&&<div className="error runtime-error">{error}</div>}
