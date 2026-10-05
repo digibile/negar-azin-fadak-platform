@@ -1,0 +1,135 @@
+name: Sookar Final Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: SSH setup
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          ssh-keyscan -T 15 -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          tar --exclude='.git' --exclude='node_modules' --exclude='.next' --exclude='.cache' --exclude='*.log' --exclude='tmp' --exclude='temp' --exclude='backups' -czf /tmp/app.tar.gz .
+
+      - name: Upload and deploy
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"
+          SSH="ssh -p ${{ secrets.DEPLOY_PORT }} -o BatchMode=yes -o ConnectTimeout=15 -o ConnectionAttempts=3"
+          $SSH "$HOST" 'mkdir -p /home/sookar/domains/sookar.ir/negar-platform/releases'
+          $SSH "$HOST" 'cat > /home/sookar/domains/sookar.ir/negar-platform/app.tar.gz' < /tmp/app.tar.gz
+          $SSH "$HOST" 'set -e
+            BASE=/home/sookar/domains/sookar.ir/negar-platform
+            RELEASE="$BASE/releases/${{ github.sha }}"
+            mkdir -p "$RELEASE"
+            tar -xzf "$BASE/app.tar.gz" -C "$RELEASE"
+            cp "$BASE/.env" "$RELEASE/.env"
+            chmod 600 "$RELEASE/.env"
+            cd "$RELEASE"
+            docker compose --project-name naf-sookar -f docker-compose.production.yml config >/dev/null
+            docker compose --project-name naf-sookar -f docker-compose.production.yml up -d --build --remove-orphans
+            ln -sfn "$RELEASE" "$BASE/current"
+            rm -f "$BASE/app.tar.gz"
+            docker compose --project-name naf-sookar -f docker-compose.production.yml ps
+          '
+
+      - name: Configure DirectAdmin Nginx
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"
+          ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "$HOST" 'set -e
+            DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf
+            USER_NGINX=/usr/local/directadmin/data/users/sookar/nginx.conf
+            test -f "$DOMAIN_CONF"
+            test -f "$USER_NGINX"
+            cp -a "$USER_NGINX" "/root/sookar-nginx-backup-$(date +%Y%m%d-%H%M%S).conf"
+            /usr/local/directadmin/custombuild/build rewrite_confs >/dev/null
+            python3 - <<'"'"'PY'"'"'
+from pathlib import Path
+import re
+
+files=[Path("/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf"),
+       Path("/usr/local/directadmin/data/users/sookar/nginx.conf")]
+for p in files:
+    if not p.exists(): continue
+    s=p.read_text()
+    if not re.search(r"server_name[^;]*\bsookar\.ir\b", s): continue
+
+    def find_block(text,start):
+        op=text.find("{",start)
+        if op<0:return None
+        depth=0
+        for i in range(op,len(text)):
+            if text[i]=="{": depth+=1
+            elif text[i]=="}":
+                depth-=1
+                if depth==0:return (start,i+1)
+        return None
+
+    sm=re.search(r"server\s*\{",s)
+    while sm:
+        b=find_block(s,sm.start())
+        if not b: break
+        a,z=b
+        sb=s[a:z]
+        if re.search(r"server_name[^;]*\bsookar\.ir\b",sb):
+            lm=re.search(r"location\s+/\s*\{",sb)
+            if lm:
+                lb=find_block(sb,lm.start())
+                la,lz=lb
+                loc=sb[la:lz]
+                if re.search(r"proxy_pass\s+[^;]+;",loc):
+                    loc=re.sub(r"proxy_pass\s+[^;]+;","proxy_pass http://127.0.0.1:3100;",loc,count=1)
+                else:
+                    pos=loc.rfind("}")
+                    loc=loc[:pos]+"        proxy_pass http://127.0.0.1:3100;\n"+loc[pos:]
+                sb=sb[:la]+loc+sb[lz:]
+            else:
+                pos=sb.rfind("}")
+                sb=sb[:pos]+"\n    location / {\n        proxy_http_version 1.1;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n        proxy_pass http://127.0.0.1:3100;\n    }\n"+sb[pos:]
+            s=s[:a]+sb+s[z:]
+            p.write_text(s)
+            print("PATCHED",p)
+            break
+        sm=re.search(r"server\s*\{",s,z)
+
+    else:
+        raise SystemExit("Sookar server block not found")
+
+nginx_test=__import__("subprocess").run(["nginx","-t"],capture_output=True,text=True)
+print(nginx_test.stdout,nginx_test.stderr)
+if nginx_test.returncode: raise SystemExit(1)
+__import__("subprocess").run(["systemctl","reload","nginx"],check=True)
+PY
+          '
+
+      - name: Verify
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"
+          for i in $(seq 1 30); do
+            if ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "$HOST" 'curl -fsS http://127.0.0.1:3100/ >/dev/null'; then
+              break
+            fi
+            sleep 3
+          done
+          code=$(curl -k -L -sS -o /tmp/sookar.html -w '%{http_code}' https://sookar.ir/ || true)
+          echo "SOOKAR_HTTP=$code"
+          test "$code" = "200"
+          echo "SOOKAR_ONLINE_OK"
