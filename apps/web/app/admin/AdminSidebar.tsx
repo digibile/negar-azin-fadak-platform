@@ -20,11 +20,13 @@ export default function AdminSidebar(){
  const [query,setQuery]=useState("");
  const [error,setError]=useState("");
  const [openMenus,setOpenMenus]=useState<Record<string,boolean>>({});
+ const [updateAvailable,setUpdateAvailable]=useState(false);
 
  useEffect(()=>{let alive=true;
   Promise.all([
-   api<{items:DynamicMenuItem[]}>("/api/dashboard/menu-tree?panel=admin")
-  ]).then(([menus])=>{if(alive){setMenuItems(menus.items||[])}})
+   api<{items:DynamicMenuItem[]}>("/api/dashboard/menu-tree?panel=admin"),
+   api<{updateAvailable?:boolean}>("/api/platform/update-status")
+  ]).then(([menus,update])=>{if(alive){setMenuItems(menus.items||[]);setUpdateAvailable(Boolean(update.updateAvailable))}})
    .catch(e=>{if(alive)setError(e instanceof Error?e.message:"خطا در دریافت ساختار سامانه")});
   return()=>{alive=false};
  },[]);
@@ -136,7 +138,7 @@ export default function AdminSidebar(){
 
   <footer className={styles["sidebar-footer"]}>
    <Link href="/admin/editors"><span>✦</span><div><b>ویرایشگرهای سامانه</b><small>قالب، صفحه، فرم و منو</small></div></Link>
-   <Link href="/admin/updates"><span>↻</span><div><b>نسخه و بروزرسانی</b><small>بررسی نسخه و نصب امن از GitHub</small></div></Link>
+   <Link className={updateAvailable?styles["update-available"]:""} href="/admin/updates"><span>↻</span><div><b>نسخه و بروزرسانی {updateAvailable&&<em>نسخه جدید</em>}</b><small>{updateAvailable?"نسخه جدید GitHub آماده نصب است":"بررسی نسخه و نصب امن از GitHub"}</small></div></Link>
    <small className={styles["sidebar-version"]}>50 بخش · طراحی مینیمال · CSS-first · RTL</small>
   </footer>
  </aside>
