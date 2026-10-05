@@ -19,7 +19,7 @@ router.get("/api/dashboard/workspace",requireAuth,async(req,res)=>{
   const base=await query("select id,code,name,status from tenants where id=$1",[t.id]);
   const tenantRow=base.rows[0];
 
-  if(tab==="executive"||tab==="kpi"){
+  if(tab==="dashboard"||tab==="executive"||tab==="kpi"){
     const [users,companies,branches,sellers,stores,products,orders,revenue]=await Promise.all([
       query("select count(*)::int total from user_tenants where tenant_id=$1",[t.id]),
       query("select count(*)::int total from companies where tenant_id=$1 and status='active'",[t.id]),
