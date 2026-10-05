@@ -117,8 +117,6 @@ jobs:
 
              cp -a "$USER_NGINX" "$BACKUP"
 
-             /usr/local/directadmin/directadmin config-set nginx_proxy 1
-             /usr/local/directadmin/directadmin config-set nginx 1
              /usr/local/directadmin/custombuild/build rewrite_confs
 
              python3 - <<'"'"'PY'
