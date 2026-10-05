@@ -68,9 +68,10 @@ function ModulesContent(){
     ]);
     if(!schema.ok||!records.ok)throw new Error("برای مشاهده این ماژول باید نشست معتبر داشته باشید.");
     const s=await schema.json(),r=await records.json(),a=actionResponse.ok?await actionResponse.json():[];
-    const tree:MenuItem[]=menuResponse.ok?await menuResponse.json():[];
-    const parent=tree.find(x=>x.path==="/modules/?code="+code);
-    setMenuChildren(parent?tree.filter(x=>x.parent_id===parent.id).sort((x,y)=>x.sort_order-y.sort_order):[]);
+    const menuBody=menuResponse.ok?await menuResponse.json():{items:[]};
+    const tree:MenuItem[]=Array.isArray(menuBody)?menuBody:(menuBody.items||[]);
+    const parent=tree.find(x=>x.path==="/modules/?code="+code||x.path?.includes("code="+code));
+    setMenuChildren(parent?((parent as any).child_items||[]).sort((x:any,y:any)=>x.sort_order-y.sort_order):[]);
     setModule(s.module);setFields(s.fields);setItems(r.items||[]);setActions(a);
    }catch(e){setError(e instanceof Error?e.message:"خطا در دریافت اطلاعات");}
    finally{setLoading(false)}
