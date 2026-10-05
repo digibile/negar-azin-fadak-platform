@@ -12,6 +12,7 @@ import CentralSettingsWorkspace from "./CentralSettingsWorkspace";
 type Field={field_key:string;title:string;field_type:string;required:boolean;sort_order:number;options?:{options?:string[]}};
 type ModuleInfo={id:number;code:string;title:string};
 type Action={id:number;action_code:string;title:string;permission:string;is_active:boolean};
+type MenuItem={id:string|number;parent_id:string|number|null;title:string;path:string;sort_order:number;permission?:string|null;is_active?:boolean};
 type RecordItem={id:number;record_type:string;title:string;status:string;data:Record<string,unknown>;created_at:string;updated_at:string};
 
 const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
@@ -24,6 +25,7 @@ function ModulesContent(){
  const [activeSection,setActiveSection]=useState("");
  const [module,setModule]=useState<ModuleInfo|null>(null);
  const [actions,setActions]=useState<Action[]>([]);
+ const [menuChildren,setMenuChildren]=useState<MenuItem[]>([]);
  const [fields,setFields]=useState<Field[]>([]);
  const [items,setItems]=useState<RecordItem[]>([]);
  const [form,setForm]=useState<Record<string,unknown>>({});
@@ -49,13 +51,17 @@ function ModulesContent(){
    if(!code)return;
    setLoading(true);setError("");
    try{
-    const [schema,records,actionResponse]=await Promise.all([
+    const [schema,records,actionResponse,menuResponse]=await Promise.all([
       fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/schema"),{credentials:"include"}),
       fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/records?page=1&pageSize=50&q="+encodeURIComponent(q)+(filterStatus?"&status="+encodeURIComponent(filterStatus):"")),{credentials:"include"}),
-      fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/actions"),{credentials:"include"})
+      fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/actions"),{credentials:"include"}),
+      fetch(url("/api/dashboard/menu-tree"),{credentials:"include"})
     ]);
     if(!schema.ok||!records.ok)throw new Error("برای مشاهده این ماژول باید نشست معتبر داشته باشید.");
     const s=await schema.json(),r=await records.json(),a=actionResponse.ok?await actionResponse.json():[];
+    const tree:MenuItem[]=menuResponse.ok?await menuResponse.json():[];
+    const parent=tree.find(x=>x.path==="/modules/?code="+code);
+    setMenuChildren(parent?tree.filter(x=>x.parent_id===parent.id).sort((x,y)=>x.sort_order-y.sort_order):[]);
     setModule(s.module);setFields(s.fields);setItems(r.items||[]);setActions(a);
    }catch(e){setError(e instanceof Error?e.message:"خطا در دریافت اطلاعات");}
    finally{setLoading(false)}
@@ -106,9 +112,16 @@ function ModulesContent(){
  if(code==="central-settings")return <CentralSettingsWorkspace/>;
  return <main className="module-runtime">
   <header className="page-head">
-   <div><span className="eyebrow">هسته مرکزی کسب‌وکار{activeMenu?" · "+activeMenu:""}</span><h1>{activeSection||module?.title||"فضای عملیاتی ماژول"}</h1><p className="muted">کد ماژول: {code}{activeSection?" · فضای عملیاتی: "+activeSection:""}</p></div>
+   <div><span className="eyebrow">هسته مرکزی کسب‌وکار{activeMenu?" · "+activeMenu:""}</span><h1>{menuChildren.find(x=>x.path.includes("tab="+activeSection))?.title||module?.title||"فضای عملیاتی ماژول"}</h1><p className="muted">کد ماژول: {code}{activeSection?" · فضای عملیاتی: "+activeSection:""}</p></div>
    <a className="back-link" href="/">بازگشت به منوی مرکزی</a>
   </header>
+  {!!menuChildren.length&&<nav className="module-subnav" aria-label="زیرمنوی عملیاتی">
+   {menuChildren.map(item=>{
+    const tab=new URL(item.path,"http://module.local").searchParams.get("tab")||"";
+    const active=activeSection===tab;
+    return <a key={item.id} className={active?"active":""} href={item.path}>{item.title}</a>;
+   })}
+  </nav>}
   {error&&<div className="error runtime-error">{error}</div>}
   {loading?<div className="runtime-panel">در حال دریافت داده واقعی...</div>:<div className="runtime-layout">
    <section className="runtime-panel">
