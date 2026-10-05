@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
+import {useSearchParams} from "next/navigation";
 import styles from "./CentralSettingsWorkspace.module.css";
 type Setting={id:string;setting_key:string;category:string;title:string;value:any;is_sensitive:boolean;is_editable:boolean;updated_at:string};
 const base=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
@@ -8,7 +9,7 @@ const labels:any={general:"عمومی",localization:"تقویم و منطقه",n
 export default function CentralSettingsWorkspace(){
  const [items,setItems]=useState<Setting[]>([]),[audit,setAudit]=useState<any[]>([]),[tab,setTab]=useState("general"),[error,setError]=useState(""),[saving,setSaving]=useState<string|null>(null);
  const load=async()=>{try{setError("");const [a,b]=await Promise.all([fetch(base+"/api/settings/central",{credentials:"include"}),fetch(base+"/api/settings/central/audit",{credentials:"include"})]);const x=await a.json();const y=await b.json();if(!a.ok)throw new Error(x?.error||"خطا");setItems(x.items||[]);setAudit(Array.isArray(y)?y:[])}catch(e){setError(e instanceof Error?e.message:"خطا در دریافت تنظیمات")}};
- useEffect(()=>{const t=new URLSearchParams(window.location.search).get("tab");if(t)setTab(t);load()},[]);
+ useEffect(()=>{const t=searchParams.get("tab");if(t)setTab(t);load()},[searchParams]);
  useEffect(()=>{if(tab!=="audit")history.replaceState(null,"","/modules/?code=central-settings&tab="+encodeURIComponent(tab))},[tab]);
  const cats=useMemo(()=>[...new Set(items.map(x=>x.category))], [items]);
  useEffect(()=>{if(cats.length&&!cats.includes(tab))setTab(cats[0])},[cats,tab]);
