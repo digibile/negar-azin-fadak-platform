@@ -1,7 +1,7 @@
 "use client";
 import{useEffect,useMemo,useState}from"react";
 import styles from"./DocumentVersionsWorkspace.module.css";
-type R={id:number;record_type:string;title:string;status:string;data:Record<string,any>};
+type R={id:number;record_type:string;title:string;status:string;data:Record<string,any>};*/
 const API=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
 const csrf=()=>document.cookie.split(";").map((x:any)=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
 const empty:any={code:"",doc:"",title:"",version:1,label:"",change:"ایجاد اولیه",summary:"",reference:"",by:"",created:"",effective:"",approval:"",file:"",hash:"",status:"پیش‌نویس",current:"خیر",notes:""};
