@@ -33,8 +33,8 @@ docker compose --env-file "$ENV_FILE" -f docker-compose.production.yml -f docker
 
 # Publish preview ports so browser links do not return GitHub's 401 gate.
 if command -v gh >/dev/null 2>&1 && [ -n "${CODESPACE_NAME:-}" ]; then
-  gh codespace ports visibility 3000:public 4000:public -c "$CODESPACE_NAME" >/dev/null 2>&1 || true
+  gh codespace ports visibility 3000:public -c "$CODESPACE_NAME" >/dev/null 2>&1 || true
 fi
 
 echo "Preview: http://localhost:3000"
-echo "API: http://localhost:4000"
+echo "API: internal via web /api proxy"
