@@ -10,7 +10,7 @@ type Ownership={id:string;owner_name:string;owned_name:string;ownership_percent:
 
 export default function OrganizationWorkspace(){
  const [orgs,setOrgs]=useState<Org[]>([]),[entities,setEntities]=useState<Entity[]>([]),[centers,setCenters]=useState<Center[]>([]),[ownership,setOwnership]=useState<Ownership[]>([]);
- const [tab,setTab]=useState("structure"),[error,setError]=useState(""),[saving,setSaving]=useState(false);
+ const [tab,setTab]=useState("structure"),[error,setError]=useState(""),[saving,setSaving]=useState(false);\n useEffect(()=>{const t=new URLSearchParams(window.location.search).get("tab");if(t)setTab(t)},[]);
  const [orgForm,setOrgForm]=useState({code:"",name:"",organizationType:"company",nationalId:"",registrationNo:"",economicCode:""});
  const [entityForm,setEntityForm]=useState({organizationId:"",parentId:"",entityType:"company",code:"",name:"",managerName:""});
  const [centerForm,setCenterForm]=useState({organizationId:"",centerType:"cost",code:"",name:""});
@@ -31,9 +31,9 @@ export default function OrganizationWorkspace(){
   <nav className={styles.tabs}>{[["structure","ساختار سازمان"],["companies","شرکت‌ها"],["branches","شعب"],["units","واحدها"],["departments","دپارتمان‌ها"],["cost","مراکز هزینه"],["revenue","مراکز درآمد"],["profit","مراکز سود"],["ownership","ساختار مالکیت"],["settings","تنظیمات سازمان"]].map(([k,t])=><button className={tab===k?styles.active:""} onClick={()=>setTab(k)} key={k}>{t}</button>)}</nav>
   <div className={styles.layout}>
    <section className={styles.panel}>
-    <h2>{tab==="structure"?"درخت موجودیت‌های سازمان":tab==="ownership"?"ساختار مالکیت":tab.includes("companies")?"شرکت‌ها":tab.includes("branches")?"شعب":"فهرست "+(["units","departments"].includes(tab)?"واحدها و دپارتمان‌ها":"مراکز")}</h2>
+    <h2>{tab==="structure"?"درخت موجودیت‌های سازمان":tab==="holdings"?"هلدینگ‌ها":tab==="ownership"?"ساختار مالکیت":tab==="settings"?"تنظیمات سازمان":tab.includes("companies")?"شرکت‌ها":tab.includes("branches")?"شعب":"فهرست "+(["units","departments"].includes(tab)?"واحدها و دپارتمان‌ها":"مراکز")}</h2>
     <div className={styles.rows}>
-     {tab==="ownership"?ownership.map(x=><div className={styles.row} key={x.id}><div><b>{x.owner_name}</b><small>مالک {x.owned_name}</small></div><b>{x.ownership_percent}%</b></div>):
+     {tab==="settings"?<div className={styles.form}>{orgs.map(o=><div className={styles.row} key={o.id}><div><b>{o.name}</b><small>{o.code} · {o.organization_type}</small></div><span>{o.status}</span></div>)}</div>:tab==="ownership"?ownership.map(x=><div className={styles.row} key={x.id}><div><b>{x.owner_name}</b><small>مالک {x.owned_name}</small></div><b>{x.ownership_percent}%</b></div>):
       tab==="cost"||tab==="revenue"||tab==="profit"?centers.filter(x=>x.center_type===tab).map(x=><div className={styles.row} key={x.id}><div><b>{x.name}</b><small>{x.code} · {x.center_type}</small></div><span>{x.status}</span></div>):
       entities.filter(x=>tab==="structure"|| (tab==="companies"&&x.entity_type==="company") || (tab==="branches"&&x.entity_type==="branch") || (tab==="units"&&x.entity_type==="unit") || (tab==="departments"&&x.entity_type==="department")).map(x=><div className={styles.row} key={x.id}><div><b>{x.name}</b><small>{x.code} · {x.entity_type}{x.manager_name?" · مدیر: "+x.manager_name:""}</small></div><span>{x.status}</span></div>)}
      {tab!=="settings"&&((tab==="ownership"?ownership:tab==="cost"||tab==="revenue"||tab==="profit"?centers:entities).length===0)&&<div className={styles.muted}>رکوردی ثبت نشده است.</div>}
