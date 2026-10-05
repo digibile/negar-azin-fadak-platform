@@ -58,14 +58,14 @@ export default function Admin(){
  return <main className="admin-dashboard">
   <section className="dashboard-hero">
    <div className="dashboard-hero-copy">
-    <span className="hero-kicker">مرکز فرماندهی · نگار آذین فدک</span>
+    <span className="hero-kicker">مرکز فرماندهی · نگار آذین فدک · نسخه عملیاتی 2026.10</span>
     <h1>مرکز مدیریت سازمان</h1>
     <p>نمای واحد برای راهبری ساختار سازمان، عملیات، مالی، اعتبار، تجارت و سرویس‌های پلتفرم. هر بخش مستقیماً به ماژول عملیاتی واقعی متصل است.</p>
     <div className="dashboard-identity"><span className="identity-dot"/><b>{me?.fullName||me?.email||"کاربر مدیریتی"}</b><span>مدیر سامانه</span></div>
    </div>
    <div className="dashboard-hero-side">
     <div className="hero-status"><i className={health.database==="ok"?"online":""}/><span>وضعیت سرویس مرکزی</span><b>{health.database==="ok"?"فعال":"در حال بررسی"}</b></div>
-    <div className="hero-clock">50 بخش عملیاتی<br/><small>ساختار یکپارچه سازمان</small></div>
+    <div className="hero-clock">نسخه 2026.10<br/><small>ساختار یکپارچه سازمان · ۵۰ بخش عملیاتی</small></div>
    </div>
   </section>
 
