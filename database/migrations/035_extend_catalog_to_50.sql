@@ -104,18 +104,18 @@ with menu_seed(menu_key,title,path,sort_order,permission,children) as (
   '["مشتری 360","نظرسنجی","امتیاز رضایت","باشگاه مشتریان","سطح وفاداری","پاداش‌ها","کمپین وفاداری","شکایت و بازخورد","سفر مشتری","تحلیل تجربه"]'::jsonb),
  ('service-lifecycle','مدیریت انتشار و چرخه سرویس','/modules/?code=service-lifecycle',500,'modules:service-lifecycle:read',
   '["نسخه‌ها","برنامه انتشار","محیط‌ها","تأیید انتشار","استقرار","بازگشت نسخه","یادداشت انتشار","سلامت سرویس","تغییرات","گزارش چرخه سرویس"]'::jsonb)
+),
+updated_menu as (
+ update menu_items m
+ set title=s.title,path=s.path,sort_order=s.sort_order,permission=s.permission,children=s.children,is_active=true,updated_at=now()
+ from menu_seed s
+ where m.menu_key=s.menu_key
+ returning m.menu_key
 )
 insert into menu_items(menu_key,title,path,sort_order,permission,children)
-select menu_key,title,path,sort_order,permission,children
-from menu_seed
-on conflict(menu_key) do update set
-  title=excluded.title,
-  path=excluded.path,
-  sort_order=excluded.sort_order,
-  permission=excluded.permission,
-  children=excluded.children,
-  is_active=true,
-  updated_at=now();
+select s.menu_key,s.title,s.path,s.sort_order,s.permission,s.children
+from menu_seed s
+where not exists (select 1 from menu_items m where m.menu_key=s.menu_key);
 
 with command_group as (
  select id from menu_items where path='/core/command' limit 1
