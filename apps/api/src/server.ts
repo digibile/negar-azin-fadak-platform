@@ -101,17 +101,6 @@ app.post("/api/auth/login",asyncHandler(async(req,res)=>{
 app.get("/api/auth/me",requireAuth,(req,res)=>res.json({user:(req as any).user}));
 app.post("/api/auth/logout",requireAuth,(req,res)=>{clearSession(res);res.status(204).end();});
 
-// Platform module catalog
-app.get("/api/dashboard/menu-tree",requireAuth,asyncHandler(async(req,res)=>{
- const user=(req as any).user;
- const r=await query("select id,parent_id,title,path,icon,sort_order,permission from menu_items where is_active=true order by sort_order,id");
- const rows=r.rows as any[];
- if(user.role==="admin")return res.json(rows);
- const permissions=await query("select permission from role_permissions where role=$1",[user.role]);
- const allowed=new Set(permissions.rows.map((x:any)=>x.permission));
- res.json(rows.filter(x=>!x.permission||allowed.has(x.permission)));
-}));
-
 app.get("/api/admin/users",requireAuth,requirePermission("users:manage"),asyncHandler(async(_req,res)=>res.json((await query("select id,email,full_name,role,status,created_at from users order by created_at desc")).rows)));
 app.post("/api/admin/users",requireAuth,requirePermission("users:manage"),asyncHandler(async(req,res)=>{
  const input=userCreateSchema.parse(req.body),hash=await hashPassword(input.password);
