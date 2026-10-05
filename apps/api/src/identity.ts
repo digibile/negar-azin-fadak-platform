@@ -2,7 +2,12 @@ import {Router} from "express";
 import {query} from "./db.js";
 import {requireAuth,requirePermission,requireCsrf} from "./auth.js";
 const router=Router();
-const guard=requirePermission("users:manage");
+const guard=async(req:any,res:any,next:any)=>{
+ if(req.user?.role==="admin")return next();
+ const r=await query("select 1 from identity_role_permissions where role_key=$1 and permission_key in ('identity.users.write','identity.users.read') and granted=true",[req.user?.role]);
+ if(!r.rowCount)return res.status(403).json({error:"دسترسی هویت و دسترسی کافی نیست"});
+ next();
+};
 router.get("/api/identity/overview",requireAuth,guard,async(_req,res)=>{
  const [users,roles,groups,permissions,sessions,logins]=await Promise.all([
   query("select id,email,full_name,role,status,created_at from users order by created_at desc"),
