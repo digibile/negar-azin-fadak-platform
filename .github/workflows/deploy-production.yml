@@ -1,169 +1,123 @@
-name: Deploy Production
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-concurrency:
-  group: production
-  cancel-in-progress: false
+name: Deploy Production to Sookar
 
 permissions:
-  contents: write
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-sookar-production
+  cancel-in-progress: true
 
 jobs:
-  build:
-    name: Verify latest GitHub version
+  deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.1
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: apps/web/package.json
-      - name: Install API dependencies
-        working-directory: apps/api
-        run: npm install
-      - name: Install web dependencies
-        working-directory: apps/web
-        run: npm install
-      - name: Build API
-        working-directory: apps/api
-        run: npm run build
-      - name: Test API
-        working-directory: apps/api
-        run: npm test
-      - name: Build web
-        working-directory: apps/web
-        run: npm run build
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://negarzinfadak.ir
-
-    steps:
-      - name: Validate deployment configuration
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-          PLATFORM_GITHUB_TOKEN: ${{ secrets.PLATFORM_GITHUB_TOKEN }}
+      - name: Trust deployment host
         run: |
-          set -eu
-          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_PATH POSTGRES_PASSWORD JWT_SECRET ADMIN_EMAIL ADMIN_PASSWORD PLATFORM_GITHUB_TOKEN; do
-            eval "value=\${$name:-}"
-            test -n "$value" || { echo "Missing production secret: $name"; exit 1; }
-          done
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install SSH client
-        run: sudo apt-get update && sudo apt-get install -y openssh-client
-
-      - name: Configure SSH
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-        run: |
-          set -eu
+          set -euo pipefail
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
 
-      - name: Read currently deployed commit
-        id: current
+      - name: Validate deployment secrets
         env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-        run: |
-          set -eu
-          CURRENT_SHA="$(ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && git rev-parse HEAD" || true)"
-          if [ -z "$CURRENT_SHA" ]; then
-            CURRENT_SHA="$GITHUB_SHA"
-          fi
-          git cat-file -e "$CURRENT_SHA^{commit}" 2>/dev/null || git fetch origin "$CURRENT_SHA" || true
-          git cat-file -e "$CURRENT_SHA^{commit}"
-          echo "sha=$CURRENT_SHA" >> "$GITHUB_OUTPUT"
-
-      - name: Create immutable backup tag
-        env:
-          CURRENT_SHA: ${{ steps.current.outputs.sha }}
-        run: |
-          set -eu
-          TAG="backup/pre-deploy-$(date -u +%Y%m%d-%H%M%S)-${CURRENT_SHA:0:12}"
-          git tag "$TAG" "$CURRENT_SHA"
-          git push origin "refs/tags/$TAG"
-          echo "Previous application version retained as $TAG"
-
-      - name: Deploy application with database backup
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-          PLATFORM_GITHUB_TOKEN: ${{ secrets.PLATFORM_GITHUB_TOKEN }}
-          CURRENT_SHA: ${{ steps.current.outputs.sha }}
+          PUBLIC_ORIGIN: ${{ secrets.PUBLIC_ORIGIN }}
         run: |
-          set -eu
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH'"
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "if [ -d '$DEPLOY_PATH/.git' ]; then test -z \"\$(git -C '$DEPLOY_PATH' status --porcelain)\" || { echo 'Deployment host has uncommitted changes; refusing automatic update.'; exit 1; }; git -C '$DEPLOY_PATH' fetch origin main; git -C '$DEPLOY_PATH' reset --hard origin/main; else git clone https://github.com/digibile/negar-azin-fadak-platform.git '$DEPLOY_PATH'; fi"
+          set -euo pipefail
+          for name in POSTGRES_PASSWORD JWT_SECRET ADMIN_EMAIL ADMIN_PASSWORD PUBLIC_ORIGIN; do
+            if [ -z "${!name}" ]; then
+              echo "Missing required repository secret: $name"
+              exit 1
+            fi
+          done
 
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "cat > '$DEPLOY_PATH/.env' <<'EOF'
-POSTGRES_DB=negara_fadak
-POSTGRES_USER=platform
-POSTGRES_PASSWORD=$POSTGRES_PASSWORD
-JWT_SECRET=$JWT_SECRET
-ADMIN_EMAIL=$ADMIN_EMAIL
-ADMIN_PASSWORD=$ADMIN_PASSWORD
-PLATFORM_UPDATE_WORKFLOW=deploy-production.yml
-GITHUB_TOKEN=$PLATFORM_GITHUB_TOKEN
-GITHUB_REPOSITORY=digibile/negar-azin-fadak-platform
-DEPLOYED_SHA=$GITHUB_SHA
-PUBLIC_ORIGIN=https://negarzinfadak.ir
-WEB_PORT=3000
-EOF"
+      - name: Verify deployment host is safe
+        run: |
+          set -euo pipefail
+          ssh -p "${{ secrets.DEPLOY_PORT }}"             -o BatchMode=yes             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"             'set -e
+             BASE=/home/sookar/domains/sookar.ir
+             test -d "$BASE/public_html"
+             test -d "$BASE/marketos"
+             mkdir -p "$BASE/negar-platform/releases"
+             echo "SAFE_DEPLOYMENT_TARGET=$BASE/negar-platform"
+             echo "PUBLIC_HTML_PRESERVED=$BASE/public_html"
+             echo "MARKETOS_PRESERVED=$BASE/marketos"'
 
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && mkdir -p backups/releases && if docker compose -f docker-compose.production.yml ps postgres >/dev/null 2>&1; then docker compose -f docker-compose.production.yml exec -T postgres sh -lc 'pg_dump -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -Fc' > 'backups/releases/db-$(date -u +%Y%m%d-%H%M%S).dump'; fi"
+      - name: Package source
+        run: |
+          set -euo pipefail
+          tar             --exclude='.git'             --exclude='node_modules'             --exclude='.next'             --exclude='.cache'             --exclude='*.log'             --exclude='tmp'             --exclude='temp'             --exclude='backups'             -czf /tmp/negar-platform.tar.gz .
 
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && docker compose -f docker-compose.production.yml up -d --build"
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && docker compose -f docker-compose.production.yml ps"
+      - name: Upload source and environment
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          PUBLIC_ORIGIN: ${{ secrets.PUBLIC_ORIGIN }}
+        run: |
+          set -euo pipefail
 
+          printf '%s\n'             'POSTGRES_DB=negara_fadak'             'POSTGRES_USER=platform'             "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"             "JWT_SECRET=$JWT_SECRET"             "ADMIN_EMAIL=$ADMIN_EMAIL"             "ADMIN_PASSWORD=$ADMIN_PASSWORD"             "PUBLIC_ORIGIN=$PUBLIC_ORIGIN"             'WEB_PORT=3100'             > /tmp/negar-platform.env
+
+          chmod 600 /tmp/negar-platform.env
+
+          scp -P "${{ secrets.DEPLOY_PORT }}"             /tmp/negar-platform.tar.gz             /tmp/negar-platform.env             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/home/sookar/domains/sookar.ir/negar-platform/"
+
+      - name: Deploy Docker Compose
+        run: |
+          set -euo pipefail
+
+          ssh -p "${{ secrets.DEPLOY_PORT }}"             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"             'set -e
+             BASE=/home/sookar/domains/sookar.ir/negar-platform
+             RELEASE="$BASE/releases/${GITHUB_SHA:-unknown}"
+             mkdir -p "$RELEASE"
+             tar -xzf "$BASE/negar-platform.tar.gz" -C "$RELEASE"
+             cp "$BASE/negar-platform.env" "$RELEASE/.env"
+             chmod 600 "$RELEASE/.env"
+
+             cd "$RELEASE"
+
+             docker compose --project-name naf-sookar -f docker-compose.production.yml config >/dev/null
+             docker compose --project-name naf-sookar -f docker-compose.production.yml up -d --build --remove-orphans
+
+             docker compose --project-name naf-sookar -f docker-compose.production.yml ps
+
+             test -d "$BASE/releases"
+
+             rm -f "$BASE/negar-platform.tar.gz" "$BASE/negar-platform.env"
+             ln -sfn "$RELEASE" "$BASE/current"
+
+             find "$BASE/releases" -mindepth 1 -maxdepth 1 -type d ! -name "${GITHUB_SHA:-unknown}" -mtime +7 -exec rm -rf {} + 2>/dev/null || true'
+
+      - name: Health check
+        run: |
+          set -euo pipefail
           for i in $(seq 1 30); do
-            if ssh "$DEPLOY_USER@$DEPLOY_HOST" "curl -fsS http://127.0.0.1:4000/health >/dev/null 2>&1"; then
-              break
+            if ssh -p "${{ secrets.DEPLOY_PORT }}"               "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"               'curl -fsS http://127.0.0.1:3100/ >/dev/null 2>&1'; then
+              echo "DEPLOYMENT_HEALTH_OK"
+              exit 0
             fi
             sleep 4
           done
 
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "curl -fsS http://127.0.0.1:4000/health"
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "curl -fsS http://127.0.0.1:3000/ >/dev/null"
-
-      - name: Deployment summary
-        env:
-          CURRENT_SHA: ${{ steps.current.outputs.sha }}
-        run: |
-          echo "Previous version: $CURRENT_SHA"
-          echo "Previous version retained as immutable backup tag."
-          echo "Database backup retained under ${{ secrets.DEPLOY_PATH }}/backups/releases/."
-          echo "Current version: $GITHUB_SHA"
+          ssh -p "${{ secrets.DEPLOY_PORT }}"             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"             'cd /home/sookar/domains/sookar.ir/negar-platform/current && docker compose --project-name naf-sookar -f docker-compose.production.yml ps && docker compose --project-name naf-sookar -f docker-compose.production.yml logs --tail=120 api web'
+          exit 1
