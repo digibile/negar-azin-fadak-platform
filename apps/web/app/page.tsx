@@ -22,9 +22,10 @@ export default function HomePage(){
 
   useEffect(()=>{
     let alive=true;
-    api<MenuItem[]>("/api/dashboard/menu-tree")
-      .then(rows=>{
+    api<{items:MenuItem[]}>("/api/dashboard/menu-tree")
+      .then(body=>{
         if(!alive)return;
+        const rows=body.items||[];
         setItems(rows);
         const first=rows.find(x=>x.parent_id===null&&x.path!==" /".trim());
         setOpen(first?.id??null);
