@@ -30,7 +30,7 @@ create table if not exists sla_breaches(
  commitment_id uuid not null references sla_service_commitments(id) on delete restrict,case_type text not null,case_id text not null,
  target_at timestamptz not null,breached_at timestamptz,minutes_overdue integer,reason text not null default '',
 status text not null default 'open',resolved_at timestamptz,resolved_by uuid references users(id) on delete set null,created_at timestamptz not null default now(),
-unique(tenant_id,commitment_id,case_type,case_id,case_type),check(status in ('open','acknowledged','resolved','waived'))
+unique(tenant_id,commitment_id,case_type,case_id),check(status in ('open','acknowledged','resolved','waived'))
 );
 create index if not exists sla_commitments_tenant_status_idx on sla_service_commitments(tenant_id,status);
 create index if not exists sla_breaches_tenant_status_idx on sla_breaches(tenant_id,status,target_at);
