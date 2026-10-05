@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect,useMemo,useState} from "react";
+import {useSearchParams} from "next/navigation";
 import styles from "./DashboardWorkspace.module.css";
 
 type Tab={key:string;title:string;description:string;eyebrow:string};
@@ -23,6 +24,7 @@ const nf=(v:any)=>Number(v||0).toLocaleString("fa-IR");
 const money=(v:any)=>Number(v||0).toLocaleString("fa-IR")+" ریال";
 
 export default function DashboardWorkspace(){
+ const searchParams=useSearchParams();
  const [tab,setTab]=useState("dashboard"),[data,setData]=useState<any>(null),[error,setError]=useState(""),[loading,setLoading]=useState(true),[q,setQ]=useState("");
  const current=useMemo(()=>tabs.find(x=>x.key===tab)||tabs[0],[tab]);
 
@@ -38,10 +40,9 @@ export default function DashboardWorkspace(){
  };
 
  useEffect(()=>{
-  const params=new URLSearchParams(window.location.search);
-  const t=params.get("tab");
-  if(t&&tabs.some(x=>x.key===t))setTab(t);
- },[]);
+  const t=searchParams.get("tab")||"dashboard";
+  setTab(tabs.some(x=>x.key===t)?t:"dashboard");
+ },[searchParams]);
  useEffect(()=>{load(tab)},[tab]);
 
  const markRead=async(id:string)=>{
@@ -56,7 +57,7 @@ export default function DashboardWorkspace(){
     <h1>{current.title}</h1>
     <p>{data?.tenant?.name||"سازمان جاری"} <span>·</span> {current.description}</p>
    </div>
-   <div className={styles.heroActions}>
+   <div className={styles.heroActions}><a className={styles.backButton} href="/admin">‹ بازگشت به منوی مرکزی</a>
     <span className={styles.live}><i/> LIVE DATA</span>
     <button onClick={()=>load(tab)} disabled={loading}>{loading?"در حال دریافت":"↻ به‌روزرسانی"}</button>
    </div>
