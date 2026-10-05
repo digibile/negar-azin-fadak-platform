@@ -9,23 +9,27 @@ concurrency:
   group: production
   cancel-in-progress: false
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment:
       name: production
       url: https://negarzinfadak.ir
+
     steps:
       - name: Validate deployment configuration
         env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          DEPLOY_HOST: ${{secrets.DEPLOY_HOST}
+          DEPLOY_USER: ${{secrets.DEPLOY_USER}
+          DEPLOY_SSH_KEY: ${{secrets.DEPLOY_SSH_KEY}
+          DEPLOY_PATH: ${{secrets.DEPLOY_PATH}
+          POSTGRES_PASSWORD: ${{secrets.POSTGRES_PASSWORD}
+          JWT_SECRET: ${{secrets.JWT_SECRET}
+          ADMIN_EMAIL: ${{secrets.ADMIN_EMAIL}
+          ADMIN_PASSWORD: ${{secrets.ADMIN_PASSWORD}
         run: |
           set -eu
           for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_PATH POSTGRES_PASSWORD JWT_SECRET ADMIN_EMAIL ADMIN_PASSWORD; do
@@ -33,13 +37,18 @@ jobs:
             test -n "$value" || { echo "Missing production secret: $name"; exit 1; }
           done
 
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Install SSH client
         run: sudo apt-get update && sudo apt-get install -y openssh-client
 
       - name: Configure SSH
         env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{secrets.DEPLOY_SSH_KEY}
+          DEPLOY_HOST: ${{secrets.DEPLOY_HOST}
         run: |
           set -eu
           mkdir -p ~/.ssh
@@ -48,19 +57,47 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
-      - name: Deploy application
+      - name: Read currently deployed commit
+        id: current
         env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          DEPLOY_HOST: ${{secrets.DEPLOY_HOST}
+          DEPLOY_USER: ${{secrets.DEPLOY_USER}
+          DEPLOY_PATH: ${{secrets.DEPLOY_PATH}
+        run: |
+          set -eu
+          CURRENT_SHA="$(ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && git rev-parse HEAD" || true)"
+          if [ -z "$CURRENT_SHA" ]; then
+            CURRENT_SHA="$GITHUB_SHA"
+          fi
+          git cat-file -e "$CURRENT_SHA^{commit}" 2>/dev/null || git fetch origin "$CURRENT_SHA" || true
+          git cat-file -e "$CURRENT_SHA^{commit}"
+          echo "sha=$CURRENT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Create immutable backup tag
+        env:
+          CURRENT_SHA: ${{steps.current.outputs.sha}
+        run: |
+          set -eu
+          TAG="backup/pre-deploy-$(date -u +%Y%m%d-%H%M%S)-${CURRENT_SHA:0:12}"
+          git tag "$TAG" "$CURRENT_SHA"
+          git push origin "refs/tags/$TAG"
+          echo "Previous application version retained as $TAG"
+
+      - name: Deploy application with database backup
+        env:
+          DEPLOY_HOST: ${{secrets.DEPLOY_HOST}
+          DEPLOY_USER: ${{secrets.DEPLOY_USER}
+          DEPLOY_PATH: ${{secrets.DEPLOY_PATH}
+          POSTGRES_PASSWORD: ${{secrets.POSTGRES_PASSWORD}
+          JWT_SECRET: ${{secrets.JWT_SECRET}
+          ADMIN_EMAIL: ${{secrets.ADMIN_EMAIL}
+          ADMIN_PASSWORD: ${{secrets.ADMIN_PASSWORD}
+          CURRENT_SHA: ${{steps.current.outputs.sha}
         run: |
           set -eu
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH'"
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "if [ -d '$DEPLOY_PATH/.git' ]; then git -C '$DEPLOY_PATH' fetch origin main && git -C '$DEPLOY_PATH' reset --hard origin/main; else git clone https://github.com/digibile/negar-azin-fadak-platform.git '$DEPLOY_PATH'; fi"
+
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "cat > '$DEPLOY_PATH/.env' <<'EOF'
 POSTGRES_DB=negara_fadak
 POSTGRES_USER=platform
@@ -71,7 +108,27 @@ ADMIN_PASSWORD=$ADMIN_PASSWORD
 PUBLIC_ORIGIN=https://negarzinfadak.ir
 WEB_PORT=3000
 EOF"
+
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && mkdir -p backups/releases && if docker compose -f docker-compose.production.yml ps postgres >/dev/null 2>&1; then docker compose -f docker-compose.production.yml exec -T postgres sh -lc 'pg_dump -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -Fc' > 'backups/releases/db-$(date -u +%Y%m%d-%H%M%S).dump'; fi"
+
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && docker compose -f docker-compose.production.yml up -d --build"
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && docker compose -f docker-compose.production.yml ps"
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "curl -fsS http://127.0.0.1:3000/health >/dev/null"
-          echo "Production deployment completed."
+
+          for i in $(seq 1 30); do
+            if ssh "$DEPLOY_USER@$DEPLOY_HOST" "curl -fsS http://127.0.0.1:4000/health >/dev/null 2>&1"; then
+              break
+            fi
+            sleep 4
+          done
+
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "curl -fsS http://127.0.0.1:4000/health"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "curl -fsS http://127.0.0.1:3000/ >/dev/null"
+
+      - name: Deployment summary
+        env:
+          CURRENT_SHA: ${{steps.current.outputs.sha}
+        run: |
+          echo "Previous version: $CURRENT_SHA"
+          echo "Previous version retained as immutable backup tag."
+          echo "Database backup retained under ${{secrets.DEPLOY_PATH}/backups/releases/."
+          echo "Current version: $GITHUB_SHA"
