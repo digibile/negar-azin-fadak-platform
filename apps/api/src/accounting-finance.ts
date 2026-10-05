@@ -33,10 +33,10 @@ router.post("/api/accounting-finance/accounts",requireAuth,requirePermission("ac
 });
 router.patch("/api/accounting-finance/accounts/:id",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const old=await query("select * from ledger_accounts where id=$1 and tenant_id=$2",[req.params.id,t.id]);if(!old.rowCount)return deny(res,404,"حساب پیدا نشد");
+ const old=await query("select * from ledger_accounts where id=$1 and tenant_id=$2",[String(req.params.id),t.id]);if(!old.rowCount)return deny(res,404,"حساب پیدا نشد");
  const {name,accountType,accountMode,externalCode}=req.body||{};if(accountMode&&!["official","internal","hybrid"].includes(accountMode))return deny(res,400,"ماهیت حساب نامعتبر است");
- const r=await query("update ledger_accounts set name=coalesce($1,name),account_type=coalesce($2,account_type),account_mode=coalesce($3,account_mode),external_code=coalesce($4,external_code) where id=$5 and tenant_id=$6 returning id,code,name,account_type,account_mode,book_id,external_code,parent_id",[typeof name==="string"?name.trim():null,accountType||null,accountMode||null,externalCode??null,req.params.id,t.id]);
- await audit(t.id,(req as any).user.id,"ledger_account",req.params.id,"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+ const r=await query("update ledger_accounts set name=coalesce($1,name),account_type=coalesce($2,account_type),account_mode=coalesce($3,account_mode),external_code=coalesce($4,external_code) where id=$5 and tenant_id=$6 returning id,code,name,account_type,account_mode,book_id,external_code,parent_id",[typeof name==="string"?name.trim():null,accountType||null,accountMode||null,externalCode??null,String(req.params.id),t.id]);
+ await audit(t.id,(req as any).user.id,"ledger_account",String(req.params.id),"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 
 router.post("/api/accounting-finance/periods",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
@@ -51,10 +51,10 @@ router.post("/api/accounting-finance/periods",requireAuth,requirePermission("acc
 router.patch("/api/accounting-finance/periods/:id/status",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const s=req.body?.status;if(!["open","closed","locked"].includes(s))return deny(res,400,"وضعیت دوره نامعتبر است");
- const old=await query("select * from accounting_fiscal_periods where id=$1 and tenant_id=$2",[req.params.id,t.id]);if(!old.rowCount)return deny(res,404,"دوره پیدا نشد");
+ const old=await query("select * from accounting_fiscal_periods where id=$1 and tenant_id=$2",[String(req.params.id),t.id]);if(!old.rowCount)return deny(res,404,"دوره پیدا نشد");
  if(old.rows[0].status==="locked"&&s!=="locked")return deny(res,409,"دوره قفل‌شده قابل بازگشایی نیست");
- const r=await query("update accounting_fiscal_periods set status=$1,closed_at=case when $1 in ('closed','locked') then coalesce(closed_at,now()) else null end,closed_by=case when $1 in ('closed','locked') then $2 else null end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[s,(req as any).user.id,req.params.id,t.id]);
- await audit(t.id,(req as any).user.id,"fiscal_period",req.params.id,"status",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+ const r=await query("update accounting_fiscal_periods set status=$1,closed_at=case when $1 in ('closed','locked') then coalesce(closed_at,now()) else null end,closed_by=case when $1 in ('closed','locked') then $2 else null end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[s,(req as any).user.id,String(req.params.id),t.id]);
+ await audit(t.id,(req as any).user.id,"fiscal_period",String(req.params.id),"status",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 
 router.post("/api/accounting-finance/cost-centers",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
@@ -66,10 +66,10 @@ router.post("/api/accounting-finance/cost-centers",requireAuth,requirePermission
 });
 router.patch("/api/accounting-finance/cost-centers/:id",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const old=await query("select * from accounting_cost_centers where id=$1 and tenant_id=$2",[req.params.id,t.id]);if(!old.rowCount)return deny(res,404,"مرکز پیدا نشد");
+ const old=await query("select * from accounting_cost_centers where id=$1 and tenant_id=$2",[String(req.params.id),t.id]);if(!old.rowCount)return deny(res,404,"مرکز پیدا نشد");
  const {title,status,centerType}=req.body||{};if(status&&!["active","inactive"].includes(status))return deny(res,400,"وضعیت نامعتبر است");
- const r=await query("update accounting_cost_centers set title=coalesce($1,title),status=coalesce($2,status),center_type=coalesce($3,center_type),updated_at=now() where id=$4 and tenant_id=$5 returning *",[typeof title==="string"?title.trim():null,status||null,centerType||null,req.params.id,t.id]);
- await audit(t.id,(req as any).user.id,"cost_center",req.params.id,"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+ const r=await query("update accounting_cost_centers set title=coalesce($1,title),status=coalesce($2,status),center_type=coalesce($3,center_type),updated_at=now() where id=$4 and tenant_id=$5 returning *",[typeof title==="string"?title.trim():null,status||null,centerType||null,String(req.params.id),t.id]);
+ await audit(t.id,(req as any).user.id,"cost_center",String(req.params.id),"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 
 router.post("/api/accounting-finance/documents",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
@@ -85,14 +85,14 @@ router.post("/api/accounting-finance/documents",requireAuth,requirePermission("a
 
 router.get("/api/accounting-finance/documents/:id",requireAuth,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const d=await query("select d.*,b.title book_title,p.title period_title from accounting_documents d join accounting_books b on b.id=d.book_id left join accounting_fiscal_periods p on p.id=d.period_id where d.id=$1 and d.tenant_id=$2",[req.params.id,t.id]);if(!d.rowCount)return deny(res,404,"سند پیدا نشد");
- const l=await query("select l.*,a.code account_code,a.name account_name,c.code cost_center_code,c.title cost_center_title from accounting_document_lines l join ledger_accounts a on a.id=l.account_id left join accounting_cost_centers c on c.id=l.cost_center_id where l.document_id=$1 order by l.line_no",[req.params.id]);res.json({document:d.rows[0],lines:l.rows});
+ const d=await query("select d.*,b.title book_title,p.title period_title from accounting_documents d join accounting_books b on b.id=d.book_id left join accounting_fiscal_periods p on p.id=d.period_id where d.id=$1 and d.tenant_id=$2",[String(req.params.id),t.id]);if(!d.rowCount)return deny(res,404,"سند پیدا نشد");
+ const l=await query("select l.*,a.code account_code,a.name account_name,c.code cost_center_code,c.title cost_center_title from accounting_document_lines l join ledger_accounts a on a.id=l.account_id left join accounting_cost_centers c on c.id=l.cost_center_id where l.document_id=$1 order by l.line_no",[String(req.params.id)]);res.json({document:d.rows[0],lines:l.rows});
 });
 router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const s=req.body?.status;if(!["submitted","approved","posted","void"].includes(s))return deny(res,400,"وضعیت سند نامعتبر است");
- const old=await query("select * from accounting_documents where id=$1 and tenant_id=$2",[req.params.id,t.id]);if(!old.rowCount)return deny(res,404,"سند پیدا نشد");
+ const old=await query("select * from accounting_documents where id=$1 and tenant_id=$2",[String(req.params.id),t.id]);if(!old.rowCount)return deny(res,404,"سند پیدا نشد");
  const flow:any={draft:["submitted","void"],submitted:["approved","void"],approved:["posted","void"],posted:["void"],void:[]};if(!flow[old.rows[0].status]?.includes(s))return deny(res,409,"تغییر وضعیت مجاز نیست");
- const r=await query("update accounting_documents set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,posted_at=case when $1='posted' then now() else posted_at end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[s,(req as any).user.id,req.params.id,t.id]);await audit(t.id,(req as any).user.id,"accounting_document",req.params.id,"status",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+ const r=await query("update accounting_documents set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,posted_at=case when $1='posted' then now() else posted_at end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[s,(req as any).user.id,String(req.params.id),t.id]);await audit(t.id,(req as any).user.id,"accounting_document",String(req.params.id),"status",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 
 router.get("/api/accounting-finance/reports",requireAuth,async(req,res)=>{
