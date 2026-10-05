@@ -7,6 +7,7 @@ const base=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_UR
 const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
 const labels:any={general:"عمومی",localization:"تقویم و منطقه",numbering:"شماره‌گذاری",notifications:"اعلان‌ها",security:"امنیت",files:"فایل‌ها",workflow:"گردش‌کار",maintenance:"نگهداری"};
 export default function CentralSettingsWorkspace(){
+ const searchParams=useSearchParams();
  const [items,setItems]=useState<Setting[]>([]),[audit,setAudit]=useState<any[]>([]),[tab,setTab]=useState("general"),[error,setError]=useState(""),[saving,setSaving]=useState<string|null>(null);
  const load=async()=>{try{setError("");const [a,b]=await Promise.all([fetch(base+"/api/settings/central",{credentials:"include"}),fetch(base+"/api/settings/central/audit",{credentials:"include"})]);const x=await a.json();const y=await b.json();if(!a.ok)throw new Error(x?.error||"خطا");setItems(x.items||[]);setAudit(Array.isArray(y)?y:[])}catch(e){setError(e instanceof Error?e.message:"خطا در دریافت تنظیمات")}};
  useEffect(()=>{const t=searchParams.get("tab");if(t)setTab(t);load()},[searchParams]);
