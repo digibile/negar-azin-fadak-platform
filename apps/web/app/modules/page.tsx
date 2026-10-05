@@ -33,6 +33,7 @@ import LoanSettlementWorkspace from "./LoanSettlementWorkspace";
 import LoanLedgerWorkspace from "./LoanLedgerWorkspace";
 import LoanRefundsWorkspace from "./LoanRefundsWorkspace";
 import LoanClosureWorkspace from "./LoanClosureWorkspace";
+import LoanDelinquencyWorkspace from "./LoanDelinquencyWorkspace";
 
 type Field={field_key:string;title:string;field_type:string;required:boolean;sort_order:number;options?:{options?:string[]}};
 type ModuleInfo={id:number;code:string;title:string};
@@ -161,6 +162,7 @@ if(code==="10-wallet-ledger")return <WalletLedgerWorkspace/>;
  if(code==="24-loan-ledger")return <LoanLedgerWorkspace/>;
  if(code==="25-loan-refunds")return <LoanRefundsWorkspace/>;
  if(code==="26-loan-closure")return <LoanClosureWorkspace/>;
+ if(code==="27-loan-delinquency")return <LoanDelinquencyWorkspace/>;
  return <main className="module-runtime">
   <header className="page-head">
    <div><span className="eyebrow">هسته مرکزی کسب‌وکار{activeMenu?" · "+activeMenu:""}</span><h1>{menuChildren.find(x=>x.path.includes("tab="+activeSection))?.title||module?.title||"فضای عملیاتی ماژول"}</h1><p className="muted">کد ماژول: {code}{activeSection?" · فضای عملیاتی: "+activeSection:""}</p></div>
