@@ -80,3 +80,19 @@ jobs:
       - name: Test
         run: pnpm test
 
+
+  inspect-sookar:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH agent
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+      - name: Inspect server
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          ssh-keyscan -T 15 -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" 'echo "=== SOKAR DOMAIN CONFIG ==="; grep -nE "server_name|location /|proxy_pass|root " /usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf 2>/dev/null || true; echo "=== USER NGINX ==="; grep -nE "server_name|location /|proxy_pass|root " /usr/local/directadmin/data/users/sookar/nginx.conf 2>/dev/null || true; echo "=== DOCKER ==="; docker ps --format "table {{.Names}}\\t{{.Status}}\\t{{.Ports}}" | grep naf-sookar || true; echo "=== LOCAL 3100 ==="; curl -sS -I http://127.0.0.1:3100/ | head -5 || true; echo "=== PUBLIC ==="; curl -k -sS -I https://sookar.ir/ | head -10 || true'
