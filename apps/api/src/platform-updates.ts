@@ -29,8 +29,9 @@ async function github(path:string,init:RequestInit={}){
 platformUpdatesRouter.get("/api/platform/update-status",requireAuth,requirePermission("platform:update"),asyncHandler(async(_req,res)=>{
   const configured=Boolean(token());
   if(!configured)return res.json({configured:false,repository:ownerRepo,workflow,updateAvailable:false});
-  const [repo,workflowInfo,runs]=await Promise.all([
+  const [repo,branch,workflowInfo,runs]=await Promise.all([
     github("/repos/"+ownerRepo),
+    github("/repos/"+ownerRepo+"/branches/main"),
     github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)),
     github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?per_page=5")
   ]);
@@ -38,7 +39,7 @@ platformUpdatesRouter.get("/api/platform/update-status",requireAuth,requirePermi
     configured:true,
     repository:ownerRepo,
     workflow,
-    mainSha:repo.default_branch==="main"?repo.sha||null:null,
+    mainSha:repo.default_branch==="main"?branch.commit?.sha||null:null,
     workflowState:workflowInfo.state,
     runs:(runs.workflow_runs||[]).map((x:any)=>({
       id:x.id,status:x.status,conclusion:x.conclusion,sha:x.head_sha,createdAt:x.created_at,updatedAt:x.updated_at,url:x.html_url
