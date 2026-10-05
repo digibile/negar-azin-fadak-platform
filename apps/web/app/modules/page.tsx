@@ -53,6 +53,7 @@ import DocumentVersionsWorkspace from "./DocumentVersionsWorkspace";
 import DocumentSearchWorkspace from "./DocumentSearchWorkspace";
 import DocumentRetentionWorkspace from "./DocumentRetentionWorkspace";
 import DocumentDistributionWorkspace from "./DocumentDistributionWorkspace";
+import DocumentAccessLogWorkspace from "./DocumentAccessLogWorkspace";
 
 type Field={field_key:string;title:string;field_type:string;required:boolean;sort_order:number;options?:{options?:string[]}};
 type ModuleInfo={id:number;code:string;title:string};
@@ -201,6 +202,7 @@ if(code==="10-wallet-ledger")return <WalletLedgerWorkspace/>;
  if(code==="44-document-search")return <DocumentSearchWorkspace/>;
  if(code==="45-document-retention")return <DocumentRetentionWorkspace/>;
  if(code==="46-document-distribution")return <DocumentDistributionWorkspace/>;
+ if(code==="47-document-access-log")return <DocumentAccessLogWorkspace/>;
  return <main className="module-runtime">
   <header className="page-head">
    <div><span className="eyebrow">هسته مرکزی کسب‌وکار{activeMenu?" · "+activeMenu:""}</span><h1>{menuChildren.find(x=>x.path.includes("tab="+activeSection))?.title||module?.title||"فضای عملیاتی ماژول"}</h1><p className="muted">کد ماژول: {code}{activeSection?" · فضای عملیاتی: "+activeSection:""}</p></div>
