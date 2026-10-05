@@ -35,6 +35,7 @@ import {checkoutRouter} from "./domain-checkout.js";
 import {settlementRouter} from "./domain-settlement.js";
 import {resolveTenant} from "./tenant-context.js";
 import {platformEnginesRouter,sweepSlaCases} from "./platform-engines.js";
+import {platformUpdatesRouter} from "./platform-updates.js";
 import {issueHumanCheck,verifyHumanCheck} from "./human-check.js";
 import "./payment-provider.js";
 
@@ -87,6 +88,7 @@ app.use(checkoutRouter);
 app.use(settlementRouter);
 app.use(platformEnginesRouter);
 app.use(platformOperationsRouter);
+app.use(platformUpdatesRouter);
 
 app.get("/api/auth/human-check",(_req,res)=>res.json(issueHumanCheck()));
 app.post("/api/auth/login",asyncHandler(async(req,res)=>{
