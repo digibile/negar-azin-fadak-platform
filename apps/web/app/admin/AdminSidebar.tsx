@@ -39,16 +39,15 @@ export default function AdminSidebar(){
  },[query,menuItems]);
 
  const childUrl=(item:DynamicMenuItem,child:string)=>{
-  const maps:Record<string,Record<string,string>>={
-   dashboard:{"داشبورد اصلی":"dashboard","داشبورد مدیرعامل":"executive","داشبورد مدیر مالی":"finance","داشبورد فروش":"sales","داشبورد عملیات":"operations","داشبورد شعب":"branches","KPI سازمان":"kpi","هشدارهای مدیریتی":"alerts","فعالیت‌های اخیر":"activity","اعلان‌های مهم":"notifications"},
-   organization:{"ساختار سازمان":"structure","شرکت‌ها":"companies","هلدینگ‌ها":"holdings","شعب":"branches","واحدها":"units","دپارتمان‌ها":"departments","مراکز هزینه":"cost","مراکز درآمد":"revenue","مراکز سود":"profit","ساختار مالکیت":"ownership","تنظیمات سازمان":"settings"},
-   "users-security":{"کاربران":"users","پروفایل کاربران":"profiles","نقش‌ها":"roles","گروه‌های کاربری":"groups","مجوزها":"permissions","سیاست‌های دسترسی":"policies","ورودها":"login","نشست‌ها":"sessions","دستگاه‌های مجاز":"devices","احراز هویت":"auth","2FA":"twofa","گزارش امنیتی":"audit"},
-   "central-settings":{"تنظیمات عمومی":"general","تقویم و منطقه":"localization","شماره‌گذاری اسناد":"numbering","اعلان‌ها":"notifications","امنیت مرکزی":"security","مدیریت فایل":"files","گردش‌کار":"workflow","نگهداری و عملیات":"maintenance","تاریخچه تغییرات":"audit"}
-  };
-  const tab=maps[item.menu_key||""]?.[child];
-  if(!tab)return null;
-  const code=item.menu_key==="dashboard"?"command-center":item.menu_key==="organization"?"governance":item.menu_key==="users-security"?"security":"central-settings";
-  return "/modules/?code="+code+"&tab="+encodeURIComponent(tab);
+  if(!item.path||item.path==="#")return null;
+  const base=item.path.startsWith("/modules/")?item.path:"/modules/?code="+encodeURIComponent(item.menu_key||"");
+  const url=new URL(base,"http://local");
+  const code=url.searchParams.get("code");
+  if(!code)return null;
+  url.searchParams.set("code",code);
+  url.searchParams.set("menu",item.menu_key||"");
+  url.searchParams.set("tab",child);
+  return url.pathname+"?"+url.searchParams.toString();
  };
  const moduleUrl=(item:DynamicMenuItem)=>{
   if(item.path&&item.path!=="#"){
