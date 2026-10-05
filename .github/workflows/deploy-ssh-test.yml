@@ -1,0 +1,27 @@
+name: Deploy SSH Connectivity
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ssh-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Trust deployment host
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Test SSH connection
+        run: |
+          ssh             -p "${{ secrets.DEPLOY_PORT }}"             -o BatchMode=yes             -o ConnectTimeout=15             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"             'echo "GITHUB_ACTIONS_SSH_OK"; hostname; whoami; pwd'
