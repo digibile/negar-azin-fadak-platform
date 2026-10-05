@@ -8,8 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
-
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,7 +19,6 @@ jobs:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
 
       - name: Prepare SSH
-        shell: bash
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
@@ -29,117 +27,6 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
       - name: Verify server
-        shell: bash
         run: |
           set -euo pipefail
-          for attempt in 1 2 3 4 5; do
-            if ssh -p "${{ secrets.DEPLOY_PORT }}"               -o BatchMode=yes               -o ConnectTimeout=15               -o ConnectionAttempts=3               -o ServerAliveInterval=10               -o ServerAliveCountMax=3               "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"               'set -e; BASE=/home/sookar/domains/sookar.ir; test -d "$BASE/public_html"; test -d "$BASE/marketos"; test -f "$BASE/negar-platform/.env"; test "$(stat -c %a "$BASE/negar-platform/.env")" = "600"; mkdir -p "$BASE/negar-platform/releases"; echo SERVER_OK'; then
-              exit 0
-            fi
-            sleep 5
-          done
-          exit 1
-
-      - name: Package
-        shell: bash
-        run: |
-          set -euo pipefail
-          tar             --exclude='.git'             --exclude='node_modules'             --exclude='.next'             --exclude='.cache'             --exclude='*.log'             --exclude='tmp'             --exclude='temp'             --exclude='backups'             -czf /tmp/negar-platform.tar.gz .
-
-      - name: Upload
-        shell: bash
-        run: |
-          set -euo pipefail
-          for attempt in 1 2 3; do
-            if ssh -p "${{ secrets.DEPLOY_PORT }}"               -o BatchMode=yes               -o ConnectTimeout=15               -o ConnectionAttempts=3               "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"               'cat > /home/sookar/domains/sookar.ir/negar-platform/negar-platform.tar.gz' < /tmp/negar-platform.tar.gz; then
-              exit 0
-            fi
-            sleep 5
-          done
-          exit 1
-
-      - name: Deploy
-        shell: bash
-        run: |
-          set -euo pipefail
-          ssh -p "${{ secrets.DEPLOY_PORT }}"             -o BatchMode=yes             -o ConnectTimeout=15             -o ConnectionAttempts=3             -o ServerAliveInterval=10             -o ServerAliveCountMax=3             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"             'set -e
-             BASE=/home/sookar/domains/sookar.ir/negar-platform
-             SHA=${{ github.sha }}
-             RELEASE="$BASE/releases/$SHA"
-             mkdir -p "$RELEASE"
-             tar -xzf "$BASE/negar-platform.tar.gz" -C "$RELEASE"
-             cp "$BASE/.env" "$RELEASE/.env"
-             chmod 600 "$RELEASE/.env"
-             cd "$RELEASE"
-             docker compose --project-name naf-sookar -f docker-compose.production.yml config >/dev/null
-             docker compose --project-name naf-sookar -f docker-compose.production.yml up -d --build --remove-orphans
-             docker compose --project-name naf-sookar -f docker-compose.production.yml ps
-             rm -f "$BASE/negar-platform.tar.gz"
-             ln -sfn "$RELEASE" "$BASE/current"'
-
-      - name: Configure Nginx
-        shell: bash
-        run: |
-          set -euo pipefail
-          ssh -p "${{ secrets.DEPLOY_PORT }}"             -o BatchMode=yes             -o ConnectTimeout=15             -o ConnectionAttempts=3             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"             'set -e
-             USER_NGINX=/usr/local/directadmin/data/users/sookar/nginx.conf
-             test -f "$USER_NGINX"
-             cp -a "$USER_NGINX" "/root/sookar-nginx-backup-$(date +%Y%m%d-%H%M%S).conf"
-             /usr/local/directadmin/custombuild/build rewrite_confs
-             python3 - <<'"'"'PY'"'"'
-from pathlib import Path
-import re
-p=Path("/usr/local/directadmin/data/users/sookar/nginx.conf")
-s=p.read_text()
-server_re=re.compile(r"(?ms)(server\s*\{.*?\n\})")
-changed=False
-def patch(m):
-    global changed
-    b=m.group(1)
-    if not re.search(r"server_name\s+[^;]*\bsookar\.ir\b", b):
-        return m.group(0)
-    lines=b.splitlines()
-    depth=0
-    root_depth=None
-    out=[]
-    replaced=False
-    for line in lines:
-        st=line.strip()
-        op=line.count("{")
-        cl=line.count("}")
-        if root_depth is None and re.match(r"location\s+/(?:\{|\s)", st):
-            root_depth=depth+op-cl
-        if root_depth is not None and re.match(r"proxy_pass\s+", st):
-            indent=line[:len(line)-len(line.lstrip())]
-            out.append(indent+"proxy_pass http://127.0.0.1:3100;")
-            replaced=True
-            changed=True
-        else:
-            out.append(line)
-        depth += op-cl
-        if root_depth is not None and depth < root_depth:
-            root_depth=None
-    if not replaced:
-        raise SystemExit("No existing root proxy_pass found in Sookar server block")
-    return "\n".join(out)
-patched=server_re.sub(patch,s)
-if not changed:
-    raise SystemExit("Sookar server block not found")
-p.write_text(patched)
-PY
-             nginx -t
-             systemctl reload nginx
-             grep -n "proxy_pass http://127.0.0.1:3100" "$USER_NGINX" | head'
-
-      - name: Health
-        shell: bash
-        run: |
-          set -euo pipefail
-          for i in $(seq 1 30); do
-            if ssh -p "${{ secrets.DEPLOY_PORT }}"               -o BatchMode=yes               -o ConnectTimeout=15               -o ConnectionAttempts=3               "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"               'curl -fsS http://127.0.0.1:3100/ >/dev/null'; then
-              echo DEPLOYMENT_HEALTH_OK
-              exit 0
-            fi
-            sleep 4
-          done
-          exit 1
+          ssh -p "${{ secrets.DEPLOY_PORT }}"             -o BatchMode=yes             -o ConnectTimeout=15             -o ConnectionAttempts=3             -o ServerAliveInterval=10             -o ServerAliveCountMax=3             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"             'set -e; BASE=/home/sookar/domains/sookar.ir; test -d "$BASE/public_html"; test -d "$BASE/marketos"; test -f "$BASE/negar-platform/.env"; test "$(stat -c %a "$BASE/negar-platform/.env")" = "600"; mkdir -p "$BASE/negar-platform/releases"; echo SERVER_OK'
