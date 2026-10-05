@@ -22,6 +22,23 @@ router.get("/api/accounting-finance/overview",requireAuth,async(req,res)=>{
  res.json({books:books.rows,periods:periods.rows,documents:docs.rows,costCenters:centers.rows,accounts:accounts.rows,summary:summary.rows[0]});
 });
 
+router.post("/api/accounting-finance/accounts",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const {code,name,accountType="general",accountMode="hybrid",bookId=null,externalCode=null,parentId=null}=req.body||{};
+ if(typeof code!=="string"||typeof name!=="string"||!["official","internal","hybrid"].includes(accountMode))return deny(res,400,"اطلاعات حساب نامعتبر است");
+ if(bookId){const b=await query("select id from accounting_books where id=$1 and tenant_id=$2",[bookId,t.id]);if(!b.rowCount)return deny(res,404,"دفتر حسابداری پیدا نشد")}
+ if(parentId){const p=await query("select id from ledger_accounts where id=$1 and tenant_id=$2",[parentId,t.id]);if(!p.rowCount)return deny(res,404,"حساب والد پیدا نشد")}
+ const r=await query("insert into ledger_accounts(tenant_id,code,name,account_type,account_mode,book_id,external_code,parent_id) values($1,$2,$3,$4,$5,$6,$7,$8) returning id,code,name,account_type,account_mode,book_id,external_code,parent_id",[t.id,code.trim(),name.trim(),accountType,accountMode,bookId,externalCode,parentId]);
+ await audit(t.id,(req as any).user.id,"ledger_account",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
+});
+router.patch("/api/accounting-finance/accounts/:id",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const old=await query("select * from ledger_accounts where id=$1 and tenant_id=$2",[req.params.id,t.id]);if(!old.rowCount)return deny(res,404,"حساب پیدا نشد");
+ const {name,accountType,accountMode,externalCode}=req.body||{};if(accountMode&&!["official","internal","hybrid"].includes(accountMode))return deny(res,400,"ماهیت حساب نامعتبر است");
+ const r=await query("update ledger_accounts set name=coalesce($1,name),account_type=coalesce($2,account_type),account_mode=coalesce($3,account_mode),external_code=coalesce($4,external_code) where id=$5 and tenant_id=$6 returning id,code,name,account_type,account_mode,book_id,external_code,parent_id",[typeof name==="string"?name.trim():null,accountType||null,accountMode||null,externalCode??null,req.params.id,t.id]);
+ await audit(t.id,(req as any).user.id,"ledger_account",req.params.id,"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+});
+
 router.post("/api/accounting-finance/periods",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const {bookId,code,title,startsOn,endsOn}=req.body||{};
