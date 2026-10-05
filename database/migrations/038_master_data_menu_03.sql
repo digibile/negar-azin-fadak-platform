@@ -83,3 +83,10 @@ insert into identity_permissions(permission_key,title,module_key,action) values
 on conflict(permission_key) do nothing;
 insert into identity_role_permissions(role_key,permission_key)
 select 'admin',permission_key from identity_permissions where permission_key like 'master-data.%' on conflict do nothing;
+
+insert into identity_role_permissions(role_key,permission_key)
+select 'manager',permission_key from identity_permissions where permission_key='master-data.read' on conflict do nothing;
+insert into identity_role_permissions(role_key,permission_key)
+select 'manager',permission_key from identity_permissions where permission_key='master-data.write' on conflict do nothing;
+insert into identity_role_permissions(role_key,permission_key)
+select 'viewer',permission_key from identity_permissions where permission_key='master-data.read' on conflict do nothing;
