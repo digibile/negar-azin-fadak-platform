@@ -106,17 +106,22 @@ export default function AdminSidebar(){
    {filtered.map(item=>{
     const url=moduleUrl(item);
     const isCurrent=active(item);
-    return <details className={styles["master-item"]+" "+(isCurrent?styles["is-current"]:"")} key={item.id} open={Boolean(query)||isCurrent||Boolean(openMenus[item.id])}>
-     <summary onClick={e=>{ if((e.target as HTMLElement).closest(".master-chevron")){e.preventDefault();toggleMenu(item.id);return;} openModule(item,e); }}>
-      <span className={styles["master-chevron"]}><ChevronIcon/></span>
-      <span className={styles["master-copy"]}><strong>{item.title}</strong><small>{(item.children||[]).length} قابلیت عملیاتی{item.is_shared?" · مشترک":""}</small></span>
-      {url?<Link className={styles["master-open"]} href={url} onClick={e=>e.stopPropagation()} aria-label={"ورود به "+item.title}>↗</Link>:<span className={styles["master-open"]+" "+styles["disabled"]} aria-hidden="true">•</span>}
-     </summary>
-     <div className={styles["master-children"]}>
-      {(item.children||[]).map((child,i)=>{const childHref=childUrl(item,child);return childHref?<Link className={styles["master-child"]} href={childHref} key={child} onClick={e=>e.stopPropagation()}><span className={styles["master-child-index"]}>{String(i+1).padStart(2,"0")}</span><span>{child}</span></Link>:<div className={styles["master-child"]} key={child}><span className={styles["master-child-index"]}>{String(i+1).padStart(2,"0")}</span><span>{child}</span></div>})}
-      {url&&<Link className={styles["master-enter"]} href={url}>ورود به ماژول <span>←</span></Link>}
+    const isOpen=Boolean(query)||isCurrent||Boolean(openMenus[item.id]);
+    return <div className={styles["master-item"]+" "+(isCurrent?styles["is-current"]:"")+" "+(isOpen?styles["is-open"]:"")} key={item.id}>
+     <div className={styles["master-header"]}>
+      <button type="button" className={styles["master-chevron-button"]} onClick={()=>toggleMenu(item.id)} aria-expanded={isOpen} aria-label={(isOpen?"بستن ":"باز کردن ")+item.title}>
+       <span className={styles["master-chevron"]}><ChevronIcon/></span>
+      </button>
+      <button type="button" className={styles["master-title-button"]} onClick={e=>openModule(item,e)}>
+       <span className={styles["master-copy"]}><strong>{item.title}</strong><small>{(item.children||[]).length} قابلیت عملیاتی{item.is_shared?" · مشترک":""}</small></span>
+      </button>
+      {url?<Link className={styles["master-open"]} href={url} aria-label={"ورود به "+item.title}>↗</Link>:<span className={styles["master-open"]+" "+styles["disabled"]} aria-hidden="true">•</span>}
      </div>
-    </details>;
+     {isOpen&&<div className={styles["master-children"]}>
+      {(item.children||[]).map((child,i)=>{const childHref=childUrl(item,child);return childHref?<Link className={styles["master-child"]} href={childHref} key={child}><span className={styles["master-child-index"]}>{String(i+1).padStart(2,"0")}</span><span>{child}</span></Link>:<div className={styles["master-child"]} key={child}><span className={styles["master-child-index"]}>{String(i+1).padStart(2,"0")}</span><span>{child}</span></div>})}
+      {url&&<Link className={styles["master-enter"]} href={url}>ورود به ماژول <span>←</span></Link>}
+     </div>}
+    </div>;
    })}
   </nav>
 
