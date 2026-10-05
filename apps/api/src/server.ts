@@ -9,6 +9,7 @@ import {domainFinanceRouter} from "./domain-finance.js";
 import {dynamicMenuRouter} from "./dynamic-menu.js";
 import {accountingRouter} from "./accounting.js";
 import {dashboardOverviewRouter} from "./dashboard-overview.js";
+import {dashboardWorkspaceRouter} from "./dashboard-workspace.js";
 import {organizationManagementRouter} from "./organization-management.js";
 import {securityManagementRouter} from "./security-management.js";
 import {centralSettingsRouter} from "./central-settings.js";
@@ -50,6 +51,7 @@ app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.jso
 app.use(dynamicMenuRouter);
 app.use(accountingRouter);
 app.use(dashboardOverviewRouter);
+app.use(dashboardWorkspaceRouter);
 app.use(organizationManagementRouter);
 app.use(securityManagementRouter);
 app.use(centralSettingsRouter);
