@@ -13,8 +13,30 @@ router.get("/api/dashboard/menu-tree",requireAuth,async(req:Request,res:Response
   params.push(user.role);
   access=" and (mi.permission is null or exists (select 1 from role_permissions rp where rp.role=$2 and rp.permission=mi.permission))";
  }
+ const childAccess=user.role==="admin"?"":" and (c.permission is null or exists (select 1 from role_permissions crp where crp.role=$2 and crp.permission=c.permission))";
  const sql=`select mi.id,mi.menu_key,mi.parent_id,mi.title,mi.path,mi.icon,mi.sort_order,mi.permission,mi.children,
-   mip.is_shared,mip.sort_order as panel_sort_order
+   mip.is_shared,mip.sort_order as panel_sort_order,
+   coalesce((
+     select jsonb_agg(
+       jsonb_build_object(
+         'id',c.id,
+         'menu_key',c.menu_key,
+         'parent_id',c.parent_id,
+         'title',c.title,
+         'path',c.path,
+         'icon',c.icon,
+         'sort_order',c.sort_order,
+         'permission',c.permission
+       ) order by cp.sort_order,c.sort_order,c.id
+     )
+     from menu_items c
+     join menu_item_panels cp on cp.menu_item_id=c.id
+     where c.parent_id=mi.id
+       and c.is_active=true
+       and cp.panel_code=$1
+       and cp.is_visible=true
+       ${childAccess}
+   ),'[]'::jsonb) as child_items
    from menu_items mi
    join menu_item_panels mip on mip.menu_item_id=mi.id
    where mi.is_active=true and mi.parent_id is null and mip.panel_code=$1 and mip.is_visible=true${access}
