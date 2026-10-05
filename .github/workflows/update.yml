@@ -69,15 +69,16 @@ jobs:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_ENV_FILE: ${{ secrets.DEPLOY_ENV_FILE }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Configure SSH
-        if: ${{ env.DEPLOY_HOST != '' && env.DEPLOY_USER != '' && secrets.DEPLOY_SSH_KEY != '' }}
+        if: ${{ env.DEPLOY_HOST != '' && env.DEPLOY_USER != '' && env.DEPLOY_SSH_KEY != '' }}
         env:
-          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KEY: ${{ env.DEPLOY_SSH_KEY }}
         run: |
           install -d -m 700 ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
@@ -85,7 +86,7 @@ jobs:
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
       - name: Stop when deployment target is not configured
-        if: ${{ env.DEPLOY_HOST == '' || env.DEPLOY_USER == '' || secrets.DEPLOY_SSH_KEY == '' || env.DEPLOY_PATH == '' }}
+        if: ${{ env.DEPLOY_HOST == '' || env.DEPLOY_USER == '' || env.DEPLOY_SSH_KEY == '' || env.DEPLOY_PATH == '' }}
         run: |
           echo "Deployment secrets are not configured."
           echo "The release was verified but no deployment was performed."
