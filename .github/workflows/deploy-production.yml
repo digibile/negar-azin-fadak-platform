@@ -33,21 +33,6 @@ jobs:
           ssh-keyscan -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Validate deployment secrets
-        env:
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-        run: |
-          set -euo pipefail
-          for name in POSTGRES_PASSWORD JWT_SECRET ADMIN_EMAIL ADMIN_PASSWORD; do
-            if [ -z "${!name}" ]; then
-              echo "Missing required repository secret: $name"
-              exit 1
-            fi
-          done
-
       - name: Verify deployment host is safe
         run: |
           set -euo pipefail
@@ -55,6 +40,8 @@ jobs:
              BASE=/home/sookar/domains/sookar.ir
              test -d "$BASE/public_html"
              test -d "$BASE/marketos"
+             test -f "$BASE/negar-platform/.env"
+             test "$(stat -c %a "$BASE/negar-platform/.env")" = "600"
              mkdir -p "$BASE/negar-platform/releases"
              echo "SAFE_DEPLOYMENT_TARGET=$BASE/negar-platform"
              echo "PUBLIC_HTML_PRESERVED=$BASE/public_html"
@@ -65,20 +52,10 @@ jobs:
           set -euo pipefail
           tar             --exclude='.git'             --exclude='node_modules'             --exclude='.next'             --exclude='.cache'             --exclude='*.log'             --exclude='tmp'             --exclude='temp'             --exclude='backups'             -czf /tmp/negar-platform.tar.gz .
 
-      - name: Upload source and environment
-        env:
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+      - name: Upload source
         run: |
           set -euo pipefail
-
-          printf '%s\n'             'POSTGRES_DB=negara_fadak'             'POSTGRES_USER=platform'             "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"             "JWT_SECRET=$JWT_SECRET"             "ADMIN_EMAIL=$ADMIN_EMAIL"             "ADMIN_PASSWORD=$ADMIN_PASSWORD"             "PUBLIC_ORIGIN=https://sookar.ir"             'WEB_PORT=3100'             > /tmp/negar-platform.env
-
-          chmod 600 /tmp/negar-platform.env
-
-          scp -P "${{ secrets.DEPLOY_PORT }}"             /tmp/negar-platform.tar.gz             /tmp/negar-platform.env             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/home/sookar/domains/sookar.ir/negar-platform/"
+          scp -P "${{ secrets.DEPLOY_PORT }}"             /tmp/negar-platform.tar.gz             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/home/sookar/domains/sookar.ir/negar-platform/"
 
       - name: Deploy Docker Compose
         run: |
@@ -89,7 +66,7 @@ jobs:
              RELEASE="$BASE/releases/${GITHUB_SHA:-unknown}"
              mkdir -p "$RELEASE"
              tar -xzf "$BASE/negar-platform.tar.gz" -C "$RELEASE"
-             cp "$BASE/negar-platform.env" "$RELEASE/.env"
+             cp "$BASE/negar-platform/.env" "$RELEASE/.env"
              chmod 600 "$RELEASE/.env"
 
              cd "$RELEASE"
@@ -101,7 +78,7 @@ jobs:
 
              test -d "$BASE/releases"
 
-             rm -f "$BASE/negar-platform.tar.gz" "$BASE/negar-platform.env"
+             rm -f "$BASE/negar-platform.tar.gz"
              ln -sfn "$RELEASE" "$BASE/current"
 
              find "$BASE/releases" -mindepth 1 -maxdepth 1 -type d ! -name "${GITHUB_SHA:-unknown}" -mtime +7 -exec rm -rf {} + 2>/dev/null || true'
