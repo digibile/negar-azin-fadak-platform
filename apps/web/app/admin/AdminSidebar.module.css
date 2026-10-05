@@ -82,3 +82,5 @@
   .master-chevron-button{width:20px;height:20px}
   .master-open{width:26px;height:26px}
 }
+
+.update-available{border-color:#2e625f!important;background:#10221f!important}.update-available>span{color:#8fe0d8}.update-available em{font-style:normal;font-size:8px;color:#0b1718;background:#8fe0d8;border-radius:999px;padding:2px 6px;margin-right:5px}.update-available small{color:#8bd8d0!important}
