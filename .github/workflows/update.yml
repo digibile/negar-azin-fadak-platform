@@ -1,0 +1,154 @@
+name: Platform Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      requested_by:
+        description: "Admin user id that requested the update"
+        required: false
+        type: string
+      target:
+        description: "Deployment target"
+        required: false
+        default: production
+        type: choice
+        options:
+          - production
+
+permissions:
+  contents: write
+
+concurrency:
+  group: platform-production-update
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify release before deployment
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: platform
+          POSTGRES_PASSWORD: platform
+          POSTGRES_DB: platform_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U platform -d platform_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://platform:platform@localhost:5432/platform_test
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.3.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @naf/api migrate
+      - run: pnpm verify:platform
+      - run: pnpm build
+      - run: pnpm test
+
+  deploy:
+    name: Backup and deploy
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_ENV_FILE: ${{ secrets.DEPLOY_ENV_FILE }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure SSH
+        if: ${{ env.DEPLOY_HOST != '' && env.DEPLOY_USER != '' && secrets.DEPLOY_SSH_KEY != '' }}
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Stop when deployment target is not configured
+        if: ${{ env.DEPLOY_HOST == '' || env.DEPLOY_USER == '' || secrets.DEPLOY_SSH_KEY == '' || env.DEPLOY_PATH == '' }}
+        run: |
+          echo "Deployment secrets are not configured."
+          echo "The release was verified but no deployment was performed."
+          exit 1
+
+      - name: Read currently deployed commit
+        id: current
+        run: |
+          CURRENT_SHA="$(ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && git rev-parse HEAD")"
+          if ! git cat-file -e "$CURRENT_SHA^{commit}" 2>/dev/null; then
+            git fetch origin "$CURRENT_SHA" || true
+          fi
+          git cat-file -e "$CURRENT_SHA^{commit}"
+          echo "sha=$CURRENT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Create immutable backup tag
+        env:
+          CURRENT_SHA: ${{ steps.current.outputs.sha }}
+        run: |
+          TAG="backup/pre-update-$(date -u +%Y%m%d-%H%M%S)-${CURRENT_SHA:0:12}"
+          git tag "$TAG" "$CURRENT_SHA"
+          git push origin "refs/tags/$TAG"
+          echo "Created backup tag $TAG for $CURRENT_SHA"
+
+      - name: Backup database and deploy
+        env:
+          CURRENT_SHA: ${{ steps.current.outputs.sha }}
+        run: |
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" 'bash -s' <<EOF
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          mkdir -p backups/releases
+          STAMP="$(date -u +%Y%m%d-%H%M%S)"
+          if docker compose ps postgres >/dev/null 2>&1; then
+            docker compose exec -T postgres sh -lc 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "backups/releases/db-$STAMP.dump"
+          fi
+          git fetch origin main
+          git status --porcelain
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Deployment directory has uncommitted changes. Update aborted."
+            exit 1
+          fi
+          git checkout main
+          git reset --hard origin/main
+          if [ -n "${DEPLOY_ENV_FILE:-}" ] && [ -f "$DEPLOY_ENV_FILE" ]; then
+            docker compose --env-file "$DEPLOY_ENV_FILE" -f docker-compose.production.yml up -d --build
+          else
+            docker compose -f docker-compose.production.yml up -d --build
+          fi
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4000/health >/dev/null 2>&1; then
+              break
+            fi
+            sleep 4
+          done
+          curl -fsS http://127.0.0.1:4000/health
+          EOF
+
+      - name: Deployment summary
+        env:
+          CURRENT_SHA: ${{ steps.current.outputs.sha }}
+        run: |
+          echo "Previous version: $CURRENT_SHA"
+          echo "Previous version is retained by an immutable backup tag."
+          echo "Database backup is retained on the deployment host under backups/releases/."
+          echo "New version: $GITHUB_SHA"
