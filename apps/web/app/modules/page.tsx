@@ -50,6 +50,7 @@ import NotificationTemplatesWorkspace from "./NotificationTemplatesWorkspace";
 import DocumentationWorkspace from "./DocumentationWorkspace";
 import DocumentApprovalsWorkspace from "./DocumentApprovalsWorkspace";
 import DocumentVersionsWorkspace from "./DocumentVersionsWorkspace";
+import DocumentSearchWorkspace from "./DocumentSearchWorkspace";
 
 type Field={field_key:string;title:string;field_type:string;required:boolean;sort_order:number;options?:{options?:string[]}};
 type ModuleInfo={id:number;code:string;title:string};
@@ -195,6 +196,7 @@ if(code==="10-wallet-ledger")return <WalletLedgerWorkspace/>;
  if(code==="41-documentation")return <DocumentationWorkspace/>;
  if(code==="42-document-approvals")return <DocumentApprovalsWorkspace/>;
  if(code==="43-document-versions")return <DocumentVersionsWorkspace/>;
+ if(code==="44-document-search")return <DocumentSearchWorkspace/>;
  return <main className="module-runtime">
   <header className="page-head">
    <div><span className="eyebrow">هسته مرکزی کسب‌وکار{activeMenu?" · "+activeMenu:""}</span><h1>{menuChildren.find(x=>x.path.includes("tab="+activeSection))?.title||module?.title||"فضای عملیاتی ماژول"}</h1><p className="muted">کد ماژول: {code}{activeSection?" · فضای عملیاتی: "+activeSection:""}</p></div>
