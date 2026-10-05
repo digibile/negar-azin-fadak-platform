@@ -42,8 +42,7 @@ values
 (87,'48-document-audit-reports','گزارش‌های ممیزی مستندات','command-platform',null,48,true),
 (88,'49-document-compliance','کنترل انطباق و الزامات مستندات','command-platform',null,49,true),
 (89,'50-document-governance','مرکز حاکمیت مستندات','command-platform',null,50,true)
-on conflict(id) do update set code=excluded.code,title=excluded.title,core=excluded.core,sort_order=excluded.sort_order,is_active=true
-on conflict(code) do update set title=excluded.title,core=excluded.core,sort_order=excluded.sort_order,is_active=true;
+on conflict(id) do update set code=excluded.code,title=excluded.title,core=excluded.core,sort_order=excluded.sort_order,is_active=true;
 
 insert into module_runtime(module_id,lifecycle,route,api_prefix,owner_team,description)
 select id,'active','/modules/'||code,'/api/platform/modules/'||code,'platform',title
