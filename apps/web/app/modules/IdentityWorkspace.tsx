@@ -1,0 +1,28 @@
+"use client";
+import {useEffect,useState} from "react";
+import styles from "./IdentityWorkspace.module.css";
+type Data={users:any[];roles:any[];groups:any[];permissions:any[];sessions:any[];logins:any[]};
+const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
+const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
+const tabs=[["identity-1","کاربران"],["identity-2","نقش‌ها"],["identity-3","گروه‌های کاربری"],["identity-4","مجوزها"],["identity-5","ورود و نشست‌ها"]];
+export default function IdentityWorkspace(){
+ const [tab,setTab]=useState("identity-1"),[d,setD]=useState<Data>({users:[],roles:[],groups:[],permissions:[],sessions:[],logins:[]}),[err,setErr]=useState(""),[saving,setSaving]=useState(false);
+ const [name,setName]=useState(""),[role,setRole]=useState("viewer"),[key,setKey]=useState(""),[perm,setPerm]=useState<string[]>([]);
+ const load=async()=>{setErr("");const r=await fetch(api+"/api/identity/overview",{credentials:"include"});const b=await r.json();if(!r.ok)throw Error(b?.error||"خطا");setD(b)};
+ useEffect(()=>{const p=new URLSearchParams(location.search);setTab(p.get("tab")||"identity-1");load().catch(e=>setErr(e.message))},[]);
+ const post=async(path:string,body:any)=>{setSaving(true);try{const r=await fetch(api+path,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:JSON.stringify(body)});const b=await r.json().catch(()=>null);if(!r.ok)throw Error(b?.error||"خطا");await load()}finally{setSaving(false)}};
+ const roleObj=d.roles.find(x=>x.role_key===role);
+ const saveRole=()=>post("/api/identity/roles",{roleKey:key,title:name}).then(()=>{setKey("");setName("")}).catch(e=>setErr(e.message));
+ const saveGroup=()=>post("/api/identity/groups",{groupKey:key,title:name}).then(()=>{setKey("");setName("")}).catch(e=>setErr(e.message));
+ const updateUser=async(id:string,body:any)=>{const r=await fetch(api+"/api/identity/users/"+id,{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:JSON.stringify(body)});if(!r.ok){const b=await r.json();throw Error(b.error)}await load()};
+ const revoke=async(id:string)=>{await fetch(api+"/api/identity/sessions/"+id+"/revoke",{method:"POST",credentials:"include",headers:{"X-CSRF-Token":csrf()}});await load()};
+ return <main className={styles.wrap} dir="rtl"><header><div><span>منوی مرکزی سازمان · ۰۲</span><h1>هویت و دسترسی</h1><p>کاربران، نقش‌ها، گروه‌ها، مجوزها و نشست‌های واقعی سامانه</p></div><button onClick={()=>load()}>به‌روزرسانی</button></header>
+ <nav>{tabs.map(([k,t])=><a key={k} className={tab===k?"active":""} href={"/modules/?code=02-identity&tab="+k}>{t}</a>)}</nav>
+ {err&&<div className={styles.error}>{err}</div>}
+ {tab==="identity-1"&&<section className={styles.panel}><h2>کاربران</h2>{d.users.map(u=><article key={u.id}><div><b>{u.full_name}</b><small>{u.email}</small></div><select value={u.role} onChange={e=>updateUser(u.id,{role:e.target.value}).catch(x=>setErr(x.message))}>{d.roles.map(r=><option key={r.role_key}>{r.role_key}</option>)}</select><span>{u.status}</span></article>)}</section>}
+ {tab==="identity-2"&&<section className={styles.panel}><h2>نقش‌ها</h2><div className={styles.form}><input placeholder="شناسه نقش" value={key} onChange={e=>setKey(e.target.value)}/><input placeholder="عنوان نقش" value={name} onChange={e=>setName(e.target.value)}/><button disabled={saving} onClick={saveRole}>ثبت نقش</button></div>{d.roles.map(r=><article key={r.role_key}><div><b>{r.title}</b><small>{r.role_key} · {r.user_count} کاربر</small></div><span>{r.is_system?"سیستمی":"سفارشی"}</span></article>)}</section>}
+ {tab==="identity-3"&&<section className={styles.panel}><h2>گروه‌های کاربری</h2><div className={styles.form}><input placeholder="شناسه گروه" value={key} onChange={e=>setKey(e.target.value)}/><input placeholder="عنوان گروه" value={name} onChange={e=>setName(e.target.value)}/><button disabled={saving} onClick={saveGroup}>ثبت گروه</button></div>{d.groups.map(g=><article key={g.id}><div><b>{g.title}</b><small>{g.group_key}</small></div><span>{g.member_count} عضو</span></article>)}</section>}
+ {tab==="identity-4"&&<section className={styles.panel}><h2>کاتالوگ مجوزها</h2>{d.permissions.map(p=><article key={p.permission_key}><div><b>{p.title}</b><small>{p.permission_key}</small></div><span>{p.action}</span></article>)}</section>}
+ {tab==="identity-5"&&<section className={styles.panel}><h2>ورود و نشست‌ها</h2><h3>نشست‌های فعال</h3>{d.sessions.map(s=><article key={s.id}><div><b>{s.user_id}</b><small>{s.ip_address||"IP ثبت نشده"} · {s.user_agent||"مرورگر نامشخص"}</small></div>{s.revoked_at?<span>لغو شده</span>:<button onClick={()=>revoke(s.id)}>لغو نشست</button>}</article>)}<h3>ورودها</h3>{d.logins.map(l=><article key={l.id}><div><b>{l.email}</b><small>{l.ip_address||"IP"} · {new Date(l.occurred_at).toLocaleString("fa-IR")}</small></div><span>{l.success?"موفق":"ناموفق"}</span></article>)}</section>}
+ </main>
+}
