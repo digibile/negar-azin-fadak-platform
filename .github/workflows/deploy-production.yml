@@ -39,10 +39,9 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-          PUBLIC_ORIGIN: ${{ secrets.PUBLIC_ORIGIN }}
         run: |
           set -euo pipefail
-          for name in POSTGRES_PASSWORD JWT_SECRET ADMIN_EMAIL ADMIN_PASSWORD PUBLIC_ORIGIN; do
+          for name in POSTGRES_PASSWORD JWT_SECRET ADMIN_EMAIL ADMIN_PASSWORD; do
             if [ -z "${!name}" ]; then
               echo "Missing required repository secret: $name"
               exit 1
@@ -72,11 +71,10 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-          PUBLIC_ORIGIN: ${{ secrets.PUBLIC_ORIGIN }}
         run: |
           set -euo pipefail
 
-          printf '%s\n'             'POSTGRES_DB=negara_fadak'             'POSTGRES_USER=platform'             "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"             "JWT_SECRET=$JWT_SECRET"             "ADMIN_EMAIL=$ADMIN_EMAIL"             "ADMIN_PASSWORD=$ADMIN_PASSWORD"             "PUBLIC_ORIGIN=$PUBLIC_ORIGIN"             'WEB_PORT=3100'             > /tmp/negar-platform.env
+          printf '%s\n'             'POSTGRES_DB=negara_fadak'             'POSTGRES_USER=platform'             "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"             "JWT_SECRET=$JWT_SECRET"             "ADMIN_EMAIL=$ADMIN_EMAIL"             "ADMIN_PASSWORD=$ADMIN_PASSWORD"             "PUBLIC_ORIGIN=https://sookar.ir"             'WEB_PORT=3100'             > /tmp/negar-platform.env
 
           chmod 600 /tmp/negar-platform.env
 
