@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import {useEffect,useMemo,useState} from "react";
-import {usePathname,useRouter,useSearchParams} from "next/navigation";
+import {usePathname,useRouter} from "next/navigation";
 import {api} from "../../lib/api";
 import styles from "./AdminSidebar.module.css";
 
@@ -16,8 +16,6 @@ function HomeIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="
 export default function AdminSidebar(){
  const pathname=usePathname();
  const router=useRouter();
- const searchParams=useSearchParams();
- const currentTab=searchParams.get("tab")||"";
  const [menuItems,setMenuItems]=useState<DynamicMenuItem[]>([]);
  const [query,setQuery]=useState("");
  const [error,setError]=useState("");
@@ -77,11 +75,6 @@ export default function AdminSidebar(){
  const active=(item:DynamicMenuItem)=>{
   const url=moduleUrl(item);
   return Boolean(url&&pathname===url.split("?")[0]);
- };
- const childActive=(item:DynamicMenuItem,child:string)=>{
-  const href=childUrl(item,child); if(!href)return false;
-  const u=new URL(href,"http://local");
-  return pathname===u.pathname && currentTab===u.searchParams.get("tab");
  };
  const toggleMenu=(id:string)=>setOpenMenus(v=>({...v,[id]:!v[id]}));
  const openModule=(item:DynamicMenuItem,e:React.MouseEvent<HTMLElement>)=>{
