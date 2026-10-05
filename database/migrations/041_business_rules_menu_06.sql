@@ -18,6 +18,8 @@ create table if not exists business_rules(
  unique(tenant_id,rule_key),
  check(status in ('draft','active','paused','archived'))
 );
+-- Backward-compatible hardening for installations where this table already exists.
+alter table if exists business_rules add column if not exists status text not null default 'draft';
 create index if not exists business_rules_tenant_event_idx on business_rules(tenant_id,event_key,status,priority);
 
 create table if not exists business_rule_conditions(
