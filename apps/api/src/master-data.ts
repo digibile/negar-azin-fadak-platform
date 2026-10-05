@@ -2,7 +2,9 @@ import {Router} from "express";
 import {query} from "./db.js";
 import {requireAuth,requireCsrf,requirePermission} from "./auth.js";
 const router=Router();
-const read= requirePermission("master-data.read");\nconst write= requirePermission("master-data.write");\nasync function audit(req:any,entity:string,id:number|undefined,action:string,before:any,after:any){
+const read=requirePermission("master-data.read");
+const write=requirePermission("master-data.write");
+async function audit(req:any,entity:string,id:number|undefined,action:string,before:any,after:any){
  await query("insert into master_data_audit(entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,$2,$3,$4,$5,$6)",[entity,id,action,req.user?.id,before?JSON.stringify(before):null,after?JSON.stringify(after):null]);
 }
 router.get("/api/master-data/overview",requireAuth,read,async(_req,res)=>{
