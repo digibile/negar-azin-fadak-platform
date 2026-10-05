@@ -36,7 +36,7 @@ export default function LoanContractsWorkspace(){
  const contracts=useMemo(()=>items.filter(x=>x.record_type==="loan-contract"),[items]);
  const active=useMemo(()=>contracts.filter(x=>String(x.data?.["contract-status"]||"") === "فعال"),[contracts]);
  const filtered=useMemo(()=>{
-  const base=tab==="active"?active:tab==="contracts"||tab==="termination"?contracts:items.filter(x=>x.record_type===tab);
+  const base=tab==="active"?active:tab==="contracts"||tab==="termination"?contracts:tab==="collateral"?contracts.filter(x=>String(x.data?.["collateral-summary"]||"").trim()):tab==="guarantors"?contracts.filter(x=>String(x.data?.["guarantor-summary"]||"").trim()):contracts;
   if(!q)return base;
   return base.filter(x=>x.title.includes(q)||JSON.stringify(x.data).includes(q));
  },[items,contracts,active,tab,q]);
