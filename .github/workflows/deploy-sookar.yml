@@ -20,14 +20,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configure SSH
-        uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-
-      - name: Trust server
         shell: bash
         run: |
           set -euo pipefail
+          umask 077
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.deploy_key
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           ssh-keyscan -T 15 -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
@@ -42,9 +39,9 @@ jobs:
           BASE=/home/sookar/domains/sookar.ir/negar-platform
           SHA="${GITHUB_SHA}"
           tar --exclude='.git' --exclude='node_modules' --exclude='.next' --exclude='.cache' --exclude='*.log' --exclude='tmp' --exclude='temp' --exclude='backups' -czf /tmp/negar-platform.tar.gz .
-          ssh -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "mkdir -p '$BASE/releases/$SHA'"
-          scp -P "$PORT" -o BatchMode=yes /tmp/negar-platform.tar.gz "$HOST:$BASE/negar-platform.tar.gz"
-          ssh -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "set -e
+          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "mkdir -p '$BASE/releases/$SHA'"
+          scp -i ~/.deploy_key -P "$PORT" -o BatchMode=yes /tmp/negar-platform.tar.gz "$HOST:$BASE/negar-platform.tar.gz"
+          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "set -e
             RELEASE='$BASE/releases/$SHA'
             tar -xzf '$BASE/negar-platform.tar.gz' -C "$RELEASE"
             cp '$BASE/.env' "$RELEASE/.env"
@@ -63,7 +60,7 @@ jobs:
           set -euo pipefail
           HOST="${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}"
           PORT="${{ secrets.DEPLOY_PORT }}"
-          ssh -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" 'python3 - <<'"'"'PY'"'"'
+          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" 'python3 - <<'"'"'PY'"'"'
 from pathlib import Path
 import re, shutil, subprocess
 
