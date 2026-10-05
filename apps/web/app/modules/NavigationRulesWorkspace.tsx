@@ -2,7 +2,7 @@
 import{useEffect,useMemo,useState}from"react";
 import styles from"./NavigationRulesWorkspace.module.css";
 type R={id:number;record_type:string;title:string;status:string;data:Record<string,any>};
-const API=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(//$/,"");
+const API=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
 const csrf=()=>document.cookie.split(";").map((x:any)=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
 const empty:any={code:"",title:"",menu:"",page:"",section:"",audience:"عمومی",condition:"بدون شرط",reference:"",priority:0,display:"نمایش",target:"همان صفحه",status:"پیش‌نویس",from:"",to:"",notes:""};
 const options={audience:["عمومی","کاربران واردشده","کاربران مهمان","نقش‌محور","سازمانی"],condition:["بدون شرط","مجوز","نقش","سازمان","وضعیت کاربر","ترکیبی"],display:["نمایش","مخفی","نمایش مشروط","فقط موبایل","فقط دسکتاپ"],target:["همان صفحه","صفحه جدید","پنجره داخلی","مسیر خارجی"],status:["پیش‌نویس","فعال","غیرفعال","آرشیو شده"]};
