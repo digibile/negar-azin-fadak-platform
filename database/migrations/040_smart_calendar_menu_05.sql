@@ -24,6 +24,14 @@ create table if not exists calendar_holidays(
  notes text not null default '',
  unique(tenant_id,holiday_date,title)
 );
+-- Backward-compatible hardening: older deployments may already contain these tables
+-- without tenant_id. Keep the migration rerunnable while preserving existing rows.
+alter table if exists calendar_work_calendars add column if not exists tenant_id uuid references tenants(id) on delete cascade;
+alter table if exists calendar_holidays add column if not exists tenant_id uuid references tenants(id) on delete cascade;
+alter table if exists calendar_events add column if not exists tenant_id uuid references tenants(id) on delete cascade;
+alter table if exists calendar_deadlines add column if not exists tenant_id uuid references tenants(id) on delete cascade;
+alter table if exists calendar_plans add column if not exists tenant_id uuid references tenants(id) on delete cascade;
+alter table if exists calendar_audit add column if not exists tenant_id uuid references tenants(id) on delete cascade;
 create index if not exists calendar_holidays_tenant_date_idx on calendar_holidays(tenant_id,holiday_date);
 create table if not exists calendar_events(
  id uuid primary key default gen_random_uuid(),
