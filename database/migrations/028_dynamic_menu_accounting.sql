@@ -101,6 +101,7 @@ create table if not exists accounting_books(
  unique(tenant_id,code)
 );
 
+alter table ledger_accounts add column if not exists tenant_id uuid references tenants(id) on delete cascade;
 alter table ledger_accounts add column if not exists book_id uuid references accounting_books(id) on delete set null;
 alter table ledger_accounts add column if not exists account_mode text not null default 'hybrid' check(account_mode in ('official','internal','hybrid'));
 alter table ledger_accounts add column if not exists external_code text;
