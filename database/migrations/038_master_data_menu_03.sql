@@ -76,3 +76,10 @@ insert into master_units(unit_key,title,symbol,unit_type,factor,base_unit_key) v
 ('liter','لیتر','L','volume',1,'liter'),
 ('milliliter','میلی‌لیتر','mL','volume',0.001,'liter')
 on conflict(unit_key) do nothing;
+
+insert into identity_permissions(permission_key,title,module_key,action) values
+('master-data.read','مشاهده داده‌های پایه','03-master-data','read'),
+('master-data.write','مدیریت داده‌های پایه','03-master-data','write')
+on conflict(permission_key) do nothing;
+insert into identity_role_permissions(role_key,permission_key)
+select 'admin',permission_key from identity_permissions where permission_key like 'master-data.%' on conflict do nothing;
