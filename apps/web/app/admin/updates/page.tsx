@@ -21,6 +21,7 @@ export default function UpdatesPage(){
  },[]);
 
  useEffect(()=>{load()},[load]);
+ useEffect(()=>{const id=window.setInterval(()=>{if(status?.runs?.some(x=>["queued","in_progress","waiting","requested","pending"].includes(x.status)))load()},5000);return()=>window.clearInterval(id)},[status,load]);
 
  async function update(){
   if(updating)return;
