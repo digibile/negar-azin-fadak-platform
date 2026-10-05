@@ -10,6 +10,8 @@ COPY packages packages
 RUN pnpm install --frozen-lockfile
 
 COPY apps/web apps/web
+ARG NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 RUN mkdir -p apps/web/public
 RUN pnpm --filter @naf/web build
 
