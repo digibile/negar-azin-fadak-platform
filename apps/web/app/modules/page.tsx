@@ -12,6 +12,7 @@ import MasterDataWorkspace from "./MasterDataWorkspace";
 import Customer360Workspace from "./Customer360Workspace";
 import SmartCalendarWorkspace from "./SmartCalendarWorkspace";
 import BusinessRulesWorkspace from "./BusinessRulesWorkspace";
+import SLAWorkspace from "./SLAWorkspace";
 import CentralSettingsWorkspace from "./CentralSettingsWorkspace";
 
 type Field={field_key:string;title:string;field_type:string;required:boolean;sort_order:number;options?:{options?:string[]}};
@@ -119,6 +120,7 @@ function ModulesContent(){
  if(code==="04-customer-360")return <Customer360Workspace/>;
  if(code==="05-smart-calendar")return <SmartCalendarWorkspace/>;
  if(code==="06-business-rules")return <BusinessRulesWorkspace/>;
+ if(code==="07-sla")return <SLAWorkspace/>;
  if(code==="central-settings")return <CentralSettingsWorkspace/>;
  return <main className="module-runtime">
   <header className="page-head">
