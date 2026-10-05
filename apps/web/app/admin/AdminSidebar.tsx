@@ -28,7 +28,9 @@ export default function AdminSidebar(){
    api<{updateAvailable?:boolean}>("/api/platform/update-status")
   ]).then(([menus,update])=>{if(alive){setMenuItems(menus.items||[]);setUpdateAvailable(Boolean(update.updateAvailable))}})
    .catch(e=>{if(alive)setError(e instanceof Error?e.message:"خطا در دریافت ساختار سامانه")});
-  return()=>{alive=false};
+  const timer=window.setInterval(async()=>{try{const update=await api<{updateAvailable?:boolean}>("/api/platform/update-status");if(alive)setUpdateAvailable(Boolean(update.updateAvailable))}catch{}}
+  ,30000);
+  return()=>{alive=false;window.clearInterval(timer)};
  },[]);
 
  const childItems=(item:DynamicMenuItem):DynamicChild[]=>{
