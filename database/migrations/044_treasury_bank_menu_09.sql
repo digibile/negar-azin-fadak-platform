@@ -11,6 +11,7 @@ create table if not exists treasury_bank_accounts(
  branch_name text,
  opening_balance numeric(20,2) not null default 0,
  current_balance numeric(20,2) not null default 0,
+ last_reconciled_at timestamptz,
  status text not null default 'active' check(status in ('active','blocked','closed')),
  created_at timestamptz not null default now(),
  updated_at timestamptz not null default now(),
