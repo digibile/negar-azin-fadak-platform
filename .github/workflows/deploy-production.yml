@@ -101,6 +101,87 @@ jobs:
 
              find "$BASE/releases" -mindepth 1 -maxdepth 1 -type d ! -name "$RELEASE_SHA" -mtime +7 -exec rm -rf {} + 2>/dev/null || true'
 
+      - name: Configure Sookar Nginx reverse proxy
+        run: |
+          set -euo pipefail
+
+          ssh -p "${{ secrets.DEPLOY_PORT }}" \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            'set -e
+             DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf
+             USER_NGINX=/usr/local/directadmin/data/users/sookar/nginx.conf
+             BACKUP="/root/sookar-nginx-$(date +%Y%m%d-%H%M%S).conf"
+
+             test -f "$DOMAIN_CONF"
+             test -f "$USER_NGINX"
+
+             cp -a "$USER_NGINX" "$BACKUP"
+
+             /usr/local/directadmin/directadmin config-set nginx_proxy 1
+             /usr/local/directadmin/directadmin config-set nginx 1
+             /usr/local/directadmin/custombuild/build rewrite_confs
+
+             python3 - <<'"'"'PY'
+from pathlib import Path
+import re
+
+path = Path("/usr/local/directadmin/data/users/sookar/nginx.conf")
+text = path.read_text()
+
+server_re = re.compile(r"(?ms)(?P<block>server\s*\{.*?\n\})")
+changed = False
+
+def patch_server(m):
+    global changed
+    block = m.group("block")
+    if not re.search(r"server_name\s+[^;]*\bsookar\.ir\b", block):
+        return block
+
+    lines = block.splitlines()
+    out = []
+    server_depth = 0
+    in_root = False
+    root_depth = 0
+    replaced = False
+
+    for line in lines:
+        stripped = line.strip()
+        opens = line.count("{")
+        closes = line.count("}")
+
+        if not in_root and re.match(r"location\s+/(?:\{|\s)", stripped):
+            in_root = True
+            root_depth = server_depth + opens - closes
+
+        if in_root and re.match(r"proxy_pass\s+", stripped):
+            indent = line[:len(line)-len(line.lstrip())]
+            out.append(f"{indent}proxy_pass http://127.0.0.1:3100;")
+            replaced = True
+            changed = True
+        else:
+            out.append(line)
+
+        server_depth += opens - closes
+        if in_root and server_depth < root_depth:
+            in_root = False
+
+    if not replaced:
+        raise SystemExit("Sookar server block found, but no root proxy_pass was found")
+    return "\n".join(out)
+
+patched = server_re.sub(patch_server, text)
+
+if not changed:
+    raise SystemExit("Sookar server block was not found or was not patched")
+
+path.write_text(patched)
+PY
+
+             nginx -t
+             systemctl reload nginx
+             echo "SOOKAR_NGINX_PROXY=127.0.0.1:3100"
+             grep -n "proxy_pass http://127.0.0.1:3100" "$USER_NGINX" | head -10'
+
       - name: Health check
         run: |
           set -euo pipefail
