@@ -59,7 +59,17 @@ export default function AdminSidebar(){
    permission:item.permission
   }));
  };
- const sidebarModules=useMemo(()=>{\n  const titles:Record<string,string[]>={"01-governance":["داشبورد اصلی","داشبورد مدیرعامل","KPI و شاخص‌ها","هشدارها","فعالیت‌ها"],"02-identity":["کاربران","نقش‌ها","گروه‌های کاربری","مجوزها","ورود و نشست‌ها"],"03-master-data":["تعاریف پایه","کدها و شناسه‌ها","دسته‌بندی‌ها","واحدها","سوابق تغییر"],"04-customer-360":["پرونده مشتری","مشخصات هویتی","تعاملات","سوابق خرید","نمای مالی"],"05-smart-calendar":["تقویم کاری","تعطیلات","رویدادها","سررسیدها","برنامه‌ریزی"],"06-business-rules":["قواعد","شرایط","اقدامات","اولویت اجرا","نسخه قواعد"],"07-sla":["تعهدات خدمت","سطح سرویس","زمان پاسخ","زمان حل","نقض تعهد"],"08-accounting-finance":["دفتر حساب‌ها","اسناد حسابداری","دوره‌های مالی","مرکز هزینه","گزارش مالی"],"09-treasury-bank":["حساب‌های بانکی","دریافت‌ها","پرداخت‌ها","مغایرت بانکی","تنخواه"],"10-wallet-ledger":["دفترکل کیف پول","حساب‌های کیف پول","گردش‌ها","تسویه کیف پول","گزارش دفترکل"]};\n  const modules:DynamicMenuItem[]=[];\n  for(const root of menuItems) for(const child of (root.child_items||[])){\n   const match=child.path.match(/[?&]code=([^&]+)/); const code=match?decodeURIComponent(match[1]):child.menu_key?.split(":")[0]||""; const n=Number(code.slice(0,2));\n   if(n>=1&&n<=10&&/^\\d{2}-/.test(code)) modules.push({id:String(child.id),menu_key:code,parent_id:null,title:child.title,path:child.path,permission:child.permission,children:titles[code]||[],child_items:[],sort_order:n,panel_sort_order:n,is_shared:true});\n  }\n  return modules.sort((a,b)=>a.sort_order-b.sort_order);\n },[menuItems]);\n\n const filtered=useMemo(()=>{
+ const sidebarModules=useMemo(()=>{
+  const titles:Record<string,string[]>={"01-governance":["داشبورد اصلی","داشبورد مدیرعامل","KPI و شاخص‌ها","هشدارها","فعالیت‌ها"],"02-identity":["کاربران","نقش‌ها","گروه‌های کاربری","مجوزها","ورود و نشست‌ها"],"03-master-data":["تعاریف پایه","کدها و شناسه‌ها","دسته‌بندی‌ها","واحدها","سوابق تغییر"],"04-customer-360":["پرونده مشتری","مشخصات هویتی","تعاملات","سوابق خرید","نمای مالی"],"05-smart-calendar":["تقویم کاری","تعطیلات","رویدادها","سررسیدها","برنامه‌ریزی"],"06-business-rules":["قواعد","شرایط","اقدامات","اولویت اجرا","نسخه قواعد"],"07-sla":["تعهدات خدمت","سطح سرویس","زمان پاسخ","زمان حل","نقض تعهد"],"08-accounting-finance":["دفتر حساب‌ها","اسناد حسابداری","دوره‌های مالی","مرکز هزینه","گزارش مالی"],"09-treasury-bank":["حساب‌های بانکی","دریافت‌ها","پرداخت‌ها","مغایرت بانکی","تنخواه"],"10-wallet-ledger":["دفترکل کیف پول","حساب‌های کیف پول","گردش‌ها","تسویه کیف پول","گزارش دفترکل"]};
+  const modules:DynamicMenuItem[]=[];
+  for(const root of menuItems) for(const child of (root.child_items||[])){
+   const match=child.path.match(/[?&]code=([^&]+)/); const code=match?decodeURIComponent(match[1]):child.menu_key?.split(":")[0]||""; const n=Number(code.slice(0,2));
+   if(n>=1&&n<=10&&/^\\d{2}-/.test(code)) modules.push({id:String(child.id),menu_key:code,parent_id:null,title:child.title,path:child.path,permission:child.permission,children:titles[code]||[],child_items:[],sort_order:n,panel_sort_order:n,is_shared:true});
+  }
+  return modules.sort((a,b)=>a.sort_order-b.sort_order);
+ },[menuItems]);
+
+ const filtered=useMemo(()=>{
   const q=query.trim().toLocaleLowerCase("fa-IR");
   if(!q)return menuItems;
   return menuItems.filter(item=>
