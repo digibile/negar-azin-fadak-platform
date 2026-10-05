@@ -8,12 +8,12 @@ type Overview={tenant:{id:string;name:string};kpis:any;recent:any[]};
 export default function DashboardWorkspace(){
  const [data,setData]=useState<Overview|null>(null);
  const [error,setError]=useState("");
- const [loading,setLoading]=useState(true);
+ const [loading,setLoading]=useState(true);\n const [tab,setTab]=useState("dashboard");\n useEffect(()=>{const t=new URLSearchParams(window.location.search).get("tab");if(t)setTab(t)},[]);
  const load=async()=>{try{const r=await fetch("/api/dashboard/overview",{credentials:"include"});const b=await r.json();if(!r.ok)throw new Error(b.error||"دریافت داشبورد ناموفق بود");setData(b)}catch(e){setError(e instanceof Error?e.message:"خطا")}finally{setLoading(false)}};
  useEffect(()=>{load()},[]);
  const n=(v:any)=>Number(v||0).toLocaleString("fa-IR");
  return <main className={styles.workspace} dir="rtl">
-  <header className={styles.hero}><div><span>منوی ۰۱ · داشبورد و مرکز مدیریت</span><h1>مرکز مدیریت سازمان</h1><p>{data?.tenant.name||"سازمان جاری"} · نمای زنده از داده‌های واقعی سامانه</p></div><button onClick={load}>↻ به‌روزرسانی</button></header>
+  <header className={styles.hero}><div><span>منوی ۰۱ · داشبورد و مرکز مدیریت</span><h1>{({dashboard:"داشبورد اصلی",executive:"داشبورد مدیرعامل",finance:"داشبورد مدیر مالی",sales:"داشبورد فروش",operations:"داشبورد عملیات",branches:"داشبورد شعب",kpi:"KPI سازمان",alerts:"هشدارهای مدیریتی",activity:"فعالیت‌های اخیر",notifications:"اعلان‌های مهم"} as Record<string,string>)[tab]||"مرکز مدیریت سازمان"}</h1><p>{data?.tenant.name||"سازمان جاری"} · نمای زنده از داده‌های واقعی سامانه</p></div><button onClick={load}>↻ به‌روزرسانی</button></header>
   {error&&<div className={styles.error}>{error}</div>}
   {loading?<section className={styles.loading}>در حال دریافت وضعیت واقعی سازمان...</section>:data&&<>
    <section className={styles.cards}>
