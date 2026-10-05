@@ -40,7 +40,20 @@ export default function DashboardWorkspace(){
  };
 
  useEffect(()=>{
-  const t=searchParams.get("tab")||"dashboard";
+  const raw=searchParams.get("tab")||"dashboard";
+  const legacy:Record<string,string>={
+   "داشبورد اصلی":"dashboard",
+   "داشبورد مدیرعامل":"executive",
+   "داشبورد مدیر مالی":"finance",
+   "داشبورد فروش":"sales",
+   "داشبورد عملیات":"operations",
+   "داشبورد شعب":"branches",
+   "KPI سازمان":"kpi",
+   "هشدارهای مدیریتی":"alerts",
+   "فعالیت‌های اخیر":"activity",
+   "اعلان‌های مهم":"notifications"
+  };
+  const t=legacy[raw]||raw;
   setTab(tabs.some(x=>x.key===t)?t:"dashboard");
  },[searchParams]);
  useEffect(()=>{load(tab)},[tab]);
