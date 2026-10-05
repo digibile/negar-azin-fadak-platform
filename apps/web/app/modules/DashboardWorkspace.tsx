@@ -8,7 +8,8 @@ type Overview={tenant:{id:string;name:string};kpis:any;recent:any[]};
 export default function DashboardWorkspace(){
  const [data,setData]=useState<Overview|null>(null);
  const [error,setError]=useState("");
- const [loading,setLoading]=useState(true);\n const [tab,setTab]=useState("dashboard");\n useEffect(()=>{const t=new URLSearchParams(window.location.search).get("tab");if(t)setTab(t)},[]);
+ const [loading,setLoading]=useState(true);
+ const [tab,setTab]=useState("dashboard");\n useEffect(()=>{const t=new URLSearchParams(window.location.search).get("tab");if(t)setTab(t)},[]);
  const load=async()=>{try{const r=await fetch("/api/dashboard/overview",{credentials:"include"});const b=await r.json();if(!r.ok)throw new Error(b.error||"دریافت داشبورد ناموفق بود");setData(b)}catch(e){setError(e instanceof Error?e.message:"خطا")}finally{setLoading(false)}};
  useEffect(()=>{load()},[]);
  const n=(v:any)=>Number(v||0).toLocaleString("fa-IR");
@@ -26,7 +27,7 @@ export default function DashboardWorkspace(){
    </section>
    <section className={styles.grid}>
     <article className={styles.panel}><header><h2>فعالیت‌های اخیر</h2><span>۱۲ مورد آخر</span></header>{data.recent.map(x=><div className={styles.event} key={x.id}><div><strong>{x.action}</strong><small>{x.entity_type} · {x.entity_id||"بدون شناسه"}</small></div><time>{new Date(x.created_at).toLocaleString("fa-IR")}</time></div>)}{!data.recent.length&&<div className={styles.empty}>هنوز رخداد حسابرسی ثبت نشده است.</div>}</article>
-    <article className={styles.panel}><header><h2>دسترسی سریع</h2><span>صفحات اصلی</span></header><div className={styles.links}><a href="/modules/?code=governance">ساختار سازمان</a><a href="/modules/?code=identity">کاربران و امنیت</a><a href="/modules/?code=accounting-finance">حسابداری</a><a href="/modules/?code=crm">CRM</a><a href="/modules/?code=marketplace">مارکت‌پلیس</a><a href="/admin/editors">ویرایش منو و صفحات</a></div></article>
+    <article className={styles.panel}><header><h2>دسترسی سریع</h2><span>صفحات اصلی</span></header><div className={styles.links}><a href="/modules/?code=governance">ساختار سازمان</a><a href="/modules/?code=security">کاربران و امنیت</a><a href="/modules/?code=accounting-finance">حسابداری</a><a href="/modules/?code=crm">CRM</a><a href="/modules/?code=marketplace">مارکت‌پلیس</a><a href="/admin/editors">ویرایش منو و صفحات</a></div></article>
    </section>
   </>}
  </main>;
