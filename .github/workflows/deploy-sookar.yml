@@ -72,3 +72,103 @@ jobs:
           done
           ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" 'cd /home/sookar/domains/sookar.ir/negar-platform/current && docker compose --project-name naf-sookar -f docker-compose.production.yml ps && docker compose --project-name naf-sookar -f docker-compose.production.yml logs --tail=80 web api'
           exit 1
+
+      - name: Configure Nginx
+        run: |
+          set -euo pipefail
+          ssh -p "${{ secrets.DEPLOY_PORT }}" -o BatchMode=yes -o ConnectTimeout=15 "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" 'set -e
+            DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf
+            USER_NGINX=/usr/local/directadmin/data/users/sookar/nginx.conf
+            test -f "$DOMAIN_CONF"
+            test -f "$USER_NGINX"
+            cp -a "$USER_NGINX" "/root/sookar-nginx-backup-$(date +%Y%m%d-%H%M%S).conf"
+            /usr/local/directadmin/custombuild/build rewrite_confs >/dev/null
+            python3 - <<'"'"'PY'"'"'
+from pathlib import Path
+import re
+
+paths=[
+    Path("/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf"),
+    Path("/usr/local/directadmin/data/users/sookar/nginx.conf"),
+]
+target=None
+for p in paths:
+    if p.exists():
+        s=p.read_text()
+        if re.search(r"server_name[^;]*\bsookar\.ir\b", s):
+            target=p
+            break
+if target is None:
+    raise SystemExit("No Sookar nginx server config found")
+s=target.read_text()
+
+def blocks(text, keyword):
+    out=[]
+    for m in re.finditer(r"(?m)^\s*"+keyword+r"\b[^\{]*\{", text):
+        start=m.start()
+        pos=m.end()-1
+        depth=0
+        i=pos
+        while i<len(text):
+            if text[i]=="{": depth+=1
+            elif text[i]=="}":
+                depth-=1
+                if depth==0:
+                    out.append((start,i+1))
+                    break
+            i+=1
+    return out
+
+servers=blocks(s,"server")
+server=None
+for a,b in servers:
+    if re.search(r"server_name[^;]*\bsookar\.ir\b",s[a:b]):
+        server=(a,b)
+        break
+if not server:
+    raise SystemExit("Sookar server block not found")
+a,b=server
+sb=s[a:b]
+locs=blocks(sb,"location")
+root=None
+for la,lb in locs:
+    if re.match(r"(?s)\s*location\s+/\s*\{",sb[la:lb]):
+        root=(la,lb)
+        break
+proxy="proxy_pass http://127.0.0.1:3100;"
+if root:
+    la,lb=root
+    chunk=sb[la:lb]
+    if re.search(r"(?m)^\s*proxy_pass\s+[^;]+;",chunk):
+        chunk=re.sub(r"(?m)^\s*proxy_pass\s+[^;]+;", "        "+proxy, chunk, count=1)
+    else:
+        insert=chunk.rfind("}")
+        chunk=chunk[:insert]+"        "+proxy+"\n"+chunk[insert:]
+    sb=sb[:la]+chunk+sb[lb:]
+else:
+    insert=sb.rfind("}")
+    location='\n    location / {\n        proxy_http_version 1.1;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n        proxy_pass http://127.0.0.1:3100;\n    }\n'
+    sb=sb[:insert]+location+sb[insert:]
+s=s[:a]+sb+s[b:]
+target.write_text(s)
+print(f"NGINX_CONFIGURED {target}")
+PY
+            nginx -t
+            systemctl reload nginx
+            echo NGINX_RELOADED
+          '
+
+      - name: External domain health
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 20); do
+            code=$(curl -k -L -sS -o /tmp/sookar-response.html -w '%{http_code}' https://sookar.ir/ || true)
+            if [ "$code" = "200" ] || [ "$code" = "301" ] || [ "$code" = "302" ]; then
+              echo "SOOKAR_EXTERNAL_OK HTTP $code"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "SOOKAR_EXTERNAL_FAILED HTTP $code"
+          head -c 1000 /tmp/sookar-response.html || true
+          exit 1
