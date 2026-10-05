@@ -1,0 +1,12 @@
+name: Actions Smoke Test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "ACTIONS_SMOKE_OK"
