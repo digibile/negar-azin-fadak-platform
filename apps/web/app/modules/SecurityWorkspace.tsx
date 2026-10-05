@@ -8,7 +8,7 @@ async function getData(){const r=await fetch(base+"/api/security/overview",{cred
 export default function SecurityWorkspace(){
  const [tab,setTab]=useState("users"),[data,setData]=useState<any>({users:[],roles:[],sessions:[],logins:[],policies:[]}),[error,setError]=useState("");
  const load=async()=>{try{setError("");setData(await getData())}catch(e){setError(e instanceof Error?e.message:"خطا")}};
- useEffect(()=>{load()},[]);
+ useEffect(()=>{const t=new URLSearchParams(window.location.search).get("tab");if(t)setTab(t);load()},[]);
  const revoke=async(id:string)=>{await fetch(base+"/api/security/sessions/"+id+"/revoke",{method:"POST",credentials:"include",headers:{"X-CSRF-Token":csrf()}});await load()};
  const toggle=async(p:any)=>{await fetch(base+"/api/security/policies/"+p.policy_key,{method:"PUT",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:JSON.stringify({...p,enabled:!p.enabled})});await load()};
  const names:any={users:"کاربران",profiles:"پروفایل کاربران",roles:"نقش‌ها",groups:"گروه‌های کاربری",permissions:"مجوزها",policies:"سیاست‌های دسترسی",login:"ورودها",sessions:"نشست‌ها",devices:"دستگاه‌های مجاز",auth:"احراز هویت",twofa:"2FA",audit:"گزارش امنیتی"};
