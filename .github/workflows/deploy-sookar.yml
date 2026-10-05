@@ -142,12 +142,12 @@ for a, b in targets:
     parts.append(text[cursor:a])
     block = text[a:b]
 
-    first_location = re.search(r"(?m)^\\s*location\\s+", block)
+    first_location = re.search(r"(?m)^\s*location\s+", block)
     if first_location:
-        block = block[:first_location.start()] + api_location + "\\n" + block[first_location.start():]
+        block = block[:first_location.start()] + api_location + "\n" + block[first_location.start():]
     else:
         insert = block.rfind("}")
-        block = block[:insert] + "\\n" + api_location + "\\n" + block[insert:]
+        block = block[:insert] + "\n" + api_location + "\n" + block[insert:]
 
     locations = find_blocks(block, "location")
     root = None
