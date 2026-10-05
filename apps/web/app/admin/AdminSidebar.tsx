@@ -6,7 +6,8 @@ import {usePathname,useRouter,useSearchParams} from "next/navigation";
 import {api} from "../../lib/api";
 import styles from "./AdminSidebar.module.css";
 
-type DynamicMenuItem={id:string;menu_key:string|null;parent_id:string|null;title:string;path:string;permission:string|null;children:string[];sort_order:number;panel_sort_order:number;is_shared:boolean};
+type DynamicChild={id:string|number;menu_key:string|null;parent_id:string|number|null;title:string;path:string;icon?:string|null;sort_order:number;permission:string|null};
+type DynamicMenuItem={id:string;menu_key:string|null;parent_id:string|null;title:string;path:string;permission:string|null;children:string[];child_items?:DynamicChild[];sort_order:number;panel_sort_order:number;is_shared:boolean};
 
 function SearchIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m16 16 4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
 function ChevronIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -30,25 +31,41 @@ export default function AdminSidebar(){
   return()=>{alive=false};
  },[]);
 
+ const childItems=(item:DynamicMenuItem):DynamicChild[]=>{
+  if(item.child_items?.length)return [...item.child_items].sort((a,b)=>a.sort_order-b.sort_order);
+  const code=item.menu_key||"";
+  const aliases:Record<string,string[]>={
+   dashboard:["dashboard","executive","finance","sales","operations","branches","kpi","alerts","activity","notifications"],
+   "02-identity":["identity-1","identity-2","identity-3","identity-4","identity-5"],
+   "03-master-data":["master-data-1","master-data-2","master-data-3","master-data-4","master-data-5"],
+   "04-customer-360":["customer-360-1","customer-360-2","customer-360-3","customer-360-4","customer-360-5"],
+   "05-smart-calendar":["smart-calendar-1","smart-calendar-2","smart-calendar-3","smart-calendar-4","smart-calendar-5"],
+   "06-business-rules":["business-rules-1","business-rules-2","business-rules-3","business-rules-4","business-rules-5"],
+   "07-sla":["sla-1","sla-2","sla-3","sla-4","sla-5"],
+   "08-accounting-finance":["accounting-finance-1","accounting-finance-2","accounting-finance-3","accounting-finance-4","accounting-finance-5"],
+   "09-treasury-bank":["treasury-bank-1","treasury-bank-2","treasury-bank-3","treasury-bank-4","treasury-bank-5"],
+   "10-wallet-ledger":["wallet-ledger-1","wallet-ledger-2","wallet-ledger-3","wallet-ledger-4","wallet-ledger-5"]
+  };
+  const tabs=aliases[code]||[];
+  return (item.children||[]).map((title,i)=>({
+   id:item.id+":"+i,
+   menu_key:code+":"+(i+1),
+   parent_id:item.id,
+   title,
+   path:"/modules/?code="+encodeURIComponent(code)+"&tab="+encodeURIComponent(tabs[i]||title),
+   sort_order:i+1,
+   permission:item.permission
+  }));
+ };
  const filtered=useMemo(()=>{
   const q=query.trim().toLocaleLowerCase("fa-IR");
   if(!q)return menuItems;
   return menuItems.filter(item=>
-   (item.title+" "+(item.children||[]).join(" ")).toLocaleLowerCase("fa-IR").includes(q)
+   (item.title+" "+childItems(item).map(child=>child.title).join(" ")).toLocaleLowerCase("fa-IR").includes(q)
   );
  },[query,menuItems]);
 
- const childUrl=(item:DynamicMenuItem,child:string)=>{
-  if(!item.path||item.path==="#")return null;
-  const base=item.path.startsWith("/modules/")?item.path:"/modules/?code="+encodeURIComponent(item.menu_key||"");
-  const url=new URL(base,"http://local");
-  const code=url.searchParams.get("code");
-  if(!code)return null;
-  url.searchParams.set("code",code);
-  url.searchParams.set("menu",item.menu_key||"");
-  url.searchParams.set("tab",child);
-  return url.pathname+"?"+url.searchParams.toString();
- };
+ const childUrl=(child:DynamicChild)=>child.path||null;
  const moduleUrl=(item:DynamicMenuItem)=>{
   if(item.path&&item.path!=="#"){
    if(item.menu_key==="users-security")return "/modules/?code=security";
@@ -112,12 +129,12 @@ export default function AdminSidebar(){
        <span className={styles["master-chevron"]}><ChevronIcon/></span>
       </button>
       <button type="button" className={styles["master-title-button"]} onClick={e=>openModule(item,e)}>
-       <span className={styles["master-copy"]}><strong>{item.title}</strong><small>{(item.children||[]).length} قابلیت عملیاتی{item.is_shared?" · مشترک":""}</small></span>
+       <span className={styles["master-copy"]}><strong>{item.title}</strong><small>{childItems(item).length} قابلیت عملیاتی{item.is_shared?" · مشترک":""}</small></span>
       </button>
       {url?<Link className={styles["master-open"]} href={url} aria-label={"ورود به "+item.title}>↗</Link>:<span className={styles["master-open"]+" "+styles["disabled"]} aria-hidden="true">•</span>}
      </div>
      {isOpen&&<div className={styles["master-children"]}>
-      {(item.children||[]).map((child,i)=>{const childHref=childUrl(item,child);return childHref?<Link className={styles["master-child"]} href={childHref} key={child}><span className={styles["master-child-index"]}>{String(i+1).padStart(2,"0")}</span><span>{child}</span></Link>:<div className={styles["master-child"]} key={child}><span className={styles["master-child-index"]}>{String(i+1).padStart(2,"0")}</span><span>{child}</span></div>})}
+      {childItems(item).map((child,i)=>{const childHref=childUrl(child);return childHref?<Link className={styles["master-child"]} href={childHref} key={child.id}><span className={styles["master-child-index"]}>{String(i+1).padStart(2,"0")}</span><span>{child.title}</span></Link>:<div className={styles["master-child"]} key={child.id}><span className={styles["master-child-index"]}>{String(i+1).padStart(2,"0")}</span><span>{child.title}</span></div>})}
       {url&&<Link className={styles["master-enter"]} href={url}>ورود به ماژول <span>←</span></Link>}
      </div>}
     </div>;
