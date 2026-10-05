@@ -128,62 +128,79 @@ jobs:
 
              /usr/local/directadmin/custombuild/build rewrite_confs
 
-             python3 - <<'"'"'PY'
+             python3 - <<'PY'
 from pathlib import Path
 import re
 
 path = Path("/usr/local/directadmin/data/users/sookar/nginx.conf")
 text = path.read_text()
 
-server_re = re.compile(r"(?ms)(?P<block>server\s*\{.*?\n\})")
-changed = False
-
-def patch_server(m):
-    global changed
-    block = m.group("block")
-    if not re.search(r"server_name\s+[^;]*\bsookar\.ir\b", block):
-        return block
-
-    lines = block.splitlines()
+def find_blocks(text, keyword):
     out = []
-    server_depth = 0
-    in_root = False
-    root_depth = 0
-    replaced = False
+    for m in re.finditer(r"(?m)^\s*" + keyword + r"\b[^\{]*\{", text):
+        start = m.start()
+        depth = 0
+        for i in range(m.end() - 1, len(text)):
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    out.append((start, i + 1))
+                    break
+    return out
 
-    for line in lines:
-        stripped = line.strip()
-        opens = line.count("{")
-        closes = line.count("}")
+servers = find_blocks(text, "server")
+targets = [
+    (a, b) for a, b in servers
+    if re.search(r"server_name\s+[^;]*\bsookar\.ir\b", text[a:b])
+]
 
-        if not in_root and re.match(r"location\s+/(?:\{|\s)", stripped):
-            in_root = True
-            root_depth = server_depth + opens - closes
+if not targets:
+    raise SystemExit("No Sookar server blocks found")
 
-        if in_root and re.match(r"proxy_pass\s+", stripped):
-            indent = line[:len(line)-len(line.lstrip())]
-            out.append(f"{indent}proxy_pass http://127.0.0.1:3100;")
-            replaced = True
-            changed = True
-        else:
-            out.append(line)
+proxy_location = """    location / {
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_pass http://127.0.0.1:3100;
+    }"""
 
-        server_depth += opens - closes
-        if in_root and server_depth < root_depth:
-            in_root = False
+parts = []
+cursor = 0
+for a, b in targets:
+    parts.append(text[cursor:a])
+    block = text[a:b]
 
-    if not replaced:
-        raise SystemExit("Sookar server block found, but no root proxy_pass was found")
-    return "\n".join(out)
+    locations = find_blocks(block, "location")
+    root = None
+    for la, lb in locations:
+        if re.match(r"(?s)^\s*location\s+/\s*\{", block[la:lb]):
+            root = (la, lb)
+            break
 
-patched = server_re.sub(patch_server, text)
+    if root:
+        la, lb = root
+        chunk = block[la:lb]
+        chunk = re.sub(r"(?ms)^\s*proxy_pass\s+[^;]+;\s*\n?", "", chunk)
+        insert = chunk.rfind("}")
+        chunk = chunk[:insert] + "        proxy_pass http://127.0.0.1:3100;\n" + chunk[insert:]
+        block = block[:la] + chunk + block[lb:]
+    else:
+        insert = block.rfind("}")
+        block = block[:insert] + "\n" + proxy_location + "\n" + block[insert:]
 
-if not changed:
-    raise SystemExit("Sookar server block was not found or was not patched")
+    parts.append(block)
+    cursor = b
 
-path.write_text(patched)
+parts.append(text[cursor:])
+path.write_text("".join(parts))
+print(f"NGINX_CONFIGURED_BLOCKS={len(targets)}")
 PY
-
              nginx -t
              systemctl reload nginx
              echo "SOOKAR_NGINX_PROXY=127.0.0.1:3100"
