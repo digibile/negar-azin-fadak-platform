@@ -36,9 +36,14 @@ jobs:
       - name: Verify deployment host is safe
         run: |
           set -euo pipefail
-          ssh -p "${{ secrets.DEPLOY_PORT }}" \
-            -o BatchMode=yes \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+          for attempt in 1 2 3 4 5; do
+            if ssh -p "${{ secrets.DEPLOY_PORT }}" \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -o ConnectionAttempts=3 \
+              -o ServerAliveInterval=10 \
+              -o ServerAliveCountMax=3 \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
             'set -e
              BASE=/home/sookar/domains/sookar.ir
              test -d "$BASE/public_html"
@@ -49,6 +54,12 @@ jobs:
              echo "SAFE_DEPLOYMENT_TARGET=$BASE/negar-platform"
              echo "PUBLIC_HTML_PRESERVED=$BASE/public_html"
              echo "MARKETOS_PRESERVED=$BASE/marketos"'
+            then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
 
       - name: Package source
         run: |
