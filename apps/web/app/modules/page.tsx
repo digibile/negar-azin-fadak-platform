@@ -1,5 +1,7 @@
 "use client";
 
+import {Suspense} from "react";
+
 import {useEffect,useMemo,useState} from "react";
 import AccountingWorkspace from "./AccountingWorkspace";
 import DashboardWorkspace from "./DashboardWorkspace";
@@ -16,7 +18,7 @@ const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL
 const url=(path:string)=>api+path;
 const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
 
-export default function ModulesPage(){
+function ModulesContent(){
  const [code,setCode]=useState("");
  const [module,setModule]=useState<ModuleInfo|null>(null);
  const [actions,setActions]=useState<Action[]>([]);
@@ -115,3 +117,6 @@ export default function ModulesPage(){
   </div>}
  </main>;
 }
+
+
+export default function ModulesPage(){return <Suspense fallback={<main className="module-runtime"><div className="runtime-panel">در حال آماده‌سازی فضای عملیاتی...</div></main>}><ModulesContent/></Suspense>}
