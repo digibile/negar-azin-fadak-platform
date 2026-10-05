@@ -66,7 +66,7 @@ router.post("/api/treasury-bank/transactions",requireAuth,requirePermission("tre
 router.patch("/api/treasury-bank/transactions/:id/reconcile",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const s=req.body?.status;if(!["matched","ignored","unmatched"].includes(s))return deny(res,400,"وضعیت مغایرت نامعتبر است");
  const old=await query("select * from treasury_bank_transactions where id=$1 and tenant_id=$2",[req.params.id,t.id]);if(!old.rowCount)return deny(res,404,"تراکنش پیدا نشد");
- const r=await query("update treasury_bank_transactions set reconciliation_status=$1 where id=$2 and tenant_id=$3 returning *",[s,req.params.id,t.id]);await audit(t.id,(req as any).user.id,"bank_transaction",req.params.id,"reconcile",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+ const r=await query("update treasury_bank_transactions set reconciliation_status=$1 where id=$2 and tenant_id=$3 returning *",[s,req.params.id,t.id]);await query("update treasury_bank_accounts set last_reconciled_at=case when $1='matched' then now() else last_reconciled_at end where id=$2 and tenant_id=$3",[s,old.rows[0].bank_account_id,t.id]);await audit(t.id,(req as any).user.id,"bank_transaction",req.params.id,"reconcile",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 
 router.post("/api/treasury-bank/cashboxes",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
