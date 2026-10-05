@@ -20,6 +20,7 @@ export default function AdminSidebar(){
  const [menuItems,setMenuItems]=useState<DynamicMenuItem[]>([]);
  const [query,setQuery]=useState("");
  const [error,setError]=useState("");
+ const [openMenus,setOpenMenus]=useState<Record<string,boolean>>({});
 
  useEffect(()=>{let alive=true;
   Promise.all([
@@ -66,6 +67,7 @@ export default function AdminSidebar(){
   const u=new URL(href,"http://local");
   return pathname===u.pathname && currentTab===u.searchParams.get("tab");
  };
+ const toggleMenu=(id:string)=>setOpenMenus(v=>({...v,[id]:!v[id]}));
  const openModule=(item:DynamicMenuItem,e:React.MouseEvent<HTMLElement>)=>{
   const url=moduleUrl(item); if(!url)return;
   const target=e.target as HTMLElement;
@@ -104,8 +106,8 @@ export default function AdminSidebar(){
    {filtered.map(item=>{
     const url=moduleUrl(item);
     const isCurrent=active(item);
-    return <details className={styles["master-item"]+" "+(isCurrent?styles["is-current"]:"")} key={item.id} open={Boolean(query)||isCurrent}>
-     <summary onClick={e=>openModule(item,e)}>
+    return <details className={styles["master-item"]+" "+(isCurrent?styles["is-current"]:"")} key={item.id} open={Boolean(query)||isCurrent||Boolean(openMenus[item.id])}>
+     <summary onClick={e=>{ if((e.target as HTMLElement).closest(".master-chevron")){e.preventDefault();toggleMenu(item.id);return;} openModule(item,e); }}>
       <span className={styles["master-chevron"]}><ChevronIcon/></span>
       <span className={styles["master-copy"]}><strong>{item.title}</strong><small>{(item.children||[]).length} قابلیت عملیاتی{item.is_shared?" · مشترک":""}</small></span>
       {url?<Link className={styles["master-open"]} href={url} onClick={e=>e.stopPropagation()} aria-label={"ورود به "+item.title}>↗</Link>:<span className={styles["master-open"]+" "+styles["disabled"]} aria-hidden="true">•</span>}
