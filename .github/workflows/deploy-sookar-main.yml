@@ -1,6 +1,8 @@
 name: Deploy Sookar Main Safely
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       target_sha:
@@ -43,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.target_sha }}
+          ref: ${{ inputs.target_sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -146,7 +148,7 @@ jobs:
           REMOTE
       - name: Production health and release check
         env:
-          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_SHA: ${{ inputs.target_sha || github.sha }}
         run: |
           set -euo pipefail
           HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
