@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function FaqPage(){return <main className="sookar-store" dir="rtl"><section className="store-section"><span>Support</span><h1>پرسش‌های متداول</h1><div className="plan-grid"><article><h3>اعتبار با وام چه تفاوتی دارد؟</h3><p>اعتبار سقف قابل استفاده است؛ وام یک تعهد تسهیلاتی با برنامه بازپرداخت است.</p></article><article><h3>چه زمانی نتیجه مشخص می‌شود؟</h3><p>پس از تکمیل اطلاعات و مدارک، موتور قوانین و ارزیابی نتیجه واقعی را تعیین می‌کند.</p></article></div><Link href="/pay">بازگشت به Sookar Pay ←</Link></section></main>}
