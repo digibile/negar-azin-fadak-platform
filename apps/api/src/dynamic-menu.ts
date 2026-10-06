@@ -26,7 +26,8 @@ router.get("/api/dashboard/menu-tree",requireAuth,async(req:Request,res:Response
          'path',c.path,
          'icon',c.icon,
          'sort_order',c.sort_order,
-         'permission',c.permission
+         'permission',c.permission,
+         'child_items',coalesce((select jsonb_agg(jsonb_build_object('id',gc.id,'menu_key',gc.menu_key,'parent_id',gc.parent_id,'title',gc.title,'path',gc.path,'icon',gc.icon,'sort_order',gc.sort_order,'permission',gc.permission) order by gp.sort_order,gc.sort_order,gc.id) from menu_items gc join menu_item_panels gp on gp.menu_item_id=gc.id where gc.parent_id=c.id and gc.is_active=true and gp.panel_code=$1 and gp.is_visible=true ${childAccess}),'[]'::jsonb)
        ) order by cp.sort_order,c.sort_order,c.id
      )
      from menu_items c
