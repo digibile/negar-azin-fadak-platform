@@ -1,165 +1,215 @@
-name: Deploy Production to Sookar
+name: Deploy Production to Sookar Safely
+
+on:
+  workflow_dispatch:
+    inputs:
+      requested_by:
+        description: "Management panel requester"
+        required: false
+        type: string
+        default: "management-panel"
+
+concurrency:
+  group: sookar-production
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
-on:
-  workflow_dispatch:
-
-concurrency:
-  group: deploy-sookar-production
-  cancel-in-progress: true
-
 jobs:
-  deploy:
+  verify:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: platform
+          POSTGRES_PASSWORD: platform
+          POSTGRES_DB: platform_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U platform -d platform_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://platform:platform@localhost:5432/platform_test
+      NODE_ENV: test
     steps:
-      - name: Checkout
+      - name: Checkout exact release
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm install
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: npm install
+      - name: Build API
+        working-directory: apps/api
+        run: npm run build
+      - name: Run database migrations
+        working-directory: apps/api
+        run: npm run migrate
+      - name: Test API
+        working-directory: apps/api
+        run: npm test
+      - name: Build web
+        working-directory: apps/web
+        run: npm run build
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact release
         uses: actions/checkout@v4
 
-      - name: Start SSH agent
-        uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-
-      - name: Trust deployment host
+      - name: Configure SSH
+        shell: bash
         run: |
           set -euo pipefail
+          umask 077
+          printf '%s\n' '__GH_secrets.DEPLOY_SSH_KEY__' > ~/.deploy_key
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          ssh-keyscan -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -T 15 -p '__GH_secrets.DEPLOY_PORT__' '__GH_secrets.DEPLOY_HOST__' >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Verify deployment host is safe
+      - name: Package exact GitHub SHA
+        shell: bash
         run: |
           set -euo pipefail
-          for attempt in 1 2 3 4 5; do
-            if ssh -p "${{ secrets.DEPLOY_PORT }}" \
-              -o BatchMode=yes \
-              -o ConnectTimeout=15 \
-              -o ConnectionAttempts=3 \
-              -o ServerAliveInterval=10 \
-              -o ServerAliveCountMax=3 \
-              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            'set -e
-             BASE=/home/sookar/domains/sookar.ir
-             test -d "$BASE/public_html"
-             test -d "$BASE/marketos"
-             test -f "$BASE/negar-platform/.env"
-             test "$(stat -c %a "$BASE/negar-platform/.env")" = "600"
-             mkdir -p "$BASE/negar-platform/releases"
-             echo "SAFE_DEPLOYMENT_TARGET=$BASE/negar-platform"
-             echo "PUBLIC_HTML_PRESERVED=$BASE/public_html"
-             echo "MARKETOS_PRESERVED=$BASE/marketos"'
-            then
-              exit 0
+          tar --exclude='.git' --exclude='node_modules' --exclude='.next' --exclude='.cache' --exclude='*.log' --exclude='tmp' --exclude='temp' --exclude='backups' -czf /tmp/negar-platform.tar.gz .
+
+      - name: Upload release package
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST='__GH_secrets.DEPLOY_USER__@__GH_secrets.DEPLOY_HOST__'
+          PORT='__GH_secrets.DEPLOY_PORT__'
+          BASE=/home/sookar/domains/sookar.ir/negar-platform
+          scp -i ~/.deploy_key -P "$PORT" -o BatchMode=yes /tmp/negar-platform.tar.gz "$HOST:$BASE/negar-platform.tar.gz"
+
+      - name: Install with automatic rollback
+        shell: bash
+        env:
+          RELEASE_SHA: '__GH_github.sha__'
+        run: |
+          set -euo pipefail
+          HOST='__GH_secrets.DEPLOY_USER__@__GH_secrets.DEPLOY_HOST__'
+          PORT='__GH_secrets.DEPLOY_PORT__'
+          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "RELEASE_SHA='$RELEASE_SHA' bash -s" <<'REMOTE'
+          set -euo pipefail
+          BASE=/home/sookar/domains/sookar.ir/negar-platform
+          SHA="$RELEASE_SHA"
+          RELEASE="$BASE/releases/$SHA"
+          CURRENT="$BASE/current"
+          PREVIOUS="$(readlink -f "$CURRENT" 2>/dev/null || true)"
+
+          test -f "$BASE/.env"
+          test "$(stat -c %a "$BASE/.env")" = "600"
+          mkdir -p "$BASE/releases" "$RELEASE"
+
+          rollback() {
+            status=$?
+            trap - ERR
+            if [ -n "$PREVIOUS" ] && [ -d "$PREVIOUS" ]; then
+              echo "DEPLOYMENT_FAILED_ROLLING_BACK=$PREVIOUS"
+              cd "$PREVIOUS"
+              docker compose -p naf-sookar -f docker-compose.production.yml up -d --build --remove-orphans || true
+              ln -sfn "$PREVIOUS" "$CURRENT"
+              echo "ROLLBACK_COMPLETE=$PREVIOUS"
             fi
-            sleep 5
+            exit "$status"
+          }
+          trap rollback ERR
+
+          tar -xzf "$BASE/negar-platform.tar.gz" -C "$RELEASE"
+          cp "$BASE/.env" "$RELEASE/.env"
+          chmod 600 "$RELEASE/.env"
+
+          if grep -q '^DEPLOYED_SHA=' "$RELEASE/.env"; then
+            sed -i "s#^DEPLOYED_SHA=.*#DEPLOYED_SHA=$SHA#" "$RELEASE/.env"
+          else
+            printf '\nDEPLOYED_SHA=%s\n' "$SHA" >> "$RELEASE/.env"
+          fi
+
+          cd "$RELEASE"
+          docker compose -p naf-sookar -f docker-compose.production.yml config >/dev/null
+          docker compose -p naf-sookar -f docker-compose.production.yml up -d --build --remove-orphans
+
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:4000/health >/dev/null 2>&1 && curl -fsS http://127.0.0.1:3100/ >/dev/null 2>&1; then
+              echo "APPLICATION_HEALTH_OK"
+              break
+            fi
+            if [ "$i" = "45" ]; then
+              echo "APPLICATION_HEALTH_FAILED"
+              exit 1
+            fi
+            sleep 4
           done
-          exit 1
 
-      - name: Package source
+          ln -sfn "$RELEASE" "$CURRENT"
+          rm -f "$BASE/negar-platform.tar.gz"
+          find "$BASE/releases" -mindepth 1 -maxdepth 1 -type d ! -name "$SHA" -mtime +14 -exec rm -rf {} + 2>/dev/null || true
+
+          trap - ERR
+          echo "DEPLOYED_SHA=$SHA"
+          echo "CURRENT_RELEASE=$RELEASE"
+          echo "PREVIOUS_RELEASE=$PREVIOUS"
+          REMOTE
+
+      - name: Configure Nginx
+        shell: bash
         run: |
           set -euo pipefail
-          tar \
-            --exclude='.git' \
-            --exclude='node_modules' \
-            --exclude='.next' \
-            --exclude='.cache' \
-            --exclude='*.log' \
-            --exclude='tmp' \
-            --exclude='temp' \
-            --exclude='backups' \
-            -czf /tmp/negar-platform.tar.gz .
-
-      - name: Upload source
-        run: |
+          HOST='__GH_secrets.DEPLOY_USER__@__GH_secrets.DEPLOY_HOST__'
+          PORT='__GH_secrets.DEPLOY_PORT__'
+          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" 'bash -s' <<'REMOTE'
           set -euo pipefail
-          ssh -p "${{ secrets.DEPLOY_PORT }}" \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            'cat > /home/sookar/domains/sookar.ir/negar-platform/negar-platform.tar.gz' \
-            < /tmp/negar-platform.tar.gz
-
-      - name: Deploy Docker Compose
-        run: |
-          set -euo pipefail
-
-          ssh -p "${{ secrets.DEPLOY_PORT }}" \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            'set -e
-             BASE=/home/sookar/domains/sookar.ir/negar-platform
-             RELEASE_SHA=${{ github.sha }}
-             RELEASE="$BASE/releases/$RELEASE_SHA"
-             mkdir -p "$RELEASE"
-             tar -xzf "$BASE/negar-platform.tar.gz" -C "$RELEASE"
-             cp "$BASE/.env" "$RELEASE/.env"
-             chmod 600 "$RELEASE/.env"
-
-             cd "$RELEASE"
-
-             docker compose --project-name naf-sookar -f docker-compose.production.yml config >/dev/null
-             docker compose --project-name naf-sookar -f docker-compose.production.yml up -d --build --remove-orphans
-
-             docker compose --project-name naf-sookar -f docker-compose.production.yml ps
-
-             test -d "$BASE/releases"
-
-             rm -f "$BASE/negar-platform.tar.gz"
-             ln -sfn "$RELEASE" "$BASE/current"
-
-             find "$BASE/releases" -mindepth 1 -maxdepth 1 -type d ! -name "$RELEASE_SHA" -mtime +7 -exec rm -rf {} + 2>/dev/null || true'
-
-      - name: Configure Sookar Nginx reverse proxy
-        run: |
-          set -euo pipefail
-
-          ssh -p "${{ secrets.DEPLOY_PORT }}" \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            'set -e
-             DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf
-             USER_NGINX=/usr/local/directadmin/data/users/sookar/nginx.conf
-             BACKUP="/root/sookar-nginx-$(date +%Y%m%d-%H%M%S).conf"
-
-             test -f "$DOMAIN_CONF"
-             test -f "$USER_NGINX"
-
-             cp -a "$USER_NGINX" "$BACKUP"
-
-             /usr/local/directadmin/custombuild/build rewrite_confs
-
-             python3 - <<'PY'
+          USER_NGINX=/usr/local/directadmin/data/users/sookar/nginx.conf
+          test -f "$USER_NGINX"
+          cp -a "$USER_NGINX" "$USER_NGINX.before-platform-$(date +%Y%m%d-%H%M%S)"
+          /usr/local/directadmin/custombuild/build rewrite_confs >/dev/null
+          python3 - <<'PY'
 from pathlib import Path
-import re
-
-path = Path("/usr/local/directadmin/data/users/sookar/nginx.conf")
-text = path.read_text()
-
-def find_blocks(text, keyword):
-    out = []
-    for m in re.finditer(r"(?m)^\s*" + keyword + r"\b[^\{]*\{", text):
-        start = m.start()
-        depth = 0
-        for i in range(m.end() - 1, len(text)):
-            if text[i] == "{":
-                depth += 1
-            elif text[i] == "}":
-                depth -= 1
-                if depth == 0:
-                    out.append((start, i + 1))
-                    break
+import re, subprocess
+p=Path("/usr/local/directadmin/data/users/sookar/nginx.conf")
+text=p.read_text()
+def blocks(s,w):
+    out=[]
+    for m in re.finditer(r"(?m)^\s*"+w+r"\b[^\{]*\{",s):
+        d=0
+        for i in range(m.end()-1,len(s)):
+            if s[i]=="{": d+=1
+            elif s[i]=="}":
+                d-=1
+                if d==0:
+                    out.append((m.start(),i+1)); break
     return out
-
-servers = find_blocks(text, "server")
-targets = [
-    (a, b) for a, b in servers
-    if re.search(r"server_name\s+[^;]*\bsookar\.ir\b", text[a:b])
-]
-
-if not targets:
-    raise SystemExit("No Sookar server blocks found")
-
-proxy_location = """    location / {
+servers=[x for x in blocks(text,"server") if re.search(r"server_name\s+[^;]*\bsookar\.ir\b",text[x[0]:x[1]])]
+if not servers: raise SystemExit("Sookar server block not found")
+api='''    location ^~ /api/ {
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_pass http://127.0.0.1:4000;
+    }
+'''
+root='''    location / {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -168,58 +218,47 @@ proxy_location = """    location / {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_pass http://127.0.0.1:3100;
-    }"""
-
-parts = []
-cursor = 0
-for a, b in targets:
-    parts.append(text[cursor:a])
-    block = text[a:b]
-
-    locations = find_blocks(block, "location")
-    root = None
-    for la, lb in locations:
-        if re.match(r"(?s)^\s*location\s+/\s*\{", block[la:lb]):
-            root = (la, lb)
-            break
-
-    if root:
-        la, lb = root
-        chunk = block[la:lb]
-        chunk = re.sub(r"(?ms)^\s*proxy_pass\s+[^;]+;\s*\n?", "", chunk)
-        insert = chunk.rfind("}")
-        chunk = chunk[:insert] + "        proxy_pass http://127.0.0.1:3100;\n" + chunk[insert:]
-        block = block[:la] + chunk + block[lb:]
+    }
+'''
+parts=[]; cur=0
+for a,b in servers:
+    parts.append(text[cur:a]); block=text[a:b]
+    locs=blocks(block,"location")
+    rootloc=None
+    for la,lb in locs:
+        if re.match(r"(?s)^\s*location\s+/\s*\{",block[la:lb]):
+            rootloc=(la,lb); break
+    if rootloc:
+        la,lb=rootloc; block=block[:la]+root+block[lb:]
     else:
-        insert = block.rfind("}")
-        block = block[:insert] + "\n" + proxy_location + "\n" + block[insert:]
-
-    parts.append(block)
-    cursor = b
-
-parts.append(text[cursor:])
-path.write_text("".join(parts))
-print(f"NGINX_CONFIGURED_BLOCKS={len(targets)}")
+        pos=block.rfind("}"); block=block[:pos]+root+block[pos:]
+    block=re.sub(r"(?ms)^\s*location\s+\^~\s+/api/\s*\{.*?^\s*\}\s*\n?","",block)
+    first=re.search(r"(?m)^\s*location\s+",block)
+    pos=first.start() if first else block.rfind("}")
+    block=block[:pos]+api+block[pos:]
+    parts.append(block); cur=b
+parts.append(text[cur:])
+p.write_text("".join(parts))
+subprocess.run(["nginx","-t"],check=True)
+subprocess.run(["systemctl","reload","nginx"],check=True)
+print("NGINX_OK")
 PY
-             nginx -t
-             systemctl reload nginx
-             echo "SOOKAR_NGINX_PROXY=127.0.0.1:3100"
-             grep -n "proxy_pass http://127.0.0.1:3100" "$USER_NGINX" | head -10'
+          REMOTE
 
-      - name: Health check
+      - name: Final production health check
+        shell: bash
+        env:
+          RELEASE_SHA: '__GH_github.sha__'
         run: |
           set -euo pipefail
-          for i in $(seq 1 30); do
-            if ssh -p "${{ secrets.DEPLOY_PORT }}" \
-              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-              'curl -fsS http://127.0.0.1:3100/ >/dev/null 2>&1'; then
-              echo "DEPLOYMENT_HEALTH_OK"
-              exit 0
-            fi
-            sleep 4
-          done
-
-          ssh -p "${{ secrets.DEPLOY_PORT }}" \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            'cd /home/sookar/domains/sookar.ir/negar-platform/current && docker compose --project-name naf-sookar -f docker-compose.production.yml ps && docker compose --project-name naf-sookar -f docker-compose.production.yml logs --tail=120 api web'
-          exit 1
+          HOST='__GH_secrets.DEPLOY_USER__@__GH_secrets.DEPLOY_HOST__'
+          PORT='__GH_secrets.DEPLOY_PORT__'
+          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes "$HOST" "RELEASE_SHA='$RELEASE_SHA' bash -s" <<'REMOTE'
+          set -euo pipefail
+          BASE=/home/sookar/domains/sookar.ir/negar-platform
+          curl -fsS http://127.0.0.1:3100/ >/dev/null
+          curl -fsS http://127.0.0.1:4000/health >/dev/null
+          test "$(readlink -f "$BASE/current")" = "$BASE/releases/$RELEASE_SHA"
+          docker ps --format "{{.Names}}" | grep -Fx "naf-sookar-api-1" >/dev/null
+          echo "PRODUCTION_DEPLOYMENT_OK"
+          REMOTE
