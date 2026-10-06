@@ -76,7 +76,7 @@ export default function AdminSidebar(){
   return menuItems.filter(item=>
    (item.title+" "+childItems(item).map(child=>child.title).join(" ")).toLocaleLowerCase("fa-IR").includes(q)
   );
- },[query,sidebarModules]);
+ },[query,menuItems]);
 
  const childUrl=(child:DynamicChild)=>child.path||null;
  const moduleUrl=(item:DynamicMenuItem)=>{
@@ -122,7 +122,7 @@ export default function AdminSidebar(){
 
   <div className={styles["sidebar-caption"]}>
    <span>کاتالوگ عملیاتی</span>
-   <b>{filtered.length}/10</b>
+   <b>{filtered.length}/50</b>
   </div>
   {error&&<div className={styles["sidebar-menu-error"]}>{error}</div>}
 
