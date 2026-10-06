@@ -130,6 +130,8 @@ create table if not exists lendtech_restructures (
  created_at timestamptz not null default now()
 );
 
+alter table if exists marketplace_orders add column if not exists credit_facility_ref uuid;
+
 create table if not exists lendtech_events (
  id bigserial primary key,
  tenant_ref text not null,
@@ -146,6 +148,7 @@ create index if not exists idx_lendtech_score_application on lendtech_scores(app
 create index if not exists idx_lendtech_facility_tenant_status on lendtech_facilities(tenant_ref,status);
 create index if not exists idx_lendtech_contract_tenant_status on lendtech_contracts(tenant_ref,status);
 create index if not exists idx_lendtech_installment_due on lendtech_installments(tenant_ref,due_date,status);
+create unique index if not exists uq_lendtech_open_delinquency on lendtech_delinquencies(contract_id,installment_id) where status='open';
 create index if not exists idx_lendtech_delinquency_open on lendtech_delinquencies(tenant_ref,status,days_overdue desc);
 
 insert into platform_modules(code,title,is_active)
