@@ -120,9 +120,10 @@ export default function AdminSidebar(){
  const canonical=useMemo(()=>MASTER_MENU.map(item=>{
   const legacyKey=LEGACY_BY_MASTER[item.code]||item.moduleCode||"";
   const db=dbByLegacy.get(legacyKey);
-  const route=item.moduleCode&&moduleSet.has(item.moduleCode)
-   ? "/modules/?code="+encodeURIComponent(item.moduleCode)
-   : db?.path || (item.moduleCode?"/modules/?code="+encodeURIComponent(item.moduleCode):"#");
+  const canonicalCode=LEGACY_BY_MASTER[item.code];
+  const route=canonicalCode
+   ? "/modules/?code="+encodeURIComponent(canonicalCode)
+   : db?.path || (item.moduleCode&&moduleSet.has(item.moduleCode)?"/modules/?code="+encodeURIComponent(item.moduleCode):item.moduleCode?"/modules/?code="+encodeURIComponent(item.moduleCode):"#");
   const dbChildren=normalize(db?.child_items||[]);
   const childByTitle=new Map(dbChildren.map(x=>[x.title,x]));
   const children=item.children.map((title,i)=>{
