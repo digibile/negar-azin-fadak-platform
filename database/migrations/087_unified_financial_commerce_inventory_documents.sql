@@ -159,7 +159,7 @@ create table if not exists finance_document_files(
  tenant_id uuid not null references tenants(id) on delete cascade,
  vault_id uuid not null references finance_document_vaults(id) on delete cascade,
  file_name text not null, mime_type text not null, file_size bigint not null default 0,
- storage_key text, sha256 text, version_no integer not null default 1,
+ storage_key text, sha256 text, file_data bytea, version_no integer not null default 1,
  is_original boolean not null default true, ocr_status text not null default 'pending' check(ocr_status in ('pending','processing','completed','failed')),
  ocr_text text, extracted_data jsonb not null default '{}'::jsonb,
  uploaded_by uuid references users(id) on delete set null, created_at timestamptz not null default now()
