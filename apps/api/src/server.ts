@@ -19,6 +19,7 @@ import {smartCalendarRouter} from "./smart-calendar.js";
 import {businessRulesRouter} from "./business-rules.js";
 import {slaRouter} from "./sla.js";
 import {accountingFinanceRouter} from "./accounting-finance.js";
+import {financeCoreRouter} from "./finance-core.js";
 import {treasuryBankRouter} from "./treasury-bank.js";
 import {walletLedgerRouter} from "./wallet-ledger.js";
 import {centralSettingsRouter} from "./central-settings.js";
@@ -54,7 +55,7 @@ const requireModulePermission=async(user:any,moduleId:number,action:"read"|"writ
 const allowedOrigins=(process.env.CORS_ORIGIN||"http://localhost:3000").split(",").map(x=>x.trim()).filter(Boolean);
 app.disable("x-powered-by");
 app.use(cors({origin:(origin,callback)=>{if(!origin||allowedOrigins.includes(origin))return callback(null,true);callback(new Error("مبدأ درخواست مجاز نیست"))},credentials:true}));
-app.use(express.json({limit:"2mb"}));
+app.use(express.json({limit:"12mb"}));
 app.use(express.urlencoded({extended:false,limit:"2mb"}));
 app.use((req,res,next)=>{if(["GET","HEAD","OPTIONS"].includes(req.method)||req.path==="/api/auth/login")return next();return requireCsrf(req,res,next);});
 
@@ -72,6 +73,7 @@ app.use(smartCalendarRouter);
 app.use(businessRulesRouter);
 app.use(slaRouter);
 app.use(accountingFinanceRouter);
+app.use(financeCoreRouter);
 app.use(treasuryBankRouter);
 app.use(walletLedgerRouter);
 app.use(centralSettingsRouter);
