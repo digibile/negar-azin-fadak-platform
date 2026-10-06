@@ -24,14 +24,17 @@ test("operational menu 01..50 has a live module runtime, permissions, fields and
 });
 
 test("operational menu 01..50 is navigable from the canonical menu tree",async()=>{
- const rows=(await query(`select m.code,mi.id,
-   (select count(*) from menu_items c where c.parent_id=mi.id and c.is_active=true)::int child_count
+ const rows=(await query(`select m.code,min(mi.id) as id,
+   count(mi.id)::int menu_entry_count,
+   coalesce(max((select count(*) from menu_items c where c.parent_id=mi.id and c.is_active=true)),0)::int child_count
    from unnest($1::text[]) as m(code)
    left join menu_items mi on mi.path='/modules/?code='||m.code and mi.is_active=true
+   group by m.code
    order by m.code`,[codes])).rows;
  assert.equal(rows.length,50,"expected 50 canonical module menu entries");
  for(const row of rows){
   assert.ok(row.id,`missing menu entry: ${row.code}`);
+  assert.equal(row.menu_entry_count,1,`duplicate canonical menu entries: ${row.code}`);
   assert.ok(row.child_count>=5,`missing operational submenus: ${row.code}`);
  }
 });
