@@ -48,26 +48,24 @@ jobs:
           ref: ${{ inputs.target_sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: npm
+          node-version: 22
+      - name: Enable pnpm
+        run: corepack enable && corepack prepare pnpm@12.3.4 --activate
       - name: Install API dependencies
-        working-directory: apps/api
-        run: npm install
-      - name: Install web dependencies
-        working-directory: apps/web
-        run: npm install
+        working-directory: .
+        run: pnpm install --frozen-lockfile
       - name: API build
         working-directory: apps/api
-        run: npm run build
+        run: pnpm build
       - name: Database migrations
         working-directory: apps/api
-        run: npm run migrate
+        run: pnpm migrate
       - name: API tests
         working-directory: apps/api
-        run: npm test
+        run: pnpm test
       - name: Web build
         working-directory: apps/web
-        run: npm run build
+        run: pnpm build
       - name: Prepare SSH
         shell: bash
         run: |
