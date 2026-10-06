@@ -23,13 +23,22 @@ export default function AdminSidebar(){
  const [updateAvailable,setUpdateAvailable]=useState(false);
 
  useEffect(()=>{let alive=true;
-  Promise.all([
-   api<{items:DynamicMenuItem[]}>("/api/dashboard/menu-tree?panel=admin"),
-   api<{updateAvailable?:boolean}>("/api/platform/update-status")
-  ]).then(([menus,update])=>{if(alive){setMenuItems(menus.items||[]);setUpdateAvailable(Boolean(update.updateAvailable))}})
-   .catch(e=>{if(alive)setError(e instanceof Error?e.message:"خطا در دریافت ساختار سامانه")});
-  const timer=window.setInterval(async()=>{try{const update=await api<{updateAvailable?:boolean}>("/api/platform/update-status");if(alive)setUpdateAvailable(Boolean(update.updateAvailable))}catch{}}
-  ,30000);
+
+  api<{items:DynamicMenuItem[]}>("/api/dashboard/menu-tree?panel=admin")
+    .then(menus=>{if(alive)setMenuItems(Array.isArray(menus.items)?menus.items:[])})
+    .catch(e=>{if(alive)setError(e instanceof Error?e.message:"خطا در دریافت ساختار منوی مرکزی")});
+
+  api<{updateAvailable?:boolean}>("/api/platform/update-status")
+    .then(update=>{if(alive)setUpdateAvailable(Boolean(update.updateAvailable))})
+    .catch(()=>{});
+
+  const timer=window.setInterval(async()=>{
+    try{
+      const update=await api<{updateAvailable?:boolean}>("/api/platform/update-status");
+      if(alive)setUpdateAvailable(Boolean(update.updateAvailable));
+    }catch{}
+  },30000);
+
   return()=>{alive=false;window.clearInterval(timer)};
  },[]);
 
