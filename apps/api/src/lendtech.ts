@@ -233,12 +233,40 @@ lendtechRouter.post("/api/lendtech/contracts/:id/restructure",requireAuth,requir
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const term=n(req.body?.newTermMonths),reason=s(req.body?.reason,500);
  if(term===null||term<1||term>120||!reason)return res.status(400).json({error:"مدت جدید و علت بازسازی الزامی است"});
- const c=await query("select * from lendtech_contracts where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
- if(!c.rowCount)return res.status(404).json({error:"قرارداد پیدا نشد"});
- const r=await query("insert into lendtech_restructures(tenant_ref,contract_id,old_term_months,new_term_months,reason,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,req.params.id,c.rows[0].term_months,term,reason,actor(req)]);
- await query("update lendtech_contracts set term_months=$1,status='active',updated_at=now() where id=$2",[term,req.params.id]);
- await query("update lendtech_delinquencies set status='resolved',resolved_at=now() where contract_id=$1 and status='open'",[req.params.id]);
- res.status(201).json(r.rows[0]);
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const c=await client.query("select * from lendtech_contracts where id=$1 and tenant_ref=$2 for update",[req.params.id,t.id]);
+  if(!c.rowCount){await client.query("rollback");return res.status(404).json({error:"قرارداد پیدا نشد"});}
+  const contract=c.rows[0];
+  if(["closed"].includes(contract.status)){await client.query("rollback");return res.status(409).json({error:"قرارداد مختومه قابل بازسازی نیست"});}
+  const outstanding=await client.query(`select
+    coalesce(sum(principal_due-principal_paid),0) as principal,
+    coalesce(sum(interest_due-interest_paid),0) as interest
+    from lendtech_installments where contract_id=$1 and status<>'paid'`,[contract.id]);
+  const remainingPrincipal=Number(outstanding.rows[0].principal);
+  if(remainingPrincipal<=0){await client.query("rollback");return res.status(409).json({error:"مانده اصلی قرارداد برای بازسازی وجود ندارد"});}
+  await client.query("delete from lendtech_installments where contract_id=$1 and status<>'paid'",[contract.id]);
+  const months=Number(term),rate=Number(contract.interest_rate)/100/12;
+  const payment=rate===0?remainingPrincipal/months:(remainingPrincipal*rate*Math.pow(1+rate,months))/(Math.pow(1+rate,months)-1);
+  let balance=remainingPrincipal;
+  const startDate=new Date();
+  for(let i=1;i<=months;i++){
+   const due=new Date(startDate);due.setMonth(due.getMonth()+i);
+   const interestDue=rate===0?0:Number((balance*rate).toFixed(2));
+   const principalDue=i===months?balance:Number(Math.max(0,payment-interestDue).toFixed(2));
+   balance=Math.max(0,Number((balance-principalDue).toFixed(2)));
+   await client.query(`insert into lendtech_installments(tenant_ref,contract_id,installment_no,due_date,principal_due,interest_due,total_due)
+     values($1,$2,$3,$4,$5,$6,$7)`,
+    [t.id,contract.id,i,due.toISOString().slice(0,10),principalDue,interestDue,Number((principalDue+interestDue).toFixed(2))]);
+  }
+  const r=await client.query("insert into lendtech_restructures(tenant_ref,contract_id,old_term_months,new_term_months,reason,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,contract.id,contract.term_months,term,reason,actor(req)]);
+  await client.query("update lendtech_contracts set term_months=$1,status='active',updated_at=now() where id=$2",[term,contract.id]);
+  await client.query("update lendtech_delinquencies set status='resolved',resolved_at=now() where contract_id=$1 and status='open'",[contract.id]);
+  await event(client,t.id,null,contract.id,"contract.restructured",actor(req),{oldTermMonths:contract.term_months,newTermMonths:term,remainingPrincipal});
+  await client.query("commit");
+  res.status(201).json({restructure:r.rows[0],remainingPrincipal,newTermMonths:term});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
 lendtechRouter.get("/api/lendtech/portfolio",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
