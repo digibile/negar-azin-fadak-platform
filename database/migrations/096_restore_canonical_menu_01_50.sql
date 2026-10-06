@@ -69,7 +69,7 @@ insert into menu_item_panels(menu_item_id,panel_code,is_shared,sort_order,is_vis
 select m.id,p.code,true,m.sort_order,true
 from menu_items m
 cross join menu_panels p
-where m.menu_key in (select menu_key from seed)
+where m.menu_key in ('governance','identity','master-data','customer-360','smart-calendar','business-rules','sla','accounting-finance','treasury-bank','wallet-ledger','credit-facilities','12-credit-applications','13-loan-contracts','14-installment-schedules','15-installment-collections','16-collateral-guarantees','17-digital-binder','18-identity-verification','19-credit-scoring','20-credit-decisions','21-credit-committee','22-credit-disbursement','23-loan-settlement','24-loan-ledger','25-loan-refunds','26-loan-closure','27-loan-delinquency','28-collection-workflow','29-loan-restructuring','30-loan-relief','31-loan-legal-cases','32-form-builder','33-menu-builder','34-page-builder','35-page-block-editor','36-page-templates','37-frontend-sections','38-navigation-rules','39-frontend-notifications','40-notification-templates','41-documentation','42-document-approvals','43-document-versions','44-document-search','45-document-retention','46-document-distribution','47-document-access-log','48-document-audit-reports','49-document-compliance','50-document-governance')
 on conflict(menu_item_id,panel_code) do update
 set is_shared=true,is_visible=true,sort_order=excluded.sort_order;
 
