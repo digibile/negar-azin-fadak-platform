@@ -6,7 +6,7 @@ const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL
 const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
 const tabs=[["customer-360-1","پرونده مشتری"],["customer-360-2","مشخصات هویتی"],["customer-360-3","تعاملات"],["customer-360-4","سوابق خرید"],["customer-360-5","نمای مالی"]];
 export default function Customer360Workspace(){
- const [tab,setTab]=useState("customer-360-360-1"),[d,setD]=useState<D>({customers:[],interactions:[],purchases:[],financial:[]}),[selected,setSelected]=useState<any>(null),[name,setName]=useState(""),[no,setNo]=useState(""),[mobile,setMobile]=useState(""),[saving,setSaving]=useState(false),[error,setError]=useState("");
+ const [tab,setTab]=useState("customer-360-1"),[d,setD]=useState<D>({customers:[],interactions:[],purchases:[],financial:[]}),[selected,setSelected]=useState<any>(null),[name,setName]=useState(""),[no,setNo]=useState(""),[mobile,setMobile]=useState(""),[saving,setSaving]=useState(false),[error,setError]=useState("");
  const load=async()=>{const r=await fetch(api+"/api/customer-360/overview",{credentials:"include"});const b=await r.json();if(!r.ok)throw Error(b.error||"خطا");setD(b)};
  useEffect(()=>{const p=new URLSearchParams(location.search);setTab(p.get("tab")||"customer-360-1");load().catch(e=>setError(e.message))},[]);
  const post=async(path:string,body:any)=>{setSaving(true);try{const r=await fetch(api+path,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:JSON.stringify(body)});const b=await r.json();if(!r.ok)throw Error(b.error||"خطا");await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}finally{setSaving(false)}};
