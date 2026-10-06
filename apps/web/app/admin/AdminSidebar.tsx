@@ -50,7 +50,8 @@ export default function AdminSidebar(){
    "10-wallet-ledger":["wallet-ledger-1","wallet-ledger-2","wallet-ledger-3","wallet-ledger-4","wallet-ledger-5"]
   };
   const tabs=aliases[code]||[];
-  return (item.children||[]).map((title,i)=>({
+  const legacyChildren="children" in item ? item.children : [];
+  return (legacyChildren||[]).map((title:string,i:number)=>({
    id:item.id+":"+i,
    menu_key:code+":"+(i+1),
    parent_id:item.id,
