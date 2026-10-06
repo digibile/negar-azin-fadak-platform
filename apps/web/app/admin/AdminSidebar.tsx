@@ -38,6 +38,7 @@ export default function AdminSidebar(){
   const code=item.menu_key||"";
   const aliases:Record<string,string[]>={
    dashboard:["dashboard","executive","finance","sales","operations","branches","kpi","alerts","activity","notifications"],
+   "01-governance":["dashboard","executive","finance","sales","operations","branches","kpi","alerts","activity","notifications"],
    "02-identity":["identity-1","identity-2","identity-3","identity-4","identity-5"],
    "03-master-data":["master-data-1","master-data-2","master-data-3","master-data-4","master-data-5"],
    "04-customer-360":["customer-360-1","customer-360-2","customer-360-3","customer-360-4","customer-360-5"],
