@@ -124,7 +124,7 @@ export default function AdminSidebar(){
 
   <div className={styles["sidebar-caption"]}>
    <span>کاتالوگ عملیاتی</span>
-   <b>{filtered.length}/23</b>
+   <b>{filtered.length}/50</b>
   </div>
   {error&&<div className={styles["sidebar-menu-error"]}>{error}</div>}
 
@@ -154,7 +154,7 @@ export default function AdminSidebar(){
   <footer className={styles["sidebar-footer"]}>
    <Link href="/admin/editors"><span>✦</span><div><b>ویرایشگرهای سامانه</b><small>قالب، صفحه، فرم و منو</small></div></Link>
    <Link className={updateAvailable?styles["update-available"]:""} href="/admin/updates"><span>↻</span><div><b>نسخه و بروزرسانی {updateAvailable&&<em>نسخه جدید</em>}</b><small>{updateAvailable?"نسخه جدید GitHub آماده نصب است":"بررسی نسخه و نصب امن از GitHub"}</small></div></Link>
-   <small className={styles["sidebar-version"]}>23 بخش مرکزی · منوی یکپارچه · RTL</small>
+   <small className={styles["sidebar-version"]}>50 بخش مرکزی · منوی یکپارچه · RTL</small>
   </footer>
  </aside>
 }
