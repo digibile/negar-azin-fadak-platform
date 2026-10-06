@@ -1,0 +1,3 @@
+import Link from "next/link";
+export default function RegisterPage(){return <main className="sookar-store" dir="rtl"><section className="store-section" style={{maxWidth:720,margin:"60px auto"}}><span>Account</span><h1>ایجاد حساب</h1><p>ثبت‌نام عمومی پس از اتصال سرویس هویت و OTP انجام می‌شود. این صفحه عمداً حساب جعلی یا رمز عبور محلی ایجاد نمی‌کند.</p><div className="plan-grid"><article><h3>ثبت درخواست مشتری</h3><p>برای خرید، اعتبار یا تسهیلات، درخواست خود را ثبت کنید تا مسیر احراز هویت و بررسی واقعی فعال شود.</p><Link href="/pay/apply">شروع درخواست ←</Link></article><article><h3>حساب سازمانی</h3><p>کاربران سازمانی از احراز هویت مرکزی وارد می‌شوند.</p><Link href="/login">ورود امن ←</Link></article></div></section></main>
+}
