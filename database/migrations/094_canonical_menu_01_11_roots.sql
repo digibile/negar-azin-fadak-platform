@@ -9,7 +9,6 @@ with seed(menu_key,title,path,sort_order,permission,children) as (values
 ('smart-calendar','تقویم هوشمند','/modules/?code=smart-calendar',5,'modules:smart-calendar:read','["تقویم کاری","تعطیلات","رویدادها","سررسیدها","برنامه‌ریزی"]'::jsonb),
 ('business-rules','قوانین کسب‌وکار','/modules/?code=business-rules',6,'modules:business-rules:read','["قواعد","شرایط","اقدامات","اولویت اجرا","نسخه قواعد"]'::jsonb),
 ('sla','مدیریت SLA','/modules/?code=sla',7,'modules:sla:read','["تعهدات خدمت","سطح سرویس","زمان پاسخ","زمان حل","نقض تعهد"]'::jsonb),
-('accounting-finance','حسابداری و مالی','/modules/?code=accounting-finance',8,'modules:accounting-finance:read','["داشبورد مالی","هسته حسابداری","اسناد حسابداری","دوره‌های مالی","گزارش‌های مالی"]'::jsonb),
 ('treasury-bank','خزانه و بانک','/modules/?code=treasury-bank',9,'modules:treasury-bank:read','["حساب‌های بانکی","دریافت‌ها","پرداخت‌ها","مغایرت بانکی","تنخواه"]'::jsonb),
 ('wallet-ledger','کیف پول و دفترکل','/modules/?code=wallet-ledger',10,'modules:wallet-ledger:read','["کیف پول","موجودی","تراکنش‌ها","دفترکل","تطبیق و تسویه"]'::jsonb),
 ('credit-facilities','اعتبارات و تسهیلات','/modules/?code=credit-facilities',11,'modules:credit-facilities:read','["محصولات اعتباری","درخواست اعتبار","پرونده اعتباری","پرداخت تسهیلات","وصول"]'::jsonb)
