@@ -74,6 +74,18 @@ checkoutRouter.post("/api/checkout/carts/:id/checkout",requireAuth,requirePermis
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
+checkoutRouter.get("/api/marketplace/orders/:id",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const o=await query("select * from marketplace_orders where id=$1 and tenant_id=$2",[req.params.id,t.id]);
+ if(!o.rowCount)return res.status(404).json({error:"سفارش پیدا نشد"});
+ const [items,payment,refund]=await Promise.all([
+  query("select oi.*,p.sku,p.title from marketplace_order_items oi join products p on p.id=oi.product_id where oi.order_id=$1 order by oi.created_at",[req.params.id]),
+  query("select id,payment_no,amount,method,status,provider_code,paid_at,created_at from marketplace_payments where order_id=$1 and tenant_id=$2 order by created_at desc",[req.params.id,t.id]),
+  query("select refund_no,amount,reason,status,created_at from marketplace_refunds where order_id=$1 and tenant_id=$2 order by created_at desc",[req.params.id,t.id])
+ ]);
+ res.json({order:o.rows[0],items:items.rows,payments:payment.rows,refunds:refund.rows});
+}));
+
 checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,requirePermission("payment:manage"),asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const client=await pool.connect();
