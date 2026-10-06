@@ -39,7 +39,11 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
-      - name: Install
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm install
+      - name: Install web dependencies
+        working-directory: apps/web
         run: npm install
       - name: API build
         working-directory: apps/api
