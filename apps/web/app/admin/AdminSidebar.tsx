@@ -65,7 +65,7 @@ const LEGACY_BY_MASTER:Record<string,string>={
  accounting:"08-accounting-finance",
  financial-reports:"33-budget-financial-control",
  treasury:"26-treasury-bank",
- checks:"26-treasury-bank",
+ checks:"08-check-documents",
  sales:"22-sales-revenue",
  purchasing:"21-purchasing-supply",
  inventory:"23-inventory-warehouse",
