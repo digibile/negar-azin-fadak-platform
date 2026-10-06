@@ -63,7 +63,7 @@ export default function CheckoutPage(){
      <label><input type="radio" checked={method==="manual"} onChange={()=>setMethod("manual")}/> ثبت پرداخت با مرجع بانکی</label>
      <label><input type="radio" checked={method==="credit"} onChange={()=>setMethod("credit")}/> اعتبار خرید</label>
      {method==="manual"&&<label>شناسه مرجع پرداخت<input value={paymentRef} onChange={e=>setPaymentRef(e.target.value)} placeholder="مرجع واقعی پرداخت"/></label>}{method==="credit"&&<div><label>تسهیلات اعتباری فعال<select value={facilityId} onChange={e=>setFacilityId(e.target.value)}><option value="">انتخاب کنید</option>{facilities.map(f=><option key={f.id} value={f.id}>{f.facility_no} · مانده {Number(f.available_amount).toLocaleString("fa-IR")} {f.currency}</option>)}</select></label>{facilities.length===0&&<p>تسهیلات فعال قابل مصرف برای این حساب پیدا نشد.</p>}</div>}
-     <button disabled={busy||!items.length||(method==="credit"&&!facilityId)} onClick={checkoutAndPay}>{busy?"در حال ثبت و پرداخت...":method==="credit"?"پرداخت با اعتبار":"ثبت مرجع پرداخت"}</button>
+     <button disabled={busy||!items.length||(method==="credit"&&!facilityId)||(method==="manual"&&!paymentRef.trim())} onClick={checkoutAndPay}>{busy?"در حال ثبت و پرداخت...":method==="credit"?"پرداخت با اعتبار":"ثبت مرجع پرداخت"}</button>
      {orderId&&<div><p>شماره سفارش داخلی: {orderId}</p><Link href={"/store/checkout?cart="+encodeURIComponent(cartId)+"&order="+encodeURIComponent(orderId)}>مشاهده وضعیت ←</Link></div>}
     </article>
    </div>}
