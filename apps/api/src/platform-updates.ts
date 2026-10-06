@@ -45,7 +45,26 @@ function stageStatus(status:string|null|undefined,conclusion:string|null|undefin
   return "pending";
 }
 
-platformUpdatesRouter.get("/api/platform/github-connection",requireAuth,requirePermission("platform:update"),asyncHandler(async(_req,res)=>{\n  const db=await dbToken(); const current=db||envToken();\n  if(!current)return res.json({configured:false,source:null,masked:null,repository:ownerRepo,workflow});\n  try{const repo=await github("/repos/"+ownerRepo,{},current);const workflowInfo=await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow),{},current);res.json({configured:true,source:db?"panel":"environment",masked:current.slice(0,7)+"…"+current.slice(-4),repository:repo.full_name,workflow,workflowState:workflowInfo.state});}\n  catch(error:any){res.status(error?.status===401||error?.status===403?502:500).json({configured:false,source:db?"panel":"environment",masked:current.slice(0,7)+"…"+current.slice(-4),error:error?.message||"اتصال GitHub نامعتبر است"});}\n}));\n\nplatformUpdatesRouter.post("/api/platform/github-connection",requireAuth,requirePermission("platform:update"),asyncHandler(async(req,res)=>{\n  const supplied=typeof req.body?.token==="string"?req.body.token.trim():"";\n  if(!supplied)return res.status(400).json({error:"توکن GitHub وارد نشده است"});\n  if(!/^(github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+)$/.test(supplied))return res.status(400).json({error:"فرمت توکن GitHub معتبر نیست"});\n  await github("/repos/"+ownerRepo,{},supplied); await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow),{},supplied);\n  await query("insert into platform_secure_settings(setting_key,encrypted_value,updated_by,updated_at) values($1,$2,$3,now()) on conflict(setting_key) do update set encrypted_value=excluded.encrypted_value,updated_by=excluded.updated_by,updated_at=now()",[TOKEN_SETTING_KEY,encryptSecret(supplied),(req as any).user?.id||null]);\n  cachedDbToken=supplied; res.json({configured:true,source:"panel",masked:supplied.slice(0,7)+"…"+supplied.slice(-4),message:"اتصال GitHub با موفقیت ذخیره و بررسی شد."});\n}));\n\nplatformUpdatesRouter.delete("/api/platform/github-connection",requireAuth,requirePermission("platform:update"),asyncHandler(async(_req,res)=>{await query("delete from platform_secure_settings where setting_key=$1",[TOKEN_SETTING_KEY]);cachedDbToken=null;res.json({configured:Boolean(envToken()),source:envToken()?"environment":null,message:envToken()?"توکن پنل حذف شد و اتصال به مقدار محیطی برگشت.":"توکن GitHub حذف شد."});}));\n\nplatformUpdatesRouter.get("/api/platform/update-status",requireAuth,requirePermission("platform:update"),asyncHandler(async(_req,res)=>{\n  const githubToken=await token();
+platformUpdatesRouter.get("/api/platform/github-connection",requireAuth,requirePermission("platform:update"),asyncHandler(async(_req,res)=>{
+  const db=await dbToken(); const current=db||envToken();
+  if(!current)return res.json({configured:false,source:null,masked:null,repository:ownerRepo,workflow});
+  try{const repo=await github("/repos/"+ownerRepo,{},current);const workflowInfo=await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow),{},current);res.json({configured:true,source:db?"panel":"environment",masked:current.slice(0,7)+"…"+current.slice(-4),repository:repo.full_name,workflow,workflowState:workflowInfo.state});}
+  catch(error:any){res.status(error?.status===401||error?.status===403?502:500).json({configured:false,source:db?"panel":"environment",masked:current.slice(0,7)+"…"+current.slice(-4),error:error?.message||"اتصال GitHub نامعتبر است"});}
+}));
+
+platformUpdatesRouter.post("/api/platform/github-connection",requireAuth,requirePermission("platform:update"),asyncHandler(async(req,res)=>{
+  const supplied=typeof req.body?.token==="string"?req.body.token.trim():"";
+  if(!supplied)return res.status(400).json({error:"توکن GitHub وارد نشده است"});
+  if(!/^(github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+)$/.test(supplied))return res.status(400).json({error:"فرمت توکن GitHub معتبر نیست"});
+  await github("/repos/"+ownerRepo,{},supplied); await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow),{},supplied);
+  await query("insert into platform_secure_settings(setting_key,encrypted_value,updated_by,updated_at) values($1,$2,$3,now()) on conflict(setting_key) do update set encrypted_value=excluded.encrypted_value,updated_by=excluded.updated_by,updated_at=now()",[TOKEN_SETTING_KEY,encryptSecret(supplied),(req as any).user?.id||null]);
+  cachedDbToken=supplied; res.json({configured:true,source:"panel",masked:supplied.slice(0,7)+"…"+supplied.slice(-4),message:"اتصال GitHub با موفقیت ذخیره و بررسی شد."});
+}));
+
+platformUpdatesRouter.delete("/api/platform/github-connection",requireAuth,requirePermission("platform:update"),asyncHandler(async(_req,res)=>{await query("delete from platform_secure_settings where setting_key=$1",[TOKEN_SETTING_KEY]);cachedDbToken=null;res.json({configured:Boolean(envToken()),source:envToken()?"environment":null,message:envToken()?"توکن پنل حذف شد و اتصال به مقدار محیطی برگشت.":"توکن GitHub حذف شد."});}));
+
+platformUpdatesRouter.get("/api/platform/update-status",requireAuth,requirePermission("platform:update"),asyncHandler(async(_req,res)=>{
+  const githubToken=await token();
   const [repo,branch,workflowInfo,runs]=await Promise.all([
     github("/repos/"+ownerRepo,{},githubToken),
     github("/repos/"+ownerRepo+"/branches/main",{},githubToken),
@@ -61,7 +80,8 @@ platformUpdatesRouter.get("/api/platform/github-connection",requireAuth,requireP
       pendingUpdates=(compare.commits||[]).map((x:any,index:number)=>({
         order:index+1,
         sha:x.sha,
-        message:String(x.commit?.message||"").split("\n")[0],
+        message:String(x.commit?.message||"").split("
+")[0],
         author:x.author?.login||x.commit?.author?.name||"نامشخص",
         date:x.commit?.author?.date||null,
         ready:index===0
@@ -108,7 +128,9 @@ platformUpdatesRouter.get("/api/platform/github-connection",requireAuth,requireP
   });
 }));
 
-platformUpdatesRouter.get("/api/platform/update-log/:jobId",requireAuth,requirePermission("platform:update"),asyncHandler(async(req,res)=>{\n  const githubToken=await token();
+platformUpdatesRouter.get("/api/platform/update-log/:jobId",requireAuth,requirePermission("platform:update"),asyncHandler(async(req,res)=>{
+  const githubToken=await token();
+  if(!githubToken)return res.status(503).json({error:"اتصال امن GitHub تنظیم نشده است"});
   const jobId=String(req.params.jobId||"").replace(/[^0-9]/g,"");
   if(!jobId)return res.status(400).json({error:"شناسه مرحله نامعتبر است"});
   const data=await github("/repos/"+ownerRepo+"/actions/jobs/"+jobId+"/logs",{},githubToken);
@@ -116,16 +138,23 @@ platformUpdatesRouter.get("/api/platform/update-log/:jobId",requireAuth,requireP
 }));
 
 platformUpdatesRouter.post("/api/platform/update",requireAuth,requirePermission("platform:update"),asyncHandler(async(req,res)=>{
-  if(!token())return res.status(503).json({error:"اتصال امن GitHub برای اجرای بروزرسانی مدیریتی تنظیم نشده است"});
+  const githubToken=await token();
+  if(!githubToken)return res.status(503).json({error:"اتصال امن GitHub برای اجرای بروزرسانی مدیریتی تنظیم نشده است"});
   const main=await github("/repos/"+ownerRepo+"/branches/main",{},githubToken);
-  const sha=main.commit?.sha||null;
-  if(!sha)return res.status(503).json({error:"نسخه اصلی GitHub قابل شناسایی نیست"});
-  const runs=await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?branch=main&head_sha="+encodeURIComponent(sha)+"&per_page=10",{},githubToken);
+  const mainSha=main.commit?.sha||null;
+  if(!mainSha)return res.status(503).json({error:"نسخه اصلی GitHub قابل شناسایی نیست"});
+  const deployed=deployedSha()||null;
+  if(!deployed)return res.status(503).json({error:"نسخه نصب‌شده Production قابل شناسایی نیست"});
+  const compare=await github("/repos/"+ownerRepo+"/compare/"+encodeURIComponent(deployed)+"..."+encodeURIComponent(mainSha),{},githubToken);
+  const pending=(compare.commits||[]).map((x:any,index:number)=>({order:index+1,sha:x.sha,message:String(x.commit?.message||"").split("\n")[0],ready:index===0}));
+  const next=pending[0];
+  if(!next)return res.status(409).json({error:"نسخه منتشرنشده‌ای برای انتشار وجود ندارد"});
+  const runs=await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?branch=main&head_sha="+encodeURIComponent(next.sha)+"&per_page=10",{},githubToken);
   const existing=(runs.workflow_runs||[]).find((x:any)=>activeStatuses.includes(x.status));
-  if(existing)return res.status(202).json({accepted:true,targetSha:sha,runId:existing.id,message:"یک انتشار دیگر در حال اجراست؛ تا پایان آن نسخه بعدی قابل انتشار نیست."});
+  if(existing)return res.status(202).json({accepted:true,targetSha:next.sha,runId:existing.id,message:"یک انتشار دیگر در حال اجراست؛ تا پایان آن نسخه بعدی قابل انتشار نیست."});
   await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/dispatches",{
     method:"POST",
-    body:JSON.stringify({ref:"main",inputs:{target_sha:sha,requested_by:String((req as any).user?.id||"management-panel")}})
-  },{},githubToken);
-  res.status(202).json({accepted:true,targetSha:sha,message:"انتشار فقط با انتخاب مدیر انجام شد؛ هیچ بروزرسانی خودکاری روی Production انجام نمی‌شود."});
+    body:JSON.stringify({ref:"main",inputs:{target_sha:next.sha,requested_by:String((req as any).user?.id||"management-panel")}})
+  },githubToken);
+  res.status(202).json({accepted:true,targetSha:next.sha,message:"نسخه بعدی با انتخاب مدیر برای انتشار ارسال شد."});
 }));
