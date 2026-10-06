@@ -4,8 +4,6 @@ import Link from "next/link";
 import {useEffect,useMemo,useState} from "react";
 import {usePathname} from "next/navigation";
 import {api} from "../../lib/api";
-import styles from "./AdminSidebar.module.css";
-
 import {MASTER_MENU} from "./master-menu";
 import styles from "./AdminSidebar.module.css";
 
