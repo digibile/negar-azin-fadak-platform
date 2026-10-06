@@ -9,6 +9,23 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: platform
+          POSTGRES_PASSWORD: platform
+          POSTGRES_DB: platform_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U platform -d platform_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://platform:platform@localhost:5432/platform_test
+      NODE_ENV: test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,6 +44,9 @@ jobs:
       - name: Build API
         working-directory: apps/api
         run: npm run build
+      - name: Run database migrations
+        working-directory: apps/api
+        run: npm run migrate
       - name: Test API
         working-directory: apps/api
         run: npm test
