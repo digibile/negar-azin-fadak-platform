@@ -60,7 +60,7 @@ export default function AdminSidebar(){
    permission:item.permission
   }));
  };
- const modules=useMemo(()=>menuItems.flatMap(root=>root.child_items||[]).sort((a,b)=>a.sort_order-b.sort_order||Number(a.id)-Number(b.id)),[menuItems]);
+ const modules=useMemo(()=>[...menuItems].sort((a,b)=>a.sort_order-b.sort_order||String(a.id).localeCompare(String(b.id))),[menuItems]);
 
  const filtered=useMemo(()=>{
   const q=query.trim().toLocaleLowerCase("fa-IR");
