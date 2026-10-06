@@ -6,7 +6,7 @@ import {usePathname,useRouter} from "next/navigation";
 import {api} from "../../lib/api";
 import styles from "./AdminSidebar.module.css";
 
-type DynamicChild={id:string|number;menu_key:string|null;parent_id:string|number|null;title:string;path:string;icon?:string|null;sort_order:number;permission:string|null};
+type DynamicChild={id:string|number;menu_key:string|null;parent_id:string|number|null;title:string;path:string;icon?:string|null;sort_order:number;permission:string|null;child_items?:DynamicChild[]};
 type DynamicMenuItem={id:string;menu_key:string|null;parent_id:string|null;title:string;path:string;permission:string|null;children:string[];child_items?:DynamicChild[];sort_order:number;panel_sort_order:number;is_shared:boolean};
 
 function SearchIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m16 16 4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
@@ -33,9 +33,9 @@ export default function AdminSidebar(){
   return()=>{alive=false;window.clearInterval(timer)};
  },[]);
 
- const childItems=(item:DynamicMenuItem):DynamicChild[]=>{
+ const childItems=(item:DynamicMenuItem|DynamicChild):DynamicChild[]=>{
   if(item.child_items?.length)return [...item.child_items].sort((a,b)=>a.sort_order-b.sort_order);
-  const code=item.menu_key||"";
+  const code=(item.menu_key||"").split(":")[0];
   const aliases:Record<string,string[]>={
    dashboard:["dashboard","executive","finance","sales","operations","branches","kpi","alerts","activity","notifications"],
    "01-governance":["dashboard","executive","finance","sales","operations","branches","kpi","alerts","activity","notifications"],
@@ -60,23 +60,15 @@ export default function AdminSidebar(){
    permission:item.permission
   }));
  };
- const sidebarModules=useMemo(()=>{
-  const titles:Record<string,string[]>={"01-governance":["داشبورد اصلی","داشبورد مدیرعامل","KPI و شاخص‌ها","هشدارها","فعالیت‌ها"],"02-identity":["کاربران","نقش‌ها","گروه‌های کاربری","مجوزها","ورود و نشست‌ها"],"03-master-data":["تعاریف پایه","کدها و شناسه‌ها","دسته‌بندی‌ها","واحدها","سوابق تغییر"],"04-customer-360":["پرونده مشتری","مشخصات هویتی","تعاملات","سوابق خرید","نمای مالی"],"05-smart-calendar":["تقویم کاری","تعطیلات","رویدادها","سررسیدها","برنامه‌ریزی"],"06-business-rules":["قواعد","شرایط","اقدامات","اولویت اجرا","نسخه قواعد"],"07-sla":["تعهدات خدمت","سطح سرویس","زمان پاسخ","زمان حل","نقض تعهد"],"08-accounting-finance":["دفتر حساب‌ها","اسناد حسابداری","دوره‌های مالی","مرکز هزینه","گزارش مالی"],"09-treasury-bank":["حساب‌های بانکی","دریافت‌ها","پرداخت‌ها","مغایرت بانکی","تنخواه"],"10-wallet-ledger":["دفترکل کیف پول","حساب‌های کیف پول","گردش‌ها","تسویه کیف پول","گزارش دفترکل"]};
-  const modules:DynamicMenuItem[]=[];
-  for(const root of menuItems) for(const child of (root.child_items||[])){
-   const match=child.path.match(/[?&]code=([^&]+)/); const code=match?decodeURIComponent(match[1]):child.menu_key?.split(":")[0]||""; const n=Number(code.slice(0,2));
-   if(n>=1&&n<=10&&/^\\d{2}-/.test(code)) modules.push({id:String(child.id),menu_key:code,parent_id:null,title:child.title,path:child.path,permission:child.permission,children:titles[code]||[],child_items:[],sort_order:n,panel_sort_order:n,is_shared:true});
-  }
-  return modules.sort((a,b)=>a.sort_order-b.sort_order);
- },[menuItems]);
+ const modules=useMemo(()=>menuItems.flatMap(root=>root.child_items||[]).sort((a,b)=>a.sort_order-b.sort_order||Number(a.id)-Number(b.id)),[menuItems]);
 
  const filtered=useMemo(()=>{
   const q=query.trim().toLocaleLowerCase("fa-IR");
-  if(!q)return menuItems;
-  return menuItems.filter(item=>
+  if(!q)return modules;
+  return modules.filter(item=>
    (item.title+" "+childItems(item).map(child=>child.title).join(" ")).toLocaleLowerCase("fa-IR").includes(q)
   );
- },[query,menuItems]);
+ },[query,modules]);
 
  const childUrl=(child:DynamicChild)=>child.path||null;
  const moduleUrl=(item:DynamicMenuItem)=>{
