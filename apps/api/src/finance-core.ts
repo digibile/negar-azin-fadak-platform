@@ -96,9 +96,8 @@ router.post("/api/finance-core/ocr/:jobId/result",requireAuth,requirePermission(
  await audit(t.id,req.user.id,"document_vault",j.rows[0].vault_id,"ocr_result",null,r.rows[0],req);res.json(r.rows[0]);
 });
 
-router.get("/api/finance-core/audit/:entityType/:entityId",requireAuth,async(req,res)=>{
+router.get("/api/finance-core/audit/:entityType/:entityId",requireAuth,requirePermission("accounting-finance.audit"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- if(req.user.role!=="admin"){try{await requirePermission("accounting-finance.audit")(req,res,()=>{} as any)}catch{}}
  const r=await query("select * from accounting_finance_audit where tenant_id=$1 and entity_type=$2 and entity_id=$3 order by created_at desc limit 500",[t.id,req.params.entityType,req.params.entityId]);
  const e=await query("select * from finance_audit_events where tenant_id=$1 and entity_type=$2 and entity_id=$3 order by created_at desc limit 500",[t.id,req.params.entityType,req.params.entityId]);
  res.json({accounting:r.rows,audit:e.rows});
