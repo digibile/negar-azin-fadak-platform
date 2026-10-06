@@ -14,8 +14,7 @@ export default function Apply(){
  const [result,setResult]=useState<any>(null);
  const [form,setForm]=useState({
   customerRef:"",productCode:"purchase-credit",requestedAmount:"",termMonths:"12",purpose:"",
-  monthlyIncome:"",monthlyObligations:"",kycProviderRef:"",
-  paymentHistoryScore:"70",incomeStabilityScore:"70",identityConfidenceScore:"100"
+  monthlyIncome:"",monthlyObligations:"",kycProviderRef:""
  });
  useEffect(()=>{fetch("/api/auth/me",{credentials:"include"}).then(async r=>{setAuth(r.ok);if(r.ok){const b=await r.json();setForm(x=>({...x,customerRef:x.customerRef||b.user?.id||""}));}}).catch(()=>setAuth(false));},[]);
  const update=(key:string,value:string)=>setForm(x=>({...x,[key]:value}));
