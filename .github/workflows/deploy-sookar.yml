@@ -79,10 +79,10 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          printf '%s\n' '__GH_secrets.DEPLOY_SSH_KEY__' > ~/.deploy_key
+          printf '%s\n' '${{ secrets.DEPLOY_SSH_KEY }}' > ~/.deploy_key
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          ssh-keyscan -T 15 -p '__GH_secrets.DEPLOY_PORT__' '__GH_secrets.DEPLOY_HOST__' >> ~/.ssh/known_hosts
+          ssh-keyscan -T 15 -p '${{ secrets.DEPLOY_PORT }}' '${{ secrets.DEPLOY_HOST }}' >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
       - name: Package exact GitHub SHA
@@ -95,19 +95,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          HOST='__GH_secrets.DEPLOY_USER__@__GH_secrets.DEPLOY_HOST__'
-          PORT='__GH_secrets.DEPLOY_PORT__'
+          HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
+          PORT='${{ secrets.DEPLOY_PORT }}'
           BASE=/home/sookar/domains/sookar.ir/negar-platform
           scp -i ~/.deploy_key -P "$PORT" -o BatchMode=yes /tmp/negar-platform.tar.gz "$HOST:$BASE/negar-platform.tar.gz"
 
       - name: Install with automatic rollback
         shell: bash
         env:
-          RELEASE_SHA: '__GH_github.sha__'
+          RELEASE_SHA: '${{ github.sha }}'
         run: |
           set -euo pipefail
-          HOST='__GH_secrets.DEPLOY_USER__@__GH_secrets.DEPLOY_HOST__'
-          PORT='__GH_secrets.DEPLOY_PORT__'
+          HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
+          PORT='${{ secrets.DEPLOY_PORT }}'
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "RELEASE_SHA='$RELEASE_SHA' bash -s" <<'REMOTE'
           set -euo pipefail
           BASE=/home/sookar/domains/sookar.ir/negar-platform
@@ -174,8 +174,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          HOST='__GH_secrets.DEPLOY_USER__@__GH_secrets.DEPLOY_HOST__'
-          PORT='__GH_secrets.DEPLOY_PORT__'
+          HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
+          PORT='${{ secrets.DEPLOY_PORT }}'
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" 'bash -s' <<'REMOTE'
           set -euo pipefail
           USER_NGINX=/usr/local/directadmin/data/users/sookar/nginx.conf
@@ -250,11 +250,11 @@ PY
       - name: Final production health check
         shell: bash
         env:
-          RELEASE_SHA: '__GH_github.sha__'
+          RELEASE_SHA: '${{ github.sha }}'
         run: |
           set -euo pipefail
-          HOST='__GH_secrets.DEPLOY_USER__@__GH_secrets.DEPLOY_HOST__'
-          PORT='__GH_secrets.DEPLOY_PORT__'
+          HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
+          PORT='${{ secrets.DEPLOY_PORT }}'
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes "$HOST" "RELEASE_SHA='$RELEASE_SHA' bash -s" <<'REMOTE'
           set -euo pipefail
           BASE=/home/sookar/domains/sookar.ir/negar-platform
