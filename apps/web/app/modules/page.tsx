@@ -160,7 +160,7 @@ function ModulesContent(){
  if(code==="08-accounting-finance")return <AccountingFinanceWorkspace/>;
  if(code==="09-treasury-bank")return <TreasuryBankWorkspace/>
 if(code==="10-wallet-ledger")return <WalletLedgerWorkspace/>;
- if(code==="governance")return <OrganizationWorkspace/>;
+ if(code==="01-governance"||code==="dashboard"||code==="governance")return <DashboardWorkspace/>;
  if(code==="security")return <SecurityWorkspace/>;
  if(code==="02-identity")return <IdentityWorkspace/>;
  if(code==="03-master-data")return <MasterDataWorkspace/>;
