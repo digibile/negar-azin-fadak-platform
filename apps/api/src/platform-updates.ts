@@ -44,6 +44,20 @@ platformUpdatesRouter.get("/api/platform/update-status",requireAuth,requirePermi
   ]);
   const mainSha=repo.default_branch==="main"?branch.commit?.sha||null:null;
   const deployed=deployedSha()||null;
+  let pendingUpdates:any[]=[];
+  if(deployed&&mainSha&&deployed!==mainSha){
+    try{
+      const compare=await github("/repos/"+ownerRepo+"/compare/"+encodeURIComponent(deployed)+"..."+encodeURIComponent(mainSha));
+      pendingUpdates=(compare.commits||[]).map((x:any,index:number)=>({
+        order:index+1,
+        sha:x.sha,
+        message:String(x.commit?.message||"").split("\n")[0],
+        author:x.author?.login||x.commit?.author?.name||"نامشخص",
+        date:x.commit?.author?.date||null,
+        ready:index===0
+      }));
+    }catch{}
+  }
   const list=(runs.workflow_runs||[]);
   const active=list.find((x:any)=>activeStatuses.includes(x.status))||null;
   const latest=active||list[0]||null;
@@ -74,7 +88,9 @@ platformUpdatesRouter.get("/api/platform/update-status",requireAuth,requirePermi
     repository:ownerRepo,workflow,workflowState:workflowInfo.state,
     deployedSha:deployed,mainSha,
     updateAvailable:Boolean(mainSha&&deployed&&mainSha!==deployed),
-    targetSha:latest?.head_sha||mainSha||null,
+    targetSha:latest?.head_sha||pendingUpdates[0]?.sha||mainSha||null,
+    pendingUpdates,
+    nextUpdate:pendingUpdates[0]||null,
     run:latest?{id:latest.id,status:latest.status,conclusion:latest.conclusion,sha:latest.head_sha,createdAt:latest.created_at,updatedAt:latest.updated_at,url:latest.html_url}:null,
     progress,failed,running,
     stages:jobs.map((j:any)=>({...j,status:stageStatus(j.status,j.conclusion),steps:j.steps.map((s:any)=>({...s,status:stageStatus(s.status,s.conclusion)}))})),
@@ -96,10 +112,10 @@ platformUpdatesRouter.post("/api/platform/update",requireAuth,requirePermission(
   if(!sha)return res.status(503).json({error:"نسخه اصلی GitHub قابل شناسایی نیست"});
   const runs=await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?branch=main&head_sha="+encodeURIComponent(sha)+"&per_page=10");
   const existing=(runs.workflow_runs||[]).find((x:any)=>activeStatuses.includes(x.status));
-  if(existing)return res.status(202).json({accepted:true,targetSha:sha,runId:existing.id,message:"انتشار خودکار همین نسخه در حال اجراست."});
+  if(existing)return res.status(202).json({accepted:true,targetSha:sha,runId:existing.id,message:"یک انتشار دیگر در حال اجراست؛ تا پایان آن نسخه بعدی قابل انتشار نیست."});
   await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/dispatches",{
     method:"POST",
-    body:JSON.stringify({ref:"main",inputs:{requested_by:String((req as any).user?.id||"management-panel")}})
+    body:JSON.stringify({ref:"main",inputs:{target_sha:sha,requested_by:String((req as any).user?.id||"management-panel")}})
   });
-  res.status(202).json({accepted:true,targetSha:sha,message:"اجرای دستی انتشار فقط برای همین نسخه درخواست شد؛ انتشارهای معمولی خودکار هستند."});
+  res.status(202).json({accepted:true,targetSha:sha,message:"انتشار فقط با انتخاب مدیر انجام شد؛ هیچ بروزرسانی خودکاری روی Production انجام نمی‌شود."});
 }));
