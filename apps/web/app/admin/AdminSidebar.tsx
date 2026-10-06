@@ -32,12 +32,17 @@ function normalize(nodes:MenuNode[]):MenuNode[]{return [...nodes].sort((a,b)=>a.
 function allTitles(node:MenuNode):string{return [node.title,...(node.child_items||[]).map(allTitles)].join(" ")}
 function menuHref(path:string|undefined,parent:string,title:string){
  if(path&&path!=="#")return path;
- return parent+"&menu="+encodeURIComponent(title);
+ const joiner=parent.includes("?")?"&":"?";
+ return parent+joiner+"menu="+encodeURIComponent(title);
+}
+function hasPath(node:MenuNode,path:string):boolean{
+ if(node.path===path)return true;
+ return (node.child_items||[]).some(child=>hasPath(child,path));
 }
 function TreeNode({node,href,pathname,closeMobile,depth}:{node:MenuNode;href:string;pathname:string;closeMobile:()=>void;depth:number}){
  const [expanded,setExpanded]=useState(false);
  const children=normalize(node.child_items||[]);
- const active=href===pathname||children.some(x=>x.path===pathname);
+ const active=href===pathname||children.some(x=>hasPath(x,pathname));
  useEffect(()=>{if(active)setExpanded(true)},[active]);
  return <div className={styles["tree-child-node"]+" "+(active?styles["child-active"]:"")}>
   <div className={styles["tree-child-head"]}>
@@ -147,7 +152,7 @@ export default function AdminSidebar(){
   const childByTitle=new Map(dbChildren.map(x=>[x.title,x]));
   const children=item.children.map((title,i)=>{
    const dbChild=childByTitle.get(title);
-   return {id:item.code+"-static-"+i,title,path:dbChild?.path||route,sort_order:i,dbChild};
+   return {id:item.code+"-static-"+i,title,path:dbChild?.path||"",sort_order:i,dbChild};
   });
   return {...item,route,children,dbChildren};
  }),[dbByLegacy,moduleSet]);
