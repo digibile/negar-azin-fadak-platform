@@ -38,7 +38,7 @@ insert into _central_menu_097(menu_key,title,path,sort_order,children) values
 insert into menu_items(menu_key,title,path,sort_order,permission,children,is_active,parent_id,updated_at)
 select menu_key,title,path,sort_order,null,'[]'::jsonb,true,null,now()
 from _central_menu_097
-on conflict(menu_key) do update set
+on conflict(menu_key) where menu_key is not null do update set
   title=excluded.title,
   path=excluded.path,
   sort_order=excluded.sort_order,
@@ -75,7 +75,7 @@ begin
         root_id,
         now()
       )
-      on conflict(menu_key) do update set
+      on conflict(menu_key) where menu_key is not null do update set
         title=excluded.title,
         path=excluded.path,
         sort_order=excluded.sort_order,
