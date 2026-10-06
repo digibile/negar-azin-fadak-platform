@@ -1,0 +1,144 @@
+name: Deploy Sookar Main Safely
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: sookar-production-direct
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: platform
+          POSTGRES_PASSWORD: platform
+          POSTGRES_DB: platform_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U platform -d platform_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://platform:platform@localhost:5432/platform_test
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Install
+        run: npm install
+      - name: API build
+        working-directory: apps/api
+        run: npm run build
+      - name: Database migrations
+        working-directory: apps/api
+        run: npm run migrate
+      - name: API tests
+        working-directory: apps/api
+        run: npm test
+      - name: Web build
+        working-directory: apps/web
+        run: npm run build
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' '${{ secrets.DEPLOY_SSH_KEY }}' > ~/.deploy_key
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -T 15 -p '${{ secrets.DEPLOY_PORT }}' '${{ secrets.DEPLOY_HOST }}' >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+      - name: Package exact SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar --exclude='.git' --exclude='node_modules' --exclude='.next' --exclude='.cache' --exclude='*.log' --exclude='tmp' --exclude='temp' --exclude='backups' -czf /tmp/negar-platform.tar.gz .
+      - name: Upload release
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
+          PORT='${{ secrets.DEPLOY_PORT }}'
+          BASE=/home/sookar/domains/sookar.ir/negar-platform
+          scp -i ~/.deploy_key -P "$PORT" -o BatchMode=yes /tmp/negar-platform.tar.gz "$HOST:$BASE/negar-platform.tar.gz"
+      - name: Deploy with rollback
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
+          PORT='${{ secrets.DEPLOY_PORT }}'
+          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "RELEASE_SHA='$RELEASE_SHA' bash -s" <<'REMOTE'
+          set -euo pipefail
+          BASE=/home/sookar/domains/sookar.ir/negar-platform
+          SHA="$RELEASE_SHA"
+          RELEASE="$BASE/releases/$SHA"
+          CURRENT="$BASE/current"
+          PREVIOUS="$(readlink -f "$CURRENT" 2>/dev/null || true)"
+          test -f "$BASE/.env"
+          test "$(stat -c %a "$BASE/.env")" = "600"
+          mkdir -p "$BASE/releases" "$RELEASE"
+          rollback() {
+            status=$?
+            trap - ERR
+            if [ -n "$PREVIOUS" ] && [ -d "$PREVIOUS" ]; then
+              cd "$PREVIOUS"
+              docker compose -p naf-sookar -f docker-compose.production.yml up -d --build --remove-orphans || true
+              ln -sfn "$PREVIOUS" "$CURRENT"
+            fi
+            exit "$status"
+          }
+          trap rollback ERR
+          tar -xzf "$BASE/negar-platform.tar.gz" -C "$RELEASE"
+          cp "$BASE/.env" "$RELEASE/.env"
+          chmod 600 "$RELEASE/.env"
+          if grep -q '^DEPLOYED_SHA=' "$RELEASE/.env"; then
+            sed -i "s#^DEPLOYED_SHA=.*#DEPLOYED_SHA=$SHA#" "$RELEASE/.env"
+          else
+            printf '\nDEPLOYED_SHA=%s\n' "$SHA" >> "$RELEASE/.env"
+          fi
+          cd "$RELEASE"
+          docker compose -p naf-sookar -f docker-compose.production.yml config >/dev/null
+          docker compose -p naf-sookar -f docker-compose.production.yml up -d --build --remove-orphans
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:4000/health >/dev/null 2>&1 && curl -fsS http://127.0.0.1:3100/ >/dev/null 2>&1; then break; fi
+            [ "$i" = "45" ] && exit 1
+            sleep 4
+          done
+          ln -sfn "$RELEASE" "$CURRENT"
+          rm -f "$BASE/negar-platform.tar.gz"
+          trap - ERR
+          echo "DEPLOYED_SHA=$SHA"
+          REMOTE
+      - name: Production health and release check
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
+          PORT='${{ secrets.DEPLOY_PORT }}'
+          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes "$HOST" "RELEASE_SHA='$RELEASE_SHA' bash -s" <<'REMOTE'
+          set -euo pipefail
+          BASE=/home/sookar/domains/sookar.ir/negar-platform
+          curl -fsS http://127.0.0.1:3100/ >/dev/null
+          curl -fsS http://127.0.0.1:4000/health >/dev/null
+          test "$(readlink -f "$BASE/current")" = "$BASE/releases/$RELEASE_SHA"
+          docker ps --format '{{.Names}}' | grep -Fx 'naf-sookar-api-1' >/dev/null
+          echo PRODUCTION_DEPLOYMENT_OK
+          REMOTE
