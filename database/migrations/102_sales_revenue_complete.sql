@@ -1,6 +1,23 @@
 begin;
 create extension if not exists pgcrypto;
 
+-- Migration 008 created a generic sales_orders table with a bigint id.
+-- The canonical sales module uses UUID identifiers, so preserve the legacy
+-- table and replace only the incompatible table before creating the canonical one.
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema='public'
+      and table_name='sales_orders'
+      and column_name='id'
+      and data_type='bigint'
+  ) then
+    alter table public.sales_orders rename to sales_orders_legacy;
+  end if;
+end $$;
+
 create table if not exists sales_partners(
  id uuid primary key default gen_random_uuid(), tenant_id uuid not null,
  code text not null, name text not null, national_id text, phone text, email text,
