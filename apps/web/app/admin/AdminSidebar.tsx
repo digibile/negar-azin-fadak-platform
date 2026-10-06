@@ -124,7 +124,7 @@ export default function AdminSidebar(){
 
   <div className={styles["sidebar-caption"]}>
    <span>کاتالوگ عملیاتی</span>
-   <b>{filtered.length}/50</b>
+   <b>{filtered.length}/{menuItems.length || 50}</b>
   </div>
   {error&&<div className={styles["sidebar-menu-error"]}>{error}</div>}
 
