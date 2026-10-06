@@ -80,8 +80,7 @@ platformUpdatesRouter.get("/api/platform/update-status",requireAuth,requirePermi
       pendingUpdates=(compare.commits||[]).map((x:any,index:number)=>({
         order:index+1,
         sha:x.sha,
-        message:String(x.commit?.message||"").split("
-")[0],
+        message:String(x.commit?.message||"").split("\n")[0],
         author:x.author?.login||x.commit?.author?.name||"نامشخص",
         date:x.commit?.author?.date||null,
         ready:index===0
