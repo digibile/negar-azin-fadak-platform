@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function TermsPage(){return <main className="sookar-store" dir="rtl"><section className="store-section"><span>Legal</span><h1>شرایط و مقررات</h1><p>متن نهایی قراردادها و مقررات هر محصول باید از مرکز مدیریت و نسخه قانونی منتشرشده خوانده شود و پذیرش آن با ثبت رویداد حسابرسی همراه است.</p><Link href="/pay">بازگشت ←</Link></section></main>}
