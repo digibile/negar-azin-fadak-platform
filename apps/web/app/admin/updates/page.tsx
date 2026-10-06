@@ -58,7 +58,7 @@ export default function UpdatesPage(){
     <span className="update-label">مخزن</span><strong>{status?.repository||"digibile/negar-azin-fadak-platform"}</strong>
     <span className="update-label">نسخه نصب‌شده</span><code>{status?.deployedSha?.slice(0,12)||"در حال شناسایی"}</code>
     <span className="update-label">آخرین نسخه GitHub</span><code>{status?.mainSha?.slice(0,12)||"در حال بررسی"}</code>
-    <span className="update-label">Workflow</span><strong>{status?.workflow||"deploy-sookar.yml"}</strong>
+    <span className="update-label">Workflow</span><strong>{status?.workflow||"deploy-sookar-main.yml"}</strong>
     <span className="update-label">وضعیت Workflow</span><strong>{status?.workflowState||"در حال بررسی"}</strong>
    </article>
    <article className="update-card">
