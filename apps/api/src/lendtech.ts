@@ -297,6 +297,58 @@ lendtechRouter.get("/api/lendtech/my-facilities",requireAuth,requirePermission("
  res.json({items:r.rows,total:r.rowCount});
 }));
 
+lendtechRouter.get("/api/lendtech/facilities/:id/collaterals",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query("select * from lendtech_collaterals where facility_id=$1 and tenant_ref=$2 order by created_at desc",[req.params.id,t.id]);
+ res.json({items:r.rows,total:r.rowCount});
+}));
+lendtechRouter.post("/api/lendtech/facilities/:id/collaterals",requireAuth,requirePermission("modules:lendtech:write"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const type=s(req.body?.collateralType,80),owner=s(req.body?.ownerRef,160),description=s(req.body?.description,500);
+ const value=n(req.body?.declaredValue);
+ if(!type||value===null||value<0)return res.status(400).json({error:"نوع و ارزش وثیقه معتبر نیست"});
+ const exists=await query("select id from lendtech_facilities where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
+ if(!exists.rowCount)return res.status(404).json({error:"تسهیلات پیدا نشد"});
+ const no="COL-"+Date.now()+"-"+randomUUID().slice(0,6).toUpperCase();
+ const r=await query("insert into lendtech_collaterals(tenant_ref,facility_id,collateral_no,collateral_type,owner_ref,description,declared_value,verified_value,status,reference_data,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,'proposed',$9,$10) returning *",[t.id,req.params.id,no,type,owner||null,description||null,value,n(req.body?.verifiedValue),JSON.stringify(req.body?.referenceData||{}),actor(req)]);
+ res.status(201).json(r.rows[0]);
+}));
+lendtechRouter.post("/api/lendtech/collaterals/:id/verify",requireAuth,requirePermission("modules:lendtech:committee"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const value=n(req.body?.verifiedValue);
+ const r=await query("update lendtech_collaterals set status='verified',verified_value=coalesce($1,verified_value),updated_at=now() where id=$2 and tenant_ref=$3 returning *",[value,req.params.id,t.id]);
+ if(!r.rowCount)return res.status(404).json({error:"وثیقه پیدا نشد"});
+ res.json(r.rows[0]);
+}));
+lendtechRouter.post("/api/lendtech/contracts/:id/collection-case",requireAuth,requirePermission("modules:lendtech:collect"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const d=await query("select id,amount_due,days_overdue from lendtech_delinquencies where contract_id=$1 and tenant_ref=$2 and status='open' order by days_overdue desc limit 1",[req.params.id,t.id]);
+ if(!d.rowCount)return res.status(409).json({error:"برای این قرارداد پرونده معوق باز وجود ندارد"});
+ const no="COLL-"+Date.now()+"-"+randomUUID().slice(0,6).toUpperCase();
+ const r=await query("insert into lendtech_collection_cases(tenant_ref,contract_id,delinquency_id,case_no,stage,status,assigned_to,next_action_at,notes,created_by) values($1,$2,$3,$4,$5,'open',$6,$7,$8,$9) returning *",[t.id,req.params.id,d.rows[0].id,no,Number(d.rows[0].days_overdue)>90?"legal":Number(d.rows[0].days_overdue)>30?"intensive":"early",s(req.body?.assignedTo,160)||null,req.body?.nextActionAt||null,s(req.body?.notes,1000)||null,actor(req)]);
+ res.status(201).json(r.rows[0]);
+}));
+lendtechRouter.get("/api/lendtech/contracts/:id/collection-cases",requireAuth,requirePermission("modules:lendtech:collect"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query("select * from lendtech_collection_cases where contract_id=$1 and tenant_ref=$2 order by created_at desc",[req.params.id,t.id]);
+ res.json({items:r.rows,total:r.rowCount});
+}));
+lendtechRouter.post("/api/lendtech/collection-cases/:id/promise",requireAuth,requirePermission("modules:lendtech:collect"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const amount=n(req.body?.promiseAmount),due=s(req.body?.promiseDueDate,20),notes=s(req.body?.notes,1000);
+ if(amount===null||amount<=0||!due)return res.status(400).json({error:"مبلغ و تاریخ وعده پرداخت الزامی است"});
+ const r=await query("update lendtech_collection_cases set promise_amount=$1,promise_due_date=$2,notes=coalesce($3,notes),status='promise',updated_at=now() where id=$4 and tenant_ref=$5 returning *",[amount,due,notes||null,req.params.id,t.id]);
+ if(!r.rowCount)return res.status(404).json({error:"پرونده وصول پیدا نشد"});
+ res.json(r.rows[0]);
+}));
+lendtechRouter.post("/api/lendtech/collection-cases/:id/resolve",requireAuth,requirePermission("modules:lendtech:collect"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);
+ if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query("update lendtech_collection_cases set status='resolved',updated_at=now(),notes=coalesce($1,notes) where id=$2 and tenant_ref=$3 returning *",[s(req.body?.notes,1000)||null,req.params.id,t.id]);
+ if(!r.rowCount)return res.status(404).json({error:"پرونده وصول پیدا نشد"});
+ res.json(r.rows[0]);
+}));
+
 lendtechRouter.get("/api/lendtech/portfolio",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);
  if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
