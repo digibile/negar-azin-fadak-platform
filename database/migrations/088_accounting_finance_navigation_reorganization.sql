@@ -7,7 +7,7 @@ with root as (
 )
 update menu_items m
 set title='💰 حسابداری و مالی',
-    path='/modules/?code=accounting-finance',
+    path='/modules/?code=accounting-finance&tab=dashboard',
     sort_order=50,
     parent_id=null,
     is_active=true,
