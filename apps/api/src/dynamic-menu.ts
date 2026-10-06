@@ -108,7 +108,7 @@ router.patch("/api/dashboard/menu-items/:id/panels/:panel",requireAuth,requirePe
  const {shared=true,visible=true,sortOrder=0}=req.body||{};
  const r=await query(
   "insert into menu_item_panels(menu_item_id,panel_code,is_shared,sort_order,is_visible) values($1,$2,$3,$4,$5) on conflict(menu_item_id,panel_code) do update set is_shared=excluded.is_shared,sort_order=excluded.sort_order,is_visible=excluded.is_visible",
-  [req.params.id,req.params.panel,Boolean(shared),Number(sortOrder)||0]
+  [req.params.id,req.params.panel,Boolean(shared),Number(sortOrder)||0,Boolean(visible)]
  );
  res.json({ok:true});
 });
