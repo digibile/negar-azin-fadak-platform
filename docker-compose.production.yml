@@ -35,7 +35,7 @@ services:
       GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:-digibile/negar-azin-fadak-platform}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       DEPLOYED_SHA: ${DEPLOYED_SHA:-}
-      PLATFORM_UPDATE_WORKFLOW: ${PLATFORM_UPDATE_WORKFLOW:-deploy-sookar.yml}
+      PLATFORM_UPDATE_WORKFLOW: ${PLATFORM_UPDATE_WORKFLOW:-deploy-sookar-main.yml}
     ports:
       - "127.0.0.1:4000:4000"
     depends_on:
