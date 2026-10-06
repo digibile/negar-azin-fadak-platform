@@ -18,20 +18,32 @@ export default function UpdatesPage(){
  const [openJob,setOpenJob]=useState<number|null>(null);
  const [log,setLog]=useState("");
  const [logLoading,setLogLoading]=useState(false);
+ const [triggering,setTriggering]=useState(false);
+ const [triggerMessage,setTriggerMessage]=useState("");
  const load=useCallback(async()=>{try{setError("");setStatus(await api<Status>("/api/platform/update-status"))}catch(e){setError(e instanceof Error?e.message:"خطا در دریافت وضعیت انتشار")}finally{setLoading(false)}},[]);
  useEffect(()=>{load()},[load]);
  useEffect(()=>{const id=window.setInterval(()=>{if(status?.running||status?.updateAvailable)load()},4000);return()=>window.clearInterval(id)},[status,load]);
  const success=status?.run?.conclusion==="success";
  const failed=status?.failed||status?.run?.conclusion==="failure";
  const current=useMemo(()=>status?.stages.find(x=>x.status==="running")||status?.stages.find(x=>x.status==="pending"),[status]);
+ async function triggerUpdate(){
+  if(triggering)return;
+  setTriggering(true);setTriggerMessage("");setError("");
+  try{
+   const result=await api<{message?:string}>("/api/platform/update",{method:"POST",body:JSON.stringify({})});
+   setTriggerMessage(result.message||"اجرای بروزرسانی آغاز شد.");
+   await load();
+  }catch(e){setError(e instanceof Error?e.message:"اجرای بروزرسانی انجام نشد")}finally{setTriggering(false)}
+ }
  async function showLog(jobId:number){
   if(openJob===jobId){setOpenJob(null);return}
   setOpenJob(jobId);setLog("");setLogLoading(true);
   try{setLog(await api<string>("/api/platform/update-log/"+jobId))}catch(e){setLog(e instanceof Error?e.message:"لاگ مرحله دریافت نشد")}finally{setLogLoading(false)}
  }
  return <main className="platform-update-page">
-  <div className="platform-update-head"><div><span className="section-kicker">PLATFORM RELEASE LIFECYCLE · 2026</span><h2>مرکز انتشار و بروزرسانی سامانه</h2><p>منبع حقیقت این صفحه GitHub Actions است. با Merge یا Push به main، انتشار خودکار شروع می‌شود و این صفحه وضعیت واقعی Build، Migration، Test، Deploy و Health Check را بدون نیاز به بروزرسانی دستی نمایش می‌دهد.</p></div><Link className="admin-link" href="/admin">بازگشت به مرکز مدیریت</Link></div>
+  <div className="platform-update-head"><div><span className="section-kicker">PLATFORM RELEASE LIFECYCLE · 2026</span><h2>مرکز انتشار و بروزرسانی سامانه</h2><p>منبع حقیقت این صفحه GitHub Actions است. با Merge یا Push به main، انتشار خودکار شروع می‌شود و این صفحه وضعیت واقعی Build، Migration، Test، Deploy و Health Check را بدون نیاز به بروزرسانی دستی نمایش می‌دهد.</p></div><div className="platform-update-actions"><button className="admin-link release-trigger-button" onClick={triggerUpdate} disabled={triggering||status?.running}>{triggering||status?.running?"انتشار در حال اجرا...":"بروزرسانی دستی نسخه جدید"}</button><Link className="admin-link" href="/admin">بازگشت به مرکز مدیریت</Link></div></div>
   {error&&<div className="error">{error}</div>}
+  {triggerMessage&&<div className="update-success">{triggerMessage}</div>}
   <section className="release-summary">
    <div><span>نسخه نصب‌شده</span><code>{status?.deployedSha?.slice(0,12)||"در حال شناسایی"}</code></div>
    <div><span>نسخه هدف</span><code>{status?.targetSha?.slice(0,12)||status?.mainSha?.slice(0,12)||"در حال بررسی"}</code></div>
@@ -61,7 +73,7 @@ export default function UpdatesPage(){
   <section className="update-grid">
    <article className="update-card"><span className="update-label">مخزن</span><strong>{status?.repository||"digibile/negar-azin-fadak-platform"}</strong><span className="update-label">Workflow</span><strong>{status?.workflow||"deploy-sookar-main.yml"}</strong><span className="update-label">اتصال</span><strong>{status?.configured?"GitHub متصل است":"اتصال GitHub تنظیم نشده"}</strong></article>
    <article className="update-card"><span className="update-label">Rollback</span><strong>فعال و ایمن</strong><p>اگر Deploy یا Health Check شکست بخورد، workflow نسخه قبلی سالم را دوباره فعال می‌کند.</p></article>
-   <article className="update-card"><span className="update-label">رفتار بروزرسانی</span><strong>خودکار</strong><p>برای انتشار معمولی هیچ دکمه‌ای لازم نیست. صفحه وضعیت را خودکار هر ۴ ثانیه از منبع واقعی می‌خواند.</p></article>
+   <article className="update-card"><span className="update-label">رفتار بروزرسانی</span><strong>خودکار + دستی</strong><p>انتشار عادی با Merge یا Push خودکار است. دکمه بالای صفحه برای اجرای دستی همان workflow به‌عنوان مسیر مدیریتی پشتیبان استفاده می‌شود.</p></article>
   </section>
  </main>;
 }

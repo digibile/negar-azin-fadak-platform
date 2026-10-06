@@ -489,3 +489,8 @@ html,body{font-family:"IRANSansX","Vazirmatn","Segoe UI",Tahoma,sans-serif;backg
 .release-log{margin:12px 0 0;max-height:360px;overflow:auto;direction:ltr;text-align:left;white-space:pre-wrap;background:#111827;color:#e5e7eb;border-radius:12px;padding:14px;font:11px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}
 @media(max-width:900px){.release-summary{grid-template-columns:1fr 1fr}.release-stage-top{align-items:flex-start}.release-stage-top>div{flex-direction:column;align-items:flex-start}}
 @media(max-width:560px){.release-summary{grid-template-columns:1fr}}
+
+
+.platform-update-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.release-trigger-button{border:1px solid var(--primary);background:var(--primary);color:#fff;cursor:pointer;font:inherit}
+.release-trigger-button:disabled{opacity:.55;cursor:not-allowed}
