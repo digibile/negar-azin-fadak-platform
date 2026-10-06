@@ -13,8 +13,8 @@ export default function CheckoutPage(){
  const cartId=search.get("cart")||"";
  const [cart,setCart]=useState<Cart|null>(null),[items,setItems]=useState<Item[]>([]);
  const [facilities,setFacilities]=useState<Facility[]>([]);
- const [method,setMethod]=useState<"online"|"credit">("online");
- const [facilityId,setFacilityId]=useState("");
+ const [method,setMethod]=useState<"manual"|"credit">("manual");
+ const [facilityId,setFacilityId]=useState(""),[paymentRef,setPaymentRef]=useState("");
  const [orderId,setOrderId]=useState(search.get("order")||"");
  const [order,setOrder]=useState<any>(null);
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[message,setMessage]=useState(""),[error,setError]=useState("");
@@ -42,7 +42,7 @@ export default function CheckoutPage(){
    const cb=await cr.json();if(!cr.ok)throw new Error(cb.error||"ثبت سفارش ناموفق بود");
    const oid=cb.order.id;setOrderId(oid);
    const pr=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/payment",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({
-    method,creditFacilityId:method==="credit"?facilityId:undefined,idempotencyKey:"WEB-"+oid
+    method,providerCode:method==="manual"?"manual":undefined,providerRef:method==="manual"?paymentRef.trim():undefined,creditFacilityId:method==="credit"?facilityId:undefined,idempotencyKey:"WEB-"+oid
    })});
    const pb=await pr.json();if(!pr.ok)throw new Error(pb.error||"پرداخت ناموفق بود");
    setOrder(pb.order||{id:oid,status:pb.status||"paid"});
@@ -60,10 +60,10 @@ export default function CheckoutPage(){
    {loading?<div className="product-card">در حال دریافت سبد...</div>:<div className="plan-grid">
     <article className="product-card"><span>اقلام سفارش</span><h3>{items.length.toLocaleString("fa-IR")} قلم</h3>{items.map(i=><div key={i.id} className="module-row"><div><strong>{i.title}</strong><small>{i.sku} · تعداد {Number(i.quantity).toLocaleString("fa-IR")}</small></div><span>{(Number(i.unit_price)*Number(i.quantity)).toLocaleString("fa-IR")} {cart?.currency||"IRR"}</span></div>)}<hr/><strong>جمع کل: {total.toLocaleString("fa-IR")} {cart?.currency||"IRR"}</strong></article>
     <article className="product-card"><span>روش پرداخت</span><h3>انتخاب منبع پرداخت</h3>
-     <label><input type="radio" checked={method==="online"} onChange={()=>setMethod("online")}/> پرداخت آنلاین</label>
+     <label><input type="radio" checked={method==="manual"} onChange={()=>setMethod("manual")}/> ثبت پرداخت با مرجع بانکی</label>
      <label><input type="radio" checked={method==="credit"} onChange={()=>setMethod("credit")}/> اعتبار خرید</label>
-     {method==="credit"&&<div><label>تسهیلات اعتباری فعال<select value={facilityId} onChange={e=>setFacilityId(e.target.value)}><option value="">انتخاب کنید</option>{facilities.map(f=><option key={f.id} value={f.id}>{f.facility_no} · مانده {Number(f.available_amount).toLocaleString("fa-IR")} {f.currency}</option>)}</select></label>{facilities.length===0&&<p>تسهیلات فعال قابل مصرف برای این حساب پیدا نشد.</p>}</div>}
-     <button disabled={busy||!items.length||(method==="credit"&&!facilityId)} onClick={checkoutAndPay}>{busy?"در حال ثبت و پرداخت...":method==="credit"?"پرداخت با اعتبار":"ثبت و پرداخت آنلاین"}</button>
+     {method==="manual"&&<label>شناسه مرجع پرداخت<input value={paymentRef} onChange={e=>setPaymentRef(e.target.value)} placeholder="مرجع واقعی پرداخت"/></label>}{method==="credit"&&<div><label>تسهیلات اعتباری فعال<select value={facilityId} onChange={e=>setFacilityId(e.target.value)}><option value="">انتخاب کنید</option>{facilities.map(f=><option key={f.id} value={f.id}>{f.facility_no} · مانده {Number(f.available_amount).toLocaleString("fa-IR")} {f.currency}</option>)}</select></label>{facilities.length===0&&<p>تسهیلات فعال قابل مصرف برای این حساب پیدا نشد.</p>}</div>}
+     <button disabled={busy||!items.length||(method==="credit"&&!facilityId)} onClick={checkoutAndPay}>{busy?"در حال ثبت و پرداخت...":method==="credit"?"پرداخت با اعتبار":"ثبت مرجع پرداخت"}</button>
      {orderId&&<div><p>شماره سفارش داخلی: {orderId}</p><Link href={"/store/checkout?cart="+encodeURIComponent(cartId)+"&order="+encodeURIComponent(orderId)}>مشاهده وضعیت ←</Link></div>}
     </article>
    </div>}
