@@ -494,3 +494,7 @@ html,body{font-family:"IRANSansX","Vazirmatn","Segoe UI",Tahoma,sans-serif;backg
 .platform-update-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .release-trigger-button{border:1px solid var(--primary);background:var(--primary);color:#fff;cursor:pointer;font:inherit}
 .release-trigger-button:disabled{opacity:.55;cursor:not-allowed}
+
+.pending-releases{margin:20px 0;padding:22px;border:1px solid var(--border);border-radius:18px;background:var(--surface)}
+.pending-release-list{display:grid;gap:10px;margin-top:14px}.pending-release{display:grid;grid-template-columns:44px 120px 1fr auto;gap:12px;align-items:center;padding:14px;border:1px solid var(--border);border-radius:14px}.pending-release.ready{box-shadow:0 0 0 1px var(--primary)}.pending-release.locked{opacity:.58}.pending-release strong{min-width:0}.pending-release span{font-size:12px;color:var(--muted)}
+@media(max-width:760px){.pending-release{grid-template-columns:34px 1fr}.pending-release strong,.pending-release span{grid-column:2}}
