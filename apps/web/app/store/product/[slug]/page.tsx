@@ -1,7 +1,56 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
 type Product={id:string;sku:string;title:string;description:string|null;category:string|null;price:string;currency:string;seller_name:string;store_id:string|null};
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://negarzinfadak.ir";
+
+async function getProduct(slug:string):Promise<Product|null>{
+  try{
+    const r=await fetch(`${process.env.API_INTERNAL_URL||"http://api:4000"}/api/public/marketplace`,{cache:"no-store"});
+    const b=await r.json();
+    if(!r.ok)return null;
+    return (b.products||[]).find((p:Product)=>p.id===slug||p.sku===slug)||null;
+  }catch{return null;}
+}
+
+export async function generateMetadata({params}:{params:Promise<{slug:string}>}):Promise<Metadata>{
+  const {slug}=await params;
+  const product=await getProduct(slug);
+  if(!product)return {title:"محصول پیدا نشد",robots:{index:false,follow:false}};
+  const description=product.description||`مشاهده ${product.title} در فروشگاه اینترنتی سوکار و بررسی گزینه‌های خرید و اعتبار.`;
+  return {
+    title: product.title,
+    description,
+    alternates:{canonical:`/store/product/${encodeURIComponent(product.sku||product.id)}`},
+    openGraph:{type:"website",title:product.title,description,url:`${siteUrl}/store/product/${encodeURIComponent(product.sku||product.id)}`}
+  };
+}
+
 export default async function Product({params}:{params:Promise<{slug:string}>}){
- const {slug}=await params;let product:Product|null=null,error="";
- try{const r=await fetch(`${process.env.API_INTERNAL_URL||"http://api:4000"}/api/public/marketplace`,{cache:"no-store"});const b=await r.json();if(!r.ok)throw new Error(b.error||"دریافت محصول ناموفق بود");product=(b.products||[]).find((p:Product)=>p.id===slug||p.sku===slug)||null;}catch(e){error=e instanceof Error?e.message:"خطا";}
- return <main className="sookar-store" dir="rtl"><header className="store-header"><Link href="/store" className="store-logo"><b>سوکار</b><span>محصول</span></Link><Link href="/store/shop" className="store-search">بازگشت به فروشگاه</Link><nav><Link href="/store/cart">سبد خرید</Link><Link href="/pay">خرید اعتباری</Link></nav></header>{error?<section className="store-section"><div className="product-card"><p>{error}</p></div></section>:!product?<section className="store-section"><div className="product-card"><h2>محصول پیدا نشد</h2><p>این محصول در کاتالوگ عمومی سامانه فعال نیست.</p><Link href="/store/shop">بازگشت به کاتالوگ</Link></div></section>:<><section className="store-hero"><div><span>{product.category||"محصول"} / {product.sku}</span><h1>{product.title}</h1><p>{product.description||"توضیحات محصول توسط فروشنده ثبت نشده است."}</p><div className="store-actions"><Link href="/store/cart">افزودن به سبد</Link><Link href="/pay" className="secondary">خرید اعتباری</Link></div></div><div className="hero-card"><b>قیمت</b><strong>{Number(product.price).toLocaleString("fa-IR")} {product.currency}</strong><small>فروشنده: {product.seller_name||"ثبت‌شده در کاتالوگ"}</small></div></section><section className="store-section feature-row"><article><b>کد کالا</b><span>{product.sku}</span></article><article><b>دسته‌بندی</b><span>{product.category||"ثبت نشده"}</span></article><article><b>فروشنده</b><span>{product.seller_name||"ثبت نشده"}</span></article><article><b>اعتبار خرید</b><span>از مسیر Sookar Pay</span></article></section></>}</main>;
+ const {slug}=await params;
+ const product=await getProduct(slug);
+ if(!product)return <main className="sookar-store" dir="rtl"><section className="store-section"><div className="product-card"><h2>محصول پیدا نشد</h2><p>این محصول در کاتالوگ عمومی سامانه فعال نیست.</p><Link href="/store/shop">بازگشت به کاتالوگ</Link></div></section></main>;
+ const jsonLd={
+   "@context":"https://schema.org",
+   "@type":"Product",
+   name:product.title,
+   description:product.description||undefined,
+   sku:product.sku,
+   category:product.category||undefined,
+   brand:{ "@type":"Brand", name:"سوکار" },
+   offers:{
+     "@type":"Offer",
+     url:`${siteUrl}/store/product/${encodeURIComponent(product.sku||product.id)}`,
+     priceCurrency:product.currency,
+     price:String(product.price),
+     availability:"https://schema.org/InStock"
+   }
+ };
+ return <main className="sookar-store" dir="rtl">
+   <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd)}} />
+   <header className="store-header"><Link href="/store" className="store-logo"><b>سوکار</b><span>محصول</span></Link><Link href="/store/shop" className="store-search">بازگشت به فروشگاه</Link><nav><Link href="/store/cart">سبد خرید</Link><Link href="/pay">خرید اعتباری</Link></nav></header>
+   <section className="store-hero"><div><span>{product.category||"محصول"} / {product.sku}</span><h1>{product.title}</h1><p>{product.description||"توضیحات محصول توسط فروشنده ثبت نشده است."}</p><div className="store-actions"><Link href={"/store/product/"+encodeURIComponent(product.id)}>افزودن به سبد</Link><Link href="/pay" className="secondary">خرید اعتباری</Link></div></div><div className="hero-card"><b>قیمت</b><strong>{Number(product.price).toLocaleString("fa-IR")} {product.currency}</strong><small>فروشنده: {product.seller_name||"ثبت‌شده در کاتالوگ"}</small></div></section>
+   <section className="store-section feature-row"><article><b>کد کالا</b><span>{product.sku}</span></article><article><b>دسته‌بندی</b><span>{product.category||"ثبت نشده"}</span></article><article><b>فروشنده</b><span>{product.seller_name||"ثبت نشده"}</span></article><article><b>اعتبار خرید</b><span>از مسیر Sookar Pay</span></article></section>
+ </main>;
 }
