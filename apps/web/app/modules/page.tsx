@@ -6,6 +6,7 @@ import {useEffect,useMemo,useState} from "react";
 import AccountingWorkspace from "./AccountingWorkspace";
 import AccountingFinanceWorkspace from "./AccountingFinanceWorkspace";
 import TreasuryBankWorkspace from "./TreasuryBankWorkspace";
+import TreasuryChecksWorkspace from "./TreasuryChecksWorkspace";
 import WalletLedgerWorkspace from "./WalletLedgerWorkspace";
 import DashboardWorkspace from "./DashboardWorkspace";
 import OrganizationWorkspace from "./OrganizationWorkspace";
@@ -171,6 +172,7 @@ const CANONICAL_WORKSPACES: Record<string, React.ReactNode> = {
   "18-notifications": <FrontendNotificationsWorkspace />,
   "19-documents-governance": <DocumentGovernanceWorkspace />,
   "20-system-settings": <CentralSettingsWorkspace />,
+  "08-check-documents": <TreasuryChecksWorkspace />,
   "26-treasury-bank": <TreasuryBankWorkspace />,
   "29-wallet-ledger": <WalletLedgerWorkspace />,
   "37-collateral-guarantees": <CollateralGuaranteesWorkspace />,
@@ -222,7 +224,7 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
  if(CANONICAL_WORKSPACES[code])return CANONICAL_WORKSPACES[code];
  const canonicalCodes=new Set([
   "01-dashboard","02-organizations","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla",
-  "08-accounting-finance","09-commerce-stores","10-domains","11-merchants","12-sellers","13-payments-settlement","14-form-builder",
+  "08-accounting-finance","08-check-documents","09-commerce-stores","10-domains","11-merchants","12-sellers","13-payments-settlement","14-form-builder",
   "15-menu-builder","16-page-builder","17-frontend-management","18-notifications","19-documents-governance","20-system-settings",
   "21-purchasing-supply","22-sales-revenue","23-inventory-warehouse","24-production","25-costing","26-treasury-bank","27-receivables",
   "28-payables","29-wallet-ledger","30-projects-cost-centers","31-fixed-assets","32-tax-e-invoicing","33-budget-financial-control",
