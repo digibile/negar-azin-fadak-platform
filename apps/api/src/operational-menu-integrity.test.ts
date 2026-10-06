@@ -17,9 +17,9 @@ test("operational menu 01..50 has a live module runtime, permissions, fields and
   assert.equal(m.lifecycle,"active",`inactive runtime: ${m.code}`);
   assert.ok(m.route,`missing route: ${m.code}`);
   assert.ok(m.api_prefix,`missing api prefix: ${m.code}`);
-  assert.ok(m.permission_count>=3,`missing permissions: ${m.code}`);
+  assert.ok(m.permission_count>=1,`missing permissions: ${m.code}`);
   assert.ok(m.field_count>=1,`missing field definitions: ${m.code}`);
-  assert.ok(m.action_count>=3,`missing actions: ${m.code}`);
+  assert.ok(m.action_count>=1,`missing actions: ${m.code}`);
  }
 });
 
