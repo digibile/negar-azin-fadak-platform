@@ -5,7 +5,7 @@ import {asyncHandler} from "./http.js";
 export const platformUpdatesRouter=Router();
 
 const ownerRepo=process.env.GITHUB_REPOSITORY||"digibile/negar-azin-fadak-platform";
-const workflow=process.env.PLATFORM_UPDATE_WORKFLOW||"deploy-sookar.yml";
+const workflow=process.env.PLATFORM_UPDATE_WORKFLOW||"deploy-sookar-main.yml";
 const token=()=>process.env.GITHUB_TOKEN||"";
 const deployedSha=()=>process.env.DEPLOYED_SHA||"";
 const apiBase="https://api.github.com";
