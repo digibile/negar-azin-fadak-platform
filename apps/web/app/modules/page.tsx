@@ -155,6 +155,64 @@ function ModulesContent(){
    return <input value={String(v)} onChange={e=>setField(f.field_key,e.target.value)} required={f.required}/>;
  };
  const visible=useMemo(()=>items,[items]);
+const CANONICAL_WORKSPACES: Record<string, React.ReactNode> = {
+  "01-dashboard": <DashboardWorkspace />,
+  "02-organizations": <OrganizationWorkspace />,
+  "03-users-access": <SecurityWorkspace />,
+  "04-customers-360": <Customer360Workspace />,
+  "05-smart-calendar": <SmartCalendarWorkspace />,
+  "06-business-rules": <BusinessRulesWorkspace />,
+  "07-sla": <SLAWorkspace />,
+  "08-accounting-finance": <AccountingFinanceWorkspace />,
+  "14-form-builder": <FormBuilderWorkspace />,
+  "15-menu-builder": <MenuBuilderWorkspace />,
+  "16-page-builder": <PageBuilderWorkspace />,
+  "17-frontend-management": <FrontendSectionsWorkspace />,
+  "18-notifications": <FrontendNotificationsWorkspace />,
+  "19-documents-governance": <DocumentGovernanceWorkspace />,
+  "20-system-settings": <CentralSettingsWorkspace />,
+  "26-treasury-bank": <TreasuryBankWorkspace />,
+  "29-wallet-ledger": <WalletLedgerWorkspace />,
+  "37-collateral-guarantees": <CollateralGuaranteesWorkspace />,
+  "38-collections": <CollectionWorkflowWorkspace />
+};
+
+function CanonicalModuleLanding({ code, module, menuChildren, error }: {
+  code: string;
+  module: ModuleInfo | null;
+  menuChildren: MenuItem[];
+  error: string;
+}) {
+  const publicLinks: Record<string, Array<[string, string]>> = {
+    "09-commerce-stores": [["فروشگاه اینترنتی", "/store"], ["بازارگاه", "/marketplace"], ["محصولات", "/marketplace/products"], ["سفارش‌ها", "/marketplace/orders"]],
+    "11-merchants": [["پذیرندگان", "/pay/merchants"], ["پرداخت و تسویه", "/pay/payments"]],
+    "12-sellers": [["فروشندگان", "/marketplace/sellers"], ["فروشگاه‌ها", "/marketplace/stores"]],
+    "13-payments-settlement": [["پرداخت‌ها", "/pay/payments"], ["تسویه‌ها", "/marketplace/settlements"]],
+    "35-credit-financing": [["طرح‌های اعتباری", "/pay/plans"], ["بررسی شرایط", "/pay/eligibility"], ["ثبت درخواست", "/pay/apply"]],
+    "36-loans": [["درخواست تسهیلات", "/pay/loans"], ["اقساط", "/pay/installments"], ["بازپرداخت", "/pay/repayment"]],
+    "48-shipping-delivery": [["سفارش‌ها", "/marketplace/orders"], ["پیگیری سفارش", "/store/orders"]]
+  };
+  const links = publicLinks[code] || [];
+  return <main className="module-runtime canonical-module" dir="rtl">
+    <header className="page-head">
+      <div><span className="eyebrow">منوی مرکزی سازمان · بخش عملیاتی</span><h1>{module?.title || code}</h1><p className="muted">مسیر عملیاتی واقعی سامانه برای این بخش. ورودی‌ها از ساختار منوی پایگاه داده خوانده می‌شوند.</p></div>
+      <a className="back-link" href="/admin">مرکز مدیریت</a>
+    </header>
+    {error&&<div className="error runtime-error">{error}</div>}
+    {!!menuChildren.length&&<nav className="module-subnav" aria-label="زیرمنوی عملیاتی">{menuChildren.map(item=><a key={item.id} href={item.path}>{item.title}</a>)}</nav>}
+    {!!links.length&&<section className="runtime-panel">
+      <div className="panel-title"><div><h2>ورودی‌های متصل</h2><span>صفحات واقعی سامانه</span></div></div>
+      <div className="control-grid">{links.map(([label,href])=><a className="control-card" href={href} key={href}><div><span>LINKED ROUTE</span><h2>{label}</h2><small>{href}</small></div><strong>›</strong></a>)}</div>
+    </section>}
+    {!!menuChildren.length&&<section className="runtime-panel">
+      <div className="panel-title"><div><h2>عملیات و زیرمنوها</h2><span>{menuChildren.length} ورودی از پایگاه داده</span></div></div>
+      <div className="record-list">{menuChildren.map(item=><a className="record-row" href={item.path} key={item.id}><div><strong>{item.title}</strong><small>{item.path}</small></div><span>باز کردن ›</span></a>)}</div>
+    </section>}
+    {!links.length&&!menuChildren.length&&<section className="runtime-panel"><div className="panel-title"><div><h2>فضای عملیاتی</h2><span>اتصال مستقیم به رجیستری ماژول</span></div></div><p className="muted">این بخش در رجیستری مرکزی ثبت شده است. برای عملیات اختصاصی، مسیر API و فرم‌های مربوط به همان ماژول استفاده می‌شود و داده نمایشی ساختگی تولید نمی‌شود.</p><a className="command-link" href={"/modules/?code="+encodeURIComponent(code)}>بازخوانی ماژول</a></section>}
+  </main>;
+}
+
+ if(CANONICAL_WORKSPACES[code])return CANONICAL_WORKSPACES[code];
  if(code==="command-center")return <DashboardWorkspace/>;
  if(code==="accounting-finance")return <AccountingWorkspace/>;
  if(code==="08-accounting-finance")return <AccountingFinanceWorkspace/>;
