@@ -112,6 +112,11 @@ jobs:
           tar -xzf "$BASE/negar-platform.tar.gz" -C "$RELEASE"
           cp "$BASE/.env" "$RELEASE/.env"
           chmod 600 "$RELEASE/.env"
+          if grep -q '^PLATFORM_UPDATE_WORKFLOW=' "$RELEASE/.env"; then
+            sed -i 's#^PLATFORM_UPDATE_WORKFLOW=.*#PLATFORM_UPDATE_WORKFLOW=deploy-sookar-main.yml#' "$RELEASE/.env"
+          else
+            printf 'PLATFORM_UPDATE_WORKFLOW=deploy-sookar-main.yml\n' >> "$RELEASE/.env"
+          fi
           if grep -q '^DEPLOYED_SHA=' "$RELEASE/.env"; then
             sed -i "s#^DEPLOYED_SHA=.*#DEPLOYED_SHA=$SHA#" "$RELEASE/.env"
           else
