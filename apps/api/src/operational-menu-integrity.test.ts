@@ -24,7 +24,7 @@ test("operational menu 01..50 has a live module runtime, permissions, fields and
 });
 
 test("operational menu 01..50 is navigable from the canonical menu tree",async()=>{
- const rows=(await query(`select m.code,min(mi.id) as id,
+ const rows=(await query(`select m.code,(array_agg(mi.id))[1] as id,
    count(mi.id)::int menu_entry_count,
    coalesce(max((select count(*) from menu_items c where c.parent_id=mi.id and c.is_active=true)),0)::int child_count
    from unnest($1::text[]) as m(code)
