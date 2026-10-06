@@ -7,6 +7,7 @@ import AccountingWorkspace from "./AccountingWorkspace";
 import AccountingFinanceWorkspace from "./AccountingFinanceWorkspace";
 import TreasuryBankWorkspace from "./TreasuryBankWorkspace";
 import TreasuryChecksWorkspace from "./TreasuryChecksWorkspace";
+import SalesWorkspace from "./SalesWorkspace";
 import WalletLedgerWorkspace from "./WalletLedgerWorkspace";
 import DashboardWorkspace from "./DashboardWorkspace";
 import OrganizationWorkspace from "./OrganizationWorkspace";
@@ -172,7 +173,7 @@ const CANONICAL_WORKSPACES: Record<string, React.ReactNode> = {
   "18-notifications": <FrontendNotificationsWorkspace />,
   "19-documents-governance": <DocumentGovernanceWorkspace />,
   "20-system-settings": <CentralSettingsWorkspace />,
-  "08-check-documents": <TreasuryChecksWorkspace />,
+  "08-check-documents": <TreasuryChecksWorkspace />,\n  "22-sales-revenue": <SalesWorkspace />,
   "26-treasury-bank": <TreasuryBankWorkspace />,
   "29-wallet-ledger": <WalletLedgerWorkspace />,
   "37-collateral-guarantees": <CollateralGuaranteesWorkspace />,
