@@ -1,3 +1,4 @@
+import "../store/styles.css";
 import Link from "next/link";
 
 const plans=[
