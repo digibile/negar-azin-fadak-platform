@@ -17,7 +17,7 @@ export default function Apply(){
   monthlyIncome:"",monthlyObligations:"",kycProviderRef:"",
   paymentHistoryScore:"70",incomeStabilityScore:"70",identityConfidenceScore:"100"
  });
- useEffect(()=>{fetch("/api/auth/me",{credentials:"include"}).then(r=>setAuth(r.ok)).catch(()=>setAuth(false));},[]);
+ useEffect(()=>{fetch("/api/auth/me",{credentials:"include"}).then(async r=>{setAuth(r.ok);if(r.ok){const b=await r.json();setForm(x=>({...x,customerRef:x.customerRef||b.user?.id||""}));}}).catch(()=>setAuth(false));},[]);
  const update=(key:string,value:string)=>setForm(x=>({...x,[key]:value}));
  const call=async(path:string,body:any)=>{
   const r=await fetch(path,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","x-csrf-token":getCookie("naf_csrf")},body:JSON.stringify(body)});
@@ -53,10 +53,7 @@ export default function Apply(){
  async function submitScore(){
   setBusy(true);setMessage("");
   try{
-   const b=await call("/api/lendtech/applications/"+applicationId+"/score",{
-    paymentHistoryScore:Number(form.paymentHistoryScore),incomeStabilityScore:Number(form.incomeStabilityScore),
-    identityConfidenceScore:Number(form.identityConfidenceScore)
-   });
+   const b=await call("/api/lendtech/applications/"+applicationId+"/score",{});
    setResult(b.score);setStep("done");setMessage("امتیازدهی انجام شد و نتیجه برای تصمیم اعتباری آماده است.");
   }catch(e){setMessage(e instanceof Error?e.message:"خطا");}finally{setBusy(false);}
  }
@@ -71,7 +68,7 @@ export default function Apply(){
      {step==="request"&&<><h3>اطلاعات درخواست</h3><label>شناسه مشتری<input value={form.customerRef} onChange={e=>update("customerRef",e.target.value)} placeholder="شناسه واقعی مشتری" /></label><label>محصول مالی<select value={form.productCode} onChange={e=>update("productCode",e.target.value)}><option value="purchase-credit">اعتبار خرید</option><option value="purchase-loan">وام خرید</option><option value="revolving-credit">اعتبار گردشی</option><option value="corporate-facility">تسهیلات سازمانی</option></select></label><label>مبلغ درخواستی<input inputMode="decimal" value={form.requestedAmount} onChange={e=>update("requestedAmount",e.target.value)} placeholder="مبلغ" /></label><label>مدت، ماه<input inputMode="numeric" value={form.termMonths} onChange={e=>update("termMonths",e.target.value)} /></label><label>هدف درخواست<textarea value={form.purpose} onChange={e=>update("purpose",e.target.value)} /></label><button disabled={busy} onClick={submitRequest}>{busy?"در حال ثبت...":"ثبت درخواست"}</button></>}
      {step==="eligibility"&&<><h3>ارزیابی توان بازپرداخت</h3><p>نسبت تعهدات به درآمد به‌صورت واقعی محاسبه می‌شود. سقف مرحله اولیه ۵۰٪ است.</p><label>درآمد ماهانه<input inputMode="decimal" value={form.monthlyIncome} onChange={e=>update("monthlyIncome",e.target.value)} /></label><label>تعهدات ماهانه<input inputMode="decimal" value={form.monthlyObligations} onChange={e=>update("monthlyObligations",e.target.value)} /></label><button disabled={busy} onClick={submitEligibility}>{busy?"در حال ارزیابی...":"اجرای ارزیابی"}</button></>}
      {step==="kyc"&&<><h3>مرجع احراز هویت</h3><p>سامانه خودش هویت را جعل نمی‌کند. فقط نتیجه تأییدکننده خارجی و مرجع آن را ثبت می‌کند.</p><label>مرجع تأیید KYC<input value={form.kycProviderRef} onChange={e=>update("kycProviderRef",e.target.value)} placeholder="شناسه تراکنش/مرجع سرویس احراز هویت" /></label><button disabled={busy} onClick={submitKyc}>{busy?"در حال ثبت...":"ثبت تأیید KYC"}</button></>}
-     {step==="score"&&<><h3>امتیازدهی اعتباری</h3><p>امتیاز با قواعد نسخه‌دار محاسبه می‌شود و ورودی‌ها در سابقه درخواست ذخیره می‌شوند.</p><label>سابقه پرداخت، ۰ تا ۱۰۰<input inputMode="numeric" value={form.paymentHistoryScore} onChange={e=>update("paymentHistoryScore",e.target.value)} /></label><label>ثبات درآمد، ۰ تا ۱۰۰<input inputMode="numeric" value={form.incomeStabilityScore} onChange={e=>update("incomeStabilityScore",e.target.value)} /></label><label>اعتماد هویتی، ۰ تا ۱۰۰<input inputMode="numeric" value={form.identityConfidenceScore} onChange={e=>update("identityConfidenceScore",e.target.value)} /></label><button disabled={busy} onClick={submitScore}>{busy?"در حال محاسبه...":"محاسبه امتیاز"}</button></>}
+     {step==="score"&&<><h3>امتیازدهی اعتباری</h3><p>امتیاز با قواعد نسخه‌دار محاسبه می‌شود و ورودی‌ها در سابقه درخواست ذخیره می‌شوند.</p><p>امتیاز از داده‌های ثبت‌شده پرونده، نسبت تعهدات به درآمد، وضعیت KYC، سابقه بازپرداخت و معوقات محاسبه می‌شود. کاربر نمی‌تواند امتیاز را دستی وارد کند.</p><button disabled={busy} onClick={submitScore}>{busy?"در حال محاسبه...":"محاسبه امتیاز"}</button></>}
      {step==="done"&&<><h3>درخواست وارد مرحله تصمیم شد</h3><p>شناسه درخواست: <strong>{applicationId}</strong></p><p>نتیجه امتیازدهی ثبت شده است. تصمیم اعتباری و کمیته از مسیر عملیاتی سامانه انجام می‌شود.</p><Link href="/pay" className="pay-primary">بازگشت به مرکز اعتبار</Link></>}
      {message&&<div className="pay-notice">{message}</div>}
     </article>
