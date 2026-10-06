@@ -8,6 +8,7 @@ import AccountingFinanceWorkspace from "./AccountingFinanceWorkspace";
 import TreasuryBankWorkspace from "./TreasuryBankWorkspace";
 import TreasuryChecksWorkspace from "./TreasuryChecksWorkspace";
 import SalesWorkspace from "./SalesWorkspace";
+import PurchasingSupplyWorkspace from "./PurchasingSupplyWorkspace";
 import WalletLedgerWorkspace from "./WalletLedgerWorkspace";
 import DashboardWorkspace from "./DashboardWorkspace";
 import OrganizationWorkspace from "./OrganizationWorkspace";
