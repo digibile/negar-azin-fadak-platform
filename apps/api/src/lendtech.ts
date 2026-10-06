@@ -184,8 +184,8 @@ lendtechRouter.post("/api/lendtech/contracts/:id/disburse",requireAuth,requirePe
    const interestDue=rate===0?0:Number((remainingPrincipal*rate).toFixed(2));
    const principalDue=i===months?remainingPrincipal:Number(Math.max(0,payment-interestDue).toFixed(2));
    remainingPrincipal=Math.max(0,Number((remainingPrincipal-principalDue).toFixed(2)));
-   await client.query(\`insert into lendtech_installments(tenant_ref,contract_id,installment_no,due_date,principal_due,interest_due,total_due)
-     values($1,$2,$3,$4,$5,$6,$7)\`,
+   await client.query(`insert into lendtech_installments(tenant_ref,contract_id,installment_no,due_date,principal_due,interest_due,total_due)
+     values($1,$2,$3,$4,$5,$6,$7)`,
     [t.id,contract.id,i,due.toISOString().slice(0,10),principalDue,interestDue,Number((principalDue+interestDue).toFixed(2))]);
   }
   await client.query("update lendtech_contracts set status='active',disbursed_at=now(),updated_at=now() where id=$1 returning *",[contract.id]);
