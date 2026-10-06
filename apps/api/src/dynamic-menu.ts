@@ -5,74 +5,61 @@ import {requireAuth, requirePermission} from "./auth.js";
 const router=Router();
 
 const CANONICAL_ROOT_KEYS=[
- "governance","identity","master-data","customer-360","smart-calendar","business-rules","sla","accounting-finance","treasury-bank","wallet-ledger",
- "credit-facilities","12-credit-applications","13-loan-contracts","14-installment-schedules","15-installment-collections","16-collateral-guarantees",
- "17-digital-binder","18-identity-verification","19-credit-scoring","20-credit-decisions","21-credit-committee","22-credit-disbursement",
- "23-loan-settlement","24-loan-ledger","25-loan-refunds","26-loan-closure","27-loan-delinquency","28-collection-workflow",
- "29-loan-restructuring","30-loan-relief","31-loan-legal-cases","32-form-builder","33-menu-builder","34-page-builder",
- "35-page-block-editor","36-page-templates","37-frontend-sections","38-navigation-rules","39-frontend-notifications","40-notification-templates",
- "41-documentation","42-document-approvals","43-document-versions","44-document-search","45-document-retention","46-document-distribution",
- "47-document-access-log","48-document-audit-reports","49-document-compliance","50-document-governance"
+ "01-dashboard","02-organizations","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla",
+ "08-accounting-finance","09-commerce-stores","10-domains","11-merchants","12-sellers","13-payments-settlement","14-form-builder",
+ "15-menu-builder","16-page-builder","17-frontend-management","18-notifications","19-documents-governance","20-system-settings",
+ "21-purchasing-supply","22-sales-revenue","23-inventory-warehouse","24-production","25-costing","26-treasury-bank",
+ "27-receivables","28-payables","29-wallet-ledger","30-projects-cost-centers","31-fixed-assets","32-tax-e-invoicing",
+ "33-budget-financial-control","34-financial-commitments","35-credit-financing","36-loans","37-collateral-guarantees",
+ "38-collections","39-human-resources","40-ai-finance","41-ai-documents-ocr","42-audit-internal-control","43-communication-hub",
+ "44-marketing-content","45-search-analytics","46-unified-applications","47-contracts-legal","48-shipping-delivery","49-reconciliation",
+ "50-release-health"
 ] as const;
 
 router.get("/api/dashboard/menu-tree",requireAuth,async(req:Request,res:Response)=>{
  const panel=typeof req.query.panel==="string"&&req.query.panel.trim()?req.query.panel.trim():"admin";
  const user=(req as any).user;
- const params:any[]=[panel];
+ const params:any[]=[panel,CANONICAL_ROOT_KEYS];
  let access="";
  if(user.role!=="admin"){
   params.push(user.role);
-  access=" and (mi.permission is null or exists (select 1 from role_permissions rp where rp.role=$2 and rp.permission=mi.permission))";
+  access=" and (mi.permission is null or exists (select 1 from role_permissions rp where rp.role=$3 and rp.permission=mi.permission))";
  }
- const childAccess=user.role==="admin"?"":" and (c.permission is null or exists (select 1 from role_permissions crp where crp.role=$2 and crp.permission=c.permission))";
- const grandChildAccess=user.role==="admin"?"":" and (gc.permission is null or exists (select 1 from role_permissions grp where grp.role=$2 and grp.permission=gc.permission))";
- const rootParam=params.length+1;
- const sql=`select mi.id,mi.menu_key,mi.parent_id,mi.title,mi.path,mi.icon,mi.sort_order,mi.permission,mi.children,
-   coalesce(mip.is_shared,true) as is_shared,
-   coalesce(mip.sort_order,mi.sort_order) as panel_sort_order,
-   coalesce((
-     select jsonb_agg(
-       jsonb_build_object(
-         'id',c.id,'menu_key',c.menu_key,'parent_id',c.parent_id,
-         'title',c.title,'path',c.path,'icon',c.icon,'sort_order',c.sort_order,
-         'permission',c.permission,
-         'child_items',coalesce((
-           select jsonb_agg(
-             jsonb_build_object(
-               'id',gc.id,'menu_key',gc.menu_key,'parent_id',gc.parent_id,
-               'title',gc.title,'path',gc.path,'icon',gc.icon,
-               'sort_order',gc.sort_order,'permission',gc.permission
-             )
-             order by coalesce(gp.sort_order,gc.sort_order),gc.sort_order,gc.id
-           )
-           from menu_items gc
-           left join menu_item_panels gp on gp.menu_item_id=gc.id and gp.panel_code=$1
-           where gc.parent_id=c.id and gc.is_active=true
-             and (gp.menu_item_id is null or gp.is_visible=true)
-             ${grandChildAccess}
-         ),'[]'::jsonb)
-       )
-       order by coalesce(cp.sort_order,c.sort_order),c.sort_order,c.id
-     )
-     from menu_items c
-     left join menu_item_panels cp on cp.menu_item_id=c.id and cp.panel_code=$1
-     where c.parent_id=mi.id and c.is_active=true
-       and (cp.menu_item_id is null or cp.is_visible=true)
-       ${childAccess}
-   ),'[]'::jsonb) as child_items
+ const sql=`
+   select mi.id,mi.menu_key,mi.parent_id,mi.title,mi.path,mi.icon,mi.sort_order,mi.permission,mi.children,
+          coalesce(mip.is_shared,true) as is_shared,
+          coalesce(mip.sort_order,mi.sort_order) as panel_sort_order
    from menu_items mi
    left join menu_item_panels mip on mip.menu_item_id=mi.id and mip.panel_code=$1
    where mi.is_active=true
-     and mi.parent_id is null
-     and mi.menu_key = any($${rootParam})
      and (mip.menu_item_id is null or mip.is_visible=true)
+     and (mi.menu_key=any($2) or mi.parent_id is not null)
      ${access}
    order by coalesce(mip.sort_order,mi.sort_order),mi.sort_order,mi.id`;
- params.push(CANONICAL_ROOT_KEYS);
  const rows=(await query(sql,params)).rows;
- res.json({panel,items:rows,total:rows.length,canonicalTotal:CANONICAL_ROOT_KEYS.length});
+ const visible=new Set(rows.map((r:any)=>String(r.id)));
+ const roots=rows.filter((r:any)=>r.parent_id===null&&CANONICAL_ROOT_KEYS.includes(r.menu_key));
+ const childrenByParent=new Map<string,any[]>();
+ for(const row of rows){
+  if(row.parent_id===null)continue;
+  const key=String(row.parent_id);
+  if(!childrenByParent.has(key))childrenByParent.set(key,[]);
+  childrenByParent.get(key)!.push(row);
+ }
+ const build=(row:any):any=>{
+  const children=(childrenByParent.get(String(row.id))||[]).filter((child:any)=>{
+   if(user.role==="admin")return true;
+   return child.permission===null||child.permission===undefined||true;
+  }).sort((a:any,b:any)=>(a.panel_sort_order??a.sort_order)-(b.panel_sort_order??b.sort_order)||a.id-b.id);
+  return {
+   id:row.id,menu_key:row.menu_key,parent_id:row.parent_id,title:row.title,path:row.path,icon:row.icon??null,
+   sort_order:row.sort_order,permission:row.permission,children:row.children||[],is_shared:Boolean(row.is_shared),
+   child_items:children.map(build)
+  };
+ };
+ const items=roots.sort((a:any,b:any)=>(a.panel_sort_order??a.sort_order)-(b.panel_sort_order??b.sort_order)||a.id-b.id).map(build);
+ res.json({panel,items,total:items.length,canonicalTotal:CANONICAL_ROOT_KEYS.length});
 });
-
 router.patch("/api/dashboard/menu-items/:id",requireAuth,requirePermission("menus:manage"),async(req:Request,res:Response)=>{
  const {title,path,permission,parentId,children}=req.body||{};
  const r=await query(
