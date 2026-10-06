@@ -1,9 +1,16 @@
 name: Deploy Sookar Main Safely
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      target_sha:
+        description: "Commit SHA selected by management"
+        required: true
+        type: string
+      requested_by:
+        description: "Management panel requester"
+        required: false
+        type: string
 
 concurrency:
   group: sookar-production-direct
@@ -35,6 +42,8 @@ jobs:
       NODE_ENV: test
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -83,7 +92,7 @@ jobs:
       - name: Deploy with rollback
         shell: bash
         env:
-          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_SHA: ${{ inputs.target_sha }}
         run: |
           set -euo pipefail
           HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
