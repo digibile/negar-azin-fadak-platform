@@ -153,9 +153,9 @@ PY'
         run: |
           set -euo pipefail
           for i in $(seq 1 20); do
-            code=$(curl -k -sS -o /tmp/api.txt -w '%{http_code}' https://sookar.ir/api/session/properties || true)
+            code=$(curl -k -sS -o /tmp/api.txt -w '%{http_code}' https://sookar.ir/api/auth/human-check || true)
             echo "attempt=$i http=$code"
-            if [ "$code" != "502" ] && [ "$code" != "000" ]; then
+            if [ "$code" = "200" ]; then
               cat /tmp/api.txt
               exit 0
             fi
