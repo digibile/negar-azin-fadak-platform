@@ -32,6 +32,10 @@ function CloseIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d=
 
 function normalize(nodes:MenuNode[]):MenuNode[]{return [...nodes].sort((a,b)=>a.sort_order-b.sort_order||String(a.id).localeCompare(String(b.id)))}
 function allTitles(node:MenuNode):string{return [node.title,...(node.child_items||[]).map(allTitles)].join(" ")}
+function menuHref(path:string|undefined,parent:string,title:string){
+ if(path&&path!=="#")return path;
+ return parent+"&menu="+encodeURIComponent(title);
+}
 
 const LEGACY_BY_MASTER:Record<string,string>={
  dashboard:"01-dashboard",
@@ -185,18 +189,11 @@ export default function AdminSidebar(){
       </div>
       {expanded&&item.children.length>0&&<div className={styles["master-children"]}>
        {item.children.map((child,i)=>{
-        const href=child.path||item.route;
-        const active=href===pathname;
-        return <div className={styles["tree-child-node"]+" "+(active?styles["child-active"]:"")} key={child.id}>
-         <div className={styles["tree-child-head"]}>
-          <span className={styles["master-child-index"]}>{String(i+1).padStart(2,"0")}</span>
-          <Link href={href} onClick={closeMobile}>{child.title}</Link>
-         </div>
-        </div>;
+        const dbChild=item.dbChildren.find(x=>x.title===child.title);
+        const href=menuHref(dbChild?.path||child.path,item.route,child.title);
+        return <TreeNode key={child.id} node={dbChild||{id:child.id,menu_key:null,parent_id:null,title:child.title,path:href,sort_order:i,permission:null}} href={href} pathname={pathname} closeMobile={closeMobile} depth={0} />;
        })}
-       {item.dbChildren.filter(x=>!item.children.some(c=>c.title===x.title)).map((child,i)=><div className={styles["tree-child-node"]} key={"db-"+child.id}>
-        <div className={styles["tree-child-head"]}><span className={styles["master-child-index"]}>DB</span><Link href={child.path||item.route} onClick={closeMobile}>{child.title}</Link></div>
-       </div>)}
+       {item.dbChildren.filter(x=>!item.children.some(c=>c.title===x.title)).map(child=><TreeNode key={"db-"+child.id} node={child} href={menuHref(child.path,item.route,child.title)} pathname={pathname} closeMobile={closeMobile} depth={0} />)}
       </div>}
      </section>;
     })}
