@@ -20,13 +20,18 @@ export default function UpdatesPage(){
  const [logLoading,setLogLoading]=useState(false);
  const [triggering,setTriggering]=useState(false);
  const [triggerMessage,setTriggerMessage]=useState("");
+ const [githubToken,setGithubToken]=useState("");
+ const [githubConnection,setGithubConnection]=useState<{configured:boolean;source:string|null;masked:string|null;repository:string;workflow:string;workflowState?:string}|null>(null);
+ const [savingGithub,setSavingGithub]=useState(false);
+ const [githubMessage,setGithubMessage]=useState("");
  const load=useCallback(async()=>{try{setError("");setStatus(await api<Status>("/api/platform/update-status"))}catch(e){setError(e instanceof Error?e.message:"خطا در دریافت وضعیت انتشار")}finally{setLoading(false)}},[]);
- useEffect(()=>{load()},[load]);
+ useEffect(()=>{load(); loadGithubConnection()},[load]);
+ async function loadGithubConnection(){try{setGithubConnection(await api("/api/platform/github-connection"))}catch(e){setGithubMessage(e instanceof Error?e.message:"وضعیت اتصال GitHub دریافت نشد")}}
  useEffect(()=>{const id=window.setInterval(()=>{if(status?.running||status?.updateAvailable)load()},4000);return()=>window.clearInterval(id)},[status,load]);
  const success=status?.run?.conclusion==="success";
  const failed=status?.failed||status?.run?.conclusion==="failure";
  const current=useMemo(()=>status?.stages.find(x=>x.status==="running")||status?.stages.find(x=>x.status==="pending"),[status]);
- async function triggerUpdate(){
+ async function saveGithubToken(){\n  if(!githubToken.trim())return; setSavingGithub(true);setGithubMessage("");\n  try{const result=await api<{masked?:string;message?:string}>("/api/platform/github-connection",{method:"POST",body:JSON.stringify({token:githubToken.trim()})});setGithubToken("");setGithubMessage(result.message||"توکن ذخیره شد.");await loadGithubConnection();await load();}\n  catch(e){setGithubMessage(e instanceof Error?e.message:"توکن GitHub معتبر نیست")}finally{setSavingGithub(false)}\n }\n async function removeGithubToken(){\n  setSavingGithub(true);setGithubMessage("");\n  try{const result=await api<{message?:string}>("/api/platform/github-connection",{method:"DELETE"});setGithubMessage(result.message||"توکن حذف شد.");await loadGithubConnection();await load();}\n  catch(e){setGithubMessage(e instanceof Error?e.message:"حذف توکن انجام نشد")}finally{setSavingGithub(false)}\n }\n async function triggerUpdate(){
   if(triggering)return;
   setTriggering(true);setTriggerMessage("");setError("");
   try{
@@ -44,6 +49,13 @@ export default function UpdatesPage(){
   <div className="platform-update-head"><div><span className="section-kicker">PLATFORM RELEASE LIFECYCLE · 2026</span><h2>مرکز انتشار و بروزرسانی سامانه</h2><p>منبع حقیقت این صفحه GitHub Actions است. Build می‌تواند نسخه‌های جدید را آماده کند، اما هیچ نسخه‌ای روی Production خودکار منتشر نمی‌شود. انتخاب و اجرای بروزرسانی فقط با مدیر انجام می‌شود.</p></div><div className="platform-update-actions"><button className="admin-link release-trigger-button" onClick={triggerUpdate} disabled={triggering||status?.running}>{triggering||status?.running?"انتشار در حال اجرا...":"بروزرسانی دستی نسخه جدید"}</button><Link className="admin-link" href="/admin">بازگشت به مرکز مدیریت</Link></div></div>
   {error&&<div className="error">{error}</div>}
   {triggerMessage&&<div className="update-success">{triggerMessage}</div>}
+  <section className="update-card github-connection-card">
+   <div className="release-lifecycle-head"><div><h3>اتصال GitHub</h3><p>توکن در PostgreSQL به‌صورت رمزنگاری‌شده نگهداری می‌شود و مقدار کامل آن هرگز در پنل نمایش داده نمی‌شود.</p></div><strong>{githubConnection?.configured?"متصل":"تنظیم نشده"}</strong></div>
+   <div className="github-connection-row"><input type="password" autoComplete="new-password" value={githubToken} onChange={e=>setGithubToken(e.target.value)} placeholder="github_pat_..." /><button className="admin-link release-trigger-button" onClick={saveGithubToken} disabled={savingGithub||!githubToken.trim()}>{savingGithub?"در حال بررسی...":"ذخیره و بررسی اتصال"}</button>{githubConnection?.source==="panel"&&<button className="admin-link" onClick={removeGithubToken} disabled={savingGithub}>حذف توکن پنل</button>}</div>
+   <div className="github-connection-meta"><span>مخزن: <code>{githubConnection?.repository||"digibile/negar-azin-fadak-platform"}</code></span><span>Workflow: <code>{githubConnection?.workflow||"deploy-sookar-main.yml"}</code></span><span>توکن: <code>{githubConnection?.masked||"تنظیم نشده"}</code></span><span>منبع: {githubConnection?.source==="panel"?"پنل":githubConnection?.source==="environment"?"Environment":"-"}</span></div>
+   {githubMessage&&<div className="update-success">{githubMessage}</div>}
+   <small>خود GitHub PAT فقط توسط GitHub صادر می‌شود. اینجا محل ثبت، اعتبارسنجی، تعویض و حذف امن آن است.</small>
+  </section>
   <section className="release-summary">
    <div><span>نسخه نصب‌شده</span><code>{status?.deployedSha?.slice(0,12)||"در حال شناسایی"}</code></div>
    <div><span>نسخه هدف</span><code>{status?.targetSha?.slice(0,12)||status?.mainSha?.slice(0,12)||"در حال بررسی"}</code></div>
@@ -74,7 +86,7 @@ export default function UpdatesPage(){
   <section className="update-grid">
    <article className="update-card"><span className="update-label">مخزن</span><strong>{status?.repository||"digibile/negar-azin-fadak-platform"}</strong><span className="update-label">Workflow</span><strong>{status?.workflow||"deploy-sookar-main.yml"}</strong><span className="update-label">اتصال</span><strong>{status?.configured?"GitHub متصل است":"اتصال GitHub تنظیم نشده"}</strong></article>
    <article className="update-card"><span className="update-label">Rollback</span><strong>فعال و ایمن</strong><p>اگر Deploy یا Health Check شکست بخورد، workflow نسخه قبلی سالم را دوباره فعال می‌کند.</p></article>
-   <article className="update-card"><span className="update-label">رفتار بروزرسانی</span><strong>خودکار + دستی</strong><p>هیچ بروزرسانی Production خودکار نیست. نسخه‌های منتشرنشده به‌ترتیب نمایش داده می‌شوند و فقط با انتخاب مدیر منتشر می‌شوند.</p></article>
+   <article className="update-card"><span className="update-label">رفتار بروزرسانی</span><strong>فقط دستی</strong><p>هیچ بروزرسانی Production خودکار نیست. نسخه‌های منتشرنشده به‌ترتیب نمایش داده می‌شوند و فقط با انتخاب مدیر منتشر می‌شوند.</p></article>
   </section>
  </main>;
 }
