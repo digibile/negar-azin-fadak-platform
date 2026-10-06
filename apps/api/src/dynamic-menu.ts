@@ -5,17 +5,11 @@ import {requireAuth, requirePermission} from "./auth.js";
 const router=Router();
 
 const CANONICAL_ROOT_KEYS=[
- "governance","identity","master-data","customer-360","smart-calendar","business-rules","sla",
- "accounting-finance","treasury-bank","wallet-ledger","credit-facilities",
- "12-credit-applications","13-loan-contracts","14-installment-schedules","15-installment-collections",
- "16-collateral-guarantees","17-digital-binder","18-identity-verification","19-credit-scoring",
- "20-credit-decisions","21-credit-committee","22-credit-disbursement","23-loan-settlement","24-loan-ledger",
- "25-loan-refunds","26-loan-closure","27-loan-delinquency","28-collection-workflow","29-loan-restructuring",
- "30-loan-relief","31-loan-legal-cases","32-form-builder","33-menu-builder","34-page-builder",
- "35-page-block-editor","36-page-templates","37-frontend-sections","38-navigation-rules",
- "39-frontend-notifications","40-notification-templates","41-documentation","42-document-approvals",
- "43-document-versions","44-document-search","45-document-retention","46-document-distribution",
- "47-document-access-log","48-document-audit-reports","49-document-compliance","50-document-governance"
+ "central-01-governance","central-02-organization","central-03-people","central-04-hr","central-05-commerce",
+ "central-06-finance","central-07-credit","central-08-supply","central-09-projects","central-10-legal",
+ "central-11-documents","central-12-payments","central-13-data-ai","central-14-integrations","central-15-risk",
+ "central-16-assets","central-17-builders","central-18-notifications","central-19-security","central-20-settings",
+ "central-21-domains","central-22-merchants","central-23-sellers"
 ] as const;
 
 router.get("/api/dashboard/menu-tree",requireAuth,async(req:Request,res:Response)=>{
