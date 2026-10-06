@@ -93,7 +93,7 @@ with seed(menu_key,title,path,sort_order,permission,children) as (values
 ('50-document-governance','حاکمیت اسناد','/modules/?code=50-document-governance',50,'modules:50-document-governance:read','["سیاست‌های اسناد","مالکیت","سطوح دسترسی","چرخه عمر","گزارش حاکمیت"]'::jsonb)
 ),
 parents as (
- select m.id,m.menu_key,m.path,s.children
+ select m.id,m.menu_key,m.path,s.permission,s.children
  from menu_items m join seed s on s.menu_key=m.menu_key
 )
 insert into menu_items(menu_key,parent_id,title,path,sort_order,permission,children,is_active)
