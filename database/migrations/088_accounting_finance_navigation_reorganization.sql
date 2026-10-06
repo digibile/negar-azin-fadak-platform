@@ -28,6 +28,20 @@ where m.menu_key in (
 );
 
 with root as (select id from menu_items where menu_key='accounting' limit 1)
+update menu_items m
+set path=case m.menu_key
+  when 'accounting' then '/modules/?code=accounting-finance&tab=dashboard'
+  when 'treasury' then '/modules/?code=accounting-finance&tab=treasury'
+  when 'wallet-ledger' then '/modules/?code=accounting-finance&tab=wallet-ledger'
+  when 'credit' then '/modules/?code=accounting-finance&tab=credit-facilities'
+  when 'digital-file' then '/modules/?code=accounting-finance&tab=digital-binder'
+  else m.path end,
+  parent_id=case when m.menu_key in ('accounting','treasury','wallet-ledger','credit','digital-file') then root.id else m.parent_id end,
+  updated_at=now()
+from root
+where m.menu_key in ('accounting','treasury','wallet-ledger','credit','digital-file');
+
+with root as (select id from menu_items where menu_key='accounting' limit 1)
 update menu_item_panels p
 set is_visible=true,is_shared=true,sort_order=500+p.sort_order
 from menu_items m, root
