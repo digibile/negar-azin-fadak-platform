@@ -36,9 +36,9 @@ export default function MarketplacePage(){
   if(!catalog)return null;
 
   return <main className="marketplace-shell" dir="rtl">
-    <header className="marketplace-header">
+    <header className="marketplace-header"><nav className="marketplace-nav"><a href="/store">فروشگاه</a><a href="/marketplace">مارکت‌پلیس</a><a href="/marketplace/stores">فروشگاه‌ها</a><a href="/marketplace/sellers">فروشندگان</a><a href="/marketplace/products">محصولات</a><a href="/marketplace/orders">سفارش‌ها</a><a href="/marketplace/settlements">تسویه</a><a href="/pay">اعتبار و پرداخت</a><a href="/login">ورود</a></nav>
       <div><span className="section-kicker">پلتفرم بیزینس نگار آذین فدک ایران</span><h1>بازارگاه</h1><p>{catalog.tenant.name}</p></div>
-      <a className="back-link" href="/">مرکز مدیریت</a>
+      <a className="back-link" href="/store">بازگشت به فروشگاه</a>
     </header>
     <section className="marketplace-toolbar">
       <input value={q} onChange={e=>setQ(e.target.value)} placeholder="جستجو در محصولات، فروشندگان و دسته‌بندی..." />
@@ -51,7 +51,7 @@ export default function MarketplacePage(){
       {catalog.stores.map(s=><a href={"/marketplace?store="+encodeURIComponent(s.id)} key={s.id}><b>{s.name}</b><span>{s.seller_name}</span></a>)}
     </section>
     <section className="marketplace-grid">
-      {products.map(p=><article className="marketplace-product" key={p.id}>
+      {products.map(p=><a className="marketplace-product" key={p.id} href={"/store/product/"+encodeURIComponent(p.id)}>
         <div className="marketplace-product-meta"><span>{p.category||"محصول"}</span><small>{p.seller_name}</small></div>
         <h2>{p.title}</h2>
         <p>{p.description||"اطلاعات تکمیلی این محصول در کاتالوگ فروشنده ثبت نشده است."}</p>
