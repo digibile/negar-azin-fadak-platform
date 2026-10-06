@@ -49,7 +49,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          package-manager-cache: false
+          cache: npm
       - name: Install API dependencies
         working-directory: apps/api
         run: npm install
@@ -94,7 +94,7 @@ jobs:
       - name: Deploy with rollback
         shell: bash
         env:
-          RELEASE_SHA: ${{ inputs.target_sha }}
+          RELEASE_SHA: ${{ inputs.target_sha || github.sha }}
         run: |
           set -euo pipefail
           HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
