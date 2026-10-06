@@ -8,13 +8,14 @@ async function audit(req:any,entity:string,id:number|undefined,action:string,bef
  await query("insert into master_data_audit(entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,$2,$3,$4,$5,$6)",[entity,id,action,req.user?.id,before?JSON.stringify(before):null,after?JSON.stringify(after):null]);
 }
 router.get("/api/master-data/overview",requireAuth,read,async(_req,res)=>{
- const [sets,codes,units,auditRows]=await Promise.all([
+ const [sets,codes,units,items,auditRows]=await Promise.all([
   query("select id,data_key,title,description,is_system,is_active from master_data_sets order by title"),
   query("select id,namespace,code,title,value,is_active from master_data_codes order by namespace,code"),
   query("select id,unit_key,title,symbol,unit_type,factor,base_unit_key,is_active from master_units order by unit_type,title"),
+  query("select id,data_set_id,item_key,title,code,parent_id,sort_order,metadata,is_active from master_data_items order by data_set_id,sort_order,title"),
   query("select a.id,a.entity_type,a.entity_id,a.action,a.actor_user_id,a.created_at,u.full_name actor_name from master_data_audit a left join users u on u.id=a.actor_user_id order by a.created_at desc limit 100")
  ]);
- res.json({sets:sets.rows,codes:codes.rows,units:units.rows,audit:auditRows.rows});
+ res.json({sets:sets.rows,codes:codes.rows,units:units.rows,items:items.rows,audit:auditRows.rows});
 });
 router.post("/api/master-data/sets",requireAuth,write,requireCsrf,async(req,res)=>{
  const {dataKey,title,description=""}=req.body||{};
@@ -27,6 +28,7 @@ router.patch("/api/master-data/sets/:id",requireAuth,write,requireCsrf,async(req
  const r=await query("update master_data_sets set title=coalesce($1,title),description=coalesce($2,description),is_active=coalesce($3,is_active),updated_at=now() where id=$4 returning *",[req.body?.title||null,req.body?.description??null,req.body?.is_active??null,req.params.id]);
  await audit(req,"set",Number(req.params.id),"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
+router.get("/api/master-data/sets/:id/items",requireAuth,read,async(req,res)=>{ const r=await query("select id,data_set_id,item_key,title,code,parent_id,sort_order,metadata,is_active from master_data_items where data_set_id=$1 order by sort_order,title",[req.params.id]); res.json({items:r.rows}); });
 router.post("/api/master-data/sets/:id/items",requireAuth,write,requireCsrf,async(req,res)=>{
  const {itemKey,title,code,parentId,sortOrder=0,metadata={}}=req.body||{};
  if(!/^[a-z0-9][a-z0-9_-]{0,60}$/.test(String(itemKey||""))||!String(title||"").trim())return res.status(400).json({error:"کلید و عنوان آیتم الزامی است"});
