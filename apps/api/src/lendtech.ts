@@ -95,14 +95,27 @@ lendtechRouter.post("/api/lendtech/applications/:id/score",requireAuth,requirePe
  const a=app.rows[0];
  if(a.kyc_status!=="verified")return res.status(409).json({error:"پیش از امتیازدهی، احراز هویت باید تأیید شود"});
  if(a.eligibility_status!=="eligible")return res.status(409).json({error:"درخواست از نظر شرایط اولیه واجد صلاحیت نیست"});
- const income=Number(a.monthly_income),dti=Number(a.dti_percent);
- const history=n(req.body?.paymentHistoryScore??70),stability=n(req.body?.incomeStabilityScore??70),identity=n(req.body?.identityConfidenceScore??100);
- for(const [name,v] of [["paymentHistoryScore",history],["incomeStabilityScore",stability],["identityConfidenceScore",identity]] as const)
-  if(v===null||v<0||v>100)return res.status(400).json({error:`امتیاز ${name} باید بین ۰ تا ۱۰۰ باشد`});
- const score=Number((identity*0.20+history*0.35+stability*0.20+Math.max(0,100-dti*1.5)*0.25).toFixed(2))*10;
+ const [repayments,delinquencies]=await Promise.all([
+  query(`select count(*)::int as count,coalesce(sum(amount),0) as amount
+    from lendtech_repayments r join lendtech_contracts c on c.id=r.contract_id
+    join lendtech_facilities f on f.id=c.facility_id
+    join lendtech_applications a2 on a2.id=f.application_id
+    where r.tenant_ref=$1 and a2.customer_ref=$2`,[t.id,a.customer_ref]),
+  query(`select count(*)::int as count,coalesce(sum(amount_due),0) as amount
+    from lendtech_delinquencies d join lendtech_contracts c on c.id=d.contract_id
+    join lendtech_facilities f on f.id=c.facility_id
+    join lendtech_applications a2 on a2.id=f.application_id
+    where d.tenant_ref=$1 and a2.customer_ref=$2 and d.status='open'`,[t.id,a.customer_ref])
+ ]);
+ const dti=Number(a.dti_percent),historyCount=Number(repayments.rows[0].count),lateCount=Number(delinquencies.rows[0].count);
+ const paymentHistoryScore=lateCount>0?Math.max(20,70-Math.min(50,lateCount*10)):Math.min(100,70+Math.min(30,historyCount*5));
+ const dtiScore=Math.max(0,100-dti*1.5);
+ const identityConfidenceScore=100;
+ const incomeStabilityScore=Math.max(0,Math.min(100,100-dti));
+ const score=Number((identityConfidenceScore*0.20+paymentHistoryScore*0.35+incomeStabilityScore*0.20+dtiScore*0.25).toFixed(2))*10;
  const band=score>=800?"A":score>=700?"B":score>=600?"C":"D";
  const r=await query(`insert into lendtech_scores(tenant_ref,application_id,score,band,inputs,created_by) values($1,$2,$3,$4,$5,$6) returning *`,
-  [t.id,a.id,score,band,JSON.stringify({monthlyIncome:income,dtiPercent:dti,paymentHistoryScore:history,incomeStabilityScore:stability,identityConfidenceScore:identity}),actor(req)]);
+  [t.id,a.id,score,band,JSON.stringify({monthlyIncome:Number(a.monthly_income),dtiPercent:dti,paymentHistoryScore,incomeStabilityScore,identityConfidenceScore,repaymentCount:historyCount,openDelinquencyCount:lateCount}),actor(req)]);
  await query("update lendtech_applications set status='scoring',updated_at=now() where id=$1 and tenant_ref=$2",[a.id,t.id]);
  res.status(201).json({applicationId:a.id,score:r.rows[0]});
 }));
