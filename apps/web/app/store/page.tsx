@@ -1,3 +1,4 @@
+import "./styles.css";
 import Link from "next/link";
 
 const categories=["کالای دیجیتال","خانه و آشپزخانه","مد و پوشاک","زیبایی و سلامت","ابزار و تجهیزات","سوپرمارکت"];
