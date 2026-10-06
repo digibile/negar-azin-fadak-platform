@@ -269,6 +269,20 @@ lendtechRouter.post("/api/lendtech/contracts/:id/restructure",requireAuth,requir
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
+lendtechRouter.get("/api/lendtech/my-facilities",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);
+ if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query(`select f.id,f.facility_no,f.approved_amount,f.available_amount,f.status,f.currency,f.created_at,
+   a.customer_ref,a.product_code,
+   d.approved_term_months,d.interest_rate
+   from lendtech_facilities f
+   join lendtech_applications a on a.id=f.application_id
+   left join lateral (select approved_term_months,interest_rate from lendtech_decisions where application_id=a.id and decision='approve' order by decided_at desc limit 1)d on true
+   where f.tenant_ref=$1 and f.status='active' and f.available_amount>0
+   order by f.created_at desc`,[t.id]);
+ res.json({items:r.rows,total:r.rowCount});
+}));
+
 lendtechRouter.get("/api/lendtech/portfolio",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);
  if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
