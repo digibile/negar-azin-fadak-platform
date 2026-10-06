@@ -23,6 +23,7 @@ import {accountingFinanceOperationsRouter} from "./accounting-finance-operations
 import {financeCoreRouter} from "./finance-core.js";
 import {treasuryBankRouter} from "./treasury-bank.js";
 import {treasuryChecksRouter} from "./treasury-checks.js";
+import {salesRouter} from "./sales-revenue.js";
 import {walletLedgerRouter} from "./wallet-ledger.js";
 import {centralSettingsRouter} from "./central-settings.js";
 import {domainCommerceRouter} from "./domain-commerce.js";
@@ -80,6 +81,7 @@ app.use(accountingFinanceOperationsRouter);
 app.use(financeCoreRouter);
 app.use(treasuryBankRouter);
 app.use(treasuryChecksRouter);
+app.use(salesRouter);
 app.use(walletLedgerRouter);
 app.use(centralSettingsRouter);
 app.use("/api/domain",domainFinanceRouter);
