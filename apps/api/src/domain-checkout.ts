@@ -143,17 +143,31 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
   if(!payment.rowCount){await client.query("rollback");return res.status(409).json({error:"پرداخت موفق سفارش پیدا نشد"});}
   const existing=await client.query("select * from marketplace_refunds where tenant_id=$1 and payment_id=$2 and status='refunded'",[t.id,payment.rows[0].id]);
   if(existing.rowCount){await client.query("rollback");return res.status(200).json({refund:existing.rows[0],order:{id:order.id,status:"refunded"}});}
-  const provider=getPaymentProvider(payment.rows[0].provider_code);
-  const providerResult=await provider.refundPayment({providerTransactionId:payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref||"",amount:Number(payment.rows[0].amount),metadata:{orderId:order.id,paymentId:payment.rows[0].id}});
-  if(providerResult.status!=="refunded"){await client.query("rollback");return res.status(409).json({error:"درگاه بازگشت وجه را تأیید نکرد",status:providerResult.status});}
+  let refundProviderCode=payment.rows[0].provider_code,refundProviderTransactionId=payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref||"",refundProviderPayload:any={};
+  if(payment.rows[0].provider_code==="credit_facility"){
+   if(!order.credit_facility_ref){await client.query("rollback");return res.status(409).json({error:"مرجع تسهیلات اعتبار خرید روی سفارش ثبت نشده است"});}
+   const facility=await client.query("select id,status from lendtech_facilities where id=$1 and tenant_ref=$2 for update",[order.credit_facility_ref,t.id]);
+   if(!facility.rowCount){await client.query("rollback");return res.status(404).json({error:"تسهیلات اعتباری سفارش پیدا نشد"});}
+   await client.query("update lendtech_facilities set available_amount=available_amount+$1,updated_at=now() where id=$2",[Number(payment.rows[0].amount),order.credit_facility_ref]);
+   refundProviderPayload={creditFacilityId:order.credit_facility_ref,restoredAmount:Number(payment.rows[0].amount)};
+  }else{
+   const provider=getPaymentProvider(payment.rows[0].provider_code);
+   const providerResult=await provider.refundPayment({providerTransactionId:payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref||"",amount:Number(payment.rows[0].amount),metadata:{orderId:order.id,paymentId:payment.rows[0].id}});
+   if(providerResult.status!=="refunded"){await client.query("rollback");return res.status(409).json({error:"درگاه بازگشت وجه را تأیید نکرد",status:providerResult.status});}
+   refundProviderCode=provider.code;
+   refundProviderTransactionId=providerResult.providerTransactionId;
+   refundProviderPayload=providerResult.providerPayload;
+  }
   const refundNo=s(req.body?.refundNo,100)||("REF-"+Date.now()+"-"+order.id.slice(0,8));
-  const rr=await client.query("insert into marketplace_refunds(tenant_id,order_id,payment_id,refund_no,amount,reason,status,provider_code,provider_transaction_id,provider_refund_transaction_id,provider_payload,created_by) values($1,$2,$3,$4,$5,$6,'refunded',$7,$8,$9,$10,$11) returning *",[t.id,order.id,payment.rows[0].id,refundNo,Number(payment.rows[0].amount),s(req.body?.reason,500)||null,provider.code,payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref,providerResult.providerTransactionId,JSON.stringify(providerResult.providerPayload),(req as any).user.id]);
+  const rr=await client.query("insert into marketplace_refunds(tenant_id,order_id,payment_id,refund_no,amount,reason,status,provider_code,provider_transaction_id,provider_refund_transaction_id,provider_payload,created_by) values($1,$2,$3,$4,$5,$6,'refunded',$7,$8,$9,$10,$11) returning *",[t.id,order.id,payment.rows[0].id,refundNo,Number(payment.rows[0].amount),s(req.body?.reason,500)||null,refundProviderCode,payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref,refundProviderTransactionId,JSON.stringify(refundProviderPayload),(req as any).user.id]);
   await client.query("update marketplace_payments set status='refunded',updated_at=now() where id=$1 and tenant_id=$2 and status='paid'",[payment.rows[0].id,t.id]);
   await client.query("update marketplace_orders set status='refunded',updated_at=now() where id=$1 and tenant_id=$2",[order.id,t.id]);
   await postLedgerEntry(client,{tenantId:t.id,entryNo:"REF-"+rr.rows[0].refund_no,sourceType:"marketplace_refund",sourceId:rr.rows[0].id,description:"معکوس‌سازی پرداخت سفارش "+order.order_no,createdBy:(req as any).user.id,lines:[
    {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",debit:Number(order.seller_payable)},
    {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",debit:Number(order.commission_amount)},
-   {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:Number(order.total_amount)}
+   payment.rows[0].provider_code==="credit_facility"
+    ? {accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",credit:Number(order.total_amount)}
+    : {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:Number(order.total_amount)}
   ]});
   const items=await client.query("select * from marketplace_order_items where order_id=$1",[order.id]);
   for(const item of items.rows){
