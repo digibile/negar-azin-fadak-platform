@@ -234,7 +234,7 @@ lendtechRouter.post("/api/lendtech/contracts/:id/repay",requireAuth,requirePermi
   const r=await client.query("insert into lendtech_repayments(tenant_ref,contract_id,payment_ref,amount,method,allocation,created_by) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,req.params.id,paymentRef,applied,s(req.body?.method,50)||null,JSON.stringify(allocation),actor(req)]);
   const open=await client.query("select count(*)::int as count from lendtech_installments where contract_id=$1 and status<>'paid'",[req.params.id]);
   if(Number(open.rows[0].count)===0)await client.query("update lendtech_contracts set status='closed',closed_at=now(),updated_at=now() where id=$1",[req.params.id]);
-  await event(client,t.id,null,req.params.id,"repayment.received",actor(req),{paymentRef,amount:applied,unallocated:remaining});
+  await event(client,t.id,null,String(req.params.id),"repayment.received",actor(req),{paymentRef,amount:applied,unallocated:remaining});
   await client.query("commit");
   res.status(201).json({repayment:r.rows[0],unallocated:remaining});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
