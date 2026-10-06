@@ -85,19 +85,27 @@ begin
       returning id into child_id;
 
       insert into menu_item_panels(menu_item_id,panel_code,is_shared,sort_order,is_visible)
-      values(child_id,'admin',true,n,true)
-      on conflict(menu_item_id,panel_code) do update set
-        is_shared=true,
-        sort_order=excluded.sort_order,
-        is_visible=true;
+      select child_id,'admin',true,n,true
+      where not exists (
+        select 1 from menu_item_panels
+        where menu_item_id=child_id and panel_code='admin'
+      );
+
+      update menu_item_panels
+      set is_shared=true, sort_order=n, is_visible=true
+      where menu_item_id=child_id and panel_code='admin';
     end loop;
 
     insert into menu_item_panels(menu_item_id,panel_code,is_shared,sort_order,is_visible)
-    values(root_id,'admin',true,r.sort_order,true)
-    on conflict(menu_item_id,panel_code) do update set
-      is_shared=true,
-      sort_order=excluded.sort_order,
-      is_visible=true;
+    select root_id,'admin',true,r.sort_order,true
+    where not exists (
+      select 1 from menu_item_panels
+      where menu_item_id=root_id and panel_code='admin'
+    );
+
+    update menu_item_panels
+    set is_shared=true, sort_order=r.sort_order, is_visible=true
+    where menu_item_id=root_id and panel_code='admin';
   end loop;
 end $$;
 
