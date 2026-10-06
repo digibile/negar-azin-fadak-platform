@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function StoreOrders(){return <main className="sookar-store" dir="rtl"><section className="store-section"><span>پیگیری سفارش</span><h1>سفارش‌های من</h1><p>سفارش‌های واقعی پس از ورود و اتصال به حساب کاربری مرکزی از سرویس سفارش نمایش داده می‌شوند. برای مشاهده سوابق فعلی حساب، وارد بخش حساب کاربری شوید.</p><div className="store-actions"><Link href="/account/orders">سفارش‌های حساب</Link><Link href="/login" className="secondary">ورود</Link></div></section></main>}
