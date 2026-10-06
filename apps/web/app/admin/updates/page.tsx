@@ -31,7 +31,17 @@ export default function UpdatesPage(){
  const success=status?.run?.conclusion==="success";
  const failed=status?.failed||status?.run?.conclusion==="failure";
  const current=useMemo(()=>status?.stages.find(x=>x.status==="running")||status?.stages.find(x=>x.status==="pending"),[status]);
- async function saveGithubToken(){\n  if(!githubToken.trim())return; setSavingGithub(true);setGithubMessage("");\n  try{const result=await api<{masked?:string;message?:string}>("/api/platform/github-connection",{method:"POST",body:JSON.stringify({token:githubToken.trim()})});setGithubToken("");setGithubMessage(result.message||"توکن ذخیره شد.");await loadGithubConnection();await load();}\n  catch(e){setGithubMessage(e instanceof Error?e.message:"توکن GitHub معتبر نیست")}finally{setSavingGithub(false)}\n }\n async function removeGithubToken(){\n  setSavingGithub(true);setGithubMessage("");\n  try{const result=await api<{message?:string}>("/api/platform/github-connection",{method:"DELETE"});setGithubMessage(result.message||"توکن حذف شد.");await loadGithubConnection();await load();}\n  catch(e){setGithubMessage(e instanceof Error?e.message:"حذف توکن انجام نشد")}finally{setSavingGithub(false)}\n }\n async function triggerUpdate(){
+ async function saveGithubToken(){
+  if(!githubToken.trim())return; setSavingGithub(true);setGithubMessage("");
+  try{const result=await api<{masked?:string;message?:string}>("/api/platform/github-connection",{method:"POST",body:JSON.stringify({token:githubToken.trim()})});setGithubToken("");setGithubMessage(result.message||"توکن ذخیره شد.");await loadGithubConnection();await load();}
+  catch(e){setGithubMessage(e instanceof Error?e.message:"توکن GitHub معتبر نیست")}finally{setSavingGithub(false)}
+ }
+ async function removeGithubToken(){
+  setSavingGithub(true);setGithubMessage("");
+  try{const result=await api<{message?:string}>("/api/platform/github-connection",{method:"DELETE"});setGithubMessage(result.message||"توکن حذف شد.");await loadGithubConnection();await load();}
+  catch(e){setGithubMessage(e instanceof Error?e.message:"حذف توکن انجام نشد")}finally{setSavingGithub(false)}
+ }
+ async function triggerUpdate(){
   if(triggering)return;
   setTriggering(true);setTriggerMessage("");setError("");
   try{
