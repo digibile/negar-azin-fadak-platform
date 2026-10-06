@@ -85,10 +85,31 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,requirePer
   const paymentNo=s(req.body?.paymentNo,100)||("PAY-"+Date.now()+"-"+Math.random().toString(36).slice(2,7));
   const idempotencyKey=s(req.body?.idempotencyKey,160)||null;
   if(idempotencyKey){const existing=await client.query("select * from marketplace_payments where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey]);if(existing.rowCount){await client.query("rollback");return res.status(200).json({payment:existing.rows[0],order:{id:o.rows[0].id,status:o.rows[0].status}});}}
-  const provider=getPaymentProvider(s(req.body?.providerCode,40)||undefined);
-  const providerResult=await provider.createPayment({tenantId:t.id,orderId:o.rows[0].id,amount:Number(o.rows[0].total_amount),currency:"IRR",paymentNo,providerRef:s(req.body?.providerRef,200)||null,metadata:{orderNo:o.rows[0].order_no}});
-  if(providerResult.status!=="paid"){await client.query("rollback");return res.status(202).json({status:providerResult.status,providerCode:provider.code,providerTransactionId:providerResult.providerTransactionId});}
-  const p=await client.query("insert into marketplace_payments(tenant_id,order_id,payment_no,amount,method,status,provider_ref,provider_code,idempotency_key,provider_transaction_id,provider_payload,paid_at) values($1,$2,$3,$4,$5,'paid',$6,$7,$8,$9,$10,now()) returning *",[t.id,o.rows[0].id,paymentNo,Number(o.rows[0].total_amount),s(req.body?.method,50)||provider.code,providerResult.providerTransactionId,provider.code,idempotencyKey,providerResult.providerTransactionId,JSON.stringify(providerResult.providerPayload)]);
+  const requestedMethod=s(req.body?.method,50)||"online";
+  let providerCode=s(req.body?.providerCode,40)||"";
+  let providerTransactionId=s(req.body?.providerRef,200)||"";
+  let providerPayload:any={};
+  if(requestedMethod==="credit"){
+   const facilityId=s(req.body?.creditFacilityId,100);
+   if(!facilityId){await client.query("rollback");return res.status(400).json({error:"برای پرداخت اعتباری شناسه تسهیلات الزامی است"});}
+   const facility=await client.query("select * from lendtech_facilities where id=$1 and tenant_ref=$2 and status='active' for update",[facilityId,t.id]);
+   if(!facility.rowCount){await client.query("rollback");return res.status(404).json({error:"تسهیلات اعتباری فعال پیدا نشد"});}
+   const amount=Number(o.rows[0].total_amount);
+   if(Number(facility.rows[0].available_amount)<amount){await client.query("rollback");return res.status(409).json({error:"سقف اعتبار برای این خرید کافی نیست",availableAmount:Number(facility.rows[0].available_amount),requiredAmount:amount});}
+   await client.query("update lendtech_facilities set available_amount=available_amount-$1,updated_at=now() where id=$2",[amount,facilityId]);
+   await client.query("update marketplace_orders set credit_facility_ref=$1 where id=$2 and tenant_id=$3",[facilityId,o.rows[0].id,t.id]);
+   providerCode="credit_facility";
+   providerTransactionId=paymentNo;
+   providerPayload={facilityId,amount,orderNo:o.rows[0].order_no};
+  }else{
+   const provider=getPaymentProvider(providerCode||undefined);
+   const providerResult=await provider.createPayment({tenantId:t.id,orderId:o.rows[0].id,amount:Number(o.rows[0].total_amount),currency:"IRR",paymentNo,providerRef:providerTransactionId||null,metadata:{orderNo:o.rows[0].order_no}});
+   providerCode=provider.code;
+   providerTransactionId=providerResult.providerTransactionId||"";
+   providerPayload=providerResult.providerPayload;
+   if(providerResult.status!=="paid"){await client.query("rollback");return res.status(202).json({status:providerResult.status,providerCode,providerTransactionId});}
+  }
+  const p=await client.query("insert into marketplace_payments(tenant_id,order_id,payment_no,amount,method,status,provider_ref,provider_code,idempotency_key,provider_transaction_id,provider_payload,paid_at) values($1,$2,$3,$4,$5,'paid',$6,$7,$8,$9,$10,now()) returning *",[t.id,o.rows[0].id,paymentNo,Number(o.rows[0].total_amount),requestedMethod,providerTransactionId,providerCode,idempotencyKey,providerTransactionId,JSON.stringify(providerPayload)]);
   await client.query("update marketplace_orders set status='paid',paid_at=coalesce(paid_at,now()),updated_at=now() where id=$1 and tenant_id=$2",[o.rows[0].id,t.id]);
   await postLedgerEntry(client,{tenantId:t.id,entryNo:"PAY-"+p.rows[0].payment_no,sourceType:"marketplace_payment",sourceId:p.rows[0].id,description:"ثبت پرداخت سفارش "+o.rows[0].order_no,createdBy:(req as any).user.id,lines:[
    {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",debit:Number(o.rows[0].total_amount)},
@@ -100,7 +121,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,requirePer
    await client.query("update product_inventory set quantity=quantity-$1,reserved_quantity=reserved_quantity-$1,updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[item.quantity,t.id,item.product_id,o.rows[0].store_id]);
    await client.query("insert into inventory_movements(tenant_id,product_id,store_id,movement_type,quantity,reference_type,reference_id,created_by) values($1,$2,$3,'sale',$4,'marketplace_order',$5,$6)",[t.id,item.product_id,o.rows[0].store_id,-Number(item.quantity),o.rows[0].id,(req as any).user.id]);
   }
-  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'payment.paid','marketplace_order',$3,$4)",[t.id,(req as any).user.id,o.rows[0].id,JSON.stringify({status:"paid",amount:o.rows[0].total_amount,provider:provider.code,providerTransactionId:providerResult.providerTransactionId})]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'payment.paid','marketplace_order',$3,$4)",[t.id,(req as any).user.id,o.rows[0].id,JSON.stringify({status:"paid",amount:o.rows[0].total_amount,provider:providerCode,providerTransactionId})]);
   await client.query("commit");
   await emitBusinessEvent({tenantId:t.id,eventKey:"payment.paid",subjectType:"marketplace_order",subjectId:o.rows[0].id,userId:(req as any).user.id,input:{orderId:o.rows[0].id,amount:Number(o.rows[0].total_amount),paymentId:p.rows[0].id}});
   res.status(201).json({payment:p.rows[0],order:{id:o.rows[0].id,status:"paid"}});
