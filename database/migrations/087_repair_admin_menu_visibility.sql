@@ -1,0 +1,1 @@
+insert into menu_item_panels(menu_item_id,panel_code,is_shared,sort_order,is_visible) select id,'admin',true,coalesce(sort_order,id::int),true from menu_items where is_active=true on conflict(menu_item_id,panel_code) do update set is_shared=true,is_visible=true,sort_order=excluded.sort_order;
