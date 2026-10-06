@@ -49,6 +49,20 @@ lendtechRouter.post("/api/lendtech/applications",requireAuth,requirePermission("
  res.status(201).json(r.rows[0]);
 }));
 
+lendtechRouter.get("/api/lendtech/applications/:id",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const a=await query("select * from lendtech_applications where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
+ if(!a.rowCount)return res.status(404).json({error:"درخواست اعتبار پیدا نشد"});
+ const [scores,decisions,facility,contract,events]=await Promise.all([
+  query("select * from lendtech_scores where application_id=$1 and tenant_ref=$2 order by created_at desc",[req.params.id,t.id]),
+  query("select * from lendtech_decisions where application_id=$1 and tenant_ref=$2 order by decided_at desc",[req.params.id,t.id]),
+  query("select * from lendtech_facilities where application_id=$1 and tenant_ref=$2 order by created_at desc",[req.params.id,t.id]),
+  query("select c.* from lendtech_contracts c join lendtech_facilities f on f.id=c.facility_id where f.application_id=$1 and c.tenant_ref=$2 order by c.created_at desc",[req.params.id,t.id]),
+  query("select * from lendtech_events where application_id=$1 and tenant_ref=$2 order by created_at desc",[req.params.id,t.id])
+ ]);
+ res.json({application:a.rows[0],scores:scores.rows,decisions:decisions.rows,facilities:facility.rows,contracts:contract.rows,events:events.rows});
+}));
+
 lendtechRouter.post("/api/lendtech/applications/:id/kyc",requireAuth,requirePermission("modules:lendtech:write"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const status=s(req.body?.status,30),providerRef=s(req.body?.providerRef,200);
