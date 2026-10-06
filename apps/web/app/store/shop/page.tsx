@@ -1,0 +1,10 @@
+"use client";
+import Link from "next/link";
+import {useEffect,useMemo,useState} from "react";
+type Product={id:string;sku:string;title:string;description:string|null;category:string|null;price:string;currency:string;seller_name:string;store_id:string|null};
+export default function Shop(){
+ const [products,setProducts]=useState<Product[]>([]),[error,setError]=useState(""),[q,setQ]=useState("");
+ useEffect(()=>{fetch("/api/public/marketplace").then(async r=>{const b=await r.json();if(!r.ok)throw new Error(b.error||"دریافت کاتالوگ ناموفق بود");return b}).then(b=>setProducts(b.products||[])).catch(e=>setError(e instanceof Error?e.message:"خطا"));},[]);
+ const filtered=useMemo(()=>products.filter(p=>[p.title,p.sku,p.category,p.seller_name].filter(Boolean).join(" ").toLowerCase().includes(q.trim().toLowerCase())),[products,q]);
+ return <main className="sookar-store" dir="rtl"><header className="store-header"><Link href="/store" className="store-logo"><b>سوکار</b><span>فروشگاه</span></Link><input className="store-search" value={q} onChange={e=>setQ(e.target.value)} placeholder="جستجو در محصولات، برندها و فروشندگان..." /><nav><Link href="/marketplace">مارکت‌پلیس</Link><Link href="/pay">Sookar Pay</Link><Link href="/store/cart">سبد خرید</Link></nav></header><section className="store-section"><header><div><span>کاتالوگ زنده</span><h2>همه محصولات</h2></div><Link href="/store">بازگشت</Link></header>{error?<div className="product-card"><p>{error}</p></div>:!products.length?<div className="product-card"><p>در حال دریافت کاتالوگ واقعی یا در حال حاضر محصول عمومی ثبت نشده است.</p><Link href="/marketplace">مشاهده بازارگاه ←</Link></div>:<div className="product-grid">{filtered.map(p=><article className="product-card" key={p.id}><div className="product-image"><span>{p.category||"محصول"}</span><b>سوکار</b></div><h3>{p.title}</h3><p>{p.description||"توضیحات محصول توسط فروشنده ثبت نشده است."}</p><small>{p.seller_name||"فروشنده ثبت‌شده"}</small><strong>{Number(p.price).toLocaleString("fa-IR")} {p.currency}</strong><Link href={"/store/product/"+encodeURIComponent(p.id)}>مشاهده محصول</Link></article>)}</div>}</section></main>;
+}

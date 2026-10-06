@@ -1,0 +1,3 @@
+import Link from "next/link";
+export default function ForgotPasswordPage(){return <main className="sookar-store" dir="rtl"><section className="store-section" style={{maxWidth:720,margin:"60px auto"}}><span>Security</span><h1>بازیابی دسترسی</h1><p>بازیابی رمز عبور باید از سرویس هویت مرکزی و کانال تأییدشده انجام شود. تا زمان اتصال جریان OTP، هیچ رمز یا توکن موقتی در رابط ایجاد نمی‌شود.</p><Link href="/login">بازگشت به ورود ←</Link></section></main>
+}

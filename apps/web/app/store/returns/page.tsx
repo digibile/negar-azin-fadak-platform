@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function Returns(){return <main className="sookar-store" dir="rtl"><section className="store-section" style={{maxWidth:900}}><span>سوکار</span><h1>مرجوعی و بازگشت کالا</h1><p>شرایط مرجوعی هر کالا، فروشنده و قرارداد خرید در صفحه محصول و سفارش مشخص می‌شود. ثبت درخواست مرجوعی پس از اتصال سفارش واقعی انجام خواهد شد.</p><Link href="/store">بازگشت به فروشگاه ←</Link></section></main>}

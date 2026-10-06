@@ -1,0 +1,3 @@
+import Link from "next/link";
+const templates=["صفحه اصلی فروشگاه","صفحه دسته‌بندی","صفحه محصول","صفحه فروشنده","کمپین","جستجو","سبد خرید","Checkout","ورود و ثبت‌نام","حساب کاربری","صفحات قانونی"];
+export default function Templates(){return <main dir="rtl" className="admin-shell"><section className="store-section"><span>Management / Templates</span><h1>مدیریت قالب‌ها</h1><p>قالب‌ها باید از مرکز مدیریت قابل کنترل باشند تا صفحات عمومی در کد قفل نشوند.</p><div className="plan-grid">{templates.map(x=><article key={x}><h3>{x}</h3><p>قالب، نسخه، وضعیت انتشار و تنظیمات این صفحه.</p><Link href="/admin/editors">ویرایشگر ←</Link></article>)}</div></section></main>}
