@@ -31,6 +31,7 @@ export default function CheckoutPage(){
    setCart(b.cart);setItems(b.items||[]);
    const f=await fetch("/api/lendtech/my-facilities",{credentials:"include"});
    const fb=await f.json();if(f.ok){setFacilities(fb.items||[]);if((fb.items||[]).length)setFacilityId(fb.items[0].id);}
+   if(orderId){const or=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});const ob=await or.json();if(or.ok)setOrder(ob.order);}
   }catch(e){setError(e instanceof Error?e.message:"خطا در دریافت سبد");}
   finally{setLoading(false);}
  }
@@ -50,7 +51,7 @@ export default function CheckoutPage(){
   }catch(e){setError(e instanceof Error?e.message:"خطا در ثبت سفارش");}
   finally{setBusy(false);}
  }
- useEffect(()=>{load();},[cartId]);
+ useEffect(()=>{load();},[cartId,orderId]);
  if(!cartId)return <main className="sookar-store" dir="rtl"><section className="store-section"><div className="product-card"><h2>Checkout</h2><p>برای ادامه، یک سبد واقعی انتخاب کنید.</p><Link href="/store">بازگشت به فروشگاه ←</Link></div></section></main>;
  return <main className="sookar-store" dir="rtl">
   <header className="store-header"><Link href="/store" className="store-logo"><b>سوکار</b><span>Checkout</span></Link><nav><Link href="/store">فروشگاه</Link><Link href="/marketplace">بازارگاه</Link><Link href="/pay">مرکز اعتبار</Link></nav></header>
