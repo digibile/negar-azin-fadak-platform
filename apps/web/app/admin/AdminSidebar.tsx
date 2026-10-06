@@ -34,6 +34,23 @@ function menuHref(path:string|undefined,parent:string,title:string){
  if(path&&path!=="#")return path;
  return parent+"&menu="+encodeURIComponent(title);
 }
+function TreeNode({node,href,pathname,closeMobile,depth}:{node:MenuNode;href:string;pathname:string;closeMobile:()=>void;depth:number}){
+ const [expanded,setExpanded]=useState(false);
+ const children=normalize(node.child_items||[]);
+ const active=href===pathname||children.some(x=>x.path===pathname);
+ useEffect(()=>{if(active)setExpanded(true)},[active]);
+ return <div className={styles["tree-child-node"]+" "+(active?styles["child-active"]:"")}>
+  <div className={styles["tree-child-head"]}>
+   <span className={styles["master-child-index"]}>{depth===0?"01":"↳"}</span>
+   <Link href={href} onClick={closeMobile}>{node.title}</Link>
+   {children.length>0&&<button type="button" className={styles["master-chevron-button"]} onClick={()=>setExpanded(x=>!x)} aria-expanded={expanded} aria-label={(expanded?"بستن ":"باز کردن ")+node.title}><span className={styles["master-chevron"]}><ChevronIcon/></span></button>}
+  </div>
+  {expanded&&children.length>0&&<div className={styles["tree-grandchildren"]}>
+   {children.map(child=><TreeNode key={child.id} node={child} href={menuHref(child.path,href,child.title)} pathname={pathname} closeMobile={closeMobile} depth={depth+1}/>)}
+  </div>}
+ </div>;
+}
+
 
 const LEGACY_BY_MASTER:Record<string,string>={
  dashboard:"01-dashboard",
