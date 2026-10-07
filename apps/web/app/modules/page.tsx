@@ -77,6 +77,7 @@ function ModulesContent(){
  const [code,setCode]=useState("");
  const [activeMenu,setActiveMenu]=useState("");
  const [activeSection,setActiveSection]=useState("");
+ const [panel,setPanel]=useState("");
  const [module,setModule]=useState<ModuleInfo|null>(null);
  const [actions,setActions]=useState<Action[]>([]);
  const [menuChildren,setMenuChildren]=useState<MenuItem[]>([]);
@@ -98,7 +99,8 @@ function ModulesContent(){
    const c=p.get("code")||"governance";
    const menu=p.get("menu")||"";
    const tab=p.get("tab")||"";
-   setCode(c);setActiveMenu(menu);setActiveSection(tab);
+   const panelParam=p.get("panel")||"";
+   setCode(c);setActiveMenu(menu);setActiveSection(tab);setPanel(panelParam);
    if(tab)setRecordType(tab);
  },[]);
  const load=async()=>{
@@ -187,7 +189,7 @@ const CANONICAL_WORKSPACES: Record<string, React.ReactNode> = {
   "38-collections": <CollectionWorkflowWorkspace />
 };
 
-function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu, items, actions }: {
+function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu, items, actions, panel }: {
   code: string;
   module: ModuleInfo | null;
   menuChildren: MenuItem[];
@@ -195,6 +197,7 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
   activeMenu: string;
   items: RecordItem[];
   actions: Action[];
+  panel: string;
 }) {
   const publicLinks: Record<string, Array<[string, string]>> = {
     "09-commerce-stores": [["فروشگاه اینترنتی", "/store"], ["بازارگاه", "/marketplace"], ["محصولات", "/marketplace/products"], ["سفارش‌ها", "/marketplace/orders"]],
@@ -206,12 +209,15 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
     "48-shipping-delivery": [["سفارش‌ها", "/marketplace/orders"], ["پیگیری سفارش", "/store/orders"]]
   };
   const links = publicLinks[code] || [];
+  const panelTitles: Record<string,string> = {domains:"مدیریت دامنه‌ها",acceptors:"پذیرندگان",sellers:"فروشندگان",payments:"پرداخت و تسویه",form:"فرم‌ساز",menu:"منوساز",frontend:"مدیریت فرانت‌اند"};
+  const panelTitle = panelTitles[panel] || "";
+  const effectiveTitle = activeMenu || panelTitle || module?.title || code;
   const selected = activeMenu || "";
   const selectedChild = menuChildren.find(item => item.title === selected);
-  const childHref = selectedChild?.path || "";
+  const childHref = selectedChild?.path ? selectedChild.path + (panel && !selectedChild.path.includes("panel=") ? (selectedChild.path.includes("?")?"&":"?")+"panel="+encodeURIComponent(panel) : "") : "";
   return <main className="module-runtime canonical-module" dir="rtl">
     <header className="page-head">
-      <div><span className="eyebrow">منوی مرکزی سازمان · بخش عملیاتی</span><h1>{selected || module?.title || code}</h1><p className="muted">{selected ? `بخش «${selected}» از ${module?.title || code}` : "مسیر عملیاتی واقعی سامانه برای این بخش. ورودی‌ها از ساختار منوی پایگاه داده خوانده می‌شوند."}</p></div>
+      <div><span className="eyebrow">منوی مرکزی سازمان · بخش عملیاتی</span><h1>{effectiveTitle}</h1><p className="muted">{selected ? `بخش «${selected}» از ${module?.title || code}` : "مسیر عملیاتی واقعی سامانه برای این بخش. ورودی‌ها از ساختار منوی پایگاه داده خوانده می‌شوند."}</p></div>
       <a className="back-link" href="/admin">مرکز مدیریت</a>
     </header>
     {error&&<div className="error runtime-error">{error}</div>}
@@ -229,6 +235,10 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
   </main>;
 }
 
+ if(panel==="form")return <FormBuilderWorkspace/>;
+ if(panel==="menu")return <MenuBuilderWorkspace/>;
+ if(panel==="frontend")return <FrontendSectionsWorkspace/>;
+ if(panel==="payments")return <WalletLedgerWorkspace/>;
  if(CANONICAL_WORKSPACES[code])return CANONICAL_WORKSPACES[code];
  const canonicalCodes=new Set([
   "01-dashboard","02-organizations","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla",
@@ -240,7 +250,7 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
   "40-ai-finance","41-ai-documents-ocr","42-audit-internal-control","43-communication-hub","44-marketing-content","45-search-analytics",
   "46-unified-applications","47-contracts-legal","48-shipping-delivery","49-reconciliation","50-release-health"
  ]);
- if(canonicalCodes.has(code))return <CanonicalModuleLanding code={code} module={module} menuChildren={menuChildren} error={error} activeMenu={activeMenu} items={items} actions={actions}/>;
+ if(canonicalCodes.has(code))return <CanonicalModuleLanding code={code} module={module} menuChildren={menuChildren} error={error} activeMenu={activeMenu} items={items} actions={actions} panel={panel}/>;
  if(code==="command-center")return <DashboardWorkspace/>;
  if(code==="accounting-finance")return <AccountingWorkspace/>;
  if(code==="08-accounting-finance")return <AccountingFinanceWorkspace/>;
