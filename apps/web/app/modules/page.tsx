@@ -178,6 +178,7 @@ const CANONICAL_WORKSPACES: Record<string, React.ReactNode> = {
   "08-check-documents": <TreasuryChecksWorkspace />,
   "21-purchasing-supply": <PurchasingSupplyWorkspace />,
   "22-sales-revenue": <SalesWorkspace />,
+  "23-inventory-warehouse": <InventoryWarehouseWorkspace />,
   "26-treasury-bank": <TreasuryBankWorkspace />,
   "29-wallet-ledger": <WalletLedgerWorkspace />,
   "37-collateral-guarantees": <CollateralGuaranteesWorkspace />,
