@@ -51,6 +51,42 @@ router.get("/api/dashboard/menu-tree",requireAuth,async(req:Request,res:Response
  const items=roots.sort((a:any,b:any)=>(a.panel_sort_order??a.sort_order)-(b.panel_sort_order??b.sort_order)||a.id-b.id).map(build);
  res.json({panel,items,total:items.length,canonicalTotal:CANONICAL_ROOT_KEYS.length});
 });
+// Dedicated Menu Builder runtime backed by the canonical menu_items table.
+router.get("/api/platform/modules/15-menu-builder/records",requireAuth,requirePermission("menus:manage"),async(req:Request,res:Response)=>{
+ const q=typeof req.query.q==="string"?req.query.q.trim().toLowerCase():"";
+ const r=await query("select id,menu_key,parent_id,title,path,icon,sort_order,permission,is_active,children from menu_items where ($1='' or lower(coalesce(menu_key,'')) like '%'||$1||'%' or lower(title) like '%'||$1||'%' or lower(path) like '%'||$1||'%') order by sort_order,id",[q]);
+ res.json({items:r.rows.map((x:any)=>({id:x.id,record_type:"menu-definition",title:x.title,status:x.is_active?"فعال":"غیرفعال",data:{"menu-code":x.menu_key||"","menu-title":x.title,"menu-key":x.menu_key||"","parent-code":"","menu-type":x.parent_id?"زیرمنو":"گروه اصلی",route:x.path,icon:x.icon||"","order-index":x.sort_order,"access-level":x.permission?"نقش‌محور":"کاربران واردشده",visibility:x.is_active?"نمایش داده شود":"مخفی",status:x.is_active?"فعال":"غیرفعال",target:"همین صفحه",permission:x.permission||"",description:"",notes:"","parent-id":x.parent_id}})),total:r.rowCount});
+});
+router.post("/api/platform/modules/15-menu-builder/records",requireAuth,requirePermission("menus:manage"),async(req:Request,res:Response)=>{
+ const d=req.body?.data||{},title=typeof req.body?.title==="string"?req.body.title.trim():"",key=typeof d["menu-key"]==="string"?d["menu-key"].trim():"";
+ if(!title||!key)return res.status(400).json({error:"عنوان و کلید منو الزامی است"});
+ let parentId=null;
+ if(typeof d["parent-code"]==="string"&&d["parent-code"].trim()){
+  const p=await query("select id from menu_items where menu_key=$1",[d["parent-code"].trim()]);
+  if(!p.rowCount)return res.status(400).json({error:"منوی والد پیدا نشد"});
+  parentId=p.rows[0].id;
+ }
+ const r=await query("insert into menu_items(menu_key,parent_id,title,path,icon,sort_order,permission,is_active,children) values($1,$2,$3,$4,$5,$6,$7,$8,'[]'::jsonb) returning *",[key,parentId,title,typeof d.route==="string"&&d.route.trim()?d.route:"#",typeof d.icon==="string"&&d.icon.trim()?d.icon:null,Number.isInteger(Number(d["order-index"]))?Number(d["order-index"]):0,typeof d.permission==="string"&&d.permission.trim()?d.permission.trim():null,String(d.status||"پیش‌نویس")==="فعال"]);
+ res.status(201).json({id:r.rows[0].id,record_type:"menu-definition",title:r.rows[0].title,status:r.rows[0].is_active?"فعال":"غیرفعال",data:d});
+});
+router.patch("/api/platform/modules/15-menu-builder/records/:id",requireAuth,requirePermission("menus:manage"),async(req:Request,res:Response)=>{
+ const d=req.body?.data||{},title=typeof req.body?.title==="string"?req.body.title.trim():"";
+ let parentId=null;
+ if(typeof d["parent-code"]==="string"&&d["parent-code"].trim()){
+  const p=await query("select id from menu_items where menu_key=$1",[d["parent-code"].trim()]);
+  if(!p.rowCount)return res.status(400).json({error:"منوی والد پیدا نشد"});
+  parentId=p.rows[0].id;
+ }
+ const r=await query("update menu_items set title=coalesce($1,title),menu_key=coalesce($2,menu_key),parent_id=$3,path=coalesce($4,path),icon=$5,sort_order=$6,permission=$7,is_active=$8,updated_at=now() where id=$9 returning *",[title||null,typeof d["menu-key"]==="string"&&d["menu-key"].trim()?d["menu-key"].trim():null,parentId,typeof d.route==="string"&&d.route.trim()?d.route:"#",typeof d.icon==="string"&&d.icon.trim()?d.icon:null,Number.isInteger(Number(d["order-index"]))?Number(d["order-index"]):0,typeof d.permission==="string"&&d.permission.trim()?d.permission.trim():null,String(d.status||"غیرفعال")==="فعال",req.params.id]);
+ if(!r.rowCount)return res.status(404).json({error:"آیتم منو پیدا نشد"});
+ res.json({id:r.rows[0].id,record_type:"menu-definition",title:r.rows[0].title,status:r.rows[0].is_active?"فعال":"غیرفعال",data:d});
+});
+router.delete("/api/platform/modules/15-menu-builder/records/:id",requireAuth,requirePermission("menus:manage"),async(req:Request,res:Response)=>{
+ const r=await query("delete from menu_items where id=$1 returning id",[req.params.id]);
+ if(!r.rowCount)return res.status(404).json({error:"آیتم منو پیدا نشد"});
+ res.status(204).end();
+});
+
 router.patch("/api/dashboard/menu-items/:id",requireAuth,requirePermission("menus:manage"),async(req:Request,res:Response)=>{
  const {title,path,permission,parentId,children}=req.body||{};
  const r=await query(
