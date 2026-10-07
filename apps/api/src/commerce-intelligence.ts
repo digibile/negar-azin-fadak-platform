@@ -1,4 +1,5 @@
 import {Router} from "express";
+import {createHash,createHmac,timingSafeEqual} from "node:crypto";
 import {pool,query} from "./db.js";
 import {requireAuth,requireCsrf,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
@@ -381,6 +382,52 @@ commerceIntelligenceRouter.post("/api/commerce/quotes/:id/payment-attempt",requi
  const attempt=await query("insert into payment_gateway_attempts(tenant_id,payment_intent_id,gateway_profile_id,attempt_no,provider_code,status,amount,currency,review_deadline_at) values($1,$2,$3,$4,$5,'created',$6,$7,now()+($8||' seconds')::interval) returning *",[t.id,pi.rows[0].id,g.rows[0].id,idem,g.rows[0].provider_code,Number(q.rows[0].cash_amount),q.rows[0].currency,Number(g.rows[0].merchant_review_timeout_seconds)]);
  res.status(201).json({paymentIntent:pi.rows[0],attempt:attempt.rows[0],nextAction:"start_provider_payment"});
 }));
+commerceIntelligenceRouter.post("/api/payment-gateways/:gatewayId/webhook",asyncHandler(async(req,res)=>{
+ const signature=str(req.header("x-gateway-signature"),256);
+ const timestamp=str(req.header("x-gateway-timestamp"),40);
+ const eventId=str(req.header("x-gateway-event-id"),180);
+ if(!signature||!timestamp||!eventId)return res.status(400).json({error:"امضای callback ناقص است"});
+ const ts=Number(timestamp);if(!Number.isFinite(ts)||Math.abs(Date.now()-ts*1000)>5*60*1000)return res.status(401).json({error:"callback منقضی یا خارج از بازه زمانی مجاز است"});
+ const g=await query("select * from payment_gateway_profiles where id=$1 and enabled=true",[req.params.gatewayId]);
+ if(!g.rowCount)return res.status(404).json({error:"درگاه پیدا نشد"});
+ const gateway=g.rows[0];
+ const ref=str(gateway.config_reference,180);
+ const envKey=/^[A-Z0-9_]+$/i.test(ref)?ref:"PAYMENT_WEBHOOK_SECRET_"+String(gateway.code).replace(/[^a-zA-Z0-9]/g,"_").toUpperCase();
+ const secret=process.env[envKey];
+ if(!secret)return res.status(503).json({error:"کلید callback در محیط اجرا تنظیم نشده است"});
+ const raw=(req as any).rawBody?String((req as any).rawBody):JSON.stringify(req.body||{});
+ const expected=createHmac("sha256",secret).update(timestamp+"."+raw).digest("hex");
+ const supplied=signature.replace(/^sha256=/i,"").trim();
+ if(supplied.length!==expected.length||!timingSafeEqual(Buffer.from(supplied),Buffer.from(expected)))return res.status(401).json({error:"امضای callback نامعتبر است"});
+ const payload=req.body||{},eventType=str(payload.eventType||payload.type||payload.status,60).toLowerCase();
+ if(!["paid","success","succeeded"].includes(eventType))return res.status(202).json({accepted:true,ignored:true});
+ const providerTx=str(payload.providerTransactionId||payload.transactionId||payload.referenceId,200);
+ const amount=num(payload.amount);if(amount===null||!providerTx)return res.status(400).json({error:"مبلغ یا شناسه تراکنش callback ناقص است"});
+ const attemptId=str(payload.attemptId||payload.merchantReference||payload.orderReference,100);
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const existing=await client.query("select id from payment_gateway_callback_events where gateway_profile_id=$1 and event_id=$2 for update",[gateway.id,eventId]);
+  if(existing.rowCount){await client.query("commit");return res.status(200).json({accepted:true,duplicate:true})}
+  const a=attemptId
+   ? await client.query("select a.*,p.amount intent_amount,p.id payment_intent_id from payment_gateway_attempts a join commerce_payment_intents p on p.id=a.payment_intent_id where a.id=$1 and a.gateway_profile_id=$2 and a.tenant_id=$3 for update",[attemptId,gateway.id,gateway.tenant_id])
+   : await client.query("select a.*,p.amount intent_amount,p.id payment_intent_id from payment_gateway_attempts a join commerce_payment_intents p on p.id=a.payment_intent_id where a.gateway_profile_id=$1 and a.tenant_id=$2 and a.provider_transaction_id=$3 order by a.created_at desc limit 1 for update",[gateway.id,gateway.tenant_id,providerTx]);
+  if(!a.rowCount){await client.query("rollback");return res.status(404).json({error:"تلاش پرداخت مربوط به callback پیدا نشد"});}
+  const x=a.rows[0];
+  if(Number(x.intent_amount)!==amount||Number(x.amount)!==amount){await client.query("rollback");return res.status(409).json({error:"مبلغ callback با مبلغ قفل‌شده سامانه یکسان نیست"});}
+  if(!["created","redirected"].includes(x.status)){
+   await client.query("insert into payment_gateway_callback_events(tenant_id,gateway_profile_id,event_id,attempt_id,event_type,payload_hash,processed_at,metadata) values($1,$2,$3,$4,$5,$6,now(),$7)",[gateway.tenant_id,gateway.id,eventId,x.id,eventType,createHash("sha256").update(raw).digest("hex"),JSON.stringify({duplicateState:x.status})]);
+   await client.query("commit");return res.status(200).json({accepted:true,alreadyProcessed:true,status:x.status});
+  }
+  const deadline=new Date(Date.now()+Number(gateway.merchant_review_timeout_seconds||900)*1000);
+  await client.query("update payment_gateway_attempts set status='paid_pending_review',provider_transaction_id=$1,provider_payload=$2,paid_at=now(),review_deadline_at=$3,updated_at=now() where id=$4",[providerTx,payload,deadline,x.id]);
+  await client.query("update commerce_payment_intents set status='paid_pending_review',provider_transaction_id=$1,updated_at=now() where id=$2",[providerTx,x.payment_intent_id]);
+  await client.query("insert into payment_merchant_reviews(tenant_id,payment_intent_id,gateway_attempt_id,status,review_deadline_at,metadata) values($1,$2,$3,'pending',$4,$5) on conflict(gateway_attempt_id) do update set status='pending',review_deadline_at=excluded.review_deadline_at,updated_at=now()",[gateway.tenant_id,x.payment_intent_id,x.id,deadline,JSON.stringify({source:"signed_provider_webhook",eventId})]);
+  await client.query("insert into payment_gateway_callback_events(tenant_id,gateway_profile_id,event_id,attempt_id,event_type,payload_hash,processed_at) values($1,$2,$3,$4,$5,$6,now())",[gateway.tenant_id,gateway.id,eventId,x.id,eventType,createHash("sha256").update(raw).digest("hex")]);
+  await client.query("commit");return res.status(202).json({accepted:true,status:"paid_pending_review",nextAction:"merchant_review"});
+ }catch(e){await client.query("rollback").catch(()=>{});throw e}finally{client.release()}
+}));
+
 commerceIntelligenceRouter.post("/api/payment-gateway-attempts/:id/provider-paid",requireAuth,requirePermission("payment:manage"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const a=await query("select a.*,p.amount intent_amount from payment_gateway_attempts a join commerce_payment_intents p on p.id=a.payment_intent_id where a.id=$1 and a.tenant_id=$2 for update",[req.params.id,t.id]);if(!a.rowCount)return res.status(404).json({error:"تلاش پرداخت پیدا نشد"});
  if(!["created","redirected"].includes(a.rows[0].status))return res.status(409).json({error:"وضعیت پرداخت قابل تغییر نیست"});
