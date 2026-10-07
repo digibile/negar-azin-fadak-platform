@@ -1,9 +1,13 @@
 import type { MetadataRoute } from "next";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://negarzinfadak.ir";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://negarazinfadak.ir";
 
 const routes = [
   "/",
+  "/company",
+  "/marketing",
+  "/sales",
+  "/import-trade",
   "/store",
   "/store/shop",
   "/store/faq",
@@ -31,6 +35,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${siteUrl}${path}`,
     lastModified: now,
     changeFrequency: path === "/" ? "daily" : "weekly",
-    priority: path === "/" ? 1 : path === "/store" || path === "/pay" || path === "/marketplace" ? 0.9 : 0.7
+    priority: path === "/" ? 1 : ["/company", "/marketing", "/sales", "/import-trade", "/store", "/pay", "/marketplace"].includes(path) ? 0.9 : 0.7
   }));
 }
