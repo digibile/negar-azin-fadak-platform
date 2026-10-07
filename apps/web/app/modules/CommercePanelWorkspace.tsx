@@ -105,7 +105,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   </header>
   {error&&<div className="error runtime-error">{error}</div>}
   <nav className="module-subnav">
-   {(mode==="commerce"?["sellers","stores","products","orders"]:mode==="domains"?["domains"]:mode==="sellers"?["sellers"]:["payments"]).map(x=><button type="button" className={tab===x?"active":""} key={x} onClick={()=>setTab(x as CommerceTab|PanelTab)}>{({sellers:"فروشندگان",stores:"فروشگاه‌ها",products:"محصولات",orders:"سفارش‌ها",domains:"دامنه‌ها",payments:"تسویه‌ها"} as any)[x]}</button>)}
+   {(mode==="commerce"?["sellers","stores","products","orders"]:mode==="domains"?["domains"]:mode==="sellers"?["sellers"]:["payments"]).map(x=><button type="button" className={tab===x?"active":""} key={x} onClick={()=>setTab(x)}>{({sellers:"فروشندگان",stores:"فروشگاه‌ها",products:"محصولات",orders:"سفارش‌ها",domains:"دامنه‌ها",payments:"تسویه‌ها"} as any)[x]}</button>)}
   </nav>
 
   {mode==="sellers"&&<section className="runtime-panel">
