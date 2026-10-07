@@ -393,7 +393,7 @@ commerceIntelligenceRouter.post("/api/commerce/quotes/:id/payment-attempt",requi
   if(!vc.rowCount)return res.status(404).json({error:"کارت اعتباری مجازی فعال پیدا نشد"});
   virtualCard=vc.rows[0];
   if(virtualCard.expires_at&&new Date(virtualCard.expires_at)<=new Date())return res.status(409).json({error:"کارت اعتباری مجازی منقضی شده است"});
-  if(virtualCard.spend_limit!==null&&Number(virtualCard.spend_limit)<amount)return res.status(409).json({error:"سقف مصرف کارت اعتباری برای این خرید کافی نیست"});
+  if(virtualCard.spend_limit!==null&&Number(virtualCard.spend_limit)-Number(virtualCard.consumed_amount||0)<amount)return res.status(409).json({error:"سقف مصرف کارت اعتباری برای این خرید کافی نیست"});
  }
  const providerCode=str(gateway.provider_code,80)||str(gateway.code,80);
  const paymentNo="PI-"+Date.now().toString(36).toUpperCase();
@@ -413,6 +413,7 @@ commerceIntelligenceRouter.post("/api/commerce/quotes/:id/payment-attempt",requi
  }
  const initialStatus=providerResult.status==="paid"?"paid_pending_review":providerResult.status==="authorized"?"authorized":"redirected";
  const pi=await query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,provider_transaction_id,idempotency_key,expires_at,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning *",[t.id,q.rows[0].id,paymentNo,paymentMode,amount,currency,initialStatus,providerCode,providerResult.providerTransactionId,idem,q.rows[0].valid_until,(req as any).user.id]);
+ if(paymentMode==="virtual_card")await query("update credit_virtual_cards set last_payment_intent_id=$1,updated_at=now() where id=$2 and tenant_id=$3",[pi.rows[0].id,virtualCard.id,t.id]);
  const attempt=await query("insert into payment_gateway_attempts(tenant_id,payment_intent_id,gateway_profile_id,attempt_no,provider_code,provider_transaction_id,status,amount,currency,provider_payload,paid_at,review_deadline_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now()+($12||' seconds')::interval) returning *",[t.id,pi.rows[0].id,gateway.id,idem,providerCode,providerResult.providerTransactionId,initialStatus,amount,currency,providerResult.providerPayload,initialStatus==="paid_pending_review"?new Date():null,Number(gateway.merchant_review_timeout_seconds)]);
  if(initialStatus==="paid_pending_review"){
   await query("insert into payment_merchant_reviews(tenant_id,payment_intent_id,gateway_attempt_id,status,review_deadline_at,metadata) values($1,$2,$3,'pending',$4,$5) on conflict(gateway_attempt_id) do update set status='pending',review_deadline_at=excluded.review_deadline_at,updated_at=now()",[t.id,pi.rows[0].id,attempt.rows[0].id,attempt.rows[0].review_deadline_at,JSON.stringify({source:"provider_create_payment"})]);
@@ -490,6 +491,12 @@ commerceIntelligenceRouter.post("/api/payment-merchant-reviews/:id/decision",req
    await client.query("update payment_merchant_reviews set status='approved',availability_confirmed=true,decided_by=$1,decided_at=now(),decision_reason=$2,updated_at=now() where id=$3",[ (req as any).user.id,str(req.body?.reason,500)||"تأیید موجودی",x.id]);
    await client.query("update payment_gateway_attempts set status='verified',verified_at=now(),updated_at=now() where id=$1",[x.gateway_attempt_id]);
    await client.query("update commerce_payment_intents set status='paid',updated_at=now() where id=$1",[x.payment_intent_id]);
+   const virtualCard=await client.query("select c.id,c.spend_limit,c.consumed_amount from credit_virtual_cards c join commerce_payment_intents p on p.id=c.last_payment_intent_id where p.id=$1 and c.tenant_id=$2 for update",[x.payment_intent_id,t.id]);
+   if(virtualCard.rowCount){
+    const nextConsumed=Number(virtualCard.rows[0].consumed_amount||0)+Number(x.amount);
+    if(virtualCard.rows[0].spend_limit!==null&&nextConsumed>Number(virtualCard.rows[0].spend_limit)){await client.query("rollback");return res.status(409).json({error:"سقف مصرف کارت اعتباری هنگام تأیید نهایی کافی نیست"});}
+    await client.query("update credit_virtual_cards set consumed_amount=$1,updated_at=now() where id=$2",[nextConsumed,virtualCard.rows[0].id]);
+   }
    await client.query("update commerce_purchase_quotes set status='ready',updated_at=now() where id=$1",[x.quote_id]);
    await client.query("commit");return res.json({status:"verified",paymentIntentId:x.payment_intent_id,quoteId:x.quote_id,nextAction:"convert_order"});
   }
