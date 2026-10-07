@@ -48,6 +48,7 @@ import {lendtechRouter} from "./lendtech.js";
 import {enterpriseInteractionRouter} from "./enterprise-interaction.js";
 import {commerceIntelligenceRouter} from "./commerce-intelligence.js";
 import {merchantRouter} from "./merchant-management.js";
+import {formBuilderRouter} from "./form-builder.js";
 import {issueHumanCheck,verifyHumanCheck} from "./human-check.js";
 import "./payment-provider.js";
 
@@ -102,6 +103,7 @@ app.use("/api/domain",domainOrganizationRouter);
 app.use("/api/domain",domainCommandPlatformRouter);
 app.use(domainMarketplaceRouter);
 app.use(merchantRouter);
+app.use(formBuilderRouter);
 app.use(sellerSurfaceRouter);
 app.use("/api/content",tenantContentRouter);
 app.use(checkoutRouter);
