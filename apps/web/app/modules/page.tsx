@@ -208,6 +208,7 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
   items: RecordItem[];
   actions: Action[];
   panel: string;
+  activeItem: string;
 }) {
   const publicLinks: Record<string, Array<[string, string]>> = {
     "09-commerce-stores": [["فروشگاه اینترنتی", "/store"], ["بازارگاه", "/marketplace"], ["محصولات", "/marketplace/products"], ["سفارش‌ها", "/marketplace/orders"]],
@@ -221,9 +222,9 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
   const links = publicLinks[code] || [];
   const panelTitles: Record<string,string> = {domains:"مدیریت دامنه‌ها",acceptors:"پذیرندگان",sellers:"فروشندگان",payments:"پرداخت و تسویه",form:"فرم‌ساز",menu:"منوساز",frontend:"مدیریت فرانت‌اند"};
   const panelTitle = panelTitles[panel] || "";
-  const effectiveTitle = activeMenu || panelTitle || module?.title || code;
   const selected = activeMenu || "";
   const selectedChild = menuChildren.find(item => item.title === selected || item.path.includes(`item=${encodeURIComponent(activeItem)}`));
+  const effectiveTitle = selectedChild?.title || activeMenu || panelTitle || module?.title || code;
   const childHref = selectedChild?.path ? selectedChild.path + (panel && !selectedChild.path.includes("panel=") ? (selectedChild.path.includes("?")?"&":"?")+"panel="+encodeURIComponent(panel) : "") : "";
   return <main className="module-runtime canonical-module" dir="rtl">
     <header className="page-head">
