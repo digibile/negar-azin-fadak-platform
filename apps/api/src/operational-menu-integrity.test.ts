@@ -39,3 +39,28 @@ test("canonical navigation has exactly 20 primary panels and keeps 21..50 as nes
  assert.equal(nested.filter((r:any)=>r.parent_id===null).length,0,"modules 21..50 must not appear as primary navigation roots");
  assert.equal(nested.filter((r:any)=>r.is_active===true).length,30,"modules 21..50 must remain active");
 });
+
+
+test("canonical panels 11..20 keep their panel routes and functional web runtimes",async()=>{
+ const panels=[
+  ["11-merchants","/modules/?code=09-commerce-stores&panel=acceptors"],
+  ["12-sellers","/modules/?code=09-commerce-stores&panel=sellers"],
+  ["13-payments-settlement","/modules/?code=10-wallet-ledger&panel=payments"],
+  ["14-form-builder","/modules/?code=16-page-builder&panel=form"],
+  ["15-menu-builder","/modules/?code=16-page-builder&panel=menu"],
+  ["16-page-builder","/modules/?code=16-page-builder"],
+  ["17-frontend-management","/modules/?code=16-page-builder&panel=frontend"],
+  ["18-notifications","/modules/?code=18-notifications"],
+  ["19-documents-governance","/modules/?code=19-documents-governance"],
+  ["20-system-settings","/modules/?code=20-system-settings"]
+ ];
+ const rows=(await query(\`select menu_key,path,is_active,parent_id from menu_items where menu_key=any($1) order by sort_order\`,[panels.map(x=>x[0])])).rows;
+ assert.equal(rows.length,10,"expected panels 11..20 to exist");
+ for(const [key,path] of panels){
+  const row=rows.find((x:any)=>x.menu_key===key);
+  assert.ok(row,"missing panel: "+key);
+  assert.equal(row.is_active,true,"inactive panel: "+key);
+  assert.equal(row.parent_id,null,"panel must remain a root: "+key);
+  assert.equal(row.path,path,"panel route mismatch: "+key);
+ }
+});
