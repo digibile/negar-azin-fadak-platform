@@ -51,7 +51,7 @@ export default function MerchantManagementWorkspace(){
  const edit=(m:Merchant)=>{setEditingId(m.id);setForm({code:m.code,legalName:m.legal_name,displayName:m.display_name,businessType:m.business_type,nationalId:m.national_id||"",taxId:m.tax_id||"",iban:m.iban||"",settlementAccountRef:m.settlement_account_ref||"",contractRef:m.contract_ref||"",commissionRate:String(m.commission_rate)});window.scrollTo({top:0,behavior:"smooth"});};
  const mutate=async(path:string,body:Record<string,string>)=>{
    setError("");
-   const r=await fetch(url(path),{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:JSON.stringify(body)});
+   const r=await fetch(url(path),{method:path.endsWith("/verify")?"POST":"PATCH",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:JSON.stringify(body)});
    const b=await r.json().catch(()=>null);
    if(!r.ok)throw new Error(b?.error||"عملیات انجام نشد");
    await load();
