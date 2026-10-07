@@ -63,6 +63,7 @@ import DocumentAuditReportsWorkspace from "./DocumentAuditReportsWorkspace";
 import DocumentComplianceWorkspace from "./DocumentComplianceWorkspace";
 import DocumentGovernanceWorkspace from "./DocumentGovernanceWorkspace";
 import OperationalModuleWorkspace from "./OperationalModuleWorkspace";
+import CommercePanelWorkspace from "./CommercePanelWorkspace";
 
 type Field={field_key:string;title:string;field_type:string;required:boolean;sort_order:number;options?:{options?:string[]}};
 type ModuleInfo={id:number;code:string;title:string};
@@ -257,7 +258,11 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
  if(panel==="form")return <FormBuilderWorkspace/>;
  if(panel==="menu")return <MenuBuilderWorkspace/>;
  if(panel==="frontend")return <FrontendSectionsWorkspace/>;
- if(panel==="payments")return <WalletLedgerWorkspace/>;
+ if(panel==="domains")return <CommercePanelWorkspace mode="domains"/>;
+ if(panel==="acceptors")return <CanonicalModuleLanding code="11-merchants" module={module} menuChildren={menuChildren} error={error} activeMenu={activeMenu} items={items} actions={actions} panel={panel} activeItem={activeItem}/>;
+ if(panel==="sellers")return <CommercePanelWorkspace mode="sellers"/>;
+ if(panel==="payments")return <CommercePanelWorkspace mode="payments"/>;
+ if(code==="09-commerce-stores")return <CommercePanelWorkspace mode="commerce"/>;
  if(CANONICAL_WORKSPACES[code])return CANONICAL_WORKSPACES[code];
  if(GENERIC_OPERATIONAL_WORKSPACES.has(code))return <OperationalModuleWorkspace code={code}/>;
  const canonicalCodes=new Set([
