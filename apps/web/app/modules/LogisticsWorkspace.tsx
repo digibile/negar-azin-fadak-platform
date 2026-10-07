@@ -21,7 +21,10 @@ const statusLabels:Record<string,string>={
 const api=async(path:string,init:RequestInit={})=>{
   const method=(init.method||"GET").toUpperCase();
   const csrf=typeof document==="undefined"?"":decodeURIComponent(document.cookie.split("; ").find(x=>x.startsWith("naf_csrf="))?.split("=")[1]||"");
-  const headers:HeadersInit={"Content-Type":"application/json",...(init.headers||{})};
+  const headers:Record<string,string>={"Content-Type":"application/json"};
+  if(init.headers instanceof Headers)init.headers.forEach((value,key)=>{headers[key]=value});
+  else if(Array.isArray(init.headers))init.headers.forEach(([key,value])=>{headers[key]=value});
+  else Object.assign(headers,init.headers||{});
   if(method!=="GET"&&method!=="HEAD"&&method!=="OPTIONS"&&csrf)headers["X-CSRF-Token"]=csrf;
   const r=await fetch(path,{credentials:"include",...init,headers});
   const d=await r.json().catch(()=>({}));
