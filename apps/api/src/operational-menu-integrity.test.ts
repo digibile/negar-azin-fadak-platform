@@ -4,6 +4,8 @@ import {query} from "./db.js";
 
 const codes=["governance","identity","master-data","customer-360","smart-calendar","business-rules","sla","accounting-finance","treasury-bank","wallet-ledger","credit-facilities","12-credit-applications","13-loan-contracts","14-installment-schedules","15-installment-collections","16-collateral-guarantees","17-digital-binder","18-identity-verification","19-credit-scoring","20-credit-decisions","21-credit-committee","22-credit-disbursement","23-loan-settlement","24-loan-ledger","25-loan-refunds","26-loan-closure","27-loan-delinquency","28-collection-workflow","29-loan-restructuring","30-loan-relief","31-loan-legal-cases","32-form-builder","33-menu-builder","34-page-builder","35-page-block-editor","36-page-templates","37-frontend-sections","38-navigation-rules","39-frontend-notifications","40-notification-templates","41-documentation","42-document-approvals","43-document-versions","44-document-search","45-document-retention","46-document-distribution","47-document-access-log","48-document-audit-reports","49-document-compliance","50-document-governance"];
 
+const nestedMenuKeys=["21-purchasing-supply","22-sales-revenue","23-inventory-warehouse","24-production","25-costing","26-treasury-bank","27-receivables","28-payables","29-wallet-ledger","30-projects-cost-centers","31-fixed-assets","32-tax-e-invoicing","33-budget-financial-control","34-financial-commitments","35-credit-financing","36-loans","37-collateral-guarantees","38-collections","39-human-resources","40-ai-finance","41-ai-documents-ocr","42-audit-internal-control","43-communication-hub","44-marketing-content","45-search-analytics","46-unified-applications","47-contracts-legal","48-shipping-delivery","49-reconciliation","50-release-health"];
+
 test("operational menu 01..50 has a live module runtime, permissions, fields and actions",async()=>{
  const modules=(await query(`select m.code,m.is_active,rt.lifecycle,rt.route,rt.api_prefix,
    (select count(*) from module_permissions mp where mp.module_id=m.id)::int permission_count,
@@ -30,8 +32,8 @@ test("canonical navigation has exactly 20 primary panels and keeps 21..50 as nes
  assert.deepEqual(roots.map((r:any)=>r.menu_key),panels,"primary panel order/key mismatch");
  for(const root of roots) assert.ok(root.path,"missing panel route: "+root.menu_key);
 
- const nested=(await query(`select count(*)::int as total, count(*) filter(where parent_id is null)::int as root_count
-   from menu_items where menu_key ~ '^(21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50)-'`)).rows[0];
- assert.equal(nested.total,30,"expected 21..50 to remain registered as 30 operational modules");
- assert.equal(nested.root_count,0,"modules 21..50 must not appear as primary navigation roots");
+ const nested=(await query(`select menu_key,parent_id,is_active from menu_items where menu_key=any($1) order by menu_key`,[nestedMenuKeys])).rows;
+ assert.equal(nested.length,30,"expected exactly 30 nested operational menu modules");
+ assert.equal(nested.filter((r:any)=>r.parent_id===null).length,0,"modules 21..50 must not appear as primary navigation roots");
+ assert.equal(nested.filter((r:any)=>r.is_active===true).length,30,"modules 21..50 must remain active");
 });
