@@ -27,7 +27,7 @@ test("operational menu 01..50 has a live module runtime, permissions, fields and
 
 test("canonical navigation has exactly 20 primary panels and keeps 21..50 as nested operational modules",async()=>{
  const panels=["01-dashboard","02-organizations","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla","08-accounting-finance","09-commerce-stores","10-domains","11-merchants","12-sellers","13-payments-settlement","14-form-builder","15-menu-builder","16-page-builder","17-frontend-management","18-notifications","19-documents-governance","20-system-settings"];
- const roots=(await query(`select menu_key,title,path,parent_id,is_active from menu_items where menu_key=any($1) and parent_id is null and is_active=true order by sort_order`,[panels])).rows;
+ const roots=(await query(`select menu_key,title,path,permission,parent_id,is_active from menu_items where menu_key=any($1) and parent_id is null and is_active=true order by sort_order`,[panels])).rows;
  assert.equal(roots.length,20,"expected exactly 20 primary panel roots");
  assert.deepEqual(roots.map((r:any)=>r.menu_key),panels,"primary panel order/key mismatch");
  for(const root of roots){ assert.ok(root.path,"missing panel route: "+root.menu_key); assert.ok(root.permission,"missing panel permission: "+root.menu_key); }
