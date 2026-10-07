@@ -193,7 +193,7 @@ export default function AdminSidebar(){
     </Link>
     <label className={styles["sidebar-search"]}><span><SearchIcon/></span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="جستجوی منو و زیرمنو..." aria-label="جستجوی منو"/>{query&&<button type="button" aria-label="پاک کردن جستجو" onClick={()=>setQuery("")}>×</button>}</label>
    </div>
-   <div className={styles["sidebar-caption"]}><span>منوی مرکزی سازمان</span><b>{filtered.length}/۵۰</b></div>
+   <div className={styles["sidebar-caption"]}><span>منوی مرکزی سازمان</span></div>
    {error&&<div className={styles["sidebar-menu-error"]}>{error}</div>}
    <nav className={styles["master-nav"]}>
     {filtered.map(item=>{
@@ -221,7 +221,7 @@ export default function AdminSidebar(){
    <footer className={styles["sidebar-footer"]}>
     <Link href="/admin/editors" onClick={closeMobile}><span>✦</span><div><b>ویرایشگرهای سامانه</b><small>قالب، صفحه، فرم و منو</small></div></Link>
     <Link className={updateAvailable?styles["update-available"]:""} href="/admin/updates" onClick={closeMobile}><span>↻</span><div><b>نسخه و بروزرسانی {updateAvailable&&<em>نسخه جدید</em>}</b><small>{updateAvailable?"نسخه جدید GitHub آماده نصب است":"بررسی نسخه و نصب امن از GitHub"}</small></div></Link>
-    <small className={styles["sidebar-version"]}>۵۰ منوی اصلی · زیرمنوهای واقعی · درخت چندلایه · RTL · Responsive</small>
+    <small className={styles["sidebar-version"]}>پنل‌های سازمانی · زیرمنوهای واقعی · درخت چندلایه · RTL · Responsive</small>
    </footer>
   </aside>
  </>;
