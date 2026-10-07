@@ -41,6 +41,27 @@ test("canonical navigation has exactly 20 primary panels and keeps 21..50 as nes
 });
 
 
+test("commerce panels 09..13 keep canonical routes and panel placement",async()=>{
+ const panels=[
+  ["09-commerce-stores","/modules/?code=09-commerce-stores"],
+  ["10-domains","/modules/?code=09-commerce-stores&panel=domains"],
+  ["11-merchants","/modules/?code=09-commerce-stores&panel=acceptors"],
+  ["12-sellers","/modules/?code=09-commerce-stores&panel=sellers"],
+  ["13-payments-settlement","/modules/?code=10-wallet-ledger&panel=payments"]
+ ];
+ const rows=(await query(`select menu_key,path,is_active,parent_id,permission from menu_items where menu_key=any($1) order by sort_order`,[panels.map(x=>x[0])])).rows;
+ assert.equal(rows.length,5,"expected commerce panels 09..13 to exist");
+ for(const [key,path] of panels){
+  const row=rows.find((x:any)=>x.menu_key===key);
+  assert.ok(row,"missing commerce panel: "+key);
+  assert.equal(row.is_active,true,"inactive commerce panel: "+key);
+  assert.equal(row.parent_id,null,"commerce panel must remain a root: "+key);
+  assert.equal(row.path,path,"commerce panel route mismatch: "+key);
+  assert.ok(row.permission,"missing commerce panel permission: "+key);
+ }
+});
+
+
 test("canonical panels 11..20 keep their panel routes and functional web runtimes",async()=>{
  const panels=[
   ["11-merchants","/modules/?code=09-commerce-stores&panel=acceptors"],
