@@ -77,6 +77,7 @@ function ModulesContent(){
  const [code,setCode]=useState("");
  const [activeMenu,setActiveMenu]=useState("");
  const [activeSection,setActiveSection]=useState("");
+ const [activeItem,setActiveItem]=useState("");
  const [panel,setPanel]=useState("");
  const [module,setModule]=useState<ModuleInfo|null>(null);
  const [actions,setActions]=useState<Action[]>([]);
@@ -99,8 +100,9 @@ function ModulesContent(){
    const c=p.get("code")||"governance";
    const menu=p.get("menu")||"";
    const tab=p.get("tab")||"";
+   const item=p.get("item")||"";
    const panelParam=p.get("panel")||"";
-   setCode(c);setActiveMenu(menu);setActiveSection(tab);setPanel(panelParam);
+   setCode(c);setActiveMenu(menu);setActiveSection(tab);setActiveItem(item);setPanel(panelParam);
    if(tab)setRecordType(tab);
  },[]);
  const load=async()=>{
@@ -115,7 +117,15 @@ function ModulesContent(){
     ]);
     const menuBody=menuResponse.ok?await menuResponse.json():{items:[]};
     const tree:MenuItem[]=Array.isArray(menuBody)?menuBody:(menuBody.items||[]);
-    const parent=tree.find(x=>x.path==="/modules/?code="+code||x.path?.includes("code="+code));
+    const findMenu=(nodes:MenuItem[]):MenuItem|undefined=>{
+      for(const node of nodes){
+        if(node.path===`/modules/?code=${code}` || node.path?.includes(`code=${code}&`) || node.path?.includes(`code=${code}`)) return node;
+        const nested=(node as any).child_items;
+        if(Array.isArray(nested)){const found=findMenu(nested);if(found)return found;}
+      }
+      return undefined;
+    };
+    const parent=findMenu(tree);
     setMenuChildren(parent?((parent as any).child_items||[]).sort((x:any,y:any)=>x.sort_order-y.sort_order):[]);
     if(!schema.ok||!records.ok)throw new Error("برای مشاهده این ماژول باید نشست معتبر داشته باشید.");
     const s=await schema.json(),r=await records.json(),a=actionResponse.ok?await actionResponse.json():[];
@@ -189,7 +199,7 @@ const CANONICAL_WORKSPACES: Record<string, React.ReactNode> = {
   "38-collections": <CollectionWorkflowWorkspace />
 };
 
-function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu, items, actions, panel }: {
+function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu, items, actions, panel, activeItem }: {
   code: string;
   module: ModuleInfo | null;
   menuChildren: MenuItem[];
@@ -213,7 +223,7 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
   const panelTitle = panelTitles[panel] || "";
   const effectiveTitle = activeMenu || panelTitle || module?.title || code;
   const selected = activeMenu || "";
-  const selectedChild = menuChildren.find(item => item.title === selected);
+  const selectedChild = menuChildren.find(item => item.title === selected || item.path.includes(`item=${encodeURIComponent(activeItem)}`));
   const childHref = selectedChild?.path ? selectedChild.path + (panel && !selectedChild.path.includes("panel=") ? (selectedChild.path.includes("?")?"&":"?")+"panel="+encodeURIComponent(panel) : "") : "";
   return <main className="module-runtime canonical-module" dir="rtl">
     <header className="page-head">
@@ -250,7 +260,7 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
   "40-ai-finance","41-ai-documents-ocr","42-audit-internal-control","43-communication-hub","44-marketing-content","45-search-analytics",
   "46-unified-applications","47-contracts-legal","48-shipping-delivery","49-reconciliation","50-release-health"
  ]);
- if(canonicalCodes.has(code))return <CanonicalModuleLanding code={code} module={module} menuChildren={menuChildren} error={error} activeMenu={activeMenu} items={items} actions={actions} panel={panel}/>;
+ if(canonicalCodes.has(code))return <CanonicalModuleLanding code={code} module={module} menuChildren={menuChildren} error={error} activeMenu={activeMenu} items={items} actions={actions} panel={panel} activeItem={activeItem}/>;
  if(code==="command-center")return <DashboardWorkspace/>;
  if(code==="accounting-finance")return <AccountingWorkspace/>;
  if(code==="08-accounting-finance")return <AccountingFinanceWorkspace/>;
@@ -313,7 +323,8 @@ if(code==="10-wallet-ledger")return <WalletLedgerWorkspace/>;
   {!!menuChildren.length&&<nav className="module-subnav" aria-label="زیرمنوی عملیاتی">
    {menuChildren.map(item=>{
     const tab=new URL(item.path,"http://module.local").searchParams.get("tab")||"";
-    const active=activeSection===tab;
+    const itemKey=new URL(item.path,"http://module.local").searchParams.get("item")||"";
+    const active=activeSection===tab || activeItem===itemKey;
     return <a key={item.id} className={active?"active":""} href={item.path}>{item.title}</a>;
    })}
   </nav>}
