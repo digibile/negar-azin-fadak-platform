@@ -23,18 +23,15 @@ test("operational menu 01..50 has a live module runtime, permissions, fields and
  }
 });
 
-test("operational menu 01..50 is navigable from the canonical menu tree",async()=>{
- const rows=(await query(`select m.code,(array_agg(mi.id))[1] as id,
-   count(mi.id)::int menu_entry_count,
-   coalesce(max((select count(*) from menu_items c where c.parent_id=mi.id and c.is_active=true)),0)::int child_count
-   from unnest($1::text[]) as m(code)
-   left join menu_items mi on mi.path='/modules/?code='||m.code and mi.is_active=true
-   group by m.code
-   order by m.code`,[codes])).rows;
- assert.equal(rows.length,50,"expected 50 canonical module menu entries");
- for(const row of rows){
-  assert.ok(row.id,`missing menu entry: ${row.code}`);
-  assert.equal(row.menu_entry_count,1,`duplicate canonical menu entries: ${row.code}`);
-  assert.ok(row.child_count>=5,`missing operational submenus: ${row.code}`);
- }
+test("canonical navigation has exactly 20 primary panels and keeps 21..50 as nested operational modules",async()=>{
+ const panels=["01-dashboard","02-organizations","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla","08-accounting-finance","09-commerce-stores","10-domains","11-merchants","12-sellers","13-payments-settlement","14-form-builder","15-menu-builder","16-page-builder","17-frontend-management","18-notifications","19-documents-governance","20-system-settings"];
+ const roots=(await query(`select menu_key,title,path,parent_id,is_active from menu_items where menu_key=any($1) and parent_id is null and is_active=true order by sort_order`,[panels])).rows;
+ assert.equal(roots.length,20,"expected exactly 20 primary panel roots");
+ assert.deepEqual(roots.map((r:any)=>r.menu_key),panels,"primary panel order/key mismatch");
+ for(const root of roots) assert.ok(root.path,"missing panel route: "+root.menu_key);
+
+ const nested=(await query(`select count(*)::int as total, count(*) filter(where parent_id is null)::int as root_count
+   from menu_items where menu_key ~ '^(21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50)-'`)).rows[0];
+ assert.equal(nested.total,30,"expected 21..50 to remain registered as 30 operational modules");
+ assert.equal(nested.root_count,0,"modules 21..50 must not appear as primary navigation roots");
 });
