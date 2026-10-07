@@ -17,4 +17,3 @@ alter table support_tickets add column if not exists resolution_note text;
 alter table support_tickets add column if not exists impact text;
 alter table support_tickets add column if not exists urgency text;
 alter table support_tickets add column if not exists major_incident boolean not null default false;
-commit;
