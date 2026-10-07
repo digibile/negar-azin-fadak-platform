@@ -7,14 +7,8 @@ const router=Router();
 const CANONICAL_ROOT_KEYS=[
  "01-dashboard","02-organizations","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla",
  "08-accounting-finance","09-commerce-stores","10-domains","11-merchants","12-sellers","13-payments-settlement","14-form-builder",
- "15-menu-builder","16-page-builder","17-frontend-management","18-notifications","19-documents-governance","20-system-settings",
- "21-purchasing-supply","22-sales-revenue","23-inventory-warehouse","24-production","25-costing","26-treasury-bank",
- "27-receivables","28-payables","29-wallet-ledger","30-projects-cost-centers","31-fixed-assets","32-tax-e-invoicing",
- "33-budget-financial-control","34-financial-commitments","35-credit-financing","36-loans","37-collateral-guarantees",
- "38-collections","39-human-resources","40-ai-finance","41-ai-documents-ocr","42-audit-internal-control","43-communication-hub",
- "44-marketing-content","45-search-analytics","46-unified-applications","47-contracts-legal","48-shipping-delivery","49-reconciliation",
- "50-release-health"
-] as const;
+ "15-menu-builder","16-page-builder","17-frontend-management","18-notifications","19-documents-governance","20-system-settings"
+] as const;;
 
 router.get("/api/dashboard/menu-tree",requireAuth,async(req:Request,res:Response)=>{
  const panel=typeof req.query.panel==="string"&&req.query.panel.trim()?req.query.panel.trim():"admin";
