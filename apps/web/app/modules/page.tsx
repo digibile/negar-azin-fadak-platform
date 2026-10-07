@@ -62,6 +62,7 @@ import DocumentAccessLogWorkspace from "./DocumentAccessLogWorkspace";
 import DocumentAuditReportsWorkspace from "./DocumentAuditReportsWorkspace";
 import DocumentComplianceWorkspace from "./DocumentComplianceWorkspace";
 import DocumentGovernanceWorkspace from "./DocumentGovernanceWorkspace";
+import OperationalModuleWorkspace from "./OperationalModuleWorkspace";
 
 type Field={field_key:string;title:string;field_type:string;required:boolean;sort_order:number;options?:{options?:string[]}};
 type ModuleInfo={id:number;code:string;title:string};
@@ -199,6 +200,13 @@ const CANONICAL_WORKSPACES: Record<string, React.ReactNode> = {
   "38-collections": <CollectionWorkflowWorkspace />
 };
 
+const GENERIC_OPERATIONAL_WORKSPACES = new Set([
+  "24-production","25-costing","27-receivables","28-payables","30-projects-cost-centers","31-fixed-assets",
+  "32-tax-e-invoicing","33-budget-financial-control","34-financial-commitments","35-credit-financing","36-loans",
+  "39-human-resources","40-ai-finance","41-ai-documents-ocr","42-audit-internal-control","43-communication-hub",
+  "44-marketing-content","45-search-analytics","46-unified-applications","47-contracts-legal","49-reconciliation","50-release-health"
+]);
+
 function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu, items, actions, panel, activeItem }: {
   code: string;
   module: ModuleInfo | null;
@@ -251,6 +259,7 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
  if(panel==="frontend")return <FrontendSectionsWorkspace/>;
  if(panel==="payments")return <WalletLedgerWorkspace/>;
  if(CANONICAL_WORKSPACES[code])return CANONICAL_WORKSPACES[code];
+ if(GENERIC_OPERATIONAL_WORKSPACES.has(code))return <OperationalModuleWorkspace code={code}/>;
  const canonicalCodes=new Set([
   "01-dashboard","02-organizations","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla",
   "08-accounting-finance","08-check-documents","09-commerce-stores","10-domains","11-merchants","12-sellers","13-payments-settlement","14-form-builder",
