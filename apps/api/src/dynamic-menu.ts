@@ -4,11 +4,9 @@ import {requireAuth, requirePermission} from "./auth.js";
 
 const router=Router();
 
-const CANONICAL_ROOT_KEYS=[
- "01-dashboard","02-organizations","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla",
+const CANONICAL_ROOT_KEYS=[ "01-dashboard","02-organizations","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla",
  "08-accounting-finance","09-commerce-stores","10-domains","11-merchants","12-sellers","13-payments-settlement","14-form-builder",
- "15-menu-builder","16-page-builder","17-frontend-management","18-notifications","19-documents-governance","20-system-settings"
-] as const;;
+ "15-menu-builder","16-page-builder","17-frontend-management","18-notifications","19-documents-governance","20-system-settings"] as const;
 
 router.get("/api/dashboard/menu-tree",requireAuth,async(req:Request,res:Response)=>{
  const panel=typeof req.query.panel==="string"&&req.query.panel.trim()?req.query.panel.trim():"admin";
@@ -31,8 +29,7 @@ router.get("/api/dashboard/menu-tree",requireAuth,async(req:Request,res:Response
      ${access}
    order by coalesce(mip.sort_order,mi.sort_order),mi.sort_order,mi.id`;
  const rows=(await query(sql,params)).rows;
- const visible=new Set(rows.map((r:any)=>String(r.id)));
- const roots=rows.filter((r:any)=>r.parent_id===null&&CANONICAL_ROOT_KEYS.includes(r.menu_key));
+  const roots=rows.filter((r:any)=>r.parent_id===null&&CANONICAL_ROOT_KEYS.includes(r.menu_key));
  const childrenByParent=new Map<string,any[]>();
  for(const row of rows){
   if(row.parent_id===null)continue;
@@ -71,6 +68,9 @@ router.post("/api/platform/modules/15-menu-builder/records",requireAuth,requireP
 });
 router.patch("/api/platform/modules/15-menu-builder/records/:id",requireAuth,requirePermission("menus:manage"),async(req:Request,res:Response)=>{
  const d=req.body?.data||{},title=typeof req.body?.title==="string"?req.body.title.trim():"";
+ const target=await query("select menu_key from menu_items where id=$1",[req.params.id]);
+ if(!target.rowCount)return res.status(404).json({error:"آیتم منو پیدا نشد"});
+ if(CANONICAL_ROOT_KEYS.includes(target.rows[0].menu_key)&&String(d["menu-key"]||target.rows[0].menu_key)!==target.rows[0].menu_key)return res.status(409).json({error:"کلید ریشه استاندارد قابل تغییر نیست"});
  let parentId=null;
  if(typeof d["parent-code"]==="string"&&d["parent-code"].trim()){
   const p=await query("select id from menu_items where menu_key=$1",[d["parent-code"].trim()]);
@@ -82,8 +82,12 @@ router.patch("/api/platform/modules/15-menu-builder/records/:id",requireAuth,req
  res.json({id:r.rows[0].id,record_type:"menu-definition",title:r.rows[0].title,status:r.rows[0].is_active?"فعال":"غیرفعال",data:d});
 });
 router.delete("/api/platform/modules/15-menu-builder/records/:id",requireAuth,requirePermission("menus:manage"),async(req:Request,res:Response)=>{
+ const target=await query("select id,menu_key from menu_items where id=$1",[req.params.id]);
+ if(!target.rowCount)return res.status(404).json({error:"آیتم منو پیدا نشد"});
+ if(CANONICAL_ROOT_KEYS.includes(target.rows[0].menu_key))return res.status(409).json({error:"ریشه‌های استاندارد منوی سازمان قابل حذف نیستند"});
+ const child=await query("select 1 from menu_items where parent_id=$1 limit 1",[req.params.id]);
+ if(child.rowCount)return res.status(409).json({error:"این آیتم دارای زیرمنو است و ابتدا باید زیرمنوها تعیین تکلیف شوند"});
  const r=await query("delete from menu_items where id=$1 returning id",[req.params.id]);
- if(!r.rowCount)return res.status(404).json({error:"آیتم منو پیدا نشد"});
  res.status(204).end();
 });
 
