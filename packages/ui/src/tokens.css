@@ -1,0 +1,50 @@
+:root {
+  /* Design System 2026: shared visual contract. Keep product surfaces consistent. */
+  --naf-color-canvas: #f5f7fa;
+  --naf-color-surface: #ffffff;
+  --naf-color-surface-soft: #f8fafc;
+  --naf-color-text: #17212b;
+  --naf-color-text-muted: #667085;
+  --naf-color-border: #e4e7ec;
+  --naf-color-primary: #123b5d;
+  --naf-color-primary-strong: #0b2942;
+  --naf-color-accent: #0b8f87;
+  --naf-color-success: #079455;
+  --naf-color-warning: #dc6803;
+  --naf-color-danger: #d92d20;
+
+  --naf-radius-sm: 6px;
+  --naf-radius-md: 8px;
+  --naf-radius-lg: 12px;
+  --naf-radius-xl: 16px;
+  --naf-radius-2xl: 20px;
+  --naf-radius-3xl: 24px;
+  --naf-radius-pill: 999px;
+
+  --naf-space-1: 4px;
+  --naf-space-2: 8px;
+  --naf-space-3: 12px;
+  --naf-space-4: 16px;
+  --naf-space-5: 20px;
+  --naf-space-6: 24px;
+  --naf-space-8: 32px;
+  --naf-space-10: 40px;
+  --naf-space-12: 48px;
+  --naf-space-16: 64px;
+
+  --naf-shadow-1: 0 1px 2px rgba(16, 24, 40, .04);
+  --naf-shadow-2: 0 8px 24px rgba(16, 24, 40, .07);
+  --naf-shadow-3: 0 20px 60px rgba(16, 24, 40, .12);
+
+  --naf-motion-fast: 120ms;
+  --naf-motion-normal: 180ms;
+  --naf-motion-slow: 280ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --naf-motion-fast: 0ms;
+    --naf-motion-normal: 0ms;
+    --naf-motion-slow: 0ms;
+  }
+}
