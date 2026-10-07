@@ -1,4 +1,5 @@
 import {pool} from "./db.js";
+import {getPaymentProvider} from "./payment-provider.js";
 import "dotenv/config";
 
 const BATCH_SIZE=Math.min(100,Math.max(1,Number(process.env.NOTIFICATION_WORKER_BATCH||25)));
@@ -106,7 +107,55 @@ async function scheduleCommerceReminders(){
  }catch(error){await client.query("rollback");throw error}finally{client.release();}
 }
 
+
+async function sweepPaymentReviews(){
+ const client=await pool.connect();
+ try{
+  const rows=await client.query(`select r.id review_id,r.tenant_id,r.payment_intent_id,r.gateway_attempt_id,r.review_deadline_at,
+    a.provider_transaction_id,a.amount,a.provider_code,g.auto_reverse_on_timeout
+    from payment_merchant_reviews r
+    join payment_gateway_attempts a on a.id=r.gateway_attempt_id
+    join payment_gateway_profiles g on g.id=a.gateway_profile_id
+    where r.status='pending' and a.status='paid_pending_review' and r.review_deadline_at<=now()
+    order by r.review_deadline_at,r.id
+    for update of r skip locked limit $1`,[BATCH_SIZE]);
+  for(const row of rows.rows){
+   await client.query("update payment_merchant_reviews set status=$1,reversal_reason=$2,updated_at=now() where id=$3",[
+    row.auto_reverse_on_timeout?"reversal_pending":"expired",
+    "مهلت تأیید موجودی فروشنده به پایان رسید",
+    row.review_id
+   ]);
+   if(!row.auto_reverse_on_timeout){
+    await client.query("update payment_gateway_attempts set status='expired',updated_at=now() where id=$1",[row.gateway_attempt_id]);
+    await client.query("update commerce_payment_intents set status='expired',updated_at=now() where id=$1",[row.payment_intent_id]);
+    continue;
+   }
+   await client.query("update payment_gateway_attempts set status='reversal_pending',reversal_requested_at=now(),updated_at=now() where id=$1",[row.gateway_attempt_id]);
+   await client.query("update commerce_payment_intents set status='reversal_pending',updated_at=now() where id=$1",[row.payment_intent_id]);
+   try{
+    if(!row.provider_transaction_id) throw new Error("شناسه تراکنش Provider برای برگشت وجه موجود نیست");
+    const provider=getPaymentProvider(row.provider_code||undefined);
+    const result=await provider.refundPayment({
+     providerTransactionId:row.provider_transaction_id,
+     amount:Number(row.amount),
+     metadata:{reason:"merchant_review_timeout",reviewId:row.review_id,paymentIntentId:row.payment_intent_id}
+    });
+    if(result.status!=="refunded") throw new Error("Provider برگشت وجه را نهایی نکرد");
+    await client.query("update payment_merchant_reviews set status='reversed',updated_at=now() where id=$1",[row.review_id]);
+    await client.query("update payment_gateway_attempts set status='reversed',reversed_at=now(),updated_at=now(),provider_payload=provider_payload||$1 where id=$2",[JSON.stringify(result.providerPayload),row.gateway_attempt_id]);
+    await client.query("update commerce_payment_intents set status='reversed',metadata=coalesce(metadata,'{}'::jsonb)||$1::jsonb,updated_at=now() where id=$2",[JSON.stringify({reversal:"merchant_review_timeout",providerCode:result.providerCode}),row.payment_intent_id]);
+   }catch(error){
+    await client.query("update payment_merchant_reviews set status='reversal_failed',metadata=coalesce(metadata,'{}'::jsonb)||$1::jsonb,updated_at=now() where id=$2",[JSON.stringify({error:error instanceof Error?error.message:String(error)}),row.review_id]);
+    await client.query("update payment_gateway_attempts set status='reversal_failed',updated_at=now() where id=$1",[row.gateway_attempt_id]);
+    await client.query("update commerce_payment_intents set status='reversal_failed',updated_at=now() where id=$1",[row.payment_intent_id]);
+   }
+  }
+  return rows.rowCount;
+ }finally{client.release();}
+}
+
 async function sweep(){
+ await sweepPaymentReviews();
  await scheduleCommerceReminders();
  const rows=await claimBatch();
  for(const row of rows) await processRow(row);
