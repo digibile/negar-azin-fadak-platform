@@ -38,8 +38,8 @@ logisticsRouter.get("/api/logistics/plans",requireAuth,asyncHandler(async(req,re
 logisticsRouter.post("/api/logistics/plans",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   if(!b.planNo)return fail(res,400,"شماره برنامه الزامی است");
-  const r=await query("insert into logistics_supply_plans(tenant_id,plan_no,planned_date,notes,created_by) values($1,$2,$3,$4,$5) returning *",[t.id,b.planNo,b.plannedDate||null,b.notes||null,req.user.id]);
-  await audit(t.id,"supply_plan",r.rows[0].id,"created",null,r.rows[0].status,req.user.id);
+  const r=await query("insert into logistics_supply_plans(tenant_id,plan_no,planned_date,notes,created_by) values($1,$2,$3,$4,$5) returning *",[t.id,b.planNo,b.plannedDate||null,b.notes||null,(req as any).user.id]);
+  await audit(t.id,"supply_plan",r.rows[0].id,"created",null,r.rows[0].status,(req as any).user.id);
   res.status(201).json(r.rows[0]);
 }));
 logisticsRouter.patch("/api/logistics/plans/:id/status",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
@@ -48,8 +48,8 @@ logisticsRouter.patch("/api/logistics/plans/:id/status",requireAuth,requirePermi
   if(!p)return fail(res,404,"برنامه پیدا نشد");
   const allowed:any={draft:["approved","cancelled"],approved:["released","cancelled"],released:["closed"],closed:[],cancelled:[]};
   if(!allowed[p.status]?.includes(b.status))return fail(res,409,"تغییر وضعیت برنامه مجاز نیست");
-  const r=(await query("update logistics_supply_plans set status=$1,approved_by=case when $1='approved' then $2 else approved_by end where id=$3 and tenant_id=$4 returning *",[b.status,req.user.id,p.id,t.id])).rows[0];
-  await audit(t.id,"supply_plan",p.id,"status_change",p.status,b.status,req.user.id,b.reason);
+  const r=(await query("update logistics_supply_plans set status=$1,approved_by=case when $1='approved' then $2 else approved_by end where id=$3 and tenant_id=$4 returning *",[b.status,(req as any).user.id,p.id,t.id])).rows[0];
+  await audit(t.id,"supply_plan",p.id,"status_change",p.status,b.status,(req as any).user.id,b.reason);
   res.json(r);
 }));
 
@@ -71,9 +71,9 @@ logisticsRouter.post("/api/logistics/orders",requireAuth,requirePermission("modu
   }
   const r=await query(
     "insert into logistics_supply_orders(tenant_id,order_no,plan_id,origin,destination,cargo_description,quantity,requested_date,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",
-    [t.id,b.orderNo,b.planId||null,b.origin,b.destination,b.cargoDescription||null,Number(b.quantity||0),b.requestedDate||null,b.notes||null,req.user.id]
+    [t.id,b.orderNo,b.planId||null,b.origin,b.destination,b.cargoDescription||null,Number(b.quantity||0),b.requestedDate||null,b.notes||null,(req as any).user.id]
   );
-  await audit(t.id,"supply_order",r.rows[0].id,"created",null,r.rows[0].status,req.user.id);
+  await audit(t.id,"supply_order",r.rows[0].id,"created",null,r.rows[0].status,(req as any).user.id);
   res.status(201).json(r.rows[0]);
 }));
 logisticsRouter.patch("/api/logistics/orders/:id/status",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
@@ -82,8 +82,8 @@ logisticsRouter.patch("/api/logistics/orders/:id/status",requireAuth,requirePerm
   if(!o)return fail(res,404,"سفارش تأمین پیدا نشد");
   const allowed:any={draft:["submitted","cancelled"],submitted:["approved","cancelled"],approved:["assigned","cancelled"],assigned:["shipped","cancelled"],shipped:["delivered","cancelled"],delivered:[],cancelled:[]};
   if(!allowed[o.status]?.includes(b.status))return fail(res,409,"تغییر وضعیت سفارش مجاز نیست");
-  const r=(await query("update logistics_supply_orders set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[b.status,req.user.id,o.id,t.id])).rows[0];
-  await audit(t.id,"supply_order",o.id,"status_change",o.status,b.status,req.user.id,b.reason);
+  const r=(await query("update logistics_supply_orders set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[b.status,(req as any).user.id,o.id,t.id])).rows[0];
+  await audit(t.id,"supply_order",o.id,"status_change",o.status,b.status,(req as any).user.id,b.reason);
   res.json(r);
 }));
 
@@ -149,12 +149,12 @@ logisticsRouter.post("/api/logistics/shipments",requireAuth,requirePermission("m
     }
     const r=(await c.query(
       "insert into logistics_shipments(tenant_id,shipment_no,supply_order_id,route_id,vehicle_id,driver_id,origin,destination,tracking_code,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",
-      [t.id,b.shipmentNo,b.supplyOrderId||null,b.routeId||null,b.vehicleId||null,b.driverId||null,b.origin,b.destination,b.trackingCode||null,req.user.id]
+      [t.id,b.shipmentNo,b.supplyOrderId||null,b.routeId||null,b.vehicleId||null,b.driverId||null,b.origin,b.destination,b.trackingCode||null,(req as any).user.id]
     )).rows[0];
     if(b.vehicleId)await c.query("update logistics_vehicles set status='assigned' where id=$1 and tenant_id=$2",[b.vehicleId,t.id]);
     if(order)await c.query("update logistics_supply_orders set status='assigned',updated_at=now() where id=$1 and tenant_id=$2",[order.id,t.id]);
     await c.query("commit");
-    await audit(t.id,"shipment",r.id,"created",null,r.status,req.user.id);
+    await audit(t.id,"shipment",r.id,"created",null,r.status,(req as any).user.id);
     res.status(201).json(r);
   }catch(e:any){await c.query("rollback");res.status(400).json({error:e.message||"ثبت مرسوله ناموفق بود"});}
   finally{c.release();}
@@ -191,9 +191,9 @@ logisticsRouter.patch("/api/logistics/shipments/:id/status",requireAuth,asyncHan
     if(s.supply_order_id&&b.status==="cancelled"){
       await c.query("update logistics_supply_orders set status='cancelled',updated_at=now() where id=$1 and tenant_id=$2 and status not in ('delivered','cancelled')",[s.supply_order_id,t.id]);
     }
-    await c.query("insert into logistics_delivery_events(tenant_id,shipment_id,status,location,description,actor_user_id) values($1,$2,$3,$4,$5,$6)",[t.id,s.id,b.status,b.location||null,b.description||b.reason||null,req.user.id]);
+    await c.query("insert into logistics_delivery_events(tenant_id,shipment_id,status,location,description,actor_user_id) values($1,$2,$3,$4,$5,$6)",[t.id,s.id,b.status,b.location||null,b.description||b.reason||null,(req as any).user.id]);
     await c.query("commit");
-    await audit(t.id,"shipment",s.id,"status_change",s.status,b.status,req.user.id,b.reason||b.location);
+    await audit(t.id,"shipment",s.id,"status_change",s.status,b.status,(req as any).user.id,b.reason||b.location);
     res.json(r);
   }catch(e){await c.query("rollback");throw e}finally{c.release();}
 }));
