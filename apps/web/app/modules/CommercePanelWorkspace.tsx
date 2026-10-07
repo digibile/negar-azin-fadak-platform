@@ -5,7 +5,7 @@ import {useEffect,useMemo,useState} from "react";
 type Mode="commerce"|"domains"|"sellers"|"payments";
 type CommerceTab="sellers"|"stores"|"products"|"orders";
 type PanelTab="domains"|"sellers"|"payments";
-type CommerceTab="sellers"|"stores"|"products"|"orders";
+
 type Row=Record<string,any>;
 
 const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
