@@ -119,3 +119,15 @@ Global CSS فقط برای reset، tokens و قواعد واقعاً سراسر�
 - قالب، دامنه و کانال ارتباطی را مدیریت کند.
 
 هیچ پنل تخصصی نباید User/Role مستقل خارج از Identity مرکزی ایجاد کند.
+
+## Commerce price and financing architecture
+
+- Market price intelligence is source-driven: API/feed/authorized crawler/manual source registry, timestamped offer snapshots, freshness windows and confidence.
+- Store pricing is policy-driven. Lowest verified market price is an input, not an uncontrolled overwrite. Policies support fixed, lowest-market, market-minus and cost-plus with floor/ceiling.
+- Financing providers are first-class suppliers. Banks, lenders, financing brands and individual programs are data/configuration, so a brand such as «باما» can be defined centrally when its exact commercial terms are supplied.
+- Product checkout distinguishes cash price, financing offer, quote and final invoice/order. A financing quote can expire and be repriced before conversion.
+- Financing approval uses business-day calendars. Canonical storage remains ISO/Gregorian timestamps; presentation can be Persian/Jalali, English/Gregorian or other supported calendars. ISO 8601 is the interchange baseline. 
+- Credit wallets are segregated from cash wallets. They cannot be cashed out or transferred by default; purchase authorization uses holds and immutable credit-wallet ledger entries.
+- Virtual cards store provider references/tokens and masked presentation only. Raw PAN/CVV are not stored in the platform.
+- Scheduled approval reminders enter the central notification outbox at the configured local time, then use the enabled provider adapter.
+- Catalog variants support attributes such as color, RAM, storage, camera and other product-specific dimensions without hard-coding a mobile-only schema.
