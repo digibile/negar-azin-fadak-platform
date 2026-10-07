@@ -65,6 +65,52 @@ commerceIntelligenceRouter.get("/api/public/products/:id/buying-options",asyncHa
  res.json({tenant:t,product:data.product,cash:{amount:data.recommendedPrice,currency:data.product.currency,source:data.priceSource,marketLowest:data.lowestMarketPrice},financingPrograms:programs.rows,deliveryMethods:deliveries.rows,marketOffers:data.offers.map((o:any)=>({source:o.source_name,seller:o.seller_name,price:Number(o.price),shipping:Number(o.shipping_amount),capturedAt:o.captured_at,url:o.external_url}))});
 }));
 
+
+commerceIntelligenceRouter.post("/api/catalog-import/connectors",requireAuth,requirePermission("catalog-import:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const b=req.body||{};
+ if(!b.code||!b.title||!b.connectorType)return res.status(400).json({error:"کد، عنوان و نوع اتصال الزامی است"});
+ const r=await query("insert into catalog_import_connectors(tenant_id,code,title,connector_type,base_url,secret_reference,schedule_minutes,enabled,mapping) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *",[t.id,str(b.code,80),str(b.title,200),b.connectorType,b.baseUrl||null,b.secretReference||null,Number(b.scheduleMinutes)||360,Boolean(b.enabled),b.mapping||{}]);
+ res.status(201).json(r.rows[0]);
+}));
+
+commerceIntelligenceRouter.post("/api/catalog-import/jobs",requireAuth,requirePermission("catalog-import:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const jobNo="IMP-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).slice(2,6).toUpperCase();
+ const r=await query("insert into catalog_import_jobs(tenant_id,connector_id,job_no,source_ref,requested_by) values($1,$2,$3,$4,$5) returning *",[t.id,req.body?.connectorId||null,jobNo,req.body?.sourceRef||null,req.user.id]);
+ res.status(202).json({job:r.rows[0],message:"دریافت کاتالوگ وارد صف شد؛ Normalizer بعد از دریافت داده، ویژگی‌ها و تنوع‌ها را استخراج می‌کند."});
+}));
+
+commerceIntelligenceRouter.post("/api/catalog-import/jobs/:id/items",requireAuth,requirePermission("catalog-import:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const job=await query("select id from catalog_import_jobs where id=$1 and tenant_id=$2",[req.params.id,t.id]);if(!job.rowCount)return res.status(404).json({error:"وظیفه دریافت کاتالوگ پیدا نشد"});
+ const b=req.body||{};if(!b.rawPayload)return res.status(400).json({error:"داده خام محصول ارسال نشده است"});
+ const r=await query("insert into catalog_import_items(tenant_id,job_id,external_ref,source_url,raw_payload,status) values($1,$2,$3,$4,$5,'pending') returning *",[t.id,req.params.id,b.externalRef||null,b.sourceUrl||null,b.rawPayload]);
+ res.status(201).json(r.rows[0]);
+}));
+
+commerceIntelligenceRouter.post("/api/catalog/content-jobs",requireAuth,requirePermission("content-ai:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const b=req.body||{};if(!b.jobType||!["description","seo","social_post","reel_script","story","faq","customer_reply"].includes(b.jobType))return res.status(400).json({error:"نوع تولید محتوا نامعتبر است"});
+ const r=await query("insert into product_content_jobs(tenant_id,product_id,job_type,channel,locale,input_snapshot,requested_by) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,b.productId||null,b.jobType,b.channel||null,b.locale||"fa-IR",b.inputSnapshot||{},req.user.id]);
+ res.status(202).json({job:r.rows[0],message:"درخواست محتوا ثبت شد؛ خروجی تا اتصال موتور مدل در وضعیت صف باقی می‌ماند و داده ساختگی تولید نمی‌شود."});
+}));
+
+commerceIntelligenceRouter.get("/api/catalog/content-jobs",requireAuth,requirePermission("content-ai:read"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const params:any[]=[t.id],where=["tenant_id=$1"];if(str(req.query.productId,100)){params.push(str(req.query.productId,100));where.push("product_id=$"+params.length);}
+ const r=await query("select * from product_content_jobs where "+where.join(" and ")+" order by created_at desc limit 100",params);res.json({items:r.rows});
+}));
+
+commerceIntelligenceRouter.post("/api/catalog/attributes",requireAuth,requirePermission("product:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const b=req.body||{};if(!b.code||!b.title)return res.status(400).json({error:"کد و عنوان ویژگی الزامی است"});
+ const r=await query("insert into catalog_attribute_definitions(tenant_id,code,title,value_type,unit,options,is_variant_axis) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,str(b.code,80),str(b.title,200),b.valueType||"text",b.unit||null,b.options||[],Boolean(b.isVariantAxis)]);res.status(201).json(r.rows[0]);
+}));
+
+commerceIntelligenceRouter.post("/api/catalog/products/:id/variants",requireAuth,requirePermission("product:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const b=req.body||{};if(!b.sku)return res.status(400).json({error:"SKU تنوع الزامی است"});
+ const r=await query("insert into catalog_product_variants(tenant_id,product_id,sku,title,attributes,price,inventory_quantity) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,req.params.id,str(b.sku,120),b.title||null,b.attributes||{},num(b.price),num(b.inventoryQuantity)||0]);res.status(201).json(r.rows[0]);
+}));
+
 commerceIntelligenceRouter.post("/api/market-intelligence/sources",requireAuth,requirePermission("market-price:manage"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const b=req.body||{};
  if(!b.code||!b.name||!b.sourceType)return res.status(400).json({error:"کد، نام و نوع منبع الزامی است"});
