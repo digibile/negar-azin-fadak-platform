@@ -31,6 +31,8 @@ test("canonical navigation has exactly 20 primary panels and keeps 21..50 as nes
  assert.equal(roots.length,20,"expected exactly 20 primary panel roots");
  assert.deepEqual(roots.map((r:any)=>r.menu_key),panels,"primary panel order/key mismatch");
  for(const root of roots){ assert.ok(root.path,"missing panel route: "+root.menu_key); assert.ok(root.permission,"missing panel permission: "+root.menu_key); }
+ const permissionRows=(await query(`select distinct permission from role_permissions where role in ('admin','manager','viewer') and permission = any($1)`,[roots.map((r:any)=>r.permission)])).rows;
+ assert.equal(permissionRows.length,20,"every canonical panel permission must be granted to core roles");
 
  const nested=(await query(`select menu_key,parent_id,is_active from menu_items where menu_key=any($1) order by menu_key`,[nestedMenuKeys])).rows;
  assert.equal(nested.length,30,"expected exactly 30 nested operational menu modules");
