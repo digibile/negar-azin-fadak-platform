@@ -203,21 +203,8 @@ commerceIntelligenceRouter.post("/api/commerce/quotes/:id/select-financing",requ
  res.json({quote:r.rows[0],offer:offer.rows[0],requiresPreapproval:offer.rows[0].requires_preapproval});
 }));
 
-commerceIntelligenceRouter.post("/api/commerce/quotes/:id/cash-payment",requireAuth,requirePermission("payment:manage"),requireCsrf,asyncHandler(async(req,res)=>{
- const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const q=await query("select * from commerce_purchase_quotes where id=$1 and tenant_id=$2 and valid_until>now() and status in ('offered','ready')",[req.params.id,t.id]);if(!q.rowCount)return res.status(409).json({error:"پیشنهاد خرید منقضی یا غیرقابل پرداخت است"});
- const idem=str(req.body?.idempotencyKey,180)||("cash-"+q.rows[0].id);
- const existing=await query("select * from commerce_payment_intents where tenant_id=$1 and idempotency_key=$2",[t.id,idem]);if(existing.rowCount)return res.json({intent:existing.rows[0]});
- const intentNo="PI-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).slice(2,7).toUpperCase();
- const created=await query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,idempotency_key,expires_at,created_by) values($1,$2,$3,'cash',$4,$5,'created',$6,$7,$8,$9) returning *",[t.id,q.rows[0].id,intentNo,Number(q.rows[0].cash_amount),q.rows[0].currency,str(req.body?.providerCode,50)||undefined,idem,q.rows[0].valid_until,(req as any).user.id]);
- try{
-  const provider=getPaymentProvider(str(req.body?.providerCode,50)||undefined);
-  const result=await provider.createPayment({tenantId:t.id,orderId:q.rows[0].id,amount:Number(q.rows[0].cash_amount),currency:q.rows[0].currency,paymentNo:intentNo,providerRef:str(req.body?.providerRef,200)||null,metadata:{quoteId:q.rows[0].id}});
-  const status=result.status==="paid"?"paid":result.status;
-  const updated=await query("update commerce_payment_intents set status=$1,provider_code=$2,provider_transaction_id=$3,metadata=$4,updated_at=now() where id=$5 returning *",[status,result.providerCode,result.providerTransactionId,JSON.stringify(result.providerPayload),created.rows[0].id]);
-  if(status==="paid")await query("update commerce_purchase_quotes set status='ready',updated_at=now() where id=$1",[q.rows[0].id]);
-  res.status(status==="paid"?200:202).json({intent:updated.rows[0],nextAction:status==="paid"?"convert":"continue_payment"});
- }catch(error){await query("update commerce_payment_intents set status='failed',metadata=$1,updated_at=now() where id=$2",[JSON.stringify({error:error instanceof Error?error.message:String(error)}),created.rows[0].id]);throw error}
+commerceIntelligenceRouter.post("/api/commerce/quotes/:id/cash-payment",requireAuth,requirePermission("payment:manage"),requireCsrf,asyncHandler(async(_req,res)=>{
+ return res.status(410).json({error:"مسیر پرداخت نقدی قدیمی غیرفعال است",use:"/api/commerce/quotes/:id/payment-attempt"});
 }));
 
 commerceIntelligenceRouter.post("/api/commerce/quotes/:id/authorize-credit",requireAuth,requirePermission("credit-wallet:manage"),requireCsrf,asyncHandler(async(req,res)=>{
@@ -255,7 +242,7 @@ commerceIntelligenceRouter.post("/api/commerce/quotes/:id/convert",requireAuth,r
   if(q.rows[0].valid_until<=new Date()||!["ready","offered"].includes(q.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"پیشنهاد منقضی یا آماده تبدیل نیست؛ قیمت باید دوباره محاسبه شود"});}
   const items=await client.query("select qi.*,p.seller_id,p.store_id,p.title from commerce_quote_items qi join products p on p.id=qi.product_id where qi.quote_id=$1 for update",[q.rows[0].id]);
   const sellers=[...new Set(items.rows.map((x:any)=>x.seller_id))];if(sellers.length!==1){await client.query("rollback");return res.status(400).json({error:"پیشنهاد باید متعلق به یک فروشنده باشد"});}
-  const paid=await client.query("select * from commerce_payment_intents where quote_id=$1 and tenant_id=$2 and status in ('paid','authorized') order by created_at desc limit 1",[q.rows[0].id,t.id]);
+  const paid=await client.query("select * from commerce_payment_intents where quote_id=$1 and tenant_id=$2 and (status='paid' or (status='authorized' and payment_mode='credit_wallet')) order by created_at desc limit 1",[q.rows[0].id,t.id]);
   if(!paid.rowCount){await client.query("rollback");return res.status(409).json({error:"ابتدا پرداخت نقدی یا اعتباردهی کیف پول باید تکمیل شود"});}
   const payment=paid.rows[0],seller=sellers[0],subtotal=items.rows.reduce((sum:any,x:any)=>sum+Number(x.line_total),0),shipping=Number(q.rows[0].cash_amount)-subtotal,total=Number(q.rows[0].cash_amount);
   const sr=await client.query("select commission_rate from sellers where id=$1 and tenant_id=$2",[seller,t.id]);if(!sr.rowCount){await client.query("rollback");return res.status(404).json({error:"فروشنده پیدا نشد"});}
@@ -364,6 +351,20 @@ commerceIntelligenceRouter.get("/api/commerce/working-day",requireAuth,requirePe
 }));
 
 
+commerceIntelligenceRouter.get("/api/credit-virtual-cards",requireAuth,requirePermission("credit-wallet:read"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const rows=await query("select id,wallet_id,provider_code,provider_card_reference,masked_pan,status,spend_limit,expires_at,metadata,created_at,updated_at from credit_virtual_cards where tenant_id=$1 and wallet_id in (select id from credit_wallet_accounts where owner_user_id=$2) order by created_at desc",[t.id,(req as any).user.id]);
+ res.json({cards:rows.rows});
+}));
+commerceIntelligenceRouter.post("/api/credit-virtual-cards",requireAuth,requirePermission("credit-wallet:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const wallet=await query("select id,currency,status from credit_wallet_accounts where id=$1 and tenant_id=$2 and owner_user_id=$3",[req.body?.walletId,t.id,(req as any).user.id]);
+ if(!wallet.rowCount||wallet.rows[0].status!=="active")return res.status(404).json({error:"کیف پول اعتباری فعال پیدا نشد"});
+ const providerCode=str(req.body?.providerCode,80);const cardRef=str(req.body?.providerCardReference,200);
+ if(!providerCode||!cardRef)return res.status(400).json({error:"شناسه کارت نزد ارائه‌دهنده و کد ارائه‌دهنده الزامی است"});
+ const r=await query("insert into credit_virtual_cards(tenant_id,wallet_id,provider_code,provider_card_reference,masked_pan,status,spend_limit,expires_at,metadata) values($1,$2,$3,$4,$5,'active',$6,$7,$8) returning id,wallet_id,provider_code,provider_card_reference,masked_pan,status,spend_limit,expires_at,metadata",[t.id,wallet.rows[0].id,providerCode,cardRef,str(req.body?.maskedPan,32)||null,num(req.body?.spendLimit),req.body?.expiresAt||null,req.body?.metadata||{}]);
+ res.status(201).json({card:r.rows[0],security:{rawPanStored:false,cvvStored:false}});
+}));
 commerceIntelligenceRouter.get("/api/payment-gateways",requireAuth,requirePermission("payment-gateway:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const rows=await query("select * from payment_gateway_profiles where tenant_id=$1 order by created_at",[t.id]);res.json({gateways:rows.rows});
@@ -385,6 +386,15 @@ commerceIntelligenceRouter.post("/api/commerce/quotes/:id/payment-attempt",requi
  if(oldAttempt.rowCount)return res.json({attempt:oldAttempt.rows[0],nextAction:oldAttempt.rows[0].status==="created"?"start_provider_payment":"continue_payment"});
  const amount=Number(q.rows[0].cash_amount);
  const currency=str(q.rows[0].currency,12);
+ const paymentMode=["cash","virtual_card"].includes(str(req.body?.paymentMode,30))?str(req.body?.paymentMode,30):"cash";
+ let virtualCard:any=null;
+ if(paymentMode==="virtual_card"){
+  const vc=await query("select c.*,w.owner_user_id,w.status wallet_status from credit_virtual_cards c join credit_wallet_accounts w on w.id=c.wallet_id where c.id=$1 and c.tenant_id=$2 and w.owner_user_id=$3 and c.status='active' and w.status='active' for update",[req.body?.virtualCardId,t.id,(req as any).user.id]);
+  if(!vc.rowCount)return res.status(404).json({error:"کارت اعتباری مجازی فعال پیدا نشد"});
+  virtualCard=vc.rows[0];
+  if(virtualCard.expires_at&&new Date(virtualCard.expires_at)<=new Date())return res.status(409).json({error:"کارت اعتباری مجازی منقضی شده است"});
+  if(virtualCard.spend_limit!==null&&Number(virtualCard.spend_limit)<amount)return res.status(409).json({error:"سقف مصرف کارت اعتباری برای این خرید کافی نیست"});
+ }
  const providerCode=str(gateway.provider_code,80)||str(gateway.code,80);
  const paymentNo="PI-"+Date.now().toString(36).toUpperCase();
  let providerResult:any;
@@ -396,13 +406,13 @@ commerceIntelligenceRouter.post("/api/commerce/quotes/:id/payment-attempt",requi
    amount,
    currency,
    paymentNo,
-   metadata:{quoteId:String(q.rows[0].id),gatewayId:String(gateway.id),idempotencyKey:idem}
+   metadata:{quoteId:String(q.rows[0].id),gatewayId:String(gateway.id),idempotencyKey:idem,paymentMode,virtualCardId:virtualCard?.id||null,virtualCardProviderReference:virtualCard?.provider_card_reference||null}
   });
  }catch(error){
   return res.status(503).json({error:error instanceof Error?error.message:"درگاه در دسترس نیست",providerCode});
  }
  const initialStatus=providerResult.status==="paid"?"paid_pending_review":providerResult.status==="authorized"?"authorized":"redirected";
- const pi=await query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,provider_transaction_id,idempotency_key,expires_at,created_by) values($1,$2,$3,'cash',$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,q.rows[0].id,paymentNo,amount,currency,initialStatus,providerCode,providerResult.providerTransactionId,idem,q.rows[0].valid_until,(req as any).user.id]);
+ const pi=await query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,provider_transaction_id,idempotency_key,expires_at,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning *",[t.id,q.rows[0].id,paymentNo,paymentMode,amount,currency,initialStatus,providerCode,providerResult.providerTransactionId,idem,q.rows[0].valid_until,(req as any).user.id]);
  const attempt=await query("insert into payment_gateway_attempts(tenant_id,payment_intent_id,gateway_profile_id,attempt_no,provider_code,provider_transaction_id,status,amount,currency,provider_payload,paid_at,review_deadline_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now()+($12||' seconds')::interval) returning *",[t.id,pi.rows[0].id,gateway.id,idem,providerCode,providerResult.providerTransactionId,initialStatus,amount,currency,providerResult.providerPayload,initialStatus==="paid_pending_review"?new Date():null,Number(gateway.merchant_review_timeout_seconds)]);
  if(initialStatus==="paid_pending_review"){
   await query("insert into payment_merchant_reviews(tenant_id,payment_intent_id,gateway_attempt_id,status,review_deadline_at,metadata) values($1,$2,$3,'pending',$4,$5) on conflict(gateway_attempt_id) do update set status='pending',review_deadline_at=excluded.review_deadline_at,updated_at=now()",[t.id,pi.rows[0].id,attempt.rows[0].id,attempt.rows[0].review_deadline_at,JSON.stringify({source:"provider_create_payment"})]);
