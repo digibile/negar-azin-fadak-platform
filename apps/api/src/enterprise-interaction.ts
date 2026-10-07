@@ -111,9 +111,10 @@ enterpriseInteractionRouter.post("/api/enterprise/attachments",requireAuth,requi
  const bytes=Buffer.from(raw,"base64");if(!bytes.length)return res.status(400).json({error:"فایل خالی است"});
  if(bytes.length>10*1024*1024)return res.status(413).json({error:"حجم فایل پس از فشرده‌سازی باید کمتر از ۱۰ مگابایت باشد"});
  const sha=createHash("sha256").update(bytes).digest("hex");
- const storedMime=(mime.startsWith("image/")&&mime!=="image/webp")?"image/webp":mime;
- const meta={source_mime:mime,normalization:"client-side-webp",voice_note:mime.startsWith("audio/"),original_name:originalName};
- const r=await query("insert into platform_attachments(tenant_id,original_name,storage_name,mime_type,stored_mime_type,size_bytes,original_size_bytes,sha256,storage_kind,binary_data,metadata,uploaded_by) values($1,$2,$3,$4,$5,$6,$6,$7,'database',$8,$9,$10) returning id,original_name,mime_type,stored_mime_type,size_bytes,ocr_status,created_at",[t.id,originalName,cryptoName(originalName),mime,storedMime,bytes.length,sha,bytes,JSON.stringify(meta),req.user.id]);
+ const normalizedMime=String(b.normalizedMime||mime).toLowerCase();
+ const storedMime=normalizedMime==="image/webp"&&mime.startsWith("image/")?"image/webp":mime;
+ const meta={source_mime:mime,normalization:storedMime==="image/webp"&&mime!=="image/webp"?"client-side-webp":"preserved",voice_note:mime.startsWith("audio/"),original_name:originalName};
+ const r=await query("insert into platform_attachments(tenant_id,original_name,storage_name,mime_type,stored_mime_type,size_bytes,original_size_bytes,sha256,storage_kind,binary_data,metadata,uploaded_by) values($1,$2,$3,$4,$5,$6,$7,$8,'database',$9,$10,$11) returning id,original_name,mime_type,stored_mime_type,size_bytes,ocr_status,created_at",[t.id,originalName,cryptoName(originalName),mime,storedMime,bytes.length,Number(b.originalSizeBytes)||bytes.length,sha,bytes,JSON.stringify(meta),req.user.id]);
  const a=r.rows[0];
  if(b.entityType&&b.entityId){
   await query("insert into platform_attachment_links(tenant_id,attachment_id,entity_type,entity_id,relation_type,title,created_by) values($1,$2,$3,$4,$5,$6,$7) on conflict do nothing",[t.id,a.id,String(b.entityType),String(b.entityId),String(b.relationType||"supporting"),b.title||null,req.user.id]);
