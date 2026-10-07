@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect,useMemo,useState} from "react";
+import type {ReactNode} from "react";
 import styles from "./LogisticsWorkspace.module.css";
 
 type R=Record<string,any>;
@@ -198,7 +199,7 @@ export default function LogisticsWorkspace(){
 }
 
 type xstatus=[string,string];
-function Table({rows,cols,action}:{rows:R[];cols:string[];action?:(x:R)=>React.ReactNode}){
+function Table({rows,cols,action}:{rows:R[];cols:string[];action?:(x:R)=>ReactNode}){
   return <div className={styles.table}>{rows.map(x=><div className={styles.row} key={String(x.id||JSON.stringify(x))}>
     {cols.map(c=><span key={c}><b>{labels[c]||c}</b>{fmt(x[c])}</span>)}{action&&<span>{action(x)}</span>}
   </div>)}{!rows.length&&<div className={styles.empty}>داده‌ای ثبت نشده است.</div>}</div>;
