@@ -72,34 +72,12 @@ const LEGACY_BY_MASTER:Record<string,string>={}; const canonical=useMemo(()=>MAS
     : (child.moduleCode&&moduleSet.has(child.moduleCode)
       ? "/modules/?code="+encodeURIComponent(child.moduleCode)
       : route+"?menu="+encodeURIComponent(child.title));
-   return {
-    id:item.code+"-"+i,
-    title:child.title,
-    path:childRoute,
-    sort_order:i,
-    db,
-    dbChildren:normalize(db?.child_items||[])
-   };
+   return {id:item.code+"-"+i,title:child.title,path:childRoute,sort_order:i,db,dbChildren:normalize(db?.child_items||[])};
   });
   return {...item,route,children};
- }),[dbByLegacy,moduleSet]);   {filtered.map(item=>{
-     const expanded=Boolean(query)||Boolean(open[item.code]);
-     const current=item.route===pathname;
-     return <section className={styles["master-item"]+" "+(current?styles["is-current"]:"")+" "+(expanded?styles["is-open"]:"")} key={item.code}>
-      <div className={styles["master-header"]}>
-       <span className={styles["master-open"]}>{item.number}</span>
-       <Link className={styles["master-title-button"]} href={item.route} onClick={closeMobile}>
-        <span className={styles["master-copy"]}><strong>{item.title}</strong><small>{item.children.length} قابلیت اصلی · {item.moduleCode||"مرکز سازمان"}</small></span>
-       </Link>
-       {item.children.length>0?<button type="button" className={styles["master-chevron-button"]} onClick={()=>toggle(item.code)} aria-expanded={expanded} aria-label={(expanded?"بستن ":"باز کردن ")+item.title}><span className={styles["master-chevron"]}><ChevronIcon/></span></button>:<span className={styles["master-chevron-button"]+" "+styles["empty-chevron"]}/>}
-      </div>
-      {expanded&&item.children.length>0&&<div className={styles["master-children"]}>
-       {item.children.map((child,i)=>{
+ }),[dbByLegacy,moduleSet]);       {item.children.map((child,i)=>{
         const href=child.path;
-        const dbChildren=child.dbChildren;
-        const synthetic:MenuNode={id:child.id,menu_key:child.db?.menu_key||null,parent_id:child.db?.parent_id||null,title:child.title,path:href,sort_order:i,permission:child.db?.permission||null,child_items:dbChildren};
+        const synthetic:MenuNode={id:child.id,menu_key:child.db?.menu_key||null,parent_id:child.db?.parent_id||null,title:child.title,path:href,sort_order:i,permission:child.db?.permission||null,child_items:child.dbChildren};
         return <TreeNode key={child.id} node={synthetic} href={href} pathname={pathname} closeMobile={closeMobile} depth={0}/>;
        })}
-      </div>}
-     </section>;
-    })}}
+}
