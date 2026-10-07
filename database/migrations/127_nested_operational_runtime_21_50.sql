@@ -31,8 +31,14 @@ values
 ('47-contracts-legal','قراردادها و حقوقی','documents-content',(select id from platform_modules where code='19-documents-governance' and is_active=true limit 1),47,true),
 ('48-shipping-delivery','ارسال و تحویل','commerce',(select id from platform_modules where code='09-commerce-stores' and is_active=true limit 1),48,true),
 ('49-reconciliation','تطبیق و مغایرت‌گیری','finance',(select id from platform_modules where code='13-payments-settlement' and is_active=true limit 1),49,true),
-('50-release-health','سلامت انتشار','command-platform',(select id from platform_modules where code='20-system-settings' and is_active=true limit 1),50,true);
-
+('50-release-health','سلامت انتشار','command-platform',(select id from platform_modules where code='20-system-settings' and is_active=true limit 1),50,true)
+on conflict (code) do update set
+title=excluded.title,
+core=excluded.core,
+parent_id=excluded.parent_id,
+sort_order=excluded.sort_order,
+is_active=excluded.is_active,
+updated_at=now();
 
 insert into module_runtime(module_id,lifecycle,route,api_prefix,owner_team,description)
 select id,'active','/modules/?code='||code,'/api/platform/modules/'||code,'platform',title
