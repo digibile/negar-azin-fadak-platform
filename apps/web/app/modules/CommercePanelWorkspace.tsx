@@ -2,7 +2,9 @@
 
 import {useEffect,useMemo,useState} from "react";
 
-type Mode="commerce"|"domains"|"sellers"|"payments";\ntype CommerceTab="sellers"|"stores"|"products"|"orders";
+type Mode="commerce"|"domains"|"sellers"|"payments";
+type CommerceTab="sellers"|"stores"|"products"|"orders";
+type PanelTab="domains"|"sellers"|"payments";\ntype CommerceTab="sellers"|"stores"|"products"|"orders";
 type Row=Record<string,any>;
 
 const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
@@ -103,7 +105,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   </header>
   {error&&<div className="error runtime-error">{error}</div>}
   <nav className="module-subnav">
-   {(mode==="commerce"?["sellers","stores","products","orders"]:mode==="domains"?["domains"]:mode==="sellers"?["sellers"]:["payments"]).map(x=><button type="button" className={tab===x?"active":""} key={x} onClick={()=>setTab(x)}>{({sellers:"فروشندگان",stores:"فروشگاه‌ها",products:"محصولات",orders:"سفارش‌ها",domains:"دامنه‌ها",payments:"تسویه‌ها"} as any)[x]}</button>)}
+   {(mode==="commerce"?["sellers","stores","products","orders"]:mode==="domains"?["domains"]:mode==="sellers"?["sellers"]:["payments"]).map(x=><button type="button" className={tab===x?"active":""} key={x} onClick={()=>setTab(x as CommerceTab|PanelTab)}>{({sellers:"فروشندگان",stores:"فروشگاه‌ها",products:"محصولات",orders:"سفارش‌ها",domains:"دامنه‌ها",payments:"تسویه‌ها"} as any)[x]}</button>)}
   </nav>
 
   {mode==="sellers"&&<section className="runtime-panel">
