@@ -84,11 +84,53 @@ async function scheduleCommerceReminders(){
  const client=await pool.connect();
  try{
   await client.query("begin");
-  const rows=await client.query(`select r.id,r.tenant_id,r.quote_id,r.channel,r.template_code,r.payload,q.customer_ref,u.email,
+  const rows=await client.query(`select r.id,r.tenant_id,r.quote_id,r.channel,r.template_code,r.payload,q.customer_ref,u.id user_id,u.email,
     (select value from user_contact_methods cm where cm.user_id=u.id and cm.channel=r.channel and cm.status='active' order by cm.is_primary desc,cm.created_at limit 1) contact
     from commerce_quote_reminders r
     join commerce_purchase_quotes q on q.id=r.quote_id
-    left join users u on u.id=q.customer_ref::uuid
+    left join users u on q.customer_ref ~ '^[0-9a-fA-F-]{36}
+    where r.status='queued' and r.scheduled_at<=now()
+    order by r.scheduled_at,r.id
+    for update of r skip locked limit $1`,[BATCH_SIZE]);
+  for(const row of rows.rows){
+   const destination=row.channel==="email"?row.email:row.contact;
+   if(!destination && row.channel!=="in_app"){
+    await client.query("update commerce_quote_reminders set status='failed' where id=$1",[row.id]);
+    continue;
+   }
+   const n=await client.query("insert into platform_notifications(tenant_id,user_id,channel,title,body,status) values($1,$2,$3,$4,$5,'queued') returning id",[row.tenant_id,row.user_id||null,row.channel,"یادآوری خرید و اعتبار","پیشنهاد خرید شما آماده ادامه فرآیند است."]);
+   await client.query("insert into notification_outbox(tenant_id,notification_id,channel,destination,payload,status,available_at,created_at,updated_at) values($1,$2,$3,$4,$5,'queued',now(),now(),now())",[row.tenant_id,n.rows[0].id,row.channel,destination,{quoteId:row.quote_id,templateCode:row.template_code,...(row.payload||{})}]);
+   await client.query("update commerce_quote_reminders set status='sent',sent_at=now() where id=$1",[row.id]);
+  }
+  await client.query("commit");
+ }catch(error){await client.query("rollback");throw error}finally{client.release();}
+}
+
+async function sweep(){
+ await scheduleCommerceReminders();
+ const rows=await claimBatch();
+ for(const row of rows) await processRow(row);
+ return rows.length;
+}
+
+let stopping=false;
+async function main(){
+ console.log("Notification worker started",WORKER_ID);
+ while(!stopping){
+  try{
+   const count=await sweep();
+   if(count===0)await new Promise(r=>setTimeout(r,POLL_MS));
+  }catch(error){
+   console.error("Notification worker error",error);
+   await new Promise(r=>setTimeout(r,POLL_MS));
+  }
+ }
+ await pool.end();
+}
+process.on("SIGTERM",()=>{stopping=true});
+process.on("SIGINT",()=>{stopping=true});
+main().catch(error=>{console.error(error);process.exitCode=1;});
+ and u.id=q.customer_ref::uuid
     where r.status='queued' and r.scheduled_at<=now()
     order by r.scheduled_at,r.id
     for update of r skip locked limit $1`,[BATCH_SIZE]);
