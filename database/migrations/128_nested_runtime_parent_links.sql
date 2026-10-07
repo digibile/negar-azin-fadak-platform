@@ -13,7 +13,7 @@ with mapping(child_code,parent_code) as (values
 ('48-shipping-delivery','09-commerce-stores'),('49-reconciliation','13-payments-settlement'),('50-release-health','20-system-settings')
 )
 update platform_modules c
-set parent_id=p.id,updated_at=now()
+set parent_id=p.id
 from mapping x join platform_modules p on p.code=x.parent_code
 where c.code=x.child_code;
 
