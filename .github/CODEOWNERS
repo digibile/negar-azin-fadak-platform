@@ -1,0 +1,11 @@
+# Protected platform areas
+* @digibile
+
+# Architecture, migrations, navigation and CI must not be changed without review
+apps/api/src/dynamic-menu.ts @digibile
+apps/api/src/operational-menu-integrity.test.ts @digibile
+apps/web/app/admin/master-menu.ts @digibile
+apps/web/app/admin/AdminSidebar.tsx @digibile
+apps/web/app/modules/page.tsx @digibile
+database/migrations/* @digibile
+.github/workflows/* @digibile
