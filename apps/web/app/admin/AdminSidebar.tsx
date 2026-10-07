@@ -30,7 +30,6 @@ function HomeIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="
 function CloseIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>}
 
 function normalize(nodes:MenuNode[]):MenuNode[]{return [...nodes].sort((a,b)=>a.sort_order-b.sort_order||String(a.id).localeCompare(String(b.id)))}
-function allTitles(node:MenuNode):string{return [node.title,...(node.child_items||[]).map(allTitles)].join(" ")}
 function menuHref(path:string|undefined,parent:string,title:string){
  if(path&&path!=="#")return path;
  const joiner=parent.includes("?")?"&":"?";
@@ -47,7 +46,7 @@ function TreeNode({node,href,pathname,closeMobile,depth}:{node:MenuNode;href:str
  useEffect(()=>{if(active)setExpanded(true)},[active]);
  return <div className={styles["tree-child-node"]+" "+(active?styles["child-active"]:"")}>
   <div className={styles["tree-child-head"]}>
-   <span className={styles["master-child-index"]}>{depth===0?"01":"↳"}</span>
+   <span className={styles["master-child-index"]}>{String(depth+1).padStart(2,"0")}</span>
    <Link href={href} onClick={closeMobile}>{node.title}</Link>
    {children.length>0&&<button type="button" className={styles["master-chevron-button"]} onClick={()=>setExpanded(x=>!x)} aria-expanded={expanded} aria-label={(expanded?"بستن ":"باز کردن ")+node.title}><span className={styles["master-chevron"]}><ChevronIcon/></span></button>}
   </div>
@@ -57,8 +56,6 @@ function TreeNode({node,href,pathname,closeMobile,depth}:{node:MenuNode;href:str
  </div>;
 }
 
-
-const LEGACY_BY_MASTER:Record<string,string>={};
 
 export default function AdminSidebar(){
  const pathname=usePathname();
