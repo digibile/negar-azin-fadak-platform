@@ -3,7 +3,6 @@
 import {useEffect,useMemo,useState} from "react";
 
 type Mode="commerce"|"domains"|"sellers"|"payments";
-type CommerceTab="sellers"|"stores"|"products"|"orders";
 type PanelTab="domains"|"sellers"|"payments";
 
 type Row=Record<string,any>;
