@@ -166,7 +166,7 @@ export default function AdminSidebar(){
         const synthetic:MenuNode={id:child.id,menu_key:child.db?.menu_key||null,parent_id:child.db?.parent_id||null,title:child.title,path:href,sort_order:i,permission:child.db?.permission||null,child_items:child.dbChildren};
         return <TreeNode key={child.id} node={synthetic} href={href} pathname={pathname} closeMobile={closeMobile} depth={0}/>;
        })}
-      </div>}}
+      </div>}
      </section>;
     })}
    </nav>
