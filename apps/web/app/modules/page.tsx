@@ -204,7 +204,7 @@ const GENERIC_OPERATIONAL_WORKSPACES = new Set([
   "24-production","25-costing","27-receivables","28-payables","30-projects-cost-centers","31-fixed-assets",
   "32-tax-e-invoicing","33-budget-financial-control","34-financial-commitments","35-credit-financing","36-loans",
   "39-human-resources","40-ai-finance","41-ai-documents-ocr","42-audit-internal-control","43-communication-hub",
-  "44-marketing-content","45-search-analytics","46-unified-applications","47-contracts-legal","49-reconciliation","50-release-health"
+  "44-marketing-content","45-search-analytics","46-unified-applications","47-contracts-legal","48-shipping-delivery","49-reconciliation","50-release-health"
 ]);
 
 function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu, items, actions, panel, activeItem }: {
