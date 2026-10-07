@@ -361,3 +361,60 @@ commerceIntelligenceRouter.post("/api/credit-wallets/:id/release",requireAuth,re
 commerceIntelligenceRouter.get("/api/commerce/working-day",requireAuth,requirePermission("calendar:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const days=Math.max(0,Math.min(365,Number(req.query.days)||0));const d=await businessDate(t.id,days);res.json({isoDate:isoDate(d.date),persianDate:persianDate(d.date),timezone:d.timezone,dateSystem:d.dateSystem,locale:d.locale});
 }));
+
+
+commerceIntelligenceRouter.get("/api/payment-gateways",requireAuth,requirePermission("payment-gateway:read"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const rows=await query("select * from payment_gateway_profiles where tenant_id=$1 order by created_at",[t.id]);res.json({gateways:rows.rows});
+}));
+commerceIntelligenceRouter.post("/api/payment-gateways",requireAuth,requirePermission("payment-gateway:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const b=req.body||{};
+ if(!b.code||!b.title||!b.brandCode||!b.brandTitle||!["shaparak","international","proprietary"].includes(b.gatewayType))return res.status(400).json({error:"مشخصات درگاه معتبر نیست"});
+ const r=await query("insert into payment_gateway_profiles(tenant_id,code,title,brand_code,brand_title,gateway_type,provider_code,currency_scope,enabled,public_enabled,internal_only,verification_required,merchant_review_timeout_seconds,auto_reverse_on_timeout,config_reference,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) returning *",[t.id,str(b.code,80),str(b.title,160),str(b.brandCode,80),str(b.brandTitle,160),b.gatewayType,str(b.providerCode,80)||null,JSON.stringify(Array.isArray(b.currencyScope)?b.currencyScope:[]),b.enabled===true,b.publicEnabled!==false,b.internalOnly===true,b.verificationRequired!==false,Math.max(60,Math.min(86400,Number(b.merchantReviewTimeoutSeconds)||900)),b.autoReverseOnTimeout!==false,str(b.configReference,200)||null,b.metadata||{}]);res.status(201).json(r.rows[0]);
+}));
+commerceIntelligenceRouter.post("/api/commerce/quotes/:id/payment-attempt",requireAuth,requirePermission("payment:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const q=await query("select * from commerce_purchase_quotes where id=$1 and tenant_id=$2 and valid_until>now() and status in ('offered','ready')",[req.params.id,t.id]);if(!q.rowCount)return res.status(409).json({error:"پیشنهاد خرید منقضی یا غیرقابل پرداخت است"});
+ const g=await query("select * from payment_gateway_profiles where id=$1 and tenant_id=$2 and enabled=true and public_enabled=true",[req.body?.gatewayId,t.id]);if(!g.rowCount)return res.status(404).json({error:"درگاه فعال پیدا نشد"});
+ const idem=str(req.body?.idempotencyKey,180)||("attempt-"+q.rows[0].id+"-"+g.rows[0].id);
+ const old=await query("select * from payment_gateway_attempts where tenant_id=$1 and attempt_no=$2",[t.id,idem]);if(old.rowCount)return res.json({attempt:old.rows[0]});
+ const pi=await query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,idempotency_key,expires_at,created_by) values($1,$2,$3,'cash',$4,$5,'created',$6,$7,$8,$9) returning *",[t.id,q.rows[0].id,"PI-"+Date.now().toString(36).toUpperCase(),Number(q.rows[0].cash_amount),q.rows[0].currency,str(g.rows[0].provider_code,80)||undefined,idem,q.rows[0].valid_until,(req as any).user.id]);
+ const attempt=await query("insert into payment_gateway_attempts(tenant_id,payment_intent_id,gateway_profile_id,attempt_no,provider_code,status,amount,currency,review_deadline_at) values($1,$2,$3,$4,$5,'created',$6,$7,now()+($8||' seconds')::interval) returning *",[t.id,pi.rows[0].id,g.rows[0].id,idem,g.rows[0].provider_code,Number(q.rows[0].cash_amount),q.rows[0].currency,Number(g.rows[0].merchant_review_timeout_seconds)]);
+ res.status(201).json({paymentIntent:pi.rows[0],attempt:attempt.rows[0],nextAction:"start_provider_payment"});
+}));
+commerceIntelligenceRouter.post("/api/payment-gateway-attempts/:id/provider-paid",requireAuth,requirePermission("payment:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const a=await query("select a.*,p.amount intent_amount from payment_gateway_attempts a join commerce_payment_intents p on p.id=a.payment_intent_id where a.id=$1 and a.tenant_id=$2 for update",[req.params.id,t.id]);if(!a.rowCount)return res.status(404).json({error:"تلاش پرداخت پیدا نشد"});
+ if(!["created","redirected"].includes(a.rows[0].status))return res.status(409).json({error:"وضعیت پرداخت قابل تغییر نیست"});
+ const providerAmount=num(req.body?.amount);if(providerAmount===null||providerAmount!==Number(a.rows[0].intent_amount))return res.status(409).json({error:"مبلغ پرداخت با مبلغ سامانه یکسان نیست"});
+ const cfg=await query("select merchant_review_timeout_seconds from payment_gateway_profiles where id=$1 and tenant_id=$2",[a.rows[0].gateway_profile_id,t.id]);
+ const timeout=Number(cfg.rows[0]?.merchant_review_timeout_seconds)||900;
+ const r=await query("update payment_gateway_attempts set status='paid_pending_review',provider_transaction_id=$1,provider_payload=$2,paid_at=now(),review_deadline_at=now()+($3||' seconds')::interval,updated_at=now() where id=$4 returning *",[str(req.body?.providerTransactionId,200)||null,req.body?.providerPayload||{},timeout,a.rows[0].id]);
+ await query("update commerce_payment_intents set status='paid_pending_review',provider_transaction_id=$1,updated_at=now() where id=$2",[r.rows[0].provider_transaction_id,a.rows[0].payment_intent_id]);
+ const review=await query("insert into payment_merchant_reviews(tenant_id,payment_intent_id,gateway_attempt_id,status,review_deadline_at,metadata) values($1,$2,$3,'pending',$4,$5) on conflict(gateway_attempt_id) do update set status='pending',review_deadline_at=excluded.review_deadline_at,updated_at=now() returning *",[t.id,a.rows[0].payment_intent_id,a.rows[0].id,r.rows[0].review_deadline_at,JSON.stringify({source:"provider_callback"})]);
+ res.status(202).json({attempt:r.rows[0],review:review.rows[0],nextAction:"merchant_review"});
+}));
+commerceIntelligenceRouter.post("/api/payment-merchant-reviews/:id/decision",requireAuth,requirePermission("payment-review:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const decision=req.body?.decision;if(!["approved","rejected"].includes(decision))return res.status(400).json({error:"تصمیم نامعتبر است"});
+ const client=await pool.connect();try{
+  await client.query("begin");
+  const r=await client.query("select r.*,a.status attempt_status,a.provider_transaction_id,p.quote_id,p.amount from payment_merchant_reviews r join payment_gateway_attempts a on a.id=r.gateway_attempt_id join commerce_payment_intents p on p.id=r.payment_intent_id where r.id=$1 and r.tenant_id=$2 for update",[req.params.id,t.id]);
+  if(!r.rowCount){await client.query("rollback");return res.status(404).json({error:"بررسی پرداخت پیدا نشد"});}
+  const x=r.rows[0];if(x.status!=="pending"||x.attempt_status!=="paid_pending_review"){await client.query("rollback");return res.status(409).json({error:"این پرداخت دیگر در انتظار بررسی نیست"});}
+  if(new Date(x.review_deadline_at)<=new Date()){await client.query("rollback");return res.status(409).json({error:"مهلت بررسی پرداخت تمام شده است"});}
+  if(decision==="approved"){
+   await client.query("update payment_merchant_reviews set status='approved',availability_confirmed=true,decided_by=$1,decided_at=now(),decision_reason=$2,updated_at=now() where id=$3",[ (req as any).user.id,str(req.body?.reason,500)||"تأیید موجودی",x.id]);
+   await client.query("update payment_gateway_attempts set status='verified',verified_at=now(),updated_at=now() where id=$1",[x.gateway_attempt_id]);
+   await client.query("update commerce_payment_intents set status='paid',updated_at=now() where id=$1",[x.payment_intent_id]);
+   await client.query("update commerce_purchase_quotes set status='ready',updated_at=now() where id=$1",[x.quote_id]);
+   await client.query("commit");return res.json({status:"verified",paymentIntentId:x.payment_intent_id,quoteId:x.quote_id,nextAction:"convert_order"});
+  }
+  await client.query("update payment_merchant_reviews set status='reversal_pending',availability_confirmed=false,decided_by=$1,decided_at=now(),decision_reason=$2,reversal_reason=$2,updated_at=now() where id=$3",[(req as any).user.id,str(req.body?.reason,500)||"عدم موجودی",x.id]);
+  await client.query("update payment_gateway_attempts set status='reversal_pending',reversal_requested_at=now(),updated_at=now() where id=$1",[x.gateway_attempt_id]);
+  await client.query("update commerce_payment_intents set status='reversal_pending',updated_at=now() where id=$1",[x.payment_intent_id]);
+  await client.query("commit");res.status(202).json({status:"reversal_pending",paymentIntentId:x.payment_intent_id,quoteId:x.quote_id,nextAction:"provider_reversal"});
+ }catch(e){await client.query("rollback");throw e}finally{client.release();}
+}));
+commerceIntelligenceRouter.get("/api/payment-merchant-reviews",requireAuth,requirePermission("payment-review:read"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const rows=await query("select r.*,a.attempt_no,a.amount,a.currency,a.provider_transaction_id,p.intent_no,p.quote_id from payment_merchant_reviews r join payment_gateway_attempts a on a.id=r.gateway_attempt_id join commerce_payment_intents p on p.id=r.payment_intent_id where r.tenant_id=$1 order by r.created_at desc limit 200",[t.id]);res.json({reviews:rows.rows});
+}));
