@@ -119,7 +119,7 @@ export default function AdminSidebar(){
  useEffect(()=>{
   const activeKeys:Record<string,boolean>={};
   for(const item of canonical){
-   const active=item.route===pathname||item.dbChildren.some(x=>x.path===pathname)||item.children.some(x=>x.path===pathname);
+   const active=item.route===pathname||item.children.some(x=>x.path===pathname||x.dbChildren.some((db:MenuNode)=>hasPath(db,pathname)));
    if(active)activeKeys[item.code]=true;
   }
   setOpen(v=>({...v,...activeKeys}));
