@@ -54,7 +54,7 @@ test("canonical panels 11..20 keep their panel routes and functional web runtime
   ["19-documents-governance","/modules/?code=19-documents-governance"],
   ["20-system-settings","/modules/?code=20-system-settings"]
  ];
- const rows=(await query(\`select menu_key,path,is_active,parent_id from menu_items where menu_key=any($1) order by sort_order\`,[panels.map(x=>x[0])])).rows;
+ const rows=(await query(`select menu_key,path,is_active,parent_id from menu_items where menu_key=any($1) order by sort_order`,[panels.map(x=>x[0])])).rows;
  assert.equal(rows.length,10,"expected panels 11..20 to exist");
  for(const [key,path] of panels){
   const row=rows.find((x:any)=>x.menu_key===key);
