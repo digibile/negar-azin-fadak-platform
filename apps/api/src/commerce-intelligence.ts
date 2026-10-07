@@ -401,7 +401,7 @@ commerceIntelligenceRouter.post("/api/commerce/quotes/:id/payment-attempt",requi
  }catch(error){
   return res.status(503).json({error:error instanceof Error?error.message:"درگاه در دسترس نیست",providerCode});
  }
- const initialStatus=providerResult.status==="paid"||providerResult.status==="authorized"?"paid_pending_review":"redirected";
+ const initialStatus=providerResult.status==="paid"?"paid_pending_review":providerResult.status==="authorized"?"authorized":"redirected";
  const pi=await query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,provider_transaction_id,idempotency_key,expires_at,created_by) values($1,$2,$3,'cash',$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,q.rows[0].id,paymentNo,amount,currency,initialStatus,providerCode,providerResult.providerTransactionId,idem,q.rows[0].valid_until,(req as any).user.id]);
  const attempt=await query("insert into payment_gateway_attempts(tenant_id,payment_intent_id,gateway_profile_id,attempt_no,provider_code,provider_transaction_id,status,amount,currency,provider_payload,paid_at,review_deadline_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now()+($12||' seconds')::interval) returning *",[t.id,pi.rows[0].id,gateway.id,idem,providerCode,providerResult.providerTransactionId,initialStatus,amount,currency,providerResult.providerPayload,initialStatus==="paid_pending_review"?new Date():null,Number(gateway.merchant_review_timeout_seconds)]);
  if(initialStatus==="paid_pending_review"){
