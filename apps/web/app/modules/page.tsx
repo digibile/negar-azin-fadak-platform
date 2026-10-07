@@ -10,6 +10,7 @@ import TreasuryChecksWorkspace from "./TreasuryChecksWorkspace";
 import SalesWorkspace from "./SalesWorkspace";
 import PurchasingSupplyWorkspace from "./PurchasingSupplyWorkspace";
 import InventoryWarehouseWorkspace from "./InventoryWarehouseWorkspace";
+import LogisticsWorkspace from "./LogisticsWorkspace";
 import WalletLedgerWorkspace from "./WalletLedgerWorkspace";
 import DashboardWorkspace from "./DashboardWorkspace";
 import OrganizationWorkspace from "./OrganizationWorkspace";
@@ -179,6 +180,7 @@ const CANONICAL_WORKSPACES: Record<string, React.ReactNode> = {
   "21-purchasing-supply": <PurchasingSupplyWorkspace />,
   "22-sales-revenue": <SalesWorkspace />,
   "23-inventory-warehouse": <InventoryWarehouseWorkspace />,
+  "12-logistics-supply": <LogisticsWorkspace />,
   "26-treasury-bank": <TreasuryBankWorkspace />,
   "29-wallet-ledger": <WalletLedgerWorkspace />,
   "37-collateral-guarantees": <CollateralGuaranteesWorkspace />,
