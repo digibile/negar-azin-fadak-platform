@@ -226,4 +226,3 @@ begin
   on conflict(workflow_id,from_state_id,to_state_id,action_code) do update set title=excluded.title,requires_reason=excluded.requires_reason;
 end $$;
 
-commit;
