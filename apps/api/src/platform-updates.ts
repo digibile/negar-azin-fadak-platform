@@ -160,7 +160,7 @@ platformUpdatesRouter.post("/api/platform/update",requireAuth,requirePermission(
   const main=await github("/repos/"+ownerRepo+"/branches/main",{},githubToken);
   const mainSha=main.commit?.sha||null;
   if(!mainSha)return res.status(503).json({error:"نسخه اصلی GitHub قابل شناسایی نیست"});
-  const deployed=deployedSha()||null;
+  const deployed=await resolveDeployedSha(githubToken);
   if(!deployed)return res.status(503).json({error:"نسخه نصب‌شده Production قابل شناسایی نیست"});
   const compare=await github("/repos/"+ownerRepo+"/compare/"+encodeURIComponent(deployed)+"..."+encodeURIComponent(mainSha),{},githubToken);
   const pending=(compare.commits||[]).map((x:any,index:number)=>({order:index+1,sha:x.sha,message:String(x.commit?.message||"").split("\n")[0],ready:index===0}));
