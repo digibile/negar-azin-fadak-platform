@@ -51,12 +51,14 @@ export default function MarketplacePage(){
       {catalog.stores.map(s=><a href={"/marketplace?store="+encodeURIComponent(s.id)} key={s.id}><b>{s.name}</b><span>{s.seller_name}</span></a>)}
     </section>
     <section className="marketplace-grid">
-      {products.map(p=><a className="marketplace-product" key={p.id} href={"/store/product/"+encodeURIComponent(p.id)}>
-        <div className="marketplace-product-meta"><span>{p.category||"محصول"}</span><small>{p.seller_name}</small></div>
-        <h2>{p.title}</h2>
-        <p>{p.description||"اطلاعات تکمیلی این محصول در کاتالوگ فروشنده ثبت نشده است."}</p>
-        <footer><strong>{Number(p.price).toLocaleString("fa-IR")} {p.currency}</strong><span>{p.sku}</span></footer>
-      </article>)}
+      {products.map((p)=>{
+        return <a className="marketplace-product" key={p.id} href={"/store/product/"+encodeURIComponent(p.id)}>
+          <div className="marketplace-product-meta"><span>{p.category||"محصول"}</span><small>{p.seller_name}</small></div>
+          <h2>{p.title}</h2>
+          <p>{p.description||"اطلاعات تکمیلی این محصول در کاتالوگ فروشنده ثبت نشده است."}</p>
+          <footer><strong>{Number(p.price).toLocaleString("fa-IR")} {p.currency}</strong><span>{p.sku}</span></footer>
+        </a>;
+      })}
       {!products.length&&<div className="marketplace-state">محصول فعالی مطابق فیلتر پیدا نشد.</div>}
     </section>
   </main>;
