@@ -38,25 +38,25 @@ sort_order=excluded.sort_order, is_active=excluded.is_active;
 
 insert into module_runtime(module_id,lifecycle,route,api_prefix,owner_team,description)
 select id,'active','/modules/?code='||code,'/api/platform/modules/'||code,'platform',title
-from platform_modules where code between '21' and '50'
+from platform_modules where code ~ '^(2[1-9]|3[0-9]|4[0-9]|50)-'
 on conflict(module_id) do update set lifecycle=excluded.lifecycle,route=excluded.route,api_prefix=excluded.api_prefix,owner_team=excluded.owner_team,description=excluded.description;
 
 insert into module_permissions(module_id,permission)
 select m.id,'modules:'||m.code||':'||a.action
 from platform_modules m cross join (values('read'),('write'),('delete')) a(action)
-where substring(m.code,1,2)::int between 21 and 50
+where m.code ~ '^(2[1-9]|3[0-9]|4[0-9]|50)-'
 on conflict do nothing;
 
 insert into role_permissions(role,permission)
 select r.role,'modules:'||m.code||':'||r.action
 from platform_modules m cross join (values('admin','read'),('admin','write'),('admin','delete'),('manager','read'),('manager','write'),('viewer','read')) r(role,action)
-where substring(m.code,1,2)::int between 21 and 50
+where m.code ~ '^(2[1-9]|3[0-9]|4[0-9]|50)-'
 on conflict do nothing;
 
 insert into module_actions(module_id,action_code,title,permission)
 select m.id,a.action,case a.action when 'read' then 'مشاهده' when 'write' then 'ثبت و ویرایش' else 'حذف' end,'modules:'||m.code||':'||a.action
 from platform_modules m cross join (values('read'),('write'),('delete')) a(action)
-where substring(m.code,1,2)::int between 21 and 50
+where m.code ~ '^(2[1-9]|3[0-9]|4[0-9]|50)-'
 on conflict(module_id,action_code) do update set title=excluded.title,permission=excluded.permission,is_active=true;
 
 insert into module_field_definitions(module_id,field_key,title,field_type,required,sort_order,options)
@@ -67,7 +67,7 @@ cross join (values
 ('description','توضیحات','textarea',false,20,'{}'::jsonb),
 ('status','وضعیت','select',true,30,'{"options":["active","pending","closed"]}'::jsonb)
 ) f(field_key,title,field_type,required,sort_order,options)
-where substring(m.code,1,2)::int between 21 and 50
+where m.code ~ '^(2[1-9]|3[0-9]|4[0-9]|50)-'
 on conflict(module_id,field_key) do update
 set title=excluded.title,field_type=excluded.field_type,required=excluded.required,sort_order=excluded.sort_order,options=excluded.options;
 
