@@ -42,8 +42,7 @@ router.get("/api/dashboard/menu-tree",requireAuth,async(req:Request,res:Response
  }
  const build=(row:any):any=>{
   const children=(childrenByParent.get(String(row.id))||[]).filter((child:any)=>{
-   if(user.role==="admin")return true;
-   return child.permission===null||child.permission===undefined||true;
+   return child.permission===null||child.permission===undefined;
   }).sort((a:any,b:any)=>(a.panel_sort_order??a.sort_order)-(b.panel_sort_order??b.sort_order)||a.id-b.id);
   return {
    id:row.id,menu_key:row.menu_key,parent_id:row.parent_id,title:row.title,path:row.path,icon:row.icon??null,
