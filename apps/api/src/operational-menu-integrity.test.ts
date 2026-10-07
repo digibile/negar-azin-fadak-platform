@@ -90,9 +90,26 @@ test("nested operational modules 21..50 have canonical runtime identities and we
   assert.ok(m.field_count>=3,`missing field definitions: ${m.code}`);
   assert.ok(m.action_count>=3,`missing CRUD actions: ${m.code}`);
  }
- const parentRows=(await query(`select c.menu_key,p.menu_key as parent_key
+ const expectedParents:Record<string,string>={
+  "21-purchasing-supply":"09-commerce-stores","22-sales-revenue":"09-commerce-stores","23-inventory-warehouse":"09-commerce-stores",
+  "24-production":"02-organizations","25-costing":"08-accounting-finance","26-treasury-bank":"08-accounting-finance",
+  "27-receivables":"08-accounting-finance","28-payables":"08-accounting-finance","29-wallet-ledger":"13-payments-settlement",
+  "30-projects-cost-centers":"02-organizations","31-fixed-assets":"08-accounting-finance","32-tax-e-invoicing":"08-accounting-finance",
+  "33-budget-financial-control":"08-accounting-finance","34-financial-commitments":"08-accounting-finance","35-credit-financing":"08-accounting-finance",
+  "36-loans":"08-accounting-finance","37-collateral-guarantees":"08-accounting-finance","38-collections":"08-accounting-finance",
+  "39-human-resources":"02-organizations","40-ai-finance":"08-accounting-finance","41-ai-documents-ocr":"19-documents-governance",
+  "42-audit-internal-control":"19-documents-governance","43-communication-hub":"18-notifications","44-marketing-content":"04-customers-360",
+  "45-search-analytics":"01-dashboard","46-unified-applications":"20-system-settings","47-contracts-legal":"19-documents-governance",
+  "48-shipping-delivery":"09-commerce-stores","49-reconciliation":"13-payments-settlement","50-release-health":"20-system-settings"
+ };
+ const parentRows=(await query(`select c.menu_key,p.menu_key as parent_key,c.parent_id
    from menu_items c join menu_items p on p.id=c.parent_id
    where c.menu_key=any($1)`,[nested])).rows;
  assert.equal(parentRows.length,30,"every nested module must have a canonical parent panel");
- assert.equal(new Set(parentRows.map((r:any)=>r.menu_key)).size,30,"nested module keys must be unique");
+ for(const row of parentRows) assert.equal(row.parent_key,expectedParents[row.menu_key],`wrong menu parent: ${row.menu_key}`);
+ const runtimeParents=(await query(`select c.code,p.code as parent_code
+   from platform_modules c join platform_modules p on p.id=c.parent_id
+   where c.code=any($1)`,[nested])).rows;
+ assert.equal(runtimeParents.length,30,"every nested runtime must have a canonical parent panel");
+ for(const row of runtimeParents) assert.equal(row.parent_code,expectedParents[row.code],`wrong runtime parent: ${row.code}`);
 });
