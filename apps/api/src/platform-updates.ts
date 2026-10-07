@@ -19,6 +19,24 @@ async function dbToken(){if(cachedDbToken!==undefined)return cachedDbToken;try{c
 async function token(){return (await dbToken())||envToken();}
 const deployedSha=()=>process.env.DEPLOYED_SHA||"";
 const apiBase="https://api.github.com";
+
+async function resolveDeployedSha(githubToken:string){
+  const configured=deployedSha().trim();
+  if(configured)return configured;
+  try{
+    const data=await github(
+      "/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?branch=main&status=success&per_page=20",
+      {},
+      githubToken
+    );
+    const successful=(data.workflow_runs||[])
+      .filter((run:any)=>run?.conclusion==="success"&&typeof run?.head_sha==="string"&&run.head_sha.trim())
+      .sort((a:any,b:any)=>Date.parse(String(b.updated_at||b.created_at||0))-Date.parse(String(a.updated_at||a.created_at||0)));
+    return successful[0]?.head_sha||null;
+  }catch{
+    return null;
+  }
+}
 const activeStatuses=["queued","in_progress","waiting","requested","pending"];
 
 const headers=(githubToken:string)=>({
@@ -72,7 +90,7 @@ platformUpdatesRouter.get("/api/platform/update-status",requireAuth,requirePermi
     github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?branch=main&per_page=10",{},githubToken)
   ]);
   const mainSha=repo.default_branch==="main"?branch.commit?.sha||null:null;
-  const deployed=deployedSha()||null;
+  const deployed=await resolveDeployedSha(githubToken);
   let pendingUpdates:any[]=[];
   if(deployed&&mainSha&&deployed!==mainSha){
     try{
