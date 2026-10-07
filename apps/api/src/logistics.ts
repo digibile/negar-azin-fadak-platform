@@ -126,6 +126,7 @@ logisticsRouter.get("/api/logistics/shipments",requireAuth,asyncHandler(async(re
 logisticsRouter.post("/api/logistics/shipments",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   if(!b.shipmentNo||!b.origin||!b.destination)return fail(res,400,"اطلاعات مرسوله کامل نیست");
+  if(!b.vehicleId||!b.driverId)return fail(res,400,"برای ثبت حمل، ناوگان و راننده الزامی است");
   const c=await pool.connect();
   try{
     await c.query("begin");
@@ -168,6 +169,7 @@ logisticsRouter.patch("/api/logistics/shipments/:id/status",requireAuth,asyncHan
   if(!(await can(req,permission)))return fail(res,403,"دسترسی لازم برای این عملیات وجود ندارد");
   const allowed:any={planned:["assigned","cancelled"],assigned:["picked_up","cancelled"],picked_up:["in_transit","failed"],in_transit:["delivered","failed"],failed:["assigned","cancelled"],delivered:[],cancelled:[]};
   if(!allowed[s.status]?.includes(b.status))return fail(res,409,"تغییر وضعیت مرسوله مجاز نیست");
+  if(b.status==="picked_up"&&(!s.vehicle_id||!s.driver_id))return fail(res,409,"مرسوله بدون ناوگان و راننده قابل دریافت نیست");
   if(b.status==="delivered"&&!String(b.location||"").trim())return fail(res,400,"محل تحویل الزامی است");
   if(b.status==="failed"&&!String(b.reason||"").trim())return fail(res,400,"علت عدم تحویل الزامی است");
   const c=await pool.connect();
@@ -179,6 +181,9 @@ logisticsRouter.patch("/api/logistics/shipments/:id/status",requireAuth,asyncHan
     )).rows[0];
     if(s.vehicle_id&&["delivered","failed","cancelled"].includes(b.status)){
       await c.query("update logistics_vehicles set status='available' where id=$1 and tenant_id=$2 and status='assigned'",[s.vehicle_id,t.id]);
+    }
+    if(s.supply_order_id&&b.status==="in_transit"){
+      await c.query("update logistics_supply_orders set status='shipped',updated_at=now() where id=$1 and tenant_id=$2 and status in ('assigned','approved')",[s.supply_order_id,t.id]);
     }
     if(s.supply_order_id&&b.status==="delivered"){
       await c.query("update logistics_supply_orders set status='delivered',updated_at=now() where id=$1 and tenant_id=$2",[s.supply_order_id,t.id]);
