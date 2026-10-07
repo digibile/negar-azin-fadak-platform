@@ -374,13 +374,41 @@ commerceIntelligenceRouter.post("/api/payment-gateways",requireAuth,requirePermi
  const r=await query("insert into payment_gateway_profiles(tenant_id,code,title,brand_code,brand_title,gateway_type,provider_code,currency_scope,enabled,public_enabled,internal_only,verification_required,merchant_review_timeout_seconds,auto_reverse_on_timeout,config_reference,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) returning *",[t.id,str(b.code,80),str(b.title,160),str(b.brandCode,80),str(b.brandTitle,160),b.gatewayType,str(b.providerCode,80)||null,JSON.stringify(Array.isArray(b.currencyScope)?b.currencyScope:[]),b.enabled===true,b.publicEnabled!==false,b.internalOnly===true,b.verificationRequired!==false,Math.max(60,Math.min(86400,Number(b.merchantReviewTimeoutSeconds)||900)),b.autoReverseOnTimeout!==false,str(b.configReference,200)||null,b.metadata||{}]);res.status(201).json(r.rows[0]);
 }));
 commerceIntelligenceRouter.post("/api/commerce/quotes/:id/payment-attempt",requireAuth,requirePermission("payment:manage"),requireCsrf,asyncHandler(async(req,res)=>{
- const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const q=await query("select * from commerce_purchase_quotes where id=$1 and tenant_id=$2 and valid_until>now() and status in ('offered','ready')",[req.params.id,t.id]);if(!q.rowCount)return res.status(409).json({error:"پیشنهاد خرید منقضی یا غیرقابل پرداخت است"});
- const g=await query("select * from payment_gateway_profiles where id=$1 and tenant_id=$2 and enabled=true and public_enabled=true",[req.body?.gatewayId,t.id]);if(!g.rowCount)return res.status(404).json({error:"درگاه فعال پیدا نشد"});
- const idem=str(req.body?.idempotencyKey,180)||("attempt-"+q.rows[0].id+"-"+g.rows[0].id);
- const old=await query("select * from payment_gateway_attempts where tenant_id=$1 and attempt_no=$2",[t.id,idem]);if(old.rowCount)return res.json({attempt:old.rows[0]});
- const pi=await query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,idempotency_key,expires_at,created_by) values($1,$2,$3,'cash',$4,$5,'created',$6,$7,$8,$9) returning *",[t.id,q.rows[0].id,"PI-"+Date.now().toString(36).toUpperCase(),Number(q.rows[0].cash_amount),q.rows[0].currency,str(g.rows[0].provider_code,80)||undefined,idem,q.rows[0].valid_until,(req as any).user.id]);
- const attempt=await query("insert into payment_gateway_attempts(tenant_id,payment_intent_id,gateway_profile_id,attempt_no,provider_code,status,amount,currency,review_deadline_at) values($1,$2,$3,$4,$5,'created',$6,$7,now()+($8||' seconds')::interval) returning *",[t.id,pi.rows[0].id,g.rows[0].id,idem,g.rows[0].provider_code,Number(q.rows[0].cash_amount),q.rows[0].currency,Number(g.rows[0].merchant_review_timeout_seconds)]);
- res.status(201).json({paymentIntent:pi.rows[0],attempt:attempt.rows[0],nextAction:"start_provider_payment"});
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const q=await query("select * from commerce_purchase_quotes where id=$1 and tenant_id=$2 and valid_until>now() and status in ('offered','ready')",[req.params.id,t.id]);
+ if(!q.rowCount)return res.status(409).json({error:"پیشنهاد خرید منقضی یا غیرقابل پرداخت است"});
+ const g=await query("select * from payment_gateway_profiles where id=$1 and tenant_id=$2 and enabled=true and public_enabled=true",[req.body?.gatewayId,t.id]);
+ if(!g.rowCount)return res.status(404).json({error:"درگاه فعال پیدا نشد"});
+ const gateway=g.rows[0];
+ const idem=str(req.body?.idempotencyKey,180)||("attempt-"+q.rows[0].id+"-"+gateway.id);
+ const oldAttempt=await query("select * from payment_gateway_attempts where tenant_id=$1 and attempt_no=$2",[t.id,idem]);
+ if(oldAttempt.rowCount)return res.json({attempt:oldAttempt.rows[0],nextAction:oldAttempt.rows[0].status==="created"?"start_provider_payment":"continue_payment"});
+ const amount=Number(q.rows[0].cash_amount);
+ const currency=str(q.rows[0].currency,12);
+ const providerCode=str(gateway.provider_code,80)||str(gateway.code,80);
+ const paymentNo="PI-"+Date.now().toString(36).toUpperCase();
+ let providerResult:any;
+ try{
+  const provider=getPaymentProvider(providerCode);
+  providerResult=await provider.createPayment({
+   tenantId:t.id,
+   orderId:String(q.rows[0].id),
+   amount,
+   currency,
+   paymentNo,
+   metadata:{quoteId:String(q.rows[0].id),gatewayId:String(gateway.id),idempotencyKey:idem}
+  });
+ }catch(error){
+  return res.status(503).json({error:error instanceof Error?error.message:"درگاه در دسترس نیست",providerCode});
+ }
+ const initialStatus=providerResult.status==="paid"||providerResult.status==="authorized"?"paid_pending_review":"redirected";
+ const pi=await query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,provider_transaction_id,idempotency_key,expires_at,created_by) values($1,$2,$3,'cash',$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,q.rows[0].id,paymentNo,amount,currency,initialStatus,providerCode,providerResult.providerTransactionId,idem,q.rows[0].valid_until,(req as any).user.id]);
+ const attempt=await query("insert into payment_gateway_attempts(tenant_id,payment_intent_id,gateway_profile_id,attempt_no,provider_code,provider_transaction_id,status,amount,currency,provider_payload,paid_at,review_deadline_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now()+($12||' seconds')::interval) returning *",[t.id,pi.rows[0].id,gateway.id,idem,providerCode,providerResult.providerTransactionId,initialStatus,amount,currency,providerResult.providerPayload,initialStatus==="paid_pending_review"?new Date():null,Number(gateway.merchant_review_timeout_seconds)]);
+ if(initialStatus==="paid_pending_review"){
+  await query("insert into payment_merchant_reviews(tenant_id,payment_intent_id,gateway_attempt_id,status,review_deadline_at,metadata) values($1,$2,$3,'pending',$4,$5) on conflict(gateway_attempt_id) do update set status='pending',review_deadline_at=excluded.review_deadline_at,updated_at=now()",[t.id,pi.rows[0].id,attempt.rows[0].id,attempt.rows[0].review_deadline_at,JSON.stringify({source:"provider_create_payment"})]);
+  return res.status(202).json({paymentIntent:pi.rows[0],attempt:attempt.rows[0],nextAction:"merchant_review"});
+ }
+ res.status(201).json({paymentIntent:pi.rows[0],attempt:attempt.rows[0],redirectUrl:providerResult.redirectUrl||null,nextAction:"provider_redirect"});
 }));
 commerceIntelligenceRouter.post("/api/payment-gateways/:gatewayId/webhook",asyncHandler(async(req,res)=>{
  const signature=str(req.header("x-gateway-signature"),256);
