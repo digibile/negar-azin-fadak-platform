@@ -3,6 +3,8 @@ import {pool,query} from "./db.js";
 import {requireAuth,requireCsrf,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolvePublicTenant,resolveTenant} from "./tenant-context.js";
+import {postLedgerEntry} from "./ledger.js";
+import {getPaymentProvider} from "./payment-provider.js";
 
 export const commerceIntelligenceRouter=Router();
 
@@ -141,6 +143,103 @@ commerceIntelligenceRouter.post("/api/commerce/quotes",requireAuth,requirePermis
   await client.query("commit");
   res.status(201).json({quote:quote.rows[0],items:snapshots,financingOffers:(await query("select fo.*,fp.code program_code,fp.title program_title,fb.title brand_title,cs.display_name supplier_name from commerce_financing_offers fo join financing_programs fp on fp.id=fo.financing_program_id left join financing_brands fb on fb.id=fp.brand_id left join commerce_suppliers cs on cs.id=fp.supplier_id where fo.quote_id=$1 order by fo.total_repayable",[quote.rows[0].id])).rows});
  }catch(e:any){await client.query("rollback");if(e?.status) return res.status(e.status).json({error:e.message});throw e}finally{client.release();}
+}));
+
+
+commerceIntelligenceRouter.post("/api/commerce/quotes/:id/select-financing",requireAuth,requirePermission("quote:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const offer=await query("select fo.*,fp.requires_preapproval from commerce_financing_offers fo join financing_programs fp on fp.id=fo.financing_program_id where fo.id=$1 and fo.quote_id=$2 and fo.tenant_id=$3 and fo.status='available'",[req.body?.offerId,req.params.id,t.id]);
+ if(!offer.rowCount)return res.status(404).json({error:"پیشنهاد اعتباری معتبر پیدا نشد"});
+ const q=await query("select * from commerce_purchase_quotes where id=$1 and tenant_id=$2 and valid_until>now() and status in ('offered','financing_pending','ready')",[req.params.id,t.id]);
+ if(!q.rowCount)return res.status(409).json({error:"پیشنهاد خرید منقضی یا غیرقابل انتخاب است"});
+ const r=await query("update commerce_purchase_quotes set selected_financing_program_id=$1,status='financing_pending',updated_at=now() where id=$2 and tenant_id=$3 returning *",[offer.rows[0].financing_program_id,req.params.id,t.id]);
+ res.json({quote:r.rows[0],offer:offer.rows[0],requiresPreapproval:offer.rows[0].requires_preapproval});
+}));
+
+commerceIntelligenceRouter.post("/api/commerce/quotes/:id/cash-payment",requireAuth,requirePermission("payment:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const q=await query("select * from commerce_purchase_quotes where id=$1 and tenant_id=$2 and valid_until>now() and status in ('offered','ready')",[req.params.id,t.id]);if(!q.rowCount)return res.status(409).json({error:"پیشنهاد خرید منقضی یا غیرقابل پرداخت است"});
+ const idem=str(req.body?.idempotencyKey,180)||("cash-"+q.rows[0].id);
+ const existing=await query("select * from commerce_payment_intents where tenant_id=$1 and idempotency_key=$2",[t.id,idem]);if(existing.rowCount)return res.json({intent:existing.rows[0]});
+ const intentNo="PI-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).slice(2,7).toUpperCase();
+ const created=await query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,idempotency_key,expires_at,created_by) values($1,$2,$3,'cash',$4,$5,'created',$6,$7,$8,$9) returning *",[t.id,q.rows[0].id,intentNo,Number(q.rows[0].cash_amount),q.rows[0].currency,str(req.body?.providerCode,50)||undefined,idem,q.rows[0].valid_until,req.user.id]);
+ try{
+  const provider=getPaymentProvider(str(req.body?.providerCode,50)||undefined);
+  const result=await provider.createPayment({tenantId:t.id,orderId:q.rows[0].id,amount:Number(q.rows[0].cash_amount),currency:q.rows[0].currency,paymentNo:intentNo,providerRef:str(req.body?.providerRef,200)||null,metadata:{quoteId:q.rows[0].id}});
+  const status=result.status==="paid"?"paid":result.status;
+  const updated=await query("update commerce_payment_intents set status=$1,provider_code=$2,provider_transaction_id=$3,metadata=$4,updated_at=now() where id=$5 returning *",[status,result.providerCode,result.providerTransactionId,JSON.stringify(result.providerPayload),created.rows[0].id]);
+  if(status==="paid")await query("update commerce_purchase_quotes set status='ready',updated_at=now() where id=$1",[q.rows[0].id]);
+  res.status(status==="paid"?200:202).json({intent:updated.rows[0],nextAction:status==="paid"?"convert":"continue_payment"});
+ }catch(error){await query("update commerce_payment_intents set status='failed',metadata=$1,updated_at=now() where id=$2",[JSON.stringify({error:error instanceof Error?error.message:String(error)}),created.rows[0].id]);throw error}
+}));
+
+commerceIntelligenceRouter.post("/api/commerce/quotes/:id/authorize-credit",requireAuth,requirePermission("credit-wallet:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const q=await query("select * from commerce_purchase_quotes where id=$1 and tenant_id=$2 and valid_until>now() and status in ('financing_pending','offered')",[req.params.id,t.id]);if(!q.rowCount)return res.status(409).json({error:"پیشنهاد خرید منقضی یا غیرقابل اعتباردهی است"});
+ const offer=await query("select fo.*,fp.requires_preapproval,fp.wallet_mode from commerce_financing_offers fo join financing_programs fp on fp.id=fo.financing_program_id where fo.id=$1 and fo.quote_id=$2 and fo.tenant_id=$3",[req.body?.offerId,req.params.id,t.id]);if(!offer.rowCount)return res.status(404).json({error:"پیشنهاد اعتباری پیدا نشد"});
+ if(offer.rows[0].requires_preapproval&&offer.rows[0].status!=="approved")return res.status(409).json({error:"این طرح هنوز تأیید اعتباری نشده است",status:offer.rows[0].status});
+ const wallet=await query("select * from credit_wallet_accounts where id=$1 and tenant_id=$2 and owner_user_id=$3 and status='active' for update",[req.body?.walletId,t.id,req.user.id]);if(!wallet.rowCount)return res.status(404).json({error:"کیف پول اعتباری متعلق به کاربر پیدا نشد"});
+ const amount=Number(offer.rows[0].total_repayable),idem=str(req.body?.idempotencyKey,180)||("credit-"+offer.rows[0].id);
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const w=await client.query("select * from credit_wallet_accounts where id=$1 and tenant_id=$2 for update",[wallet.rows[0].id,t.id]);
+  if(Number(w.rows[0].available_limit)<amount){await client.query("rollback");return res.status(409).json({error:"سقف کیف پول اعتباری کافی نیست"});}
+  const existing=await client.query("select * from commerce_payment_intents where tenant_id=$1 and idempotency_key=$2",[t.id,idem]);
+  if(existing.rowCount){await client.query("rollback");return res.json({intent:existing.rows[0]});}
+  const intentNo="PI-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).slice(2,7).toUpperCase();
+  const intent=await client.query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,idempotency_key,expires_at,metadata,created_by) values($1,$2,$3,'credit_wallet',$4,$5,'authorized','credit_wallet',$6,$7,$8,$9) returning *",[t.id,q.rows[0].id,intentNo,amount,q.rows[0].currency,idem,q.rows[0].valid_until,JSON.stringify({offerId:offer.rows[0].id,walletId:w.rows[0].id}),req.user.id]);
+  const hold=await client.query("insert into credit_wallet_holds(tenant_id,wallet_id,payment_intent_id,amount,expires_at,reason) values($1,$2,$3,$4,$5,$6) returning *",[t.id,w.rows[0].id,intent.rows[0].id,amount,q.rows[0].valid_until,"خرید اعتباری "+q.rows[0].quote_no]);
+  const available=Number(w.rows[0].available_limit)-amount,reserved=Number(w.rows[0].reserved_limit)+amount;
+  await client.query("update credit_wallet_accounts set available_limit=$1,reserved_limit=$2,updated_at=now() where id=$3",[available,reserved,w.rows[0].id]);
+  await client.query("insert into credit_wallet_ledger(tenant_id,wallet_id,entry_no,direction,amount,balance_available,balance_reserved,reference_type,reference_id,idempotency_key,created_by) values($1,$2,$3,'reserve',$4,$5,$6,'payment_intent',$7,$8,$9)",[t.id,w.rows[0].id,"CW-"+Date.now().toString(36),amount,available,reserved,intent.rows[0].id,idem,req.user.id]);
+  await client.query("update commerce_purchase_quotes set status='ready',updated_at=now() where id=$1",[q.rows[0].id]);
+  await client.query("commit");res.status(201).json({intent:intent.rows[0],hold:hold.rows[0],availableLimit:available,reservedLimit:reserved});
+ }catch(e){await client.query("rollback");throw e}finally{client.release();}
+}));
+
+commerceIntelligenceRouter.post("/api/commerce/quotes/:id/convert",requireAuth,requirePermission("order:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const q=await client.query("select * from commerce_purchase_quotes where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+  if(!q.rowCount)return res.status(404).json({error:"پیشنهاد خرید پیدا نشد"});
+  if(q.rows[0].valid_until<=new Date()||!["ready","offered"].includes(q.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"پیشنهاد منقضی یا آماده تبدیل نیست؛ قیمت باید دوباره محاسبه شود"});}
+  const items=await client.query("select qi.*,p.seller_id,p.store_id,p.title from commerce_quote_items qi join products p on p.id=qi.product_id where qi.quote_id=$1 for update",[q.rows[0].id]);
+  const sellers=[...new Set(items.rows.map((x:any)=>x.seller_id))];if(sellers.length!==1){await client.query("rollback");return res.status(400).json({error:"پیشنهاد باید متعلق به یک فروشنده باشد"});}
+  const paid=await client.query("select * from commerce_payment_intents where quote_id=$1 and tenant_id=$2 and status in ('paid','authorized') order by created_at desc limit 1",[q.rows[0].id,t.id]);
+  if(!paid.rowCount){await client.query("rollback");return res.status(409).json({error:"ابتدا پرداخت نقدی یا اعتباردهی کیف پول باید تکمیل شود"});}
+  const payment=paid.rows[0],seller=sellers[0],subtotal=items.rows.reduce((sum:any,x:any)=>sum+Number(x.line_total),0);
+  const sr=await client.query("select commission_rate from sellers where id=$1 and tenant_id=$2",[seller,t.id]);if(!sr.rowCount){await client.query("rollback");return res.status(404).json({error:"فروشنده پیدا نشد"});}
+  const commission=Number((subtotal*Number(sr.rows[0].commission_rate)/100).toFixed(2)),payable=subtotal-commission;
+  const orderNo="ORD-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).slice(2,6).toUpperCase();
+  const order=await client.query("insert into marketplace_orders(tenant_id,store_id,seller_id,order_no,customer_ref,subtotal,total_amount,commission_amount,seller_payable,payment_method,delivery_due_at) values($1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10) returning *",[t.id,items.rows[0].store_id,seller,orderNo,q.rows[0].customer_ref,subtotal,subtotal,commission,payable,payment.payment_mode,q.rows[0].delivery_due_at]);
+  for(const item of items.rows){
+   const inv=await client.query("select * from product_inventory where tenant_id=$1 and product_id=$2 and store_id=$3 for update",[t.id,item.product_id,item.store_id]);
+   if(!inv.rowCount||Number(inv.rows[0].quantity)-Number(inv.rows[0].reserved_quantity)<Number(item.quantity)){await client.query("rollback");return res.status(409).json({error:"موجودی محصول برای تبدیل پیشنهاد کافی نیست",product:item.title});}
+   await client.query("update product_inventory set reserved_quantity=reserved_quantity+$1,updated_at=now() where id=$2",[item.quantity,inv.rows[0].id]);
+   await client.query("insert into marketplace_order_items(order_id,product_id,quantity,unit_price,line_total) values($1,$2,$3,$4,$5)",[order.rows[0].id,item.product_id,item.quantity,item.unit_price,item.line_total]);
+  }
+  await client.query("insert into marketplace_payments(tenant_id,order_id,payment_no,amount,method,status,provider_ref,provider_code,provider_transaction_id,provider_payload,paid_at) values($1,$2,$3,$4,$5,'paid',$6,$7,$8,$9,now())",[t.id,order.rows[0].id,"PAY-"+Date.now().toString(36),Number(payment.amount),payment.payment_mode,payment.provider_transaction_id||payment.id,payment.provider_code,payment.provider_transaction_id||payment.id,JSON.stringify(payment.metadata||{})]);
+  if(payment.payment_mode==="credit_wallet"){
+   const hold=await client.query("select h.*,w.* from credit_wallet_holds h join credit_wallet_accounts w on w.id=h.wallet_id where h.payment_intent_id=$1 and h.status='active' for update",[payment.id]);
+   if(!hold.rowCount){await client.query("rollback");return res.status(409).json({error:"رزرو اعتبار پیدا نشد"});}
+   const amount=Number(hold.rows[0].amount),reserved=Number(hold.rows[0].reserved_limit)-amount,spent=Number(hold.rows[0].spent_limit)+amount;
+   await client.query("update credit_wallet_holds set status='captured',updated_at=now() where id=$1",[hold.rows[0].id]);
+   await client.query("update credit_wallet_accounts set reserved_limit=$1,spent_limit=$2,updated_at=now() where id=$3",[reserved,spent,hold.rows[0].wallet_id]);
+   await client.query("insert into credit_wallet_ledger(tenant_id,wallet_id,entry_no,direction,amount,balance_available,balance_reserved,reference_type,reference_id,idempotency_key,created_by) values($1,$2,$3,'capture',$4,$5,$6,'marketplace_order',$7,$8,$9)",[t.id,hold.rows[0].wallet_id,"CW-"+Date.now().toString(36),amount,Number(hold.rows[0].available_limit),reserved,order.rows[0].id,"capture-order-"+order.rows[0].id,req.user.id]);
+  }
+  await postLedgerEntry(client,{tenantId:t.id,entryNo:"QUOTE-"+q.rows[0].quote_no,sourceType:"commerce_order",sourceId:order.rows[0].id,description:"تبدیل پیشنهاد خرید به سفارش "+order.rows[0].order_no,createdBy:req.user.id,lines:[
+   payment.payment_mode==="credit_wallet"?{accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",debit:Number(payment.amount)}:{accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",debit:Number(payment.amount)},
+   {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",credit:payable},
+   {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",credit:commission}
+  ]});
+  await client.query("update marketplace_orders set status='paid',paid_at=now(),updated_at=now() where id=$1",[order.rows[0].id]);
+  await client.query("update commerce_payment_intents set order_id=$1,status='paid',updated_at=now() where id=$2",[order.rows[0].id,payment.id]);
+  await client.query("update commerce_purchase_quotes set status='converted',updated_at=now() where id=$1",[q.rows[0].id]);
+  await client.query("commit");res.status(201).json({order:order.rows[0],quoteId:q.rows[0].id,paymentIntentId:payment.id});
+ }catch(e){await client.query("rollback").catch(()=>{});throw e}finally{client.release();}
 }));
 
 commerceIntelligenceRouter.get("/api/commerce/quotes/:id",requireAuth,requirePermission("quote:read"),asyncHandler(async(req,res)=>{
