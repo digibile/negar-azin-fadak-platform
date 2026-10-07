@@ -1,8 +1,6 @@
 name: Deploy Sookar Production Safely
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       requested_by:
@@ -42,29 +40,33 @@ jobs:
     steps:
       - name: Checkout exact release
         uses: actions/checkout@v4
-      - name: Setup Node.js
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.3.4
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24
-          package-manager-cache: false
-      - name: Install API dependencies
-        working-directory: apps/api
-        run: npm install
-      - name: Install web dependencies
-        working-directory: apps/web
-        run: npm install
-      - name: Build API
-        working-directory: apps/api
-        run: npm run build
-      - name: Run database migrations
-        working-directory: apps/api
-        run: npm run migrate
-      - name: Test API
-        working-directory: apps/api
-        run: npm test
-      - name: Build web
-        working-directory: apps/web
-        run: npm run build
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Database migrations
+        run: pnpm --filter api migrate
+      - name: Platform integrity
+        run: pnpm verify:platform
+      - name: Full test suite
+        run: pnpm test
+      - name: Production build
+        run: pnpm build
+      - name: Forbidden product terminology guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RniE --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next '\bERP\b' .; then
+            echo "::error::Forbidden product terminology detected."
+            exit 1
+          fi
 
   deploy:
     needs: verify
