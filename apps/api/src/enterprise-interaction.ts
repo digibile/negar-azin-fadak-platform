@@ -36,6 +36,10 @@ enterpriseInteractionRouter.get("/api/enterprise/workflows/:entityType",requireA
  res.json(w);
 }));
 
+enterpriseInteractionRouter.get("/api/enterprise/binders",requireAuth,requirePermission("documents:read"),asyncHandler(async(req,res)=>{const t=await mustTenant(req,res);if(!t)return;const r=await query("select id,binder_no,title,owner_ref,created_at,updated_at from digital_binders where tenant_id=$1 order by updated_at desc",[t.id]);res.json({items:r.rows,total:r.rowCount});});
+
+enterpriseInteractionRouter.post("/api/enterprise/binders",requireAuth,requirePermission("documents:manage"),requireCsrf,asyncHandler(async(req,res)=>{const t=await mustTenant(req,res);if(!t)return;const b=req.body||{};if(!b.binderNo||!b.title)return res.status(400).json({error:"شماره و عنوان زونکن الزامی است"});const r=await query("insert into digital_binders(binder_no,title,owner_ref,tenant_id) values($1,$2,$3,$4) returning *",[String(b.binderNo),String(b.title),b.ownerRef||null,t.id]);res.status(201).json(r.rows[0]);});
+
 enterpriseInteractionRouter.get("/api/enterprise/tickets",requireAuth,requirePermission("support:read"),asyncHandler(async(req,res)=>{
  const t=await mustTenant(req,res);if(!t)return;
  const page=Math.max(1,Number(req.query.page)||1),pageSize=Math.min(100,Math.max(10,Number(req.query.pageSize)||25));
