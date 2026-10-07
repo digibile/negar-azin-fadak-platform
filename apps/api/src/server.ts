@@ -46,6 +46,7 @@ import {platformUpdatesRouter} from "./platform-updates.js";
 import {platformExperienceRouter} from "./platform-experience.js";
 import {lendtechRouter} from "./lendtech.js";
 import {enterpriseInteractionRouter} from "./enterprise-interaction.js";
+import {commerceIntelligenceRouter} from "./commerce-intelligence.js";
 import {issueHumanCheck,verifyHumanCheck} from "./human-check.js";
 import "./payment-provider.js";
 
@@ -109,6 +110,7 @@ app.use(platformUpdatesRouter);
 app.use(platformExperienceRouter);
 app.use(lendtechRouter);
 app.use(enterpriseInteractionRouter);
+app.use(commerceIntelligenceRouter);
 
 app.get("/api/auth/human-check",(_req,res)=>res.json(issueHumanCheck()));
 app.post("/api/auth/login",asyncHandler(async(req,res)=>{
