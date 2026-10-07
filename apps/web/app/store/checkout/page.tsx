@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import {useEffect,useMemo,useState} from "react";
+import {Suspense,useEffect,useMemo,useState} from "react";
 import {useSearchParams} from "next/navigation";
 
 type Cart={id:string;customer_ref:string;store_id:string;currency:string;status:string};
 type Item={id:string;product_id:string;quantity:number;unit_price:string;sku:string;title:string};
 type Facility={id:string;facility_no:string;approved_amount:string;available_amount:string;currency:string;status:string;product_code:string;interest_rate?:string|null;approved_term_months?:number|null};
 
-export default function CheckoutPage(){
+function CheckoutContent(){
  const search=useSearchParams();
  const cartId=search.get("cart")||"";
  const [cart,setCart]=useState<Cart|null>(null),[items,setItems]=useState<Item[]>([]);
@@ -71,4 +71,9 @@ export default function CheckoutPage(){
    {order&&<article className="product-card"><span>وضعیت سفارش</span><h3>{order.status==="paid"?"پرداخت موفق":"در حال پردازش"}</h3><p>شناسه سفارش: {order.id}</p><Link href="/store">بازگشت به فروشگاه</Link></article>}
   </section>
  </main>;
+}
+
+
+export default function CheckoutPage(){
+ return <Suspense fallback={<main className="sookar-store" dir="rtl"><section className="store-section"><div className="product-card">در حال آماده‌سازی پرداخت...</div></section></main>}><CheckoutContent /></Suspense>;
 }
