@@ -76,7 +76,7 @@ commerceIntelligenceRouter.post("/api/catalog-import/connectors",requireAuth,req
 commerceIntelligenceRouter.post("/api/catalog-import/jobs",requireAuth,requirePermission("catalog-import:manage"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const jobNo="IMP-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).slice(2,6).toUpperCase();
- const r=await query("insert into catalog_import_jobs(tenant_id,connector_id,job_no,source_ref,requested_by) values($1,$2,$3,$4,$5) returning *",[t.id,req.body?.connectorId||null,jobNo,req.body?.sourceRef||null,req.user.id]);
+ const r=await query("insert into catalog_import_jobs(tenant_id,connector_id,job_no,source_ref,requested_by) values($1,$2,$3,$4,$5) returning *",[t.id,req.body?.connectorId||null,jobNo,req.body?.sourceRef||null,(req as any).user.id]);
  res.status(202).json({job:r.rows[0],message:"دریافت کاتالوگ وارد صف شد؛ Normalizer بعد از دریافت داده، ویژگی‌ها و تنوع‌ها را استخراج می‌کند."});
 }));
 
@@ -91,7 +91,7 @@ commerceIntelligenceRouter.post("/api/catalog-import/jobs/:id/items",requireAuth
 commerceIntelligenceRouter.post("/api/catalog/content-jobs",requireAuth,requirePermission("content-ai:manage"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const b=req.body||{};if(!b.jobType||!["description","seo","social_post","reel_script","story","faq","customer_reply"].includes(b.jobType))return res.status(400).json({error:"نوع تولید محتوا نامعتبر است"});
- const r=await query("insert into product_content_jobs(tenant_id,product_id,job_type,channel,locale,input_snapshot,requested_by) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,b.productId||null,b.jobType,b.channel||null,b.locale||"fa-IR",b.inputSnapshot||{},req.user.id]);
+ const r=await query("insert into product_content_jobs(tenant_id,product_id,job_type,channel,locale,input_snapshot,requested_by) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,b.productId||null,b.jobType,b.channel||null,b.locale||"fa-IR",b.inputSnapshot||{},(req as any).user.id]);
  res.status(202).json({job:r.rows[0],message:"درخواست محتوا ثبت شد؛ خروجی تا اتصال موتور مدل در وضعیت صف باقی می‌ماند و داده ساختگی تولید نمی‌شود."});
 }));
 
@@ -156,7 +156,7 @@ commerceIntelligenceRouter.post("/api/commerce/delivery-methods",requireAuth,req
 
 commerceIntelligenceRouter.post("/api/commerce/quotes",requireAuth,requirePermission("quote:manage"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const b=req.body||{},items=Array.isArray(b.items)?b.items:[];if(!items.length)return res.status(400).json({error:"حداقل یک محصول لازم است"});
- const customerRef=str(b.customerRef,200)||(req.user.id);
+ const customerRef=str(b.customerRef,200)||((req as any).user.id);
  const deliveryMethodId=str(b.deliveryMethodId,100)||null;
  const client=await pool.connect();
  try{
@@ -175,7 +175,7 @@ commerceIntelligenceRouter.post("/api/commerce/quotes",requireAuth,requirePermis
   const validUntil=new Date(Date.now()+maxValidity*60000);
   const deliveryDays=delivery.rowCount?Number(delivery.rows[0].business_days_max):0;
   const deliveryDue=await businessDate(t.id,deliveryDays);
-  const quote=await client.query("insert into commerce_purchase_quotes(tenant_id,quote_no,customer_ref,status,currency,cash_amount,valid_until,delivery_due_at,price_snapshot,terms_snapshot,created_by) values($1,$2,$3,'offered',$4,$5,$6,$7,$8,$9,$10) returning *",[t.id,quoteNo,customerRef,snapshots[0]?.currency||"IRR",cash,validUntil,deliveryDue.date,JSON.stringify({items:snapshots,shipping}),JSON.stringify({quoteIsNotInvoice:true,priceLockUntil:validUntil.toISOString(),deliveryCalendar:deliveryDue}),req.user.id]);
+  const quote=await client.query("insert into commerce_purchase_quotes(tenant_id,quote_no,customer_ref,status,currency,cash_amount,valid_until,delivery_due_at,price_snapshot,terms_snapshot,created_by) values($1,$2,$3,'offered',$4,$5,$6,$7,$8,$9,$10) returning *",[t.id,quoteNo,customerRef,snapshots[0]?.currency||"IRR",cash,validUntil,deliveryDue.date,JSON.stringify({items:snapshots,shipping}),JSON.stringify({quoteIsNotInvoice:true,priceLockUntil:validUntil.toISOString(),deliveryCalendar:deliveryDue}),(req as any).user.id]);
   for(const x of snapshots)await client.query("insert into commerce_quote_items(quote_id,product_id,quantity,unit_price,line_total,variant_snapshot) values($1,$2,$3,$4,$5,$6)",[quote.rows[0].id,x.productId,x.quantity,x.unitPrice,x.unitPrice*x.quantity,JSON.stringify(x.variant)]);
   for(const p of programs.rows){
    const principal=cash,fee=Number(p.fixed_fee||0),total=principal+(principal*Number(p.rate_percent||0)/100)+fee;
@@ -208,7 +208,7 @@ commerceIntelligenceRouter.post("/api/commerce/quotes/:id/cash-payment",requireA
  const idem=str(req.body?.idempotencyKey,180)||("cash-"+q.rows[0].id);
  const existing=await query("select * from commerce_payment_intents where tenant_id=$1 and idempotency_key=$2",[t.id,idem]);if(existing.rowCount)return res.json({intent:existing.rows[0]});
  const intentNo="PI-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).slice(2,7).toUpperCase();
- const created=await query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,idempotency_key,expires_at,created_by) values($1,$2,$3,'cash',$4,$5,'created',$6,$7,$8,$9) returning *",[t.id,q.rows[0].id,intentNo,Number(q.rows[0].cash_amount),q.rows[0].currency,str(req.body?.providerCode,50)||undefined,idem,q.rows[0].valid_until,req.user.id]);
+ const created=await query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,idempotency_key,expires_at,created_by) values($1,$2,$3,'cash',$4,$5,'created',$6,$7,$8,$9) returning *",[t.id,q.rows[0].id,intentNo,Number(q.rows[0].cash_amount),q.rows[0].currency,str(req.body?.providerCode,50)||undefined,idem,q.rows[0].valid_until,(req as any).user.id]);
  try{
   const provider=getPaymentProvider(str(req.body?.providerCode,50)||undefined);
   const result=await provider.createPayment({tenantId:t.id,orderId:q.rows[0].id,amount:Number(q.rows[0].cash_amount),currency:q.rows[0].currency,paymentNo:intentNo,providerRef:str(req.body?.providerRef,200)||null,metadata:{quoteId:q.rows[0].id}});
@@ -224,7 +224,7 @@ commerceIntelligenceRouter.post("/api/commerce/quotes/:id/authorize-credit",requ
  const q=await query("select * from commerce_purchase_quotes where id=$1 and tenant_id=$2 and valid_until>now() and status in ('financing_pending','offered')",[req.params.id,t.id]);if(!q.rowCount)return res.status(409).json({error:"پیشنهاد خرید منقضی یا غیرقابل اعتباردهی است"});
  const offer=await query("select fo.*,fp.requires_preapproval,fp.wallet_mode from commerce_financing_offers fo join financing_programs fp on fp.id=fo.financing_program_id where fo.id=$1 and fo.quote_id=$2 and fo.tenant_id=$3",[req.body?.offerId,req.params.id,t.id]);if(!offer.rowCount)return res.status(404).json({error:"پیشنهاد اعتباری پیدا نشد"});
  if(offer.rows[0].requires_preapproval&&offer.rows[0].status!=="approved")return res.status(409).json({error:"این طرح هنوز تأیید اعتباری نشده است",status:offer.rows[0].status});
- const wallet=await query("select * from credit_wallet_accounts where id=$1 and tenant_id=$2 and owner_user_id=$3 and status='active' for update",[req.body?.walletId,t.id,req.user.id]);if(!wallet.rowCount)return res.status(404).json({error:"کیف پول اعتباری متعلق به کاربر پیدا نشد"});
+ const wallet=await query("select * from credit_wallet_accounts where id=$1 and tenant_id=$2 and owner_user_id=$3 and status='active' for update",[req.body?.walletId,t.id,(req as any).user.id]);if(!wallet.rowCount)return res.status(404).json({error:"کیف پول اعتباری متعلق به کاربر پیدا نشد"});
  const amount=Number(offer.rows[0].total_repayable),idem=str(req.body?.idempotencyKey,180)||("credit-"+offer.rows[0].id);
  const client=await pool.connect();
  try{
@@ -234,11 +234,11 @@ commerceIntelligenceRouter.post("/api/commerce/quotes/:id/authorize-credit",requ
   const existing=await client.query("select * from commerce_payment_intents where tenant_id=$1 and idempotency_key=$2",[t.id,idem]);
   if(existing.rowCount){await client.query("rollback");return res.json({intent:existing.rows[0]});}
   const intentNo="PI-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).slice(2,7).toUpperCase();
-  const intent=await client.query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,idempotency_key,expires_at,metadata,created_by) values($1,$2,$3,'credit_wallet',$4,$5,'authorized','credit_wallet',$6,$7,$8,$9) returning *",[t.id,q.rows[0].id,intentNo,amount,q.rows[0].currency,idem,q.rows[0].valid_until,JSON.stringify({offerId:offer.rows[0].id,walletId:w.rows[0].id}),req.user.id]);
+  const intent=await client.query("insert into commerce_payment_intents(tenant_id,quote_id,intent_no,payment_mode,amount,currency,status,provider_code,idempotency_key,expires_at,metadata,created_by) values($1,$2,$3,'credit_wallet',$4,$5,'authorized','credit_wallet',$6,$7,$8,$9) returning *",[t.id,q.rows[0].id,intentNo,amount,q.rows[0].currency,idem,q.rows[0].valid_until,JSON.stringify({offerId:offer.rows[0].id,walletId:w.rows[0].id}),(req as any).user.id]);
   const hold=await client.query("insert into credit_wallet_holds(tenant_id,wallet_id,payment_intent_id,amount,expires_at,reason) values($1,$2,$3,$4,$5,$6) returning *",[t.id,w.rows[0].id,intent.rows[0].id,amount,q.rows[0].valid_until,"خرید اعتباری "+q.rows[0].quote_no]);
   const available=Number(w.rows[0].available_limit)-amount,reserved=Number(w.rows[0].reserved_limit)+amount;
   await client.query("update credit_wallet_accounts set available_limit=$1,reserved_limit=$2,updated_at=now() where id=$3",[available,reserved,w.rows[0].id]);
-  await client.query("insert into credit_wallet_ledger(tenant_id,wallet_id,entry_no,direction,amount,balance_available,balance_reserved,reference_type,reference_id,idempotency_key,created_by) values($1,$2,$3,'reserve',$4,$5,$6,'payment_intent',$7,$8,$9)",[t.id,w.rows[0].id,"CW-"+Date.now().toString(36),amount,available,reserved,intent.rows[0].id,idem,req.user.id]);
+  await client.query("insert into credit_wallet_ledger(tenant_id,wallet_id,entry_no,direction,amount,balance_available,balance_reserved,reference_type,reference_id,idempotency_key,created_by) values($1,$2,$3,'reserve',$4,$5,$6,'payment_intent',$7,$8,$9)",[t.id,w.rows[0].id,"CW-"+Date.now().toString(36),amount,available,reserved,intent.rows[0].id,idem,(req as any).user.id]);
   await client.query("update commerce_purchase_quotes set status='ready',updated_at=now() where id=$1",[q.rows[0].id]);
   await client.query("commit");res.status(201).json({intent:intent.rows[0],hold:hold.rows[0],availableLimit:available,reservedLimit:reserved});
  }catch(e){await client.query("rollback");throw e}finally{client.release();}
@@ -256,7 +256,7 @@ commerceIntelligenceRouter.post("/api/commerce/quotes/:id/convert",requireAuth,r
   const sellers=[...new Set(items.rows.map((x:any)=>x.seller_id))];if(sellers.length!==1){await client.query("rollback");return res.status(400).json({error:"پیشنهاد باید متعلق به یک فروشنده باشد"});}
   const paid=await client.query("select * from commerce_payment_intents where quote_id=$1 and tenant_id=$2 and status in ('paid','authorized') order by created_at desc limit 1",[q.rows[0].id,t.id]);
   if(!paid.rowCount){await client.query("rollback");return res.status(409).json({error:"ابتدا پرداخت نقدی یا اعتباردهی کیف پول باید تکمیل شود"});}
-  const payment=paid.rows[0],seller=sellers[0],subtotal=items.rows.reduce((sum:any,x:any)=>sum+Number(x.line_total),0);
+  const payment=paid.rows[0],seller=sellers[0],subtotal=items.rows.reduce((sum:any,x:any)=>sum+Number(x.line_total),0),shipping=Number(q.rows[0].cash_amount)-subtotal,total=Number(q.rows[0].cash_amount);
   const sr=await client.query("select commission_rate from sellers where id=$1 and tenant_id=$2",[seller,t.id]);if(!sr.rowCount){await client.query("rollback");return res.status(404).json({error:"فروشنده پیدا نشد"});}
   const commission=Number((subtotal*Number(sr.rows[0].commission_rate)/100).toFixed(2)),payable=subtotal-commission;
   const orderNo="ORD-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).slice(2,6).toUpperCase();
@@ -274,9 +274,9 @@ commerceIntelligenceRouter.post("/api/commerce/quotes/:id/convert",requireAuth,r
    const amount=Number(hold.rows[0].amount),reserved=Number(hold.rows[0].reserved_limit)-amount,spent=Number(hold.rows[0].spent_limit)+amount;
    await client.query("update credit_wallet_holds set status='captured',updated_at=now() where id=$1",[hold.rows[0].id]);
    await client.query("update credit_wallet_accounts set reserved_limit=$1,spent_limit=$2,updated_at=now() where id=$3",[reserved,spent,hold.rows[0].wallet_id]);
-   await client.query("insert into credit_wallet_ledger(tenant_id,wallet_id,entry_no,direction,amount,balance_available,balance_reserved,reference_type,reference_id,idempotency_key,created_by) values($1,$2,$3,'capture',$4,$5,$6,'marketplace_order',$7,$8,$9)",[t.id,hold.rows[0].wallet_id,"CW-"+Date.now().toString(36),amount,Number(hold.rows[0].available_limit),reserved,order.rows[0].id,"capture-order-"+order.rows[0].id,req.user.id]);
+   await client.query("insert into credit_wallet_ledger(tenant_id,wallet_id,entry_no,direction,amount,balance_available,balance_reserved,reference_type,reference_id,idempotency_key,created_by) values($1,$2,$3,'capture',$4,$5,$6,'marketplace_order',$7,$8,$9)",[t.id,hold.rows[0].wallet_id,"CW-"+Date.now().toString(36),amount,Number(hold.rows[0].available_limit),reserved,order.rows[0].id,"capture-order-"+order.rows[0].id,(req as any).user.id]);
   }
-  await postLedgerEntry(client,{tenantId:t.id,entryNo:"QUOTE-"+q.rows[0].quote_no,sourceType:"commerce_order",sourceId:order.rows[0].id,description:"تبدیل پیشنهاد خرید به سفارش "+order.rows[0].order_no,createdBy:req.user.id,lines:[
+  await postLedgerEntry(client,{tenantId:t.id,entryNo:"QUOTE-"+q.rows[0].quote_no,sourceType:"commerce_order",sourceId:order.rows[0].id,description:"تبدیل پیشنهاد خرید به سفارش "+order.rows[0].order_no,createdBy:(req as any).user.id,lines:[
    payment.payment_mode==="credit_wallet"?{accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",debit:Number(payment.amount)}:{accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",debit:Number(payment.amount)},
    {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",credit:payable},
    {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",credit:commission}
@@ -309,7 +309,7 @@ commerceIntelligenceRouter.post("/api/credit-wallets",requireAuth,requirePermiss
 
 commerceIntelligenceRouter.get("/api/credit-wallets/me",requireAuth,requirePermission("credit-wallet:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const wallets=await query("select id,wallet_code,currency,credit_limit,available_limit,reserved_limit,spent_limit,status,cash_out_allowed,transfer_allowed from credit_wallet_accounts where tenant_id=$1 and owner_user_id=$2 and status='active' order by created_at desc",[t.id,req.user.id]);
+ const wallets=await query("select id,wallet_code,currency,credit_limit,available_limit,reserved_limit,spent_limit,status,cash_out_allowed,transfer_allowed from credit_wallet_accounts where tenant_id=$1 and owner_user_id=$2 and status='active' order by created_at desc",[t.id,(req as any).user.id]);
  res.json({wallets:wallets.rows});
 }));
 
@@ -324,7 +324,7 @@ commerceIntelligenceRouter.post("/api/credit-wallets/:id/holds",requireAuth,requ
   const hold=await client.query("insert into credit_wallet_holds(tenant_id,wallet_id,amount,expires_at,reason) values($1,$2,$3,$4,$5) returning *",[t.id,w.rows[0].id,amount,new Date(Date.now()+15*60000),req.body?.reason||"خرید فروشگاهی"]);
   const available=Number(w.rows[0].available_limit)-amount,reserved=Number(w.rows[0].reserved_limit)+amount;
   await client.query("update credit_wallet_accounts set available_limit=$1,reserved_limit=$2,updated_at=now() where id=$3",[available,reserved,w.rows[0].id]);
-  await client.query("insert into credit_wallet_ledger(tenant_id,wallet_id,entry_no,direction,amount,balance_available,balance_reserved,reference_type,reference_id,idempotency_key,created_by) values($1,$2,$3,'reserve',$4,$5,$6,'wallet_hold',$7,$8,$9)",[t.id,w.rows[0].id,"CW-"+Date.now().toString(36),amount,available,reserved,hold.rows[0].id,str(req.body?.idempotencyKey||hold.rows[0].id),req.user.id]);
+  await client.query("insert into credit_wallet_ledger(tenant_id,wallet_id,entry_no,direction,amount,balance_available,balance_reserved,reference_type,reference_id,idempotency_key,created_by) values($1,$2,$3,'reserve',$4,$5,$6,'wallet_hold',$7,$8,$9)",[t.id,w.rows[0].id,"CW-"+Date.now().toString(36),amount,available,reserved,hold.rows[0].id,str(req.body?.idempotencyKey||hold.rows[0].id),(req as any).user.id]);
   await client.query("commit");res.status(201).json({hold:hold.rows[0],availableLimit:available,reservedLimit:reserved});
  }catch(e){await client.query("rollback");throw e}finally{client.release()}
 }));
@@ -339,7 +339,7 @@ commerceIntelligenceRouter.post("/api/credit-wallets/:id/capture",requireAuth,re
   const amount=Number(h.rows[0].amount),reserved=Number(h.rows[0].reserved_limit)-amount,spent=Number(h.rows[0].spent_limit)+amount;
   await client.query("update credit_wallet_holds set status='captured',updated_at=now() where id=$1",[h.rows[0].id]);
   await client.query("update credit_wallet_accounts set reserved_limit=$1,spent_limit=$2,updated_at=now() where id=$3",[reserved,spent,h.rows[0].wallet_id]);
-  await client.query("insert into credit_wallet_ledger(tenant_id,wallet_id,entry_no,direction,amount,balance_available,balance_reserved,reference_type,reference_id,idempotency_key,created_by) values($1,$2,$3,'capture',$4,$5,$6,'wallet_hold',$7,$8,$9)",[t.id,h.rows[0].wallet_id,"CW-"+Date.now().toString(36),amount,Number(h.rows[0].available_limit),reserved,h.rows[0].id,"capture-"+h.rows[0].id,req.user.id]);
+  await client.query("insert into credit_wallet_ledger(tenant_id,wallet_id,entry_no,direction,amount,balance_available,balance_reserved,reference_type,reference_id,idempotency_key,created_by) values($1,$2,$3,'capture',$4,$5,$6,'wallet_hold',$7,$8,$9)",[t.id,h.rows[0].wallet_id,"CW-"+Date.now().toString(36),amount,Number(h.rows[0].available_limit),reserved,h.rows[0].id,"capture-"+h.rows[0].id,(req as any).user.id]);
   await client.query("commit");res.json({status:"captured",amount,spentLimit:spent});
  }catch(e){await client.query("rollback");throw e}finally{client.release()}
 }));
@@ -353,7 +353,7 @@ commerceIntelligenceRouter.post("/api/credit-wallets/:id/release",requireAuth,re
   const amount=Number(h.rows[0].amount),reserved=Number(h.rows[0].reserved_limit)-amount,available=Number(h.rows[0].available_limit)+amount;
   await client.query("update credit_wallet_holds set status='released',updated_at=now() where id=$1",[h.rows[0].id]);
   await client.query("update credit_wallet_accounts set available_limit=$1,reserved_limit=$2,updated_at=now() where id=$3",[available,reserved,h.rows[0].wallet_id]);
-  await client.query("insert into credit_wallet_ledger(tenant_id,wallet_id,entry_no,direction,amount,balance_available,balance_reserved,reference_type,reference_id,idempotency_key,created_by) values($1,$2,$3,'release',$4,$5,$6,'wallet_hold',$7,$8,$9)",[t.id,h.rows[0].wallet_id,"CW-"+Date.now().toString(36),amount,available,reserved,h.rows[0].id,"release-"+h.rows[0].id,req.user.id]);
+  await client.query("insert into credit_wallet_ledger(tenant_id,wallet_id,entry_no,direction,amount,balance_available,balance_reserved,reference_type,reference_id,idempotency_key,created_by) values($1,$2,$3,'release',$4,$5,$6,'wallet_hold',$7,$8,$9)",[t.id,h.rows[0].wallet_id,"CW-"+Date.now().toString(36),amount,available,reserved,h.rows[0].id,"release-"+h.rows[0].id,(req as any).user.id]);
   await client.query("commit");res.json({status:"released",amount,availableLimit:available,reservedLimit:reserved});
  }catch(e){await client.query("rollback");throw e}finally{client.release()}
 }));
