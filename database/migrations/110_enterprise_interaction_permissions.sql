@@ -4,4 +4,3 @@ insert into role_permissions(role,permission) values
 ('manager','support:read'),('manager','support:manage'),('manager','documents:read'),('manager','documents:manage'),('manager','exports:run'),('manager','communications:send'),
 ('viewer','support:read'),('viewer','documents:read')
 on conflict do nothing;
-commit;
