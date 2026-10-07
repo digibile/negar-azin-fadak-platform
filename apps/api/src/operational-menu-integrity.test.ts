@@ -64,3 +64,35 @@ test("canonical panels 11..20 keep their panel routes and functional web runtime
   assert.equal(row.path,path,"panel route mismatch: "+key);
  }
 });
+
+test("nested operational modules 21..50 have canonical runtime identities and web-compatible routes",async()=>{
+ const nested=[
+ "21-purchasing-supply","22-sales-revenue","23-inventory-warehouse","24-production","25-costing","26-treasury-bank",
+ "27-receivables","28-payables","29-wallet-ledger","30-projects-cost-centers","31-fixed-assets","32-tax-e-invoicing",
+ "33-budget-financial-control","34-financial-commitments","35-credit-financing","36-loans","37-collateral-guarantees",
+ "38-collections","39-human-resources","40-ai-finance","41-ai-documents-ocr","42-audit-internal-control","43-communication-hub",
+ "44-marketing-content","45-search-analytics","46-unified-applications","47-contracts-legal","48-shipping-delivery",
+ "49-reconciliation","50-release-health"
+ ];
+ const rows=(await query(`select m.code,m.is_active,rt.lifecycle,rt.route,rt.api_prefix,
+   (select count(*) from module_permissions mp where mp.module_id=m.id)::int permission_count,
+   (select count(*) from module_field_definitions mf where mf.module_id=m.id)::int field_count,
+   (select count(*) from module_actions ma where ma.module_id=m.id and ma.is_active=true)::int action_count
+   from platform_modules m join module_runtime rt on rt.module_id=m.id
+   where m.code=any($1) order by m.sort_order`,[nested])).rows;
+ assert.equal(rows.length,30,"expected runtime identities for nested modules 21..50");
+ for(const m of rows){
+  assert.equal(m.is_active,true,`inactive nested module: ${m.code}`);
+  assert.equal(m.lifecycle,"active",`inactive nested runtime: ${m.code}`);
+  assert.equal(m.route,`/modules/?code=${m.code}`,`web route mismatch: ${m.code}`);
+  assert.equal(m.api_prefix,`/api/platform/modules/${m.code}`,`API prefix mismatch: ${m.code}`);
+  assert.ok(m.permission_count>=3,`missing CRUD permissions: ${m.code}`);
+  assert.ok(m.field_count>=3,`missing field definitions: ${m.code}`);
+  assert.ok(m.action_count>=3,`missing CRUD actions: ${m.code}`);
+ }
+ const parentRows=(await query(`select c.menu_key,p.menu_key as parent_key
+   from menu_items c join menu_items p on p.id=c.parent_id
+   where c.menu_key=any($1)`,[nested])).rows;
+ assert.equal(parentRows.length,30,"every nested module must have a canonical parent panel");
+ assert.equal(new Set(parentRows.map((r:any)=>r.menu_key)).size,30,"nested module keys must be unique");
+});
