@@ -88,7 +88,7 @@ async function scheduleCommerceReminders(){
     (select value from user_contact_methods cm where cm.user_id=u.id and cm.channel=r.channel and cm.status='active' order by cm.is_primary desc,cm.created_at limit 1) contact
     from commerce_quote_reminders r
     join commerce_purchase_quotes q on q.id=r.quote_id
-    left join users u on q.customer_ref ~ '^[0-9a-fA-F-]{36}
+    left join users u on q.customer_ref ~ '^[0-9a-fA-F-]{36}$' and u.id=q.customer_ref::uuid
     where r.status='queued' and r.scheduled_at<=now()
     order by r.scheduled_at,r.id
     for update of r skip locked limit $1`,[BATCH_SIZE]);
