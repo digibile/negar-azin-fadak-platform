@@ -2,7 +2,7 @@
 
 import {useEffect,useMemo,useState} from "react";
 
-type Mode="commerce"|"domains"|"sellers"|"payments";
+type Mode="commerce"|"domains"|"sellers"|"payments";\ntype CommerceTab="sellers"|"stores"|"products"|"orders";
 type Row=Record<string,any>;
 
 const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
@@ -26,7 +26,7 @@ const money=(v:any)=>v==null?"-":Number(v).toLocaleString("fa-IR");
 const date=(v:any)=>v?new Date(v).toLocaleDateString("fa-IR"):"-";
 
 export default function CommercePanelWorkspace({mode}:{mode:Mode}){
- const [tab,setTab]=useState(mode==="commerce"?"sellers":mode);
+ const [tab,setTab]=useState<string>(mode==="commerce"?"sellers":mode);
  const [rows,setRows]=useState<Row[]>([]);
  const [sellers,setSellers]=useState<Row[]>([]);
  const [stores,setStores]=useState<Row[]>([]);
