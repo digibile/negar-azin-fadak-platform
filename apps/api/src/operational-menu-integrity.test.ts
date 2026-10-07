@@ -30,7 +30,7 @@ test("canonical navigation has exactly 20 primary panels and keeps 21..50 as nes
  const roots=(await query(`select menu_key,title,path,parent_id,is_active from menu_items where menu_key=any($1) and parent_id is null and is_active=true order by sort_order`,[panels])).rows;
  assert.equal(roots.length,20,"expected exactly 20 primary panel roots");
  assert.deepEqual(roots.map((r:any)=>r.menu_key),panels,"primary panel order/key mismatch");
- for(const root of roots) assert.ok(root.path,"missing panel route: "+root.menu_key);
+ for(const root of roots){ assert.ok(root.path,"missing panel route: "+root.menu_key); assert.ok(root.permission,"missing panel permission: "+root.menu_key); }
 
  const nested=(await query(`select menu_key,parent_id,is_active from menu_items where menu_key=any($1) order by menu_key`,[nestedMenuKeys])).rows;
  assert.equal(nested.length,30,"expected exactly 30 nested operational menu modules");
