@@ -10,7 +10,7 @@ type Binder={id:string;binder_no:string;title:string;owner_ref?:string|null};
 export default function DocumentsCenter(){
  const [binders,setBinders]=useState<Binder[]>([]),[binderId,setBinderId]=useState(""),[q,setQ]=useState(""),[note,setNote]=useState(""),[message,setMessage]=useState("");
  useEffect(()=>{
-  fetch("/api/domain/digital-binder",{credentials:"include"}).then(async r=>{if(!r.ok)throw new Error();return r.json()}).then(b=>setBinders(b.items||[])).catch(()=>setBinders([]));
+  fetch("/api/enterprise/binders",{credentials:"include"}).then(async r=>{if(!r.ok)throw new Error();return r.json()}).then(b=>setBinders(b.items||[])).catch(()=>setBinders([]));
  },[]);
  const filtered=binders.filter(x=>(x.title+" "+x.binder_no).toLowerCase().includes(q.toLowerCase()));
  return <main dir="rtl" className="command-page">
