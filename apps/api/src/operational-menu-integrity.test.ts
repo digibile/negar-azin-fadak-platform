@@ -148,3 +148,16 @@ test("form builder 14 has real storage, tenant isolation, workflow permissions a
  assert.ok(perms.some((r:any)=>r.role==='viewer'&&r.permission==='form:view'),"viewer form view permission missing");
  assert.ok(perms.some((r:any)=>r.role==='viewer'&&r.permission==='form:submission:view'),"viewer submission view permission missing");
 });
+
+
+test("frontend management panel 17 has its dedicated real runtime contract",async()=>{
+ const m=(await query(`select m.code,m.title,m.is_active,rt.lifecycle,rt.route,rt.api_prefix from platform_modules m join module_runtime rt on rt.module_id=m.id where m.code='17-frontend-management'`)).rows[0];
+ assert.ok(m,"missing frontend management runtime");
+ assert.equal(m.is_active,true); assert.equal(m.lifecycle,"active");
+ assert.equal(m.route,"/modules/?code=16-page-builder&panel=frontend");
+ assert.equal(m.api_prefix,"/api/platform/modules/17-frontend-management");
+ const fields=(await query(`select field_key from module_field_definitions where module_id=(select id from platform_modules where code='17-frontend-management') and field_key=any($1)`,[["section-code","section-title","page-code","section-type","template-code","block-reference","order-index","visibility","responsive-mode","status","version","content-reference","notes"]])).rows;
+ assert.equal(fields.length,13,"frontend management must expose all 13 section fields");
+ const actions=(await query(`select action_code from module_actions where module_id=(select id from platform_modules where code='17-frontend-management') and is_active=true and action_code=any($1)`,[["read","write","delete"]])).rows;
+ assert.equal(actions.length,3,"frontend management must expose read/write/delete actions");
+});
