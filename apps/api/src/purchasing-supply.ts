@@ -18,7 +18,7 @@ router.get("/api/purchasing/overview",requireAuth,async(req,res)=>{
   query("select * from purchase_requests where tenant_id=$1 order by created_at desc limit 500",[t.id]),
   query("select r.*,s.request_no from purchase_rfqs r join purchase_requests s on s.id=r.request_id where r.tenant_id=$1 order by r.created_at desc limit 300",[t.id]),
   query("select q.*,s.name supplier_name,r.rfq_no from purchase_supplier_quotes q join purchase_suppliers s on s.id=q.supplier_id join purchase_rfqs r on r.id=q.rfq_id join purchase_requests pr on pr.id=r.request_id where pr.tenant_id=$1 order by q.created_at desc limit 500",[t.id]),
-  query("select o.*,s.name supplier_name from purchase_orders o join purchase_suppliers s on s.id=o.supplier_id where o.tenant_id=$1 order by o.created_at desc limit 500",[t.id]),
+  query("select o.*,s.name supplier_name,coalesce((select json_agg(oi order by oi.id) from purchase_order_items oi where oi.order_id=o.id),'[]'::json) items from purchase_orders o join purchase_suppliers s on s.id=o.supplier_id where o.tenant_id=$1 order by o.created_at desc limit 500",[t.id]),
   query("select g.*,o.order_no from purchase_receipts g join purchase_orders o on o.id=g.order_id where g.tenant_id=$1 order by g.created_at desc limit 500",[t.id]),
   query("select i.*,s.name supplier_name from purchase_invoices i join purchase_suppliers s on s.id=i.supplier_id where i.tenant_id=$1 order by i.created_at desc limit 500",[t.id]),
   query("select * from purchase_payments where tenant_id=$1 order by paid_at desc limit 500",[t.id]),
