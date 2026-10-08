@@ -134,3 +134,17 @@ test("nested operational modules 21..50 have canonical runtime identities and we
  assert.equal(runtimeParents.length,30,"every nested runtime must have a canonical parent panel");
  for(const row of runtimeParents) assert.equal(row.parent_code,expectedParents[row.code],`wrong runtime parent: ${row.code}`);
 });
+
+
+test("form builder 14 has real storage, tenant isolation, workflow permissions and submission runtime",async()=>{
+ const cols=(await query(`select column_name from information_schema.columns where table_schema='public' and table_name='form_definitions' and column_name=any($1)`,[["tenant_id","code","schema","status","version","published_at"]])).rows;
+ assert.equal(cols.length,6,"form_definitions must expose the canonical runtime columns");
+ const submission=(await query(`select count(*)::int as n from information_schema.tables where table_schema='public' and table_name='form_submissions'`)).rows[0].n;
+ assert.equal(submission,1,"form_submissions table is required");
+ const perms=(await query(`select role,permission from role_permissions where permission=any($1) order by role,permission`,[["form:view","form:manage","form:publish","form:submission:view","form:submission:manage"]])).rows;
+ assert.ok(perms.some((r:any)=>r.role==='admin'&&r.permission==='form:manage'),"admin form management permission missing");
+ assert.ok(perms.some((r:any)=>r.role==='admin'&&r.permission==='form:publish'),"admin form publish permission missing");
+ assert.ok(perms.some((r:any)=>r.role==='manager'&&r.permission==='form:manage'),"manager form management permission missing");
+ assert.ok(perms.some((r:any)=>r.role==='viewer'&&r.permission==='form:view'),"viewer form view permission missing");
+ assert.ok(perms.some((r:any)=>r.role==='viewer'&&r.permission==='form:submission:view'),"viewer submission view permission missing");
+});
