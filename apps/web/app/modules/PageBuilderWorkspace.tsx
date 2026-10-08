@@ -9,7 +9,7 @@ const tabs=[["all","همه صفحات"],["draft","پیش‌نویس"],["active",
 export default function PageBuilderWorkspace(){
 const[rows,setRows]=useState<R[]>([]),[form,setForm]=useState({...blank}),[edit,setEdit]=useState<number|null>(null),[tab,setTab]=useState("all"),[q,setQ]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
 const load=async()=>{try{const r=await fetch(API+"/api/platform/modules/16-page-builder/records?page=1&pageSize=300&q="+encodeURIComponent(q),{credentials:"include"}),b=await r.json();if(!r.ok)throw Error(b?.error||"دریافت صفحات ناموفق بود");setRows(b.items||[])}catch(e){setError(e instanceof Error?e.message:"خطا")}};
-useEffect(()=>{load()},[]);
+useEffect(()=>{load()},[q]);
 const visible=useMemo(()=>rows.filter(r=>tab==="all"||String(r.data.status)===({draft:"پیش‌نویس",active:"فعال",disabled:"غیرفعال",archived:"آرشیو شده"}as any)[tab]),[rows,tab]);
 const set=(k:string,v:any)=>setForm((x:any)=>({...x,[k]:v}));const reset=()=>{setEdit(null);setForm({...blank})};
 const payload=()=>({recordType:"page-definition",title:String(form.title),status:String(form.status),data:{"page-code":form.code,"page-title":form.title,"page-key":form.key,route:form.route,"page-type":form.type,template:form.template,version:Number(form.version||1),"definition-reference":form.definition,visibility:form.visibility,status:form.status,"published-at":form.published,owner:form.owner,"seo-title":form.seoTitle,"seo-description":form.seoDescription,notes:form.notes}});
