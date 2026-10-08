@@ -62,6 +62,7 @@ import DocumentAccessLogWorkspace from "./DocumentAccessLogWorkspace";
 import DocumentAuditReportsWorkspace from "./DocumentAuditReportsWorkspace";
 import DocumentComplianceWorkspace from "./DocumentComplianceWorkspace";
 import DocumentGovernanceWorkspace from "./DocumentGovernanceWorkspace";
+import DocumentGovernancePanelWorkspace from "./DocumentGovernancePanelWorkspace";
 import OperationalModuleWorkspace from "./OperationalModuleWorkspace";
 import CommercePanelWorkspace from "./CommercePanelWorkspace";
 import MerchantManagementWorkspace from "./MerchantManagementWorkspace";
@@ -189,7 +190,7 @@ const CANONICAL_WORKSPACES: Record<string, React.ReactNode> = {
   "16-page-builder": <PageBuilderWorkspace />,
   "17-frontend-management": <FrontendSectionsWorkspace />,
   "18-notifications": <FrontendNotificationsWorkspace />,
-  "19-documents-governance": <DocumentGovernanceWorkspace />,
+  "19-documents-governance": <DocumentGovernancePanelWorkspace />,
   "20-system-settings": <CentralSettingsWorkspace />,
   "08-check-documents": <TreasuryChecksWorkspace />,
   "21-purchasing-supply": <PurchasingSupplyWorkspace />,
