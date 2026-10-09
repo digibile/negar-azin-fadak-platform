@@ -297,10 +297,105 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requir
       "insert into products(tenant_id,seller_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,'draft',$9::jsonb) on conflict(tenant_id,sku) do nothing returning id,sku,title,status",
       [ctx.id,sellerId,product.sku,product.title,product.description,canonicalMarketplaceCategory(product.category),Number(product.price),product.currency,JSON.stringify(attributes)]
     );
-    if(result.rowCount)imported.push(product.sku);
-    else skipped.push(product.sku+": شناسه کالا از قبل در کاتالوگ ثبت شده است");
+    if(result.rowCount){
+      await query(
+        "insert into catalog_source_links(tenant_id,product_id,source_name,source_product_id,source_sku,source_url,source_currency,source_price,source_available,last_checked_at,last_success_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),now()) on conflict(tenant_id,source_name,source_product_id) do nothing",
+        [ctx.id,result.rows[0].id,product.source_name,product.id,product.sku,product.source_url,product.currency,Number(product.price),product.source_available]
+      );
+      imported.push(product.sku);
+    }else{
+      const existing=await query("select id from products where tenant_id=$1 and sku=$2",[ctx.id,product.sku]);
+      if(existing.rowCount){
+        await query(
+          "insert into catalog_source_links(tenant_id,product_id,source_name,source_product_id,source_sku,source_url,source_currency,source_price,source_available,last_checked_at,last_success_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),now()) on conflict(tenant_id,source_name,source_product_id) do nothing",
+          [ctx.id,existing.rows[0].id,product.source_name,product.id,product.sku,product.source_url,product.currency,Number(product.price),product.source_available]
+        );
+      }
+      skipped.push(product.sku+": شناسه کالا از قبل در کاتالوگ ثبت شده است");
+    }
   }
   res.status(201).json({imported,skipped,totalImported:imported.length,totalSkipped:skipped.length,status:"draft",message:"محصولات در کاتالوگ داخلی ثبت شدند؛ قیمت و اطلاعات باید بررسی شوند و هیچ محصولی خودکار منتشر نشده است"});
+}));
+
+domainMarketplaceRouter.get("/api/marketplace/products/source-sync",requireAuth,requirePermission("product:view"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const [links,runs]=await Promise.all([
+    query("select l.id,l.product_id,l.source_name,l.source_product_id,l.source_sku,l.source_url,l.source_currency,l.source_price,l.source_available,l.price_policy,l.markup_percent,l.last_checked_at,l.last_success_at,l.last_error,p.sku,p.title,p.price as sale_price,p.status as product_status from catalog_source_links l join products p on p.id=l.product_id and p.tenant_id=l.tenant_id where l.tenant_id=$1 order by l.updated_at desc limit 500",[ctx.id]),
+    query("select id,source_name,status,requested_count,matched_count,updated_count,skipped_count,failed_count,started_at,finished_at,summary from catalog_source_sync_runs where tenant_id=$1 order by started_at desc limit 20",[ctx.id])
+  ]);
+  res.json({items:links.rows,runs:runs.rows,total:links.rowCount});
+}));
+
+domainMarketplaceRouter.post("/api/marketplace/products/:productId/source-policy",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const policy=bodyString(req.body?.pricePolicy,20);
+  const markup=bodyNumber(req.body?.markupPercent);
+  if(!["manual","mirror","markup"].includes(policy))return res.status(400).json({error:"سیاست قیمت باید manual، mirror یا markup باشد"});
+  if(policy==="markup"&&(markup===null||markup < -100||markup > 10000))return res.status(400).json({error:"درصد تعدیل قیمت باید بین منفی ۱۰۰ تا ۱۰۰۰۰ باشد"});
+  const result=await query(
+    "update catalog_source_links set price_policy=$1,markup_percent=$2,updated_at=now() where tenant_id=$3 and product_id=$4 returning id,product_id,source_name,source_product_id,price_policy,markup_percent",
+    [policy,policy==="markup"?markup:0,ctx.id,req.params.productId]
+  );
+  if(!result.rowCount)return res.status(404).json({error:"پیوند منبع برای این محصول پیدا نشد"});
+  res.json({item:result.rows[0],message:"سیاست ثبت شد؛ قیمت فروش فقط در همگام‌سازی بعدی و مطابق سیاست انتخاب‌شده تغییر می‌کند"});
+}));
+
+domainMarketplaceRouter.post("/api/marketplace/products/sync-reference",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+  const user=(req as any).user as User;
+  const ctx=await tenantContext(req,user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const requested=Array.isArray(req.body?.sourceProductIds)
+    ?[...new Set(req.body.sourceProductIds.filter((value:unknown):value is string=>typeof value==="string").map((value:string)=>value.trim()).filter(Boolean))].slice(0,50)
+    :[];
+  if(!requested.length)return res.status(400).json({error:"حداقل یک شناسه محصول منبع انتخاب کنید؛ حداکثر ۵۰ مورد در هر نوبت"});
+  const run=await query("insert into catalog_source_sync_runs(tenant_id,source_name,status,requested_count,created_by) values($1,'دیجی‌کالا','running',$2,$3) returning id",[ctx.id,requested.length,user.id||null]);
+  const runId=run.rows[0].id as string;
+  const catalog=await getDigikalaCatalog(true);
+  if(catalog.sourceStatus!=="live"){
+    await query("update catalog_source_sync_runs set status='failed',failed_count=$1,finished_at=now(),summary=$2::jsonb where id=$3 and tenant_id=$4",[requested.length,JSON.stringify({reason:"reference_source_unavailable"}),runId,ctx.id]);
+    return res.status(503).json({error:"منبع مرجع فعلاً در دسترس نیست؛ قیمت فروش و موجودی داخلی بدون تغییر باقی ماند",runId});
+  }
+  const sourceMap=new Map(catalog.products.map(product=>[product.id,product]));
+  let matched=0,updated=0,skipped=0,failed=0;
+  const details:Array<{sourceProductId:string;status:string;message?:string}>=[];
+  for(const sourceId of requested){
+    const source=sourceMap.get(sourceId);
+    if(!source){skipped++;details.push({sourceProductId:sourceId,status:"skipped",message:"در فهرست تازه‌شده منبع یافت نشد"});continue;}
+    try{
+      const link=await query(
+        "select l.id,l.product_id,l.price_policy,l.markup_percent from catalog_source_links l where l.tenant_id=$1 and l.source_name=$2 and l.source_product_id=$3",
+        [ctx.id,source.source_name,source.id]
+      );
+      if(!link.rowCount){skipped++;details.push({sourceProductId:sourceId,status:"skipped",message:"این محصول هنوز به کاتالوگ داخلی وارد نشده است"});continue;}
+      matched++;
+      const entry=link.rows[0];
+      await query(
+        "update catalog_source_links set source_price=$1,source_currency=$2,source_available=$3,source_url=$4,source_sku=$5,last_checked_at=now(),last_success_at=now(),last_error=null,updated_at=now() where id=$6 and tenant_id=$7",
+        [Number(source.price),source.currency,source.source_available,source.source_url,source.sku,entry.id,ctx.id]
+      );
+      if(entry.price_policy==="mirror"){
+        await query("update products set price=$1,updated_at=now() where id=$2 and tenant_id=$3",[Number(source.price),entry.product_id,ctx.id]);
+      }else if(entry.price_policy==="markup"){
+        const margin=Number(entry.markup_percent||0);
+        const computed=Math.max(0,Math.round(Number(source.price)*(1+margin/100)));
+        await query("update products set price=$1,updated_at=now() where id=$2 and tenant_id=$3",[computed,entry.product_id,ctx.id]);
+      }
+      updated++;details.push({sourceProductId:sourceId,status:"updated"});
+    }catch(error){
+      failed++;
+      const message=error instanceof Error?error.message.slice(0,300):"خطای ناشناخته";
+      await query("update catalog_source_links set last_checked_at=now(),last_error=$1,updated_at=now() where tenant_id=$2 and source_name=$3 and source_product_id=$4",[message,ctx.id,source.source_name,source.id]).catch(()=>undefined);
+      details.push({sourceProductId:sourceId,status:"failed",message});
+    }
+  }
+  const status=failed===0?"succeeded":updated>0?"partial":"failed";
+  await query(
+    "update catalog_source_sync_runs set status=$1,matched_count=$2,updated_count=$3,skipped_count=$4,failed_count=$5,finished_at=now(),summary=$6::jsonb where id=$7 and tenant_id=$8",
+    [status,matched,updated,skipped,failed,JSON.stringify({sourceFetchedAt:catalog.fetchedAt,details}),runId,ctx.id]
+  );
+  res.json({runId,status,sourceFetchedAt:catalog.fetchedAt,requestedCount:requested.length,matchedCount:matched,updatedCount:updated,skippedCount:skipped,failedCount:failed,details,message:"قیمت مرجع جداگانه ثبت شد؛ موجودی داخلی تغییر نکرد. قیمت فروش فقط برای سیاست mirror یا markup تغییر می‌کند."});
 }));
 
 domainMarketplaceRouter.post("/api/marketplace/media",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
