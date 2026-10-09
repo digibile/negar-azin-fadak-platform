@@ -62,7 +62,14 @@ if(panelRoutes.some(x=>!x[4].startsWith("/")))throw new Error("Canonical panel r
 const panelNumbers=panelEntries.map(x=>x[2]);
 if(new Set(panelNumbers).size!==20||panelNumbers.some((x,i)=>x!==String(i+1).padStart(2,"0")))throw new Error("Canonical panel numbers must be unique and ordered 01-20");
 if(new Set(panelEntries.map(x=>x[1])).size!==20)throw new Error("Canonical panel codes must be unique");
-const panelObjects=[...masterMenu.matchAll(/\{code:"([^"]+)",number:"([0-9]{2})",title:"([^"]+)"[^\n]*children:\[([^\]]*)\]\},?/g)];
+const panelObjects=masterMenu.split("\n").flatMap(line=>{
+ const head=line.match(/\{code:"([^"]+)",number:"([0-9]{2})",title:"([^"]+)"/);
+ if(!head||!line.includes("children:["))return [];
+ const start=line.indexOf("children:[")+"children:[".length;
+ const end=line.lastIndexOf("]");
+ if(end<start)return [];
+ return [[head[0],head[1],head[2],head[3],line.slice(start,end)]];
+});
 if(panelObjects.length!==20)throw new Error("All 20 canonical panels must have a readable child list");
 const canonicalChildTitles=panelObjects.flatMap(panel=>[...panel[4].matchAll(/child\("([^"]+)"/g)].map(match=>({title:match[1],panel:panel[2]})));
 const duplicateChildTitles=[...canonicalChildTitles.reduce((map,item)=>map.set(item.title,[...(map.get(item.title)||[]),item.panel]),new Map())].filter(([,panels])=>panels.length>1);
