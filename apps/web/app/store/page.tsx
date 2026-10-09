@@ -70,10 +70,11 @@ const categoryGlyph = (category: string | null, title: string) => {
   return "◈";
 };
 
-export default function StorePage({ variant = "default" }: { variant?: "default" | "digikala" | "technolife" }) {
+export default function StorePage({ variant = "default" }: { variant?: "default" | "digikala" | "technolife" | "ava" }) {
   const pathname = usePathname();
   const isTechnolife = variant === "technolife";
   const isDigikala = variant === "digikala";
+  const isAva = variant === "ava";
   const showAllProducts = pathname === "/store/shop";
   const [data, setData] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
@@ -161,10 +162,10 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
 
 
   return (
-    <main className={`sk-store${isTechnolife ? " sk-store--technolife" : isDigikala ? " sk-store--digikala" : ""}`} dir="rtl">
+    <main className={`sk-store${isTechnolife ? " sk-store--technolife" : isDigikala ? " sk-store--digikala" : isAva ? " sk-store--ava" : ""}`} dir="rtl">
       <div className="sk-service-strip">
         <div className="sk-wrap sk-service-inner">
-          <span>{isTechnolife ? "سوکار تک، فروشگاه تخصصی کالای دیجیتال" : isDigikala ? "قالب فروشگاهی الهام‌گرفته از تجربه دیجی‌کالا" : "سوکار، بازارگاه یکپارچه خرید و فروش"}</span>
+          <span>{isTechnolife ? "سوکار تک، فروشگاه تخصصی کالای دیجیتال" : isDigikala ? "قالب فروشگاهی الهام‌گرفته از تجربه دیجی‌کالا" : isAva ? "آوا، تجربه خرید آرام و هوشمند" : "سوکار، بازارگاه یکپارچه خرید و فروش"}</span>
           <div><Link href="/marketplace/directory">فروشندگان</Link><Link href="/pay">خدمات اعتباری</Link><Link href="/store/orders">پیگیری سفارش</Link></div>
         </div>
       </div>
@@ -173,7 +174,7 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
         <div className="sk-wrap sk-header-main">
           <Link href="/" className="sk-logo" aria-label="سوکار، صفحه اصلی">
             <span className="sk-logo-mark">س</span>
-            <span><b>{isTechnolife ? "سوکار تک" : "سوکار"}</b><small>{isTechnolife ? "دنیای فناوری، یک‌جا" : isDigikala ? "خرید هوشمند، انتخاب مطمئن" : "خرید هوشمند، انتخاب مطمئن"}</small></span>
+            <span><b>{isTechnolife ? "سوکار تک" : isAva ? "آوا" : "سوکار"}</b><small>{isTechnolife ? "دنیای فناوری، یک‌جا" : isDigikala ? "خرید هوشمند، انتخاب مطمئن" : "خرید هوشمند، انتخاب مطمئن"}</small></span>
           </Link>
           <form className="sk-search" role="search" onSubmit={event => { event.preventDefault(); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth" }); }}>
             <span aria-hidden="true">⌕</span>
