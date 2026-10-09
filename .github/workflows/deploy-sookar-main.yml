@@ -161,13 +161,12 @@ jobs:
           docker ps --format '{{.Names}}' | grep -Fx 'naf-sookar-api-1' >/dev/null
           echo PRODUCTION_DEPLOYMENT_OK
           REMOTE
-      - name: Renew DirectAdmin SSL certificate
+      - name: Reload DirectAdmin Nginx configuration
         shell: bash
         run: |
           set -euo pipefail
           HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
           PORT='${{ secrets.DEPLOY_PORT }}'
-          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" '/usr/local/directadmin/scripts/letsencrypt.sh request sookar.ir 4096'
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" '/usr/local/directadmin/custombuild/build rewrite_confs >/dev/null && nginx -t && systemctl reload nginx'
 
       - name: Configure DirectAdmin Nginx routes
