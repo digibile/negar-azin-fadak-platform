@@ -9,6 +9,8 @@ type Category = { id: string; code: string; name: string; status: string; sort_o
 type Product = { id: string; sku: string; title: string; price: string | number; currency: string; status: string; seller_id: string; image_url?: string | null; category?: string | null };
 type SourceProduct = { id: string; sku: string; title: string; price: string; currency: string; category: string; image_url: string; brand: string | null; source_name: string };
 type SourceCatalog = { products: SourceProduct[]; sourceStatus: "live" | "unavailable"; fetchedAt: string | null };
+type SourceLink = { id:string; product_id:string; source_name:string; source_product_id:string; source_sku:string|null; source_url:string|null; source_currency:string; source_price:string|number|null; source_available:boolean|null; price_policy:"manual"|"mirror"|"markup"; markup_percent:string|number; last_checked_at:string|null; last_success_at:string|null; last_error:string|null; sku:string; title:string; sale_price:string|number; product_status:string };
+type SourceSyncResult = { items:SourceLink[]; runs:Array<{id:string;status:string;updated_count:number;started_at:string}>; total:number };
 type ImportResult = { totalImported: number; totalSkipped: number; imported: string[]; skipped: string[]; message: string };
 const statusLabel: Record<string,string> = { draft:"پیش‌نویس", active:"منتشرشده", archived:"بایگانی‌شده" };
 const money = (value: string | number, currency = "IRR") => `${Number(value).toLocaleString("fa-IR")} ${currency === "IRR" ? "ریال" : currency}`;
@@ -39,18 +41,23 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingSource, setLoadingSource] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [sourceLinks, setSourceLinks] = useState<SourceLink[]>([]);
+  const [syncingSources, setSyncingSources] = useState(false);
+  const [policySavingId, setPolicySavingId] = useState("");
 
   async function load() {
     setError("");
     try {
-      const [productResult, sellerResult, categoryResult] = await Promise.all([
+      const [productResult, sellerResult, categoryResult, sourceResult] = await Promise.all([
         api<{items:Product[]}>("/api/marketplace/products"),
         api<{items:Seller[]}>("/api/marketplace/sellers"),
-        api<{items:Category[]}>("/api/marketplace/categories")
+        api<{items:Category[]}>("/api/marketplace/categories"),
+        api<SourceSyncResult>("/api/marketplace/products/source-sync")
       ]);
       setItems(productResult.items || []);
       setSellers(sellerResult.items || []);
       setCategories((categoryResult.items || []).filter(item => item.status === "active"));
+      setSourceLinks(sourceResult.items || []);
       setSellerId(current => current || (sellerResult.items?.find(x => x.status === "active") || sellerResult.items?.[0])?.id || "");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "دریافت کاتالوگ یا فروشندگان ناموفق بود.");
@@ -157,6 +164,36 @@ export default function ProductsPage() {
     }
   }
 
+  async function syncReferenceProducts() {
+    if (!sourceLinks.length) return;
+    setError(""); setNotice(""); setSyncingSources(true);
+    try {
+      const batch = sourceLinks.slice(0, 50);
+      const result = await api<{updatedCount:number;skippedCount:number;failedCount:number;status:string;message:string}>("/api/marketplace/products/sync-reference", {
+        method: "POST",
+        body: JSON.stringify({ sourceProductIds: batch.map(item => item.source_product_id) })
+      });
+      setNotice(`همگام‌سازی منبع تمام شد: ${result.updatedCount} رکورد به‌روز شد، ${result.skippedCount} مورد رد شد و ${result.failedCount} خطا داشت. قیمت فروش فقط طبق سیاست انتخابی تغییر می‌کند؛ موجودی داخلی مستقل می‌ماند.`);
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "همگام‌سازی مرجع ناموفق بود.");
+    } finally { setSyncingSources(false); }
+  }
+
+  async function saveSourcePolicy(link: SourceLink, policy: "manual" | "mirror" | "markup", markupPercent = Number(link.markup_percent || 0)) {
+    setError(""); setNotice(""); setPolicySavingId(link.product_id);
+    try {
+      await api("/api/marketplace/products/" + encodeURIComponent(link.product_id) + "/source-policy", {
+        method: "POST",
+        body: JSON.stringify({ pricePolicy: policy, markupPercent })
+      });
+      setNotice(policy === "manual" ? "قیمت فروش مستقل تنظیم شد." : policy === "mirror" ? "قیمت فروش در همگام‌سازی بعدی با قیمت منبع برابر می‌شود." : `قیمت فروش در همگام‌سازی بعدی با تعدیل ${markupPercent}٪ محاسبه می‌شود.`);
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "ذخیره سیاست قیمت ناموفق بود.");
+    } finally { setPolicySavingId(""); }
+  }
+
   async function changeStatus(item: Product, status: "active" | "draft") {
     setError(""); setNotice(""); setSavingId(item.id);
     try {
@@ -256,6 +293,29 @@ export default function ProductsPage() {
           </div>
         </article>;
       })}</div> : <div className="mp-inventory-empty">{items.length ? "محصولی با این فیلتر پیدا نشد." : "هنوز محصولی در کاتالوگ داخلی ثبت نشده است."}</div>}
+    </section>
+
+    <section className="mp-inventory mp-source-sync">
+      <div className="mp-inventory-head">
+        <div><h2>تأمین و همگام‌سازی مرجع</h2><p>قیمت مرجع و وضعیت اعلام‌شدهٔ تأمین‌کننده جدا از قیمت فروش و موجودی انبار خودت ذخیره می‌شود.</p></div>
+        <button type="button" className="mp-refresh" onClick={syncReferenceProducts} disabled={syncingSources || !sourceLinks.length}>{syncingSources ? "در حال همگام‌سازی…" : `به‌روزرسانی ${Math.min(50,sourceLinks.length).toLocaleString("fa-IR")} مورد اول`}</button>
+      </div>
+      {!sourceLinks.length ? <div className="mp-inventory-empty">هنوز محصولی به منبع مرجع متصل نیست. ابتدا از بخش «ورود از منبع» محصول وارد کن.</div>
+      : <div className="mp-source-sync-list">{sourceLinks.map(link => <article className="mp-source-sync-row" key={link.id}>
+        <div className="mp-product-name"><b>{link.title}</b><small>{link.sku} · {link.source_name} · {link.source_sku || link.source_product_id}</small></div>
+        <div><small>قیمت منبع</small><strong>{link.source_price == null ? "ثبت نشده" : money(link.source_price,link.source_currency)}</strong></div>
+        <div><small>قیمت فروش خودت</small><strong>{money(link.sale_price,link.source_currency)}</strong></div>
+        <div><small>وضعیت منبع</small><strong>{link.source_available === true ? "موجود اعلام شده" : link.source_available === false ? "ناموجود اعلام شده" : "نامشخص"}</strong></div>
+        <label className="mp-source-policy">سیاست قیمت
+          <select value={link.price_policy} disabled={policySavingId===link.product_id} onChange={event => void saveSourcePolicy(link,event.target.value as "manual"|"mirror"|"markup")}>
+            <option value="manual">مستقل، بدون تغییر خودکار</option><option value="mirror">برابر با قیمت منبع</option><option value="markup">قیمت منبع + درصد تعدیل</option>
+          </select>
+        </label>
+        {link.price_policy === "markup" && <label className="mp-source-policy">درصد تعدیل
+          <input type="number" min="-100" max="10000" step="0.1" defaultValue={Number(link.markup_percent||0)} onBlur={event => {const value=Number(event.target.value);if(Number.isFinite(value)&&value!==Number(link.markup_percent||0))void saveSourcePolicy(link,"markup",value);}} />
+        </label>}
+        <small className="mp-source-sync-meta">{link.last_success_at ? "آخرین همگام‌سازی: "+new Date(link.last_success_at).toLocaleString("fa-IR") : "هنوز همگام‌سازی موفقی ثبت نشده"}{link.last_error ? " · خطا: "+link.last_error : ""}</small>
+      </article>)}</div>}
     </section>
   </main>;
 }
