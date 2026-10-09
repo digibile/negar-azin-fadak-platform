@@ -147,7 +147,7 @@ const identityApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"ut
 if(!identityApi.includes("const guardRead=")||!identityApi.includes("const guardWrite="))throw new Error("Identity API must separate read and write authorization");
 if(identityApi.includes("requireAuth,guard,"))throw new Error("Identity API contains a route using the unsafe combined authorization guard");
 if(!identityApi.includes('router.get("/api/identity/overview",requireAuth,guardRead,'))throw new Error("Identity overview must use read authorization");
-if(!identityApi.includes('router.post("/api/identity/roles",requireAuth,guardWrite,'))throw new Error("Role creation must use write authorization");
+if(!identityApi.includes('router.post("/api/identity/roles",requireAuth,guardAdmin,'))throw new Error("Role creation must be restricted to system admins");
 if(!identityApi.includes('router.put("/api/identity/roles/:roleKey/permissions",requireAuth,guardAdmin,'))throw new Error("Permission updates must be restricted to system admins");
 if(!identityApi.includes('router.post("/api/identity/roles",requireAuth,guardAdmin,'))throw new Error("Role creation must be restricted to system admins");
 const identityWorkspace=fs.readFileSync(path.join(root,"apps/web/app/modules/IdentityWorkspace.tsx"),"utf8");
