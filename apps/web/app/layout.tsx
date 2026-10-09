@@ -6,16 +6,15 @@ const siteUrl = "https://sookar.ir";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "فروشگاه اینترنتی سوکار و بازارگاه چندفروشنده",
+    default: "فروشگاه اینترنتی سوکار",
     template: "%s | سوکار"
   },
-  description: "فروشگاه اینترنتی و بازارگاه چندفروشنده سوکار؛ جستجو و خرید کالا از فروشندگان و فروشگاه‌های ثبت‌شده در یک مسیر یکپارچه.",
-  applicationName: "سوکار | فروشگاه و بازارگاه",
+  description: "خرید یکپارچه کالا از فروشگاه‌ها و فروشندگان ثبت‌شده در سوکار.",
+  applicationName: "سوکار | فروشگاه اینترنتی",
   keywords: [
     "سوکار",
     "فروشگاه اینترنتی سوکار",
-    "بازارگاه چندفروشنده",
-    "خرید اینترنتی",
+        "خرید اینترنتی",
     "فروشگاه‌های آنلاین",
     "محصولات و فروشندگان",
     "خرید اعتباری"
@@ -28,7 +27,7 @@ export const metadata: Metadata = {
     url: siteUrl,
     siteName: "سوکار",
     title: "فروشگاه اینترنتی سوکار و بازارگاه چندفروشنده",
-    description: "خرید اینترنتی از فروشگاه‌ها و فروشندگان ثبت‌شده در بازارگاه سوکار."
+    description: "خرید اینترنتی از فروشگاه‌ها و فروشندگان ثبت‌شده در سوکار."
   },
   twitter: {
     card: "summary_large_image",
@@ -42,7 +41,7 @@ const organizationJsonLd = {
   "@type": "OnlineStore",
   name: "سوکار",
   url: siteUrl,
-  description: "فروشگاه اینترنتی و بازارگاه چندفروشنده سوکار"
+  description: "فروشگاه اینترنتی سوکار"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
