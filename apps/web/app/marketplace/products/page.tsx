@@ -8,7 +8,7 @@ type Seller = { id: string; display_name: string; status: string };
 type Category = { id: string; code: string; name: string; status: string; sort_order: number };
 type Product = { id: string; sku: string; title: string; price: string | number; currency: string; status: string; seller_id: string; image_url?: string | null; category?: string | null };
 type SourceProduct = { id: string; sku: string; title: string; price: string; currency: string; category: string; image_url: string; brand: string | null; source_name: string };
-type SourceCatalog = { products: SourceProduct[]; sourceStatus: "live" | "unavailable"; fetchedAt: string | null };
+type SourceCatalog = { products: SourceProduct[]; categories: string[]; sourceStatus: "live" | "unavailable"; fetchedAt: string | null };
 type SourceLink = { id:string; product_id:string; source_name:string; source_product_id:string; source_sku:string|null; source_url:string|null; source_currency:string; source_price:string|number|null; source_available:boolean|null; price_policy:"manual"|"mirror"|"markup"; markup_percent:string|number; last_checked_at:string|null; last_success_at:string|null; last_error:string|null; sku:string; title:string; sale_price:string|number; product_status:string };
 type SourceSyncResult = { items:SourceLink[]; runs:Array<{id:string;status:string;updated_count:number;started_at:string}>; total:number };
 type ImportResult = { totalImported: number; totalSkipped: number; imported: string[]; skipped: string[]; message: string };
@@ -32,6 +32,8 @@ export default function ProductsPage() {
   const [sourceProducts, setSourceProducts] = useState<SourceProduct[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sourceSearch, setSourceSearch] = useState("");
+  const [sourceCategory, setSourceCategory] = useState("");
+  const [sourceFetchedAt, setSourceFetchedAt] = useState<string | null>(null);
   const [sourceProductId, setSourceProductId] = useState("");
   const [sourceStatus, setSourceStatus] = useState<"live" | "unavailable" | "unknown">("unknown");
   const [error, setError] = useState("");
@@ -66,12 +68,48 @@ export default function ProductsPage() {
       setLoading(false);
     }
   }
-  useEffect(() => { if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "import") setTab("import"); void load(); }, []);
+  async function loadSourceCatalog() {
+    setError("");
+    setLoadingSource(true);
+    try {
+      const result = await api<SourceCatalog>("/api/marketplace/digikala-catalog");
+      setSourceProducts(current => {
+        const byId = new Map(current.map(item => [item.id, item]));
+        for (const item of result.products || []) if (!byId.has(item.id)) byId.set(item.id, item);
+        return [...byId.values()];
+      });
+      setSourceStatus(result.sourceStatus);
+      setSourceFetchedAt(result.fetchedAt);
+      if (result.sourceStatus !== "live") setError("منبع مرجع پاسخ کامل نداد؛ فهرست دریافت‌شده ممکن است ناقص باشد.");
+    } catch (reason) {
+      setSourceStatus("unavailable");
+      setError(reason instanceof Error ? reason.message : "دریافت فهرست مرجع ناموفق بود.");
+    } finally {
+      setLoadingSource(false);
+    }
+  }
+
+  useEffect(() => {
+    const wantsImport = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "import";
+    if (wantsImport) setTab("import");
+    void load();
+    if (wantsImport) void loadSourceCatalog();
+  }, []);
 
   async function lookupDigikalaProduct() {
-    const id = sourceProductId.trim().replace(/^dkp-/i, "");
+    const raw = sourceProductId.trim();
+    let id = raw.replace(/^dkp-/i, "");
+    if (/^https?:\/\//i.test(raw)) {
+      try {
+        const url = new URL(raw);
+        const match = url.hostname.toLowerCase().endsWith("digikala.com") ? url.pathname.match(/\/product\/(?:dkp-)?(\d{1,16})/i) : null;
+        id = match?.[1] || "";
+      } catch {
+        id = "";
+      }
+    }
     if (!/^\d{1,16}$/.test(id)) {
-      setError("شناسه محصول دیجی‌کالا را به‌صورت عددی وارد کنید.");
+      setError("شناسه یا لینک معتبر صفحه محصول دیجی‌کالا را وارد کنید.");
       return;
     }
     setError(""); setNotice(""); setLoadingSource(true);
@@ -81,9 +119,9 @@ export default function ProductsPage() {
       setSourceProducts(current => [product, ...current.filter(item => item.id !== product.id)]);
       setSelectedIds(current => current.includes(product.id) ? current : [...current, product.id].slice(0, 50));
       setSourceStatus("live");
-      setNotice("محصول با شناسهٔ " + id + " از منبع دریافت شد. پس از انتخاب «ورود به کاتالوگ داخلی»، رکورد به‌صورت پیش‌نویس ثبت می‌شود.");
+      setNotice("محصول دریافت شد. پس از ورود به کاتالوگ داخلی، قیمت و اطلاعات را بررسی کنید و در صورت تأیید منتشر کنید.");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "دریافت محصول با این شناسه ناموفق بود.");
+      setError(reason instanceof Error ? reason.message : "دریافت محصول از منبع ناموفق بود.");
     } finally {
       setLoadingSource(false);
     }
@@ -224,8 +262,8 @@ export default function ProductsPage() {
 
   const filteredSourceProducts = useMemo(() => {
     const needle = sourceSearch.trim().toLocaleLowerCase("fa");
-    return sourceProducts.filter(item => !needle || [item.title, item.sku, item.category, item.brand || ""].join(" ").toLocaleLowerCase("fa").includes(needle));
-  }, [sourceProducts, sourceSearch]);
+    return sourceProducts.filter(item => (!sourceCategory || item.category === sourceCategory) && (!needle || [item.title, item.sku, item.category, item.brand || ""].join(" ").toLocaleLowerCase("fa").includes(needle)));
+  }, [sourceProducts, sourceSearch, sourceCategory]);
 
   return <main className="enterprise-main mp-products" dir="rtl">
     <header className="mp-page-head">
@@ -259,15 +297,15 @@ export default function ProductsPage() {
         <label className="mp-field-wide">تصویر محصول (اختیاری، حداکثر ۵ مگابایت)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => void uploadImage(event.target.files?.[0])} disabled={uploadingImage} /><small>{uploadingImage ? "در حال بررسی و ذخیره تصویر در رسانهٔ داخلی…" : "تصویر در رسانهٔ داخلی سوکار ذخیره می‌شود؛ لینک خارجی تصویر پذیرفته نمی‌شود."}</small>{imageUrl && <span className="mp-uploaded-image"><img src={imageUrl} alt="پیش‌نمایش تصویر ثبت‌شده" /><code dir="ltr">{imageUrl}</code><button type="button" onClick={() => setImageUrl("")}>حذف تصویر از پیش‌نویس</button></span>}</label>
         <div className="mp-form-actions"><button type="button" onClick={create} disabled={saving || uploadingImage || !sellerId || !sku.trim() || !title.trim() || price === ""}>{saving ? "در حال ثبت…" : "ثبت پیش‌نویس محصول"} <span>←</span></button><small>انتشار عمومی مرحله‌ای جداگانه است.</small></div>
       </div> : <div className="mp-import-panel">
-        <div className="mp-import-head"><div><h3>ورود مرجع به کاتالوگ داخلی</h3><p>دیجی‌کالا فقط منبع مرجع در پنل مدیریت است؛ کالا در ویترین سوکار با شناسه و صفحهٔ داخلی خودش ثبت می‌شود.</p></div></div>
+        <div className="mp-import-head"><div><h3>ورود مرجع به کاتالوگ داخلی</h3><p>فهرست مرجع فقط در مدیریت دیده می‌شود. هر محصول پس از ورود، شناسه و صفحه داخلی می‌گیرد و با قیمت‌گذاری و انتشار مستقل شما اداره می‌شود.</p>{sourceFetchedAt && <small>آخرین دریافت موفق فهرست: {new Date(sourceFetchedAt).toLocaleString("fa-IR")}</small>}</div></div>
         <div className="mp-source-id-row">
-          <label htmlFor="mp-source-product-id">شناسه محصول دیجی‌کالا<input id="mp-source-product-id" value={sourceProductId} onChange={event => setSourceProductId(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void lookupDigikalaProduct(); } }} placeholder="مثلاً 12345678 یا dkp-12345678" inputMode="numeric" /></label>
-          <button type="button" className="mp-refresh" onClick={lookupDigikalaProduct} disabled={loadingSource || !sourceProductId.trim()}>{loadingSource ? "در حال دریافت…" : "دریافت با شناسه"}</button>
+          <label htmlFor="mp-source-product-id">شناسه یا لینک محصول دیجی‌کالا<input id="mp-source-product-id" value={sourceProductId} onChange={event => setSourceProductId(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void lookupDigikalaProduct(); } }} placeholder="شناسه یا لینک محصول؛ مثال dkp-12345678" /></label>
+          <button type="button" className="mp-refresh" onClick={lookupDigikalaProduct} disabled={loadingSource || !sourceProductId.trim()}>{loadingSource ? "در حال دریافت…" : "دریافت محصول"}</button><button type="button" className="mp-refresh" onClick={() => void loadSourceCatalog()} disabled={loadingSource}>{loadingSource ? "در حال دریافت فهرست…" : "تازه‌سازی فهرست"}</button>
         </div>
         {sourceStatus === "unavailable" && <p className="mp-inline-warning">منبع مرجع فعلاً پاسخ نمی‌دهد. محصولات ثبت‌شدهٔ داخلی تغییری نمی‌کنند.</p>}
         {loadingSource ? <div className="mp-import-empty">در حال دریافت فهرست محصولات مرجع…</div>
         : filteredSourceProducts.length ? <>
-          <label className="mp-source-search">جستجوی فهرست مرجع<input value={sourceSearch} onChange={event => setSourceSearch(event.target.value)} placeholder="نام کالا، برند یا دسته‌بندی…" /></label><div className="mp-selection-bar"><span>{selectedIds.length.toLocaleString("fa-IR")} محصول انتخاب شده · حداکثر ۵۰ مورد در هر نوبت</span><button type="button" onClick={() => setSelectedIds(selectedIds.length >= Math.min(50, filteredSourceProducts.length) ? [] : filteredSourceProducts.slice(0,50).map(item => item.id))}>{selectedIds.length >= Math.min(50, filteredSourceProducts.length) && selectedIds.length > 0 ? "لغو انتخاب" : "انتخاب ۵۰ مورد اول"}</button><button type="button" className="mp-import-submit" onClick={importSelected} disabled={!sellerId || !selectedIds.length || importing}>{importing ? "در حال ورود و ذخیره تصاویر…" : "ورود به کاتالوگ داخلی"}</button></div>
+          <div className="mp-source-filters"><label className="mp-source-search">جستجوی فهرست مرجع<input value={sourceSearch} onChange={event => setSourceSearch(event.target.value)} placeholder="نام کالا، برند یا دسته‌بندی…" /></label><label className="mp-source-search">دسته‌بندی مرجع<select value={sourceCategory} onChange={event => setSourceCategory(event.target.value)}><option value="">همه دسته‌بندی‌ها</option>{[...new Set(sourceProducts.map(item => item.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fa")).map(item=><option key={item} value={item}>{item}</option>)}</select></label></div><div className="mp-selection-bar"><span>{selectedIds.length.toLocaleString("fa-IR")} محصول انتخاب شده · حداکثر ۵۰ مورد در هر نوبت</span><button type="button" onClick={() => setSelectedIds(selectedIds.length >= Math.min(50, filteredSourceProducts.length) ? [] : filteredSourceProducts.slice(0,50).map(item => item.id))}>{selectedIds.length >= Math.min(50, filteredSourceProducts.length) && selectedIds.length > 0 ? "لغو انتخاب" : "انتخاب ۵۰ مورد اول"}</button><button type="button" className="mp-import-submit" onClick={importSelected} disabled={!sellerId || !selectedIds.length || importing}>{importing ? "در حال ورود و ذخیره تصاویر…" : "ورود به کاتالوگ داخلی"}</button></div>
           <div className="mp-source-grid">{filteredSourceProducts.map(item => <label key={item.id} className={selectedIds.includes(item.id) ? "mp-source-card is-selected" : "mp-source-card"}>
             <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={event => { if (event.target.checked) { if (selectedIds.length >= 50) { setError("در هر نوبت حداکثر ۵۰ محصول وارد می‌شود."); return; } setSelectedIds(current => current.includes(item.id) ? current : [...current, item.id]); } else setSelectedIds(current => current.filter(id => id !== item.id)); }} />
             <img src={item.image_url} alt="" loading="lazy" />
