@@ -135,7 +135,7 @@ jobs:
           test -d /home/sookar/domains/sookar.com || { echo "Sookar.com home directory is missing; deployment stopped."; exit 21; }
           test -f "$BASE/.env" || { echo "Sookar.com production environment file is missing; no other domain environment will be copied."; exit 22; }
           test "$(stat -c %a "$BASE/.env")" = "600" || { echo "Sookar.com environment permissions must be 600."; exit 23; }
-          grep -Eq 'server_name[^;]*sookar\.com' "$DOMAIN_CONF" || { echo "Sookar.com is not registered in its DirectAdmin domain configuration."; exit 24; }
+          grep -Eq 'server_name[^;]*sookar\.com' /usr/local/directadmin/data/users/sookar/nginx.conf || { echo "Sookar.com has no generated Nginx server block; deployment stopped."; exit 24; }
           printf '' | openssl s_client -connect sookar.com:443 -servername sookar.com 2>/dev/null | openssl x509 -noout -checkend 86400 -checkhost sookar.com
           echo SOOKAR_COM_PREFLIGHT_OK
           REMOTE
