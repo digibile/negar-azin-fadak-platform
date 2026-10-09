@@ -1,4 +1,5 @@
 name: Deploy Sookar Main Safely
+run-name: Release ${{ inputs.target_sha || github.sha }}
 
 on:
   push:
