@@ -1,9 +1,6 @@
 name: Deploy Sookar Main Safely
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       target_sha:
@@ -110,7 +107,7 @@ jobs:
           retention-days: 7
 
       - name: Prepare SSH
-        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -121,16 +118,16 @@ jobs:
           ssh-keyscan -T 15 -p '${{ secrets.DEPLOY_PORT }}' '${{ secrets.DEPLOY_HOST }}' >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
       - name: Upload release
-        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
           HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
           PORT='${{ secrets.DEPLOY_PORT }}'
-          BASE=/home/sookar/domains/sookar.ir/negar-platform
+          BASE=/home/sookar/domains/sookar.com/negar-platform
           scp -i ~/.deploy_key -P "$PORT" -o BatchMode=yes /tmp/negar-platform.tar.gz "$HOST:$BASE/negar-platform.tar.gz"
       - name: Deploy with rollback
-        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         env:
           RELEASE_SHA: ${{ inputs.target_sha || github.sha }}
@@ -140,7 +137,7 @@ jobs:
           PORT='${{ secrets.DEPLOY_PORT }}'
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "RELEASE_SHA='$RELEASE_SHA' bash -s" <<'REMOTE'
           set -euo pipefail
-          BASE=/home/sookar/domains/sookar.ir/negar-platform
+          BASE=/home/sookar/domains/sookar.com/negar-platform
           SHA="$RELEASE_SHA"
           RELEASE="$BASE/releases/$SHA"
           CURRENT="$BASE/current"
@@ -186,7 +183,7 @@ jobs:
           echo "DEPLOYED_SHA=$SHA"
           REMOTE
       - name: Production health and release check
-        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
+        if: ${{ inputs.deploy_to_server }}
         env:
           RELEASE_SHA: ${{ inputs.target_sha || github.sha }}
         run: |
@@ -195,7 +192,7 @@ jobs:
           PORT='${{ secrets.DEPLOY_PORT }}'
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes "$HOST" "RELEASE_SHA='$RELEASE_SHA' bash -s" <<'REMOTE'
           set -euo pipefail
-          BASE=/home/sookar/domains/sookar.ir/negar-platform
+          BASE=/home/sookar/domains/sookar.com/negar-platform
           curl -fsS http://127.0.0.1:3100/ >/dev/null
           curl -fsS http://127.0.0.1:4000/health >/dev/null
           test "$(readlink -f "$BASE/current")" = "$BASE/releases/$RELEASE_SHA"
@@ -203,7 +200,7 @@ jobs:
           echo PRODUCTION_DEPLOYMENT_OK
           REMOTE
       - name: Reload DirectAdmin Nginx configuration
-        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -212,7 +209,7 @@ jobs:
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" '/usr/local/directadmin/custombuild/build rewrite_confs >/dev/null && nginx -t && systemctl reload nginx'
 
       - name: Configure DirectAdmin Nginx routes
-        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -220,7 +217,7 @@ jobs:
           PORT='${{ secrets.DEPLOY_PORT }}'
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" 'bash -s' <<'REMOTE'
           set -euo pipefail
-          DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf
+          DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.com.conf
           USER_NGINX=/usr/local/directadmin/data/users/sookar/nginx.conf
           test -f "$DOMAIN_CONF"
           cp -a "$DOMAIN_CONF" "$DOMAIN_CONF.before-platform"
@@ -231,7 +228,7 @@ jobs:
           import re, subprocess
 
           files = [
-              Path("/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf"),
+              Path("/usr/local/directadmin/data/users/sookar/domains/sookar.com.conf"),
               Path("/usr/local/directadmin/data/users/sookar/nginx.conf"),
           ]
 
@@ -293,7 +290,7 @@ jobs:
               source = path.read_text()
               servers = [
                   block for block in find_blocks(source, "server")
-                  if re.search(r"server_name\s+[^;]*\bsookar\.ir\b", source[block[0]:block[1]])
+                  if re.search(r"server_name\s+[^;]*\bsookar\.com\b", source[block[0]:block[1]])
               ]
               if not servers:
                   continue
@@ -328,13 +325,13 @@ jobs:
           REMOTE
 
       - name: Verify public HTTPS endpoint
-        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
-          printf '' | openssl s_client -connect sookar.ir:443 -servername sookar.ir 2>/dev/null | openssl x509 -noout -checkend 86400 -checkhost sookar.ir
+          printf '' | openssl s_client -connect sookar.com:443 -servername sookar.com 2>/dev/null | openssl x509 -noout -checkend 86400 -checkhost sookar.com
           for i in $(seq 1 10); do
-            code=$(curl -L --connect-timeout 5 --max-time 10 -sS -o /tmp/sookar-health.html -w '%{http_code}' https://sookar.ir/ || true)
+            code=$(curl -L --connect-timeout 5 --max-time 10 -sS -o /tmp/sookar-com-health.html -w '%{http_code}' https://sookar.com/ || true)
             echo "PUBLIC_HTTP=$code attempt=$i"
             if [ "$code" = "200" ]; then
               echo PUBLIC_HTTPS_HEALTH_OK
@@ -342,5 +339,5 @@ jobs:
             fi
             sleep 2
           done
-          head -c 1000 /tmp/sookar-health.html || true
+          head -c 1000 /tmp/sookar-com-health.html || true
           exit 1
