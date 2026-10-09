@@ -1,0 +1,49 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {normalizeDigikalaProducts} from "./digikala-catalog.js";
+
+test("normalizes real source fields and keeps source attribution",()=>{
+  const products=normalizeDigikalaProducts({
+    data:{products:[{
+      id:12345,
+      title_fa:"گوشی آزمایشی منبع",
+      url:"/product/dkp-12345/",
+      images:{main:{url:["https://dkstatics-public.digikala.com/digikala-products/example.jpg"]}},
+      default_variant:{price:{selling_price:125000000}},
+      category:{title_fa:"موبایل و تبلت"},
+      brand:{title_fa:"برند نمونه"},
+      rating:{rate:4.2}
+    }]}
+  },"موبایل و تبلت");
+  assert.equal(products.length,1);
+  assert.equal(products[0].id,"digikala-12345");
+  assert.equal(products[0].price,"125000000");
+  assert.equal(products[0].currency,"IRR");
+  assert.equal(products[0].category,"موبایل و تبلت");
+  assert.equal(products[0].image_url,"https://dkstatics-public.digikala.com/digikala-products/example.jpg");
+  assert.equal(products[0].source_url,"https://www.digikala.com/product/dkp-12345/");
+  assert.equal(products[0].source_name,"دیجی‌کالا");
+  assert.equal(products[0].rating,4.2);
+});
+
+test("rejects records without a real image or valid price",()=>{
+  const products=normalizeDigikalaProducts({data:{products:[
+    {id:1,title_fa:"بدون تصویر",default_variant:{price:{selling_price:1000}}},
+    {id:2,title_fa:"بدون قیمت",images:{main:{url:["https://cdn.example.test/p.jpg"]}}},
+    {id:3,title_fa:"تصویر ناامن",images:{main:{url:["http://cdn.example.test/p.jpg"]}},default_variant:{price:{selling_price:1000}}}
+  ]}},"موبایل و تبلت");
+  assert.deepEqual(products,[]);
+});
+
+test("accepts nested item-list payloads and preserves the supplied category",()=>{
+  const products=normalizeDigikalaProducts({data:{products:{items:[{
+    id:"abc",
+    title:"کالای منبع",
+    image_url:"https://cdn.example.test/p.jpg",
+    price:{selling_price:"250000"},
+    product_url:"https://www.digikala.com/product/dkp-abc/"
+  }]}}},"لوازم اداری");
+  assert.equal(products.length,1);
+  assert.equal(products[0].category,"لوازم اداری");
+  assert.equal(products[0].source_type,"external-reference");
+});
