@@ -221,7 +221,21 @@ export default function StorePage() {
         <section className="sk-bottom-links"><Link href="/marketplace/directory"><span>▦</span><b>فروشگاه‌های بازارگاه</b><small>مرور فروشگاه‌های ثبت‌شده</small><em>←</em></Link><Link href="/pay"><span>◇</span><b>خدمات اعتباری</b><small>مشاهده مسیرهای فعال</small><em>←</em></Link><Link href="/store/orders"><span>◷</span><b>پیگیری سفارش</b><small>رفتن به بخش سفارش‌ها</small><em>←</em></Link></section>
       </div>
 
-      <footer className="sk-footer"><div className="sk-wrap sk-footer-main"><div className="sk-footer-brand"><Link href="/" className="sk-logo"><span className="sk-logo-mark">س</span><span><b>سوکار</b><small>فروشگاه و بازارگاه</small></span></Link><p>یک مسیر روشن برای کشف کالا، فروشگاه و انتخاب آگاهانه.</p></div><div><b>خرید</b><Link href="/store/shop">همه کالاها</Link><Link href="/marketplace">بازارگاه</Link><Link href="/marketplace/directory">فروشگاه‌ها</Link></div><div><b>خدمات</b><Link href="/store/orders">پیگیری سفارش</Link><Link href="/pay">خدمات اعتباری</Link><Link href="/login">فروشندگان</Link></div><div><b>حساب کاربری</b><Link href="/login">ورود</Link><Link href="/account/orders">سفارش‌های من</Link><Link href="/store/terms">قوانین و شرایط</Link></div></div><div className="sk-footer-bottom"><div className="sk-wrap"><span>سوکار · بازارگاه و فروشگاه اینترنتی</span><span>دامنه رسمی: sookar.ir</span></div></div></footer>
+      <footer className="sk-footer">
+        <div className="sk-wrap sk-footer-main">
+          <div className="sk-footer-brand">
+            <Link href="/" className="sk-logo"><span className="sk-logo-mark">س</span><span><b>سوکار</b><small>فروشگاه و بازارگاه</small></span></Link>
+            <p>یک مسیر یکپارچه برای کشف کالا، مقایسه انتخاب‌ها و خرید از فروشگاه‌های ثبت‌شده.</p>
+            <div className="sk-footer-domain"><span aria-hidden="true">↗</span><span><small>نشانی رسمی</small><b>sookar.ir</b></span></div>
+          </div>
+          <div className="sk-footer-column"><b>خرید و کشف کالا</b><Link href="/store/shop">همه کالاها</Link><Link href="/marketplace">بازارگاه</Link><Link href="/marketplace/directory">فروشگاه‌های ثبت‌شده</Link><Link href="/store">دسته‌بندی‌های کالا</Link></div>
+          <div className="sk-footer-column"><b>سفارش و پرداخت</b><Link href="/store/cart">سبد خرید</Link><Link href="/store/orders">پیگیری سفارش</Link><Link href="/pay">خدمات اعتباری</Link><Link href="/store/returns">بازگشت کالا</Link></div>
+          <div className="sk-footer-column"><b>حساب کاربری</b><Link href="/login">ورود به حساب</Link><Link href="/account/orders">سفارش‌های من</Link><Link href="/login">پنل فروشندگان</Link><Link href="/store/faq">پرسش‌های متداول</Link></div>
+          <div className="sk-footer-column"><b>راهنما و قوانین</b><Link href="/store/terms">قوانین و شرایط</Link><Link href="/store/faq">راهنمای خرید</Link><Link href="/marketplace/directory">معرفی فروشگاه‌ها</Link><Link href="/login">ارتباط با پشتیبانی</Link></div>
+        </div>
+        <div className="sk-footer-trust"><div className="sk-wrap"><span><i>✓</i> نمایش اطلاعات ثبت‌شدهٔ کاتالوگ</span><span><i>⌕</i> جستجو و دسته‌بندی کالاها</span><span><i>↗</i> دسترسی مستقیم به صفحات فروشگاه</span></div></div>
+        <div className="sk-footer-bottom"><div className="sk-wrap"><span>سوکار · فروشگاه اینترنتی و بازارگاه</span><span>نشانی سایت: <a href="https://sookar.ir" target="_blank" rel="noopener noreferrer">sookar.ir ↗</a></span><span>اطلاعات قیمت و موجودی باید پیش از خرید بررسی شود.</span></div></div>
+      </footer>
     </main>
   );
 }
