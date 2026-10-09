@@ -53,7 +53,7 @@ export default function Login(){
     <form onSubmit={submit} className="naf-login-form">
      <label><span>نام کاربری یا ایمیل سازمانی</span><input name="email" type="email" autoComplete="username" placeholder="name@company.com" value={email} onChange={e=>setEmail(e.target.value)} required/></label>
      <label><span>رمز عبور</span><input name="password" type="password" autoComplete="current-password" placeholder="••••••••••" value={password} onChange={e=>setPassword(e.target.value)} required/></label>
-     <div className="naf-form-row"><label className="naf-remember"><input type="checkbox" name="remember" value="1"/><span>مرا به خاطر بسپار</span></label><a href="/login?error=بازیابی+رمز+عبور+در+نسخه+فعلی+فعال+نیست">فراموشی رمز عبور</a></div>
+     <div className="naf-form-row"><label className="naf-remember"><input type="checkbox" name="remember" value="1"/><span>مرا به خاطر بسپار</span></label><a href="/forgot-password">بازیابی دسترسی</a></div>
      <input type="hidden" name="humanCheck" value={check.challenge}/>
      <div className="naf-captcha"><div className="naf-captcha-head"><span>تأیید انسانی</span><b>CAPTCHA</b></div><div className="naf-captcha-body"><strong>{check.question}</strong><input name="humanAnswer" inputMode="numeric" pattern="[0-9]+" autoComplete="off" aria-label="پاسخ تأیید انسانی" placeholder="پاسخ" value={answer} onChange={e=>setAnswer(e.target.value)} required/></div></div>
      <button className="naf-primary" type="submit" disabled={loading}>{loading?"در حال ورود...":"ورود امن"}</button>
