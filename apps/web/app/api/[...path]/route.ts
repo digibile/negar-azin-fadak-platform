@@ -7,6 +7,7 @@ async function proxy(req:NextRequest,{params}:{params:Promise<{path:string[]}>})
   const target=`${API_INTERNAL_URL}/${path.join("/")}${req.nextUrl.search}`;
   const headers=new Headers(req.headers);
   headers.delete("host");
+  headers.set("x-forwarded-host", req.nextUrl.hostname);
   headers.delete("content-length");
   headers.delete("connection");
 
