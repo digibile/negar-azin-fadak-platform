@@ -135,7 +135,7 @@ export default function StorePage() {
     return aliases.find(([pattern]) => pattern.test(key))?.[1] || BROWSE_CATEGORIES.find(name => normalizeText(name) === key) || key;
   };
 
-  const categoryNames = data?.categories?.length ? data.categories : BROWSE_CATEGORIES;
+  const categoryNames = data ? (Array.isArray(data.categories) ? data.categories : BROWSE_CATEGORIES) : BROWSE_CATEGORIES;
   const categories = [...new Set(categoryNames.map(name => canonicalCategory(name.trim())).filter(Boolean))]
     .filter((name, index, all) => all.findIndex(item => normalizeText(item) === normalizeText(name)) === index)
     .map(name => [normalizeText(name), name] as [string, string]);
