@@ -71,12 +71,23 @@ const categoryGlyph = (category: string | null, title: string) => {
   return "◈";
 };
 
-export default function StorePage({ variant = "default" }: { variant?: "default" | "digikala" | "technolife" | "ava" | "kipa" }) {
+type StoreVariant = "default" | "digikala" | "technolife" | "ava" | "kipa" | "digibile";
+const brandIdentity:Record<StoreVariant,{name:string;mark:string;tagline:string;strip:string;heroKicker:string;heroTitle:React.ReactNode;heroDescription:string;loginBrand:string;footerDescription:string;domain:string}> = {
+  default:{name:"سوکار",mark:"س",tagline:"خرید هوشمند، انتخاب مطمئن",strip:"سوکار، بازارگاه یکپارچه خرید و فروش",heroKicker:"بازارگاه سوکار",heroTitle:<>هرچی لازم داری،<br /><em>یک‌جا پیدا کن.</em></>,heroDescription:"کالاهای فروشگاه‌های فعال را ببین، مشخصات و قیمت ثبت‌شده را بررسی کن و محصولات موردنظرت را به سبد خرید اضافه کن.",loginBrand:"naf",footerDescription:"یک مسیر یکپارچه برای کشف کالا، مقایسه انتخاب‌ها و خرید از فروشگاه‌های ثبت‌شده.",domain:"sookar.ir"},
+  digikala:{name:"بازار قرمز",mark:"ب",tagline:"انتخاب بیشتر، خرید آسان‌تر",strip:"پیش‌نمایش قالب فروشگاهی با هویت قرمز مستقل",heroKicker:"تجربه فروشگاهی سریع و آشنا",heroTitle:<>از میان انتخاب‌ها،<br /><em>بهترین را پیدا کن.</em></>,heroDescription:"محصولات فعال را مقایسه کن و مشخصات و قیمت ثبت‌شده را پیش از خرید بررسی کن.",loginBrand:"digibile",footerDescription:"پیش‌نمایش قالب فروشگاهی مستقل با کاتالوگ متصل به محصولات ثبت‌شده.",domain:"پیش‌نمایش قالب"},
+  technolife:{name:"تکنولایف",mark:"ت",tagline:"دنیای فناوری، یک‌جا",strip:"تکنولایف، تجربه تخصصی کالای دیجیتال",heroKicker:"فروشگاه کالای دیجیتال",heroTitle:<>تکنولوژی روز،<br /><em>انتخابی آگاهانه.</em></>,heroDescription:"محصولات دیجیتال ثبت‌شده را جستجو کن، مشخصات و قیمت واقعی را بررسی کن و با آگاهی انتخاب کن.",loginBrand:"technolife",footerDescription:"تجربه تخصصی کالای دیجیتال با اطلاعات محصول برگرفته از کاتالوگ زنده.",domain:"پیش‌نمایش قالب"},
+  ava:{name:"آوا",mark:"آ",tagline:"خرید آرام، انتخاب هوشمند",strip:"آوا، تجربه خرید آرام و هوشمند",heroKicker:"تجربه خرید مینیمال",heroTitle:<>انتخابی ساده،<br /><em>خریدی مطمئن.</em></>,heroDescription:"کالاهای ثبت‌شده را با رابطی خلوت، خوانا و سازگار با موبایل مرور کن.",loginBrand:"naf",footerDescription:"قالب فروشگاهی مینیمال با دسترسی روشن به کاتالوگ و سفارش‌ها.",domain:"پیش‌نمایش قالب"},
+  kipa:{name:"کیپا",mark:"ک",tagline:"انتخاب روشن، خرید مطمئن",strip:"کیپا، بازارگاه هوشمند و یکپارچه",heroKicker:"کیپا · خرید آگاهانه",heroTitle:<>خرید روشن‌تر،<br /><em>انتخاب مطمئن‌تر.</em></>,heroDescription:"کالاهای ثبت‌شده فروشندگان فعال را مرور کن، جزئیات و قیمت واقعی را ببین و انتخابت را با اطلاعات شفاف انجام بده.",loginBrand:"kipa",footerDescription:"بازارگاه هوشمند با نمایش شفاف اطلاعات ثبت‌شده محصولات و فروشندگان.",domain:"پیش‌نمایش قالب"},
+  digibile:{name:"دیجی‌بایل",mark:"د",tagline:"بازارگاه تجارت دیجیتال",strip:"دیجی‌بایل، خرید و فروش در یک بازارگاه یکپارچه",heroKicker:"بازارگاه دیجی‌بایل",heroTitle:<>بازار خرید و فروش،<br /><em>همه‌چیز یک‌جا.</em></>,heroDescription:"محصولات و فروشندگان ثبت‌شده را کشف کن، دسته‌بندی‌ها را مرور کن و خرید را از مسیر واقعی بازارگاه ادامه بده.",loginBrand:"digibile",footerDescription:"بازارگاه چندفروشنده با کاتالوگ زنده، دسترسی فروشندگان و مسیر روشن سفارش.",domain:"digibile.ir"}
+};
+export default function StorePage({ variant = "default" }: { variant?: StoreVariant }) {
   const pathname = usePathname();
+  const identity = brandIdentity[variant];
   const isTechnolife = variant === "technolife";
   const isDigikala = variant === "digikala";
   const isAva = variant === "ava";
   const isKipa = variant === "kipa";
+  const isDigibile = variant === "digibile";
   const showAllProducts = pathname === "/store/shop";
   const [data, setData] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
@@ -165,10 +176,10 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
 
 
   return (
-    <main className={`sk-store${isTechnolife ? " sk-store--technolife" : isDigikala ? " sk-store--digikala" : isAva ? " sk-store--ava" : isKipa ? " sk-store--kipa" : ""}`} dir="rtl">
+    <main className={`sk-store sk-store--${variant}${isTechnolife ? " sk-store--technolife" : isDigikala ? " sk-store--digikala" : isAva ? " sk-store--ava" : isKipa ? " sk-store--kipa" : isDigibile ? " sk-store--digibile" : ""}`} dir="rtl">
       <div className="sk-service-strip">
         <div className="sk-wrap sk-service-inner">
-          <span>{isTechnolife ? "سوکار تک، فروشگاه تخصصی کالای دیجیتال" : isDigikala ? "قالب فروشگاهی الهام‌گرفته از تجربه دیجی‌کالا"  : isAva ? "آوا، تجربه خرید آرام و هوشمند" : isKipa ? "کیپا، بازارگاه هوشمند و یکپارچه" : "سوکار، بازارگاه یکپارچه خرید و فروش"}</span>
+          <span>{identity.strip}</span>
           <div><Link href="/marketplace/directory">فروشندگان</Link><Link href="/pay">خدمات اعتباری</Link><Link href="/store/orders">پیگیری سفارش</Link></div>
         </div>
       </div>
@@ -181,7 +192,7 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
           </Link>
           <form className="sk-search" role="search" onSubmit={event => { event.preventDefault(); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth" }); }}>
             <span aria-hidden="true">⌕</span>
-            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="جستجوی کالا، دسته‌بندی یا فروشنده..." aria-label="جستجوی کالا، دسته‌بندی یا فروشنده" />
+            <input value={query} onChange={event => setQuery(event.target.value)} placeholder={"جستجو در " + identity.name + "؛ کالا، دسته یا فروشنده"} aria-label={"جستجو در " + identity.name} />
             {query && <button type="button" aria-label="پاک کردن جستجو" onClick={() => setQuery("")}>×</button>}
           </form>
           <div className="sk-header-actions">
@@ -216,9 +227,9 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
       <div className="sk-wrap">
         <section className="sk-hero sk-retail-hero" aria-labelledby="sk-hero-title">
           <div className="sk-hero-copy">
-            <span className="sk-hero-kicker"><i /> {isTechnolife ? "فروشگاه کالای دیجیتال سوکار" : isDigikala ? "تجربه فروشگاهی سریع و آشنا" : isKipa ? "کتابخانه قالب‌ها · نسخه نخست کیپا" : "بازارگاه سوکار"}</span>
-            <h1 id="sk-hero-title">{isTechnolife ? <>تکنولوژی روز،<br /><em>انتخابی آگاهانه.</em></> : isDigikala ? <>از میان انتخاب‌ها،<br /><em>بهترین را پیدا کن.</em></> : isKipa ? <>خرید روشن‌تر،<br /><em>انتخاب مطمئن‌تر.</em></> : <>هرچی لازم داری،<br /><em>یک‌جا پیدا کن.</em></>}</h1>
-            <p>{isTechnolife ? "محصولات دیجیتال ثبت‌شده را جستجو کن، مشخصات و قیمت واقعی را بررسی کن و با آگاهی انتخاب کن." : isKipa ? "کالاهای ثبت‌شده فروشندگان فعال را مرور کن، جزئیات و قیمت واقعی را ببین و انتخابت را با اطلاعات شفاف انجام بده." : "کالاهای فروشگاه‌های فعال را ببین، مشخصات و قیمت ثبت‌شده را بررسی کن و محصولات موردنظرت را به سبد خرید اضافه کن."}</p>
+            <span className="sk-hero-kicker"><i /> {identity.heroKicker}</span>
+            <h1 id="sk-hero-title">{identity.heroTitle}</h1>
+            <p>{identity.heroDescription}</p>
             <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">خرید از همه دسته‌ها <span>←</span></Link><Link href="/marketplace/directory" className="sk-quiet-btn">فروشگاه‌های بازارگاه</Link></div>
             <div className="sk-hero-note"><span>✓</span> فقط اطلاعات کاتالوگ واقعی؛ بدون محصول و قیمت ساختگی</div>
           </div>
@@ -296,7 +307,7 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
 
 
         <section className="sk-market-banner">
-          <div><span className="sk-eyebrow">برای فروشندگان</span><h2>کسب‌وکارت را به بازارگاه سوکار وصل کن.</h2><p>مسیر فروشندگان و فروشگاه‌های ثبت‌شده را ببین و درباره حضور در بازارگاه اطلاعات بگیر.</p><Link href="/login">ورود به بخش فروشندگان <span>←</span></Link></div>
+          <div><span className="sk-eyebrow">برای فروشندگان</span><h2>کسب‌وکارت را به بازارگاه سوکار وصل کن.</h2><p>مسیر فروشندگان و فروشگاه‌های ثبت‌شده را ببین و درباره حضور در بازارگاه اطلاعات بگیر.</p><Link href={"/login?brand="+identity.loginBrand}>ورود به بخش فروشندگان <span>←</span></Link></div>
           <div className="sk-banner-symbol" aria-hidden="true"><span>س</span><i /><i /><i /></div>
         </section>
 
@@ -312,11 +323,11 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
           </div>
           <div className="sk-footer-column"><b>خرید و کشف کالا</b><Link href="/store/shop">همه کالاها</Link><Link href="/marketplace">بازارگاه</Link><Link href="/marketplace/directory">فروشگاه‌های ثبت‌شده</Link><Link href="/store">دسته‌بندی‌های کالا</Link></div>
           <div className="sk-footer-column"><b>سفارش و پرداخت</b><Link href="/store/cart">سبد خرید</Link><Link href="/store/orders">پیگیری سفارش</Link><Link href="/pay">خدمات اعتباری</Link><Link href="/store/returns">بازگشت کالا</Link></div>
-          <div className="sk-footer-column"><b>حساب کاربری</b><Link href="/login">ورود به حساب</Link><Link href="/account/orders">سفارش‌های من</Link><Link href="/login">پنل فروشندگان</Link><Link href="/store/faq">پرسش‌های متداول</Link></div>
+          <div className="sk-footer-column"><b>حساب کاربری</b><Link href={"/login?brand="+identity.loginBrand}>ورود به حساب</Link><Link href="/account/orders">سفارش‌های من</Link><Link href={"/login?brand="+identity.loginBrand}>پنل فروشندگان</Link><Link href="/store/faq">پرسش‌های متداول</Link></div>
           <div className="sk-footer-column"><b>راهنما و قوانین</b><Link href="/store/terms">قوانین و شرایط</Link><Link href="/store/faq">راهنمای خرید</Link><Link href="/marketplace/directory">معرفی فروشگاه‌ها</Link><Link href="/login">ارتباط با پشتیبانی</Link></div>
         </div>
         <div className="sk-footer-trust"><div className="sk-wrap"><span><i>✓</i> نمایش اطلاعات ثبت‌شدهٔ کاتالوگ</span><span><i>⌕</i> جستجو و دسته‌بندی کالاها</span><span><i>↗</i> دسترسی مستقیم به صفحات فروشگاه</span></div></div>
-        <div className="sk-footer-bottom"><div className="sk-wrap"><span>سوکار · فروشگاه اینترنتی و بازارگاه</span><span>نشانی سایت: <a href="https://sookar.ir" target="_blank" rel="noopener noreferrer">sookar.ir ↗</a></span><span>اطلاعات قیمت و موجودی باید پیش از خرید بررسی شود.</span></div></div>
+        <div className="sk-footer-bottom"><div className="sk-wrap"><span>{identity.name} · فروشگاه و بازارگاه</span><span>نشانی سایت: {identity.domain==="sookar.ir" ? <a href="https://sookar.ir" target="_blank" rel="noopener noreferrer">sookar.ir ↗</a> : identity.domain}</span><span>اطلاعات قیمت و موجودی باید پیش از خرید بررسی شود.</span></div></div>
       </footer>
     </main>
   );
