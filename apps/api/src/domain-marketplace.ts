@@ -463,10 +463,10 @@ domainMarketplaceRouter.post("/api/marketplace/media",requireAuth,requirePermiss
   res.status(201).json({imageUrl:"/api/public/media/catalog/"+ctx.id+"/"+filename,contentType:"image/"+match[1],size:bytes.length});
 }));
 
-domainMarketplaceRouter.get("/api/public/digikala-catalog",asyncHandler(async(_req,res)=>{
+domainMarketplaceRouter.get("/api/marketplace/digikala-catalog",requireAuth,requirePermission("product:manage"),asyncHandler(async(_req,res)=>{
   const catalog=await getDigikalaCatalog();
-  res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
-  res.json({source:"دیجی‌کالا",sourceStatus:catalog.sourceStatus,fetchedAt:catalog.fetchedAt,categories:catalog.categories,products:catalog.products,total:catalog.products.length,notice:"قیمت و موجودی متعلق به منبع بیرونی است و هنگام خرید باید در صفحه دیجی‌کالا بررسی شود."});
+  res.setHeader("Cache-Control","private, no-store");
+  res.json({source:"دیجی‌کالا",sourceStatus:catalog.sourceStatus,fetchedAt:catalog.fetchedAt,categories:catalog.categories,products:catalog.products.filter(product=>product.price!==null),total:catalog.products.filter(product=>product.price!==null).length,notice:"این فهرست فقط برای ورود مدیریت‌شده به کاتالوگ داخلی است؛ قیمت، توضیحات و انتشار محصول باید در سامانه خودتان بازبینی شوند."});
 }));
 
 domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res)=>{
