@@ -26,6 +26,16 @@ test("normalizes real source fields and keeps source attribution",()=>{
   assert.equal(products[0].rating,4.2);
 });
 
+test("keeps source availability separate from local inventory",()=>{
+  const products=normalizeDigikalaProducts({data:{products:[
+    {id:101,title_fa:"کالای موجود",images:{main:{url:["https://dkstatics-public.digikala.com/item.jpg"]}},default_variant:{price:{selling_price:1000},status:"marketable"}},
+    {id:102,title_fa:"کالای ناموجود",images:{main:{url:["https://dkstatics-public.digikala.com/item2.jpg"]}},default_variant:{price:{selling_price:2000},is_sold_out:true}},
+    {id:103,title_fa:"وضعیت نامشخص",images:{main:{url:["https://dkstatics-public.digikala.com/item3.jpg"]}},default_variant:{price:{selling_price:3000}}}
+  ]}},"سایر کالاها");
+  assert.deepEqual(products.map(item=>item.source_available),[true,false,null]);
+  assert.equal(products.length,3);
+});
+
 test("rejects records without a real image or valid price",()=>{
   const products=normalizeDigikalaProducts({data:{products:[
     {id:1,title_fa:"بدون تصویر",default_variant:{price:{selling_price:1000}}},
