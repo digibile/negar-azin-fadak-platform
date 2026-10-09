@@ -22,6 +22,8 @@ type Product = {
 };
 type Store = { id: string; name: string; slug: string; seller_name: string };
 type Catalog = { tenant?: { name?: string }; products: Product[]; stores?: Store[]; categories?: string[]; total?: number };
+type ReferenceProduct = { id:string; sku:string; title:string; description:string|null; category:string; price:string; currency:string; image_url:string; source_url:string; source_name:string; brand:string|null; rating:number|null };
+type ReferenceCatalog = { products:ReferenceProduct[]; sourceStatus:"live"|"unavailable"; fetchedAt:string|null; total:number };
 
 const money = (value: string, currency: string) => {
   const amount = Number(value);
@@ -74,6 +76,9 @@ export default function StorePage() {
   const [category, setCategory] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "price-asc" | "price-desc" | "title">("newest");
   const [loading, setLoading] = useState(true);
+  const [referenceCatalog, setReferenceCatalog] = useState<ReferenceCatalog | null>(null);
+  const [referenceLoading, setReferenceLoading] = useState(true);
+  const [referenceError, setReferenceError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -99,6 +104,39 @@ export default function StorePage() {
       setError(reason instanceof Error ? reason.message : "اتصال به کاتالوگ برقرار نشد.");
     }).finally(() => {
       if (!controller.signal.aborted) setLoading(false);
+    });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/public/digikala-catalog", {
+      headers: { accept: "application/json" },
+      cache: "no-store",
+      signal: controller.signal
+    }).then(async response => {
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "دریافت کاتالوگ مرجع ناموفق بود.");
+      const validProducts = Array.isArray(body.products) ? body.products.filter((item: ReferenceProduct) =>
+        typeof item.id === "string" && typeof item.title === "string" &&
+        typeof item.source_url === "string" && item.source_url.startsWith("https://www.digikala.com/") &&
+        typeof item.image_url === "string" && item.image_url.startsWith("https://") &&
+        Number.isFinite(Number(item.price)) && Number(item.price) > 0
+      ) : [];
+      if (!controller.signal.aborted) {
+        setReferenceCatalog({
+          products: validProducts,
+          sourceStatus: body.sourceStatus === "live" && validProducts.length ? "live" : "unavailable",
+          fetchedAt: typeof body.fetchedAt === "string" ? body.fetchedAt : null,
+          total: validProducts.length
+        });
+        setReferenceError("");
+      }
+    }).catch(reason => {
+      if (controller.signal.aborted || (reason instanceof Error && reason.name === "AbortError")) return;
+      setReferenceError(reason instanceof Error ? reason.message : "منبع کاتالوگ مرجع در دسترس نیست.");
+    }).finally(() => {
+      if (!controller.signal.aborted) setReferenceLoading(false);
     });
     return () => controller.abort();
   }, []);
@@ -258,6 +296,34 @@ export default function StorePage() {
           : <div className="sk-state"><b>{data?.products?.length ? "محصولی با این فیلتر پیدا نشد." : "هنوز محصول فعالی برای نمایش عمومی ثبت نشده است."}</b><p>{data?.products?.length ? "فیلتر دسته‌بندی یا عبارت جستجو را تغییر بده." : "پس از ثبت و فعال‌سازی محصولات واقعی، کالاها در این بخش نمایش داده می‌شوند."}</p>{(query || category) && <button type="button" onClick={() => { setQuery(""); setCategory(""); }}>نمایش همه کالاها</button>}</div>}
           {products.length > 12 && !showAllProducts && <div className="sk-more"><Link href="/store/shop">مشاهده همه {products.length.toLocaleString("fa-IR")} نتیجه <span>←</span></Link></div>}
           {showAllProducts && products.length > 12 && <div className="sk-catalog-meta"><span>نمایش همه نتایج دریافت‌شده از کاتالوگ</span><Link href="/">بازگشت به صفحه اصلی</Link></div>}
+        </section>
+
+        <section className="sk-reference-catalog" aria-labelledby="sk-reference-catalog-title">
+          <div className="sk-section-heading">
+            <div>
+              <span className="sk-eyebrow">منبع بیرونی · با انتساب روشن</span>
+              <h2 id="sk-reference-catalog-title">محصولات مرجع زنده</h2>
+              <p>این کالاها از کاتالوگ عمومی دیجی‌کالا دریافت می‌شوند؛ فروشندهٔ سوکار نیستند و قیمت و موجودی نهایی فقط در صفحهٔ منبع قابل بررسی است.</p>
+            </div>
+            {referenceCatalog?.fetchedAt && <small className="sk-reference-updated">آخرین دریافت: {new Date(referenceCatalog.fetchedAt).toLocaleString("fa-IR")}</small>}
+          </div>
+          {referenceLoading ? <div className="sk-state"><span className="sk-loader" />در حال دریافت کالاهای واقعی از منبع مرجع…</div>
+          : referenceError || referenceCatalog?.sourceStatus !== "live" ? <div className="sk-reference-status"><b>کاتالوگ مرجع فعلاً در دسترس نیست.</b><p>برای جلوگیری از نمایش اطلاعات ساختگی، کالای نمونه یا قیمت جایگزین نمایش داده نمی‌شود.</p>{referenceError && <small>{referenceError}</small>}</div>
+          : <div className="sk-reference-grid">{referenceCatalog.products.slice(0, 12).map(product => (
+            <article className="sk-reference-card" key={product.id}>
+              <a className="sk-reference-image" href={product.source_url} target="_blank" rel="noopener noreferrer">
+                <img src={product.image_url} alt={product.title} loading="lazy" decoding="async" />
+                <span>منبع: دیجی‌کالا</span>
+              </a>
+              <div className="sk-reference-copy">
+                <small>{product.category}{product.brand ? " · " + product.brand : ""}</small>
+                <h3><a href={product.source_url} target="_blank" rel="noopener noreferrer">{product.title}</a></h3>
+                <strong>{money(product.price, product.currency)}</strong>
+                {product.rating !== null && <span className="sk-reference-rating">امتیاز ثبت‌شده در منبع: {product.rating.toLocaleString("fa-IR")}/۵</span>}
+                <a className="sk-reference-link" href={product.source_url} target="_blank" rel="noopener noreferrer">بررسی در منبع اصلی ↗</a>
+              </div>
+            </article>
+          ))}</div>}
         </section>
 
         <section className="sk-market-banner">
