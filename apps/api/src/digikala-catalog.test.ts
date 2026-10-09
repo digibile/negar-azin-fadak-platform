@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {normalizeDigikalaProducts} from "./digikala-catalog.js";
+import {normalizeDigikalaProducts, parseDigikalaCategoryReference} from "./digikala-catalog.js";
 
 test("normalizes real source fields and keeps source attribution",()=>{
   const products=normalizeDigikalaProducts({
@@ -93,4 +93,13 @@ test("preserves product specifications and gallery images for internal review",(
   assert.equal(products.length,1);
   assert.deepEqual(products[0].specifications,[{group:"مشخصات فنی",items:[{name:"رنگ",values:["مشکی"]},{name:"وزن",values:["۲۰۰ گرم"]}]}]);
   assert.deepEqual(products[0].gallery_images,["https://dkstatics-public.digikala.com/main.jpg","https://dkstatics-public.digikala.com/side.jpg","https://dkstatics-public.digikala.com/back.jpg"]);
+});
+
+
+test("parses Digikala category URLs and rejects unrelated hosts",()=>{
+  assert.equal(parseDigikalaCategoryReference("https://www.digikala.com/search/category-mobile-phone/"),"mobile-phone");
+  assert.equal(parseDigikalaCategoryReference("https://www.digikala.com/categories/home-kitchen/"),"home-kitchen");
+  assert.equal(parseDigikalaCategoryReference("category-books-and-stationery"),"books-and-stationery");
+  assert.throws(()=>parseDigikalaCategoryReference("https://example.com/search/category-mobile-phone/"),/دامنه رسمی/);
+  assert.throws(()=>parseDigikalaCategoryReference("https://www.digikala.com/product/dkp-12345/"),/شناسه دسته‌بندی/);
 });
