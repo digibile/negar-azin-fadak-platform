@@ -214,7 +214,7 @@ if(!identityApi.includes('router.post("/api/identity/roles",requireAuth,guardAdm
 if(!identityApi.includes('router.put("/api/identity/roles/:roleKey/permissions",requireAuth,guardAdmin,'))throw new Error("Permission updates must be restricted to system admins");
 
 const identityWorkspace=fs.readFileSync(path.join(root,"apps/web/app/modules/IdentityWorkspace.tsx"),"utf8");
-if(!modulePage.includes('"03-users-access": <IdentityWorkspace />'))throw new Error("Canonical Panel 03 must use the unified identity workspace");
+if(!modulePage.includes('"03-users-access": () => <IdentityWorkspace />'))throw new Error("Canonical Panel 03 must use the unified identity workspace");
 for(const tab of ["users","profiles","roles","groups","permissions","policies","auth","twofa","sessions","audit"])if(!identityWorkspace.includes('["'+tab+'"'))throw new Error("Panel 03 workspace tab missing: "+tab);
 for(const title of ["مدیریت کاربران و حساب‌ها","پروفایل کاربران","نقش‌ها و مسئولیت‌ها","گروه‌های کاربری","کاتالوگ مجوزها و دسترسی‌ها","سیاست‌های امنیتی","احراز هویت دومرحله‌ای","نشست‌ها و دستگاه‌های مجاز","تاریخچه ورود و ممیزی امنیتی"])if(!masterMenu.includes(title))throw new Error("Panel 03 child menu missing: "+title);
 if(fs.existsSync(path.join(root,"apps/web/app/modules/SecurityWorkspace.tsx"))||fs.existsSync(path.join(root,"apps/web/app/modules/SecurityWorkspace.module.css")))throw new Error("Duplicate security workspace must be removed after consolidation");
