@@ -68,7 +68,6 @@ export default function MarketplacePage(){
           <Link href="/store">فروشگاه</Link>
           <Link href="/marketplace" className={styles.active} aria-current="page">بازارگاه</Link>
           <Link href="/marketplace/stores">فروشگاه‌ها</Link>
-          <Link href="/marketplace/sellers">فروشندگان</Link>
           <Link href="/pay">اعتبار و تسهیلات</Link>
         </nav>
         <div className={styles.headerActions}>
@@ -114,7 +113,7 @@ export default function MarketplacePage(){
       <section className={styles.section} id="catalog" aria-labelledby="catalog-title">
         <div className={styles.sectionHead}>
           <div><span className={styles.kicker}>کاتالوگ زنده</span><h2 id="catalog-title">کالاهای بازارگاه</h2><p>فهرست زیر از سرویس عمومی بازارگاه دریافت می‌شود؛ قیمت یا موجودی ثبت‌نشده حدس زده نمی‌شود.</p></div>
-          <Link href="/marketplace/products" className={styles.textLink}>مدیریت کاتالوگ <span aria-hidden="true">←</span></Link>
+
         </div>
 
         <div className={styles.searchPanel}>
