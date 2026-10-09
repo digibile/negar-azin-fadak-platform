@@ -174,6 +174,9 @@ const sellerManagement=fs.readFileSync(path.join(root,"apps/web/app/marketplace/
 const storeDirectory=path.join(root,"apps/web/app/marketplace/directory/page.tsx");
 if(!publicCatalogApi.includes('domainMarketplaceRouter.get("/api/public/marketplace"')||!publicCatalogApi.includes("p.status='active'")||!publicCatalogApi.includes("sl.status='active'"))throw new Error("Public catalog must expose only published products from active sellers");
 if(!categoryMigration.includes("create table if not exists marketplace_categories")||!categoryMigration.includes("unique(tenant_id,code)")||!categoryMigration.includes("where t.status='active'"))throw new Error("Persistent tenant-scoped category taxonomy migration is incomplete");
+const storefrontTaxonomy=fs.readFileSync(path.join(root,"database/migrations/136_digikala_reference_storefront_categories.sql"),"utf8");
+const masterMenu=fs.readFileSync(path.join(root,"apps/web/app/admin/master-menu.ts"),"utf8");
+if(!storefrontTaxonomy.includes("('pet-shop','پت شاپ',180)")||!storefrontTaxonomy.includes("on conflict(tenant_id,code) do update")||!masterMenu.includes('"/marketplace/categories"'))throw new Error("Persistent Digikala-reference category taxonomy and central-menu route are incomplete");
 if(!publicCatalogApi.includes('domainMarketplaceRouter.get("/api/marketplace/categories"')||!publicCatalogApi.includes("from marketplace_categories where tenant_id=$1 and status='active'"))throw new Error("Authenticated category API must read the tenant-scoped taxonomy");
 if(!productManagement.includes('api<{items:Category[]}>("/api/marketplace/categories")')||!productManagement.includes("categories.map(item => <option"))throw new Error("Product entry must select categories from the central database taxonomy");
 
