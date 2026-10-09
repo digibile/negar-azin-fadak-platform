@@ -3,6 +3,7 @@
 import {Suspense} from "react";
 
 import {useEffect,useMemo,useState} from "react";
+import {useSearchParams} from "next/navigation";
 import AccountingWorkspace from "./AccountingWorkspace";
 import AccountingFinanceWorkspace from "./AccountingFinanceWorkspace";
 import TreasuryBankWorkspace from "./TreasuryBankWorkspace";
@@ -78,6 +79,7 @@ const url=(path:string)=>api+path;
 const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
 
 function ModulesContent(){
+ const searchParams=useSearchParams();
  const [code,setCode]=useState("");
  const [activeMenu,setActiveMenu]=useState("");
  const [activeSection,setActiveSection]=useState("");
@@ -100,15 +102,14 @@ function ModulesContent(){
  const [error,setError]=useState("");
 
  useEffect(()=>{
-   const p=new URLSearchParams(window.location.search);
-   const c=p.get("code")||"governance";
-   const menu=p.get("menu")||"";
-   const tab=p.get("tab")||"";
-   const item=p.get("item")||"";
-   const panelParam=p.get("panel")||"";
+   const c=searchParams.get("code")||"governance";
+   const menu=searchParams.get("menu")||"";
+   const tab=searchParams.get("tab")||"";
+   const item=searchParams.get("item")||"";
+   const panelParam=searchParams.get("panel")||"";
    setCode(c);setActiveMenu(menu);setActiveSection(tab);setActiveItem(item);setPanel(panelParam);
    if(tab)setRecordType(tab);
- },[]);
+ },[searchParams]);
  const load=async()=>{
    if(!code)return;
    setLoading(true);setError("");
