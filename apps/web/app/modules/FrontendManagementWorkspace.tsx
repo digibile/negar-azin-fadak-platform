@@ -1,13 +1,16 @@
 "use client";
 
-import {useState} from "react";
+import {useEffect,useState} from "react";
+import {useSearchParams} from "next/navigation";
 import PageTemplatesWorkspace from "./PageTemplatesWorkspace";
 import FrontendSectionsWorkspace from "./FrontendSectionsWorkspace";
 
 type Tab = "templates" | "sections";
 
 export default function FrontendManagementWorkspace() {
-  const [tab, setTab] = useState<Tab>("templates");
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<Tab>(searchParams.get("tab")==="sections" ? "sections" : "templates");
+  useEffect(() => { setTab(searchParams.get("tab")==="sections" ? "sections" : "templates"); }, [searchParams]);
   return <main dir="rtl" style={{maxWidth:1600,margin:"0 auto",padding:"20px 16px 40px",color:"var(--foreground, #182230)"}}>
     <header style={{display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between",gap:16,marginBottom:20}}>
       <div>
