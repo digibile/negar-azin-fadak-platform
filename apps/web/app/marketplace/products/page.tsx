@@ -9,7 +9,7 @@ type Category = { id: string; code: string; name: string; status: string; sort_o
 type Product = { id: string; sku: string; title: string; price: string | number; currency: string; status: string; seller_id: string; image_url?: string | null; category?: string | null };
 type SourceProduct = { id: string; sku: string; title: string; price: string; currency: string; category: string; image_url: string; brand: string | null; source_name: string };
 type SourceCatalog = { products: SourceProduct[]; categories: string[]; sourceStatus: "live" | "unavailable"; fetchedAt: string | null };
-type SourceLink = { id:string; product_id:string; source_name:string; source_product_id:string; source_sku:string|null; source_url:string|null; source_currency:string; source_price:string|number|null; source_available:boolean|null; price_policy:"manual"|"mirror"|"markup"; markup_percent:string|number; last_checked_at:string|null; last_success_at:string|null; last_error:string|null; sku:string; title:string; sale_price:string|number; product_status:string };
+type SourceLink = { id:string; product_id:string; source_name:string; source_product_id:string; source_sku:string|null; source_url:string|null; source_currency:string; source_price:string|number|null; source_available:boolean|null; price_policy:"manual"; markup_percent:string|number; last_checked_at:string|null; last_success_at:string|null; last_error:string|null; sku:string; title:string; sale_price:string|number; product_status:string };
 type SourceSyncResult = { items:SourceLink[]; runs:Array<{id:string;status:string;updated_count:number;started_at:string}>; total:number };
 type ImportResult = { totalImported: number; totalSkipped: number; imported: string[]; skipped: string[]; message: string };
 const statusLabel: Record<string,string> = { draft:"پیش‌نویس", active:"منتشرشده", archived:"بایگانی‌شده" };
@@ -46,7 +46,6 @@ export default function ProductsPage() {
   const [importing, setImporting] = useState(false);
   const [sourceLinks, setSourceLinks] = useState<SourceLink[]>([]);
   const [syncingSources, setSyncingSources] = useState(false);
-  const [policySavingId, setPolicySavingId] = useState("");
 
   async function load() {
     setError("");
@@ -222,19 +221,6 @@ export default function ProductsPage() {
     } finally { setSyncingSources(false); }
   }
 
-  async function saveSourcePolicy(link: SourceLink, policy: "manual" | "mirror" | "markup", markupPercent = Number(link.markup_percent || 0)) {
-    setError(""); setNotice(""); setPolicySavingId(link.product_id);
-    try {
-      await api("/api/marketplace/products/" + encodeURIComponent(link.product_id) + "/source-policy", {
-        method: "POST",
-        body: JSON.stringify({ pricePolicy: policy, markupPercent })
-      });
-      setNotice(policy === "manual" ? "قیمت فروش مستقل تنظیم شد." : policy === "mirror" ? "قیمت فروش در همگام‌سازی بعدی با قیمت منبع برابر می‌شود." : `قیمت فروش در همگام‌سازی بعدی با تعدیل ${markupPercent}٪ محاسبه می‌شود.`);
-      await load();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "ذخیره سیاست قیمت ناموفق بود.");
-    } finally { setPolicySavingId(""); }
-  }
 
   async function changeStatus(item: Product, status: "active" | "draft") {
     setError(""); setNotice(""); setSavingId(item.id);
@@ -352,14 +338,7 @@ export default function ProductsPage() {
         <div><small>قیمت منبع</small><strong>{link.source_price == null ? "ثبت نشده" : money(link.source_price,link.source_currency)}</strong></div>
         <div><small>قیمت فروش خودت</small><strong>{money(link.sale_price,link.source_currency)}</strong></div>
         <div><small>وضعیت منبع</small><strong>{link.source_available === true ? "موجود اعلام شده" : link.source_available === false ? "ناموجود اعلام شده" : "نامشخص"}</strong></div>
-        <label className="mp-source-policy">سیاست قیمت
-          <select value={link.price_policy} disabled={policySavingId===link.product_id} onChange={event => void saveSourcePolicy(link,event.target.value as "manual"|"mirror"|"markup")}>
-            <option value="manual">مستقل، بدون تغییر خودکار</option><option value="mirror">برابر با قیمت منبع</option><option value="markup">قیمت منبع + درصد تعدیل</option>
-          </select>
-        </label>
-        {link.price_policy === "markup" && <label className="mp-source-policy">درصد تعدیل
-          <input type="number" min="-100" max="10000" step="0.1" defaultValue={Number(link.markup_percent||0)} onBlur={event => {const value=Number(event.target.value);if(Number.isFinite(value)&&value!==Number(link.markup_percent||0))void saveSourcePolicy(link,"markup",value);}} />
-        </label>}
+        <div className="mp-source-policy"><small>سیاست قیمت فروش</small><strong>مستقل و تحت کنترل شما</strong><span>به‌روزرسانی مرجع هیچ‌گاه قیمت فروش داخلی را تغییر نمی‌دهد.</span></div>
         <small className="mp-source-sync-meta">{link.last_success_at ? "آخرین همگام‌سازی: "+new Date(link.last_success_at).toLocaleString("fa-IR") : "هنوز همگام‌سازی موفقی ثبت نشده"}{link.last_error ? " · خطا: "+link.last_error : ""}</small>
       </article>)}</div>}
     </section>
