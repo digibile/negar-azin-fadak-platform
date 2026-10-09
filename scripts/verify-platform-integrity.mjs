@@ -96,8 +96,14 @@ const declaredCodes=new Set([
 for(const panel of panelObjects){
  const children=[...panel[4].matchAll(/child\\("([^"]+)"(?:,\\s*"([^"]*)")?(?:,\\s*"([^"]*)")?\\)/g)];
  for(const child of children){
+  if(child[2]&&!declaredCodes.has(child[2]))throw new Error("Canonical child legacy route is not registered: "+panel[1]+" / "+child[1]+" -> "+child[2]);
   if(child[3]&&!declaredCodes.has(child[3]))throw new Error("Canonical child module is not routed: "+panel[1]+" / "+child[1]+" -> "+child[3]);
  }
+}
+for(const panel of panelRoutes){
+ const route=panel[4];
+ const match=route.match(/[?&]code=([^&]+)/);
+ if(route!=="/admin"&&(!match||!declaredCodes.has(decodeURIComponent(match[1]))))throw new Error("Canonical panel route has no registered destination: "+panel[1]+" -> "+route);
 }
 const unroutedLegacy=expectedLegacyCodes.filter(code=>!declaredCodes.has(code));
 if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered in a real dispatcher branch/workspace: "+unroutedLegacy.join(", "));
