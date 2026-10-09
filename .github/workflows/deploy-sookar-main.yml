@@ -69,14 +69,6 @@ jobs:
       - name: Web build
         working-directory: apps/web
         run: pnpm build
-      - name: Upload reviewable build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: negar-platform-${{ inputs.target_sha }}
-          path: /tmp/negar-platform.tar.gz
-          if-no-files-found: error
-          retention-days: 7
-
       - name: Prepare SSH
         if: ${{ inputs.deploy_to_server }}
         shell: bash
@@ -93,6 +85,15 @@ jobs:
         run: |
           set -euo pipefail
           tar --exclude='.git' --exclude='node_modules' --exclude='.next' --exclude='.cache' --exclude='*.log' --exclude='.env' --exclude='.env.*' --exclude='tmp' --exclude='temp' --exclude='backups' -czf /tmp/negar-platform.tar.gz .
+
+      - name: Upload reviewable build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: negar-platform-${{ inputs.target_sha }}
+          path: /tmp/negar-platform.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Upload release
         if: ${{ inputs.deploy_to_server }}
         shell: bash
