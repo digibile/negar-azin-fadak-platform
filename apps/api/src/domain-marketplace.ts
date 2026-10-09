@@ -482,10 +482,9 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
       [tenantId]
     )
   ]);
-  const categories=[...new Set([
-    ...categoryRows.rows.map((row:any)=>typeof row.name==="string"?row.name.trim():""),
-    ...products.rows.map((p:any)=>typeof p.category==="string"?p.category.trim():"")
-  ].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fa"));
+  const categories=[...new Set(
+    categoryRows.rows.map((row:any)=>typeof row.name==="string"?row.name.trim():"").filter(Boolean)
+  )].sort((a,b)=>a.localeCompare(b,"fa"));
   res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
   res.json({tenant,stores:stores.rows,products:products.rows,categories,total:products.rowCount});
 }));
