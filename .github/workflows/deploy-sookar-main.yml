@@ -332,6 +332,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          printf '' | openssl s_client -connect sookar.ir:443 -servername sookar.ir 2>/dev/null | openssl x509 -noout -checkend 86400 -checkhost sookar.ir
           for i in $(seq 1 10); do
             code=$(curl -L --connect-timeout 5 --max-time 10 -sS -o /tmp/sookar-health.html -w '%{http_code}' https://sookar.ir/ || true)
             echo "PUBLIC_HTTP=$code attempt=$i"
