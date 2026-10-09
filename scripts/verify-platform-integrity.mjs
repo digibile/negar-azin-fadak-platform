@@ -113,7 +113,14 @@ for(const panel of panelObjects){
 for(const panel of panelRoutes){
  const route=panel[4];
  const match=route.match(/[?&]code=([^&]+)/);
- if(route!=="/admin"&&(!match||!declaredCodes.has(decodeURIComponent(match[1]))))throw new Error("Canonical panel route has no registered destination: "+panel[1]+" -> "+route);
+ if(route==="/admin")continue;
+ if(match){
+  if(!declaredCodes.has(decodeURIComponent(match[1])))throw new Error("Canonical panel route has no registered module destination: "+panel[1]+" -> "+route);
+  continue;
+ }
+ const pathname=route.split("?")[0].replace(/^\\/+|\\/+$/g,"");
+ const routeFile=path.join(root,"apps/web/app",pathname,"page.tsx");
+ if(!fs.existsSync(routeFile))throw new Error("Canonical panel direct route has no page implementation: "+panel[1]+" -> "+route);
 }
 const firstPanel=panelObjects.find(panel=>panel[2]==="01");
 if(!firstPanel)throw new Error("Panel 01 is missing");
