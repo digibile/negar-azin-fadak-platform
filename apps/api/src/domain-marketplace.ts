@@ -127,7 +127,7 @@ domainMarketplaceRouter.post("/api/marketplace/products",requireAuth,requirePerm
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const seller=bodyString(req.body?.sellerId,100),sku=bodyString(req.body?.sku,120),title=bodyString(req.body?.title,250);
   const price=bodyNumber(req.body?.price);
-  if(!seller||!sku||!title||price===null||price<0)return res.status(400).json({error:"اطلاعات محصول نامعتبر است"});
+  if(!seller||!sku||!title||price===null||price<=0)return res.status(400).json({error:"شناسه، عنوان و قیمت فروش داخلی معتبر و قیمت بیشتر از صفر الزامی است"});
   const owned=await query("select id from sellers where id=$1 and tenant_id=$2",[seller,ctx.id]);
   if(!owned.rowCount)return res.status(404).json({error:"فروشنده در این محدوده پیدا نشد"});
   const r=await query("insert into products(tenant_id,seller_id,store_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10) returning *",[ctx.id,seller,bodyString(req.body?.storeId,100)||null,sku,title,bodyString(req.body?.description,2000)||null,bodyString(req.body?.category,200)||null,price,bodyString(req.body?.currency,10)||"IRR",req.body?.attributes&&typeof req.body.attributes==="object"?req.body.attributes:{}]);
