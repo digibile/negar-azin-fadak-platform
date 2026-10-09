@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "بازارگاه سوکار",
   description: "بازارگاه سوکار برای کشف فروشگاه‌ها، فروشندگان و محصولات فعال.",
-  alternates: { canonical: "/marketplace" },
+  alternates: { canonical: "/" },
   openGraph: {
     title: "بازارگاه سوکار",
     description: "کشف فروشگاه‌ها، فروشندگان و محصولات فعال در بازارگاه سوکار.",

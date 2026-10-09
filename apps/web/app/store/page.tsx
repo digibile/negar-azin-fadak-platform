@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import "./storefront.css";
 import { useEffect, useMemo, useState } from "react";
 
 type Product = {
