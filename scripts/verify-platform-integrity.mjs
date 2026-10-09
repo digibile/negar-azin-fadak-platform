@@ -95,12 +95,12 @@ const expectedLegacyCodes=[
 ];
 const missingLegacy=expectedLegacyCodes.filter(code=>!masterMenu.includes('"'+code+'"'));
 if(missingLegacy.length)throw new Error("Legacy menu codes missing from canonical panels: "+missingLegacy.join(", "));
-const workspaceBlock=modulePage.match(/const CANONICAL_WORKSPACES\s*:\s*Record<string,\s*React\.ReactNode>\s*=\s*\{([\s\S]*?)\n\};/);
-const genericBlock=modulePage.match(/const GENERIC_OPERATIONAL_WORKSPACES\s*=\s*new Set\(\[([\s\S]*?)\]\);/);
-const landingBlock=modulePage.match(/const canonicalCodes\s*=\s*new Set\(\[([\s\S]*?)\]\);/);
-if(!workspaceBlock||!genericBlock||!landingBlock)throw new Error("Module dispatcher registries could not be parsed");
+const workspaceBlock=modulePage.match(/const WORKSPACE_REGISTRY\s*:\s*Record<string,\s*React\.ReactNode>\s*=\s*\{([\s\S]*?)\n\};/);
+const landingBlock=modulePage.match(/const CANONICAL_LANDING_CODES\s*=\s*new Set\(\[([\s\S]*?)\]\);/);
+if(!workspaceBlock||!landingBlock)throw new Error("Unified module workspace registry could not be parsed");
+if(modulePage.includes("CANONICAL_WORKSPACES")||modulePage.includes("GENERIC_OPERATIONAL_WORKSPACES")||modulePage.includes("const canonicalCodes"))throw new Error("Duplicate module dispatcher registries must be removed");
 const declaredCodes=new Set([
-  ...[workspaceBlock[1],genericBlock[1],landingBlock[1]].flatMap(block=>[...block.matchAll(/"([^"]+)"/g)].map(match=>match[1])),
+  ...[workspaceBlock[1],landingBlock[1]].flatMap(block=>[...block.matchAll(/"([^"]+)"/g)].map(match=>match[1])),
   ...[...modulePage.matchAll(/if\(code===["']([^"']+)["']\)/g)].map(match=>match[1])
 ]);
 for(const panel of panelObjects){
