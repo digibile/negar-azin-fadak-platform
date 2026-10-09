@@ -147,9 +147,11 @@ if(!deployWorkflow.includes("workflow_dispatch:")||!deployWorkflow.includes("dep
 if(deployWorkflow.includes("[deploy-sookar]")||deployWorkflow.includes("Ensure DirectAdmin SSL is enabled"))throw new Error("Legacy commit-marker deployment or automatic SSL enablement must be removed");
 for(const step of ["Prepare SSH","Preflight Sookar.ir production target","Upload release","Deploy with rollback","Production health and release check","Reload DirectAdmin Nginx configuration","Configure DirectAdmin Nginx routes","Verify public HTTPS endpoint"]){
  const gatedStepStart=deployWorkflow.indexOf("- name: "+step);
- if(gatedStepStart<0||!deployWorkflow.slice(gatedStepStart,gatedStepStart+400).includes("if: ${{ inputs.deploy_to_server || github.event_name == 'push' }}"))throw new Error("Production step must run only for approved manual deployment or main push: "+step);
+ if(gatedStepStart<0||!deployWorkflow.slice(gatedStepStart,gatedStepStart+400).includes("if: ${{ inputs.deploy_to_server }}"))throw new Error("Production step must require explicit manual deployment approval: "+step);
 }
 if(!deployWorkflow.includes("Upload reviewable build artifact")||deployWorkflow.indexOf("Package exact SHA")>deployWorkflow.indexOf("Upload reviewable build artifact"))throw new Error("Build artifact must be packaged before review upload");
+if(deployWorkflow.includes("inputs.deploy_to_server || github.event_name == 'push'"))throw new Error("A main push must never bypass explicit production deployment approval");
+if(!deployWorkflow.includes("group: sookar-${{ inputs.deploy_to_server && 'production' || 'build' }}"))throw new Error("Build validation and production deployment must use separate concurrency groups");
 if(!deployWorkflow.includes("--exclude='.env.*'"))throw new Error("Release package must exclude environment files");
 if(deployWorkflow.includes("letsencrypt.sh request"))throw new Error("Production deployment must not request SSL certificates automatically; prevent rate-limit loops");
 if(!deployWorkflow.includes("-checkend 86400")||!deployWorkflow.includes('-checkhost sookar.ir'))throw new Error("Production deployment must validate the existing sookar.ir SSL certificate expiry and hostname");
