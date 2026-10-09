@@ -13,6 +13,7 @@ type Product = {
   currency: string;
   seller_name: string;
   store_id: string | null;
+  image_url?: string | null;
 };
 type Store = { id: string; name: string; slug: string; seller_name: string };
 type Catalog = { tenant?: { name?: string }; products: Product[]; stores?: Store[] };
@@ -23,7 +24,7 @@ const money = (value: string, currency: string) => {
   return `${amount.toLocaleString("fa-IR")} ${currency === "IRR" ? "ریال" : currency}`;
 };
 
-const categoryGlyph = (category: string | null, title: string) => {
+const safeImageUrl = (value: string | null | undefined) => value && (/^https?:\\/\\//i.test(value) || (value.startsWith("/") && !value.startsWith("//"))) ? value : null;\n\nconst categoryGlyph = (category: string | null, title: string) => {
   const value = `${category || ""} ${title}`.toLocaleLowerCase("fa");
   if (/موبایل|گوشی|تلفن|تبلت/.test(value)) return "▯";
   if (/لپ.?تاپ|کامپیوتر|مانیتور|الکترونیک/.test(value)) return "▰";
@@ -146,7 +147,7 @@ export default function StorePage() {
           : error ? <div className="sk-state sk-state-error"><b>دریافت محصولات انجام نشد</b><p>{error}</p><button type="button" onClick={() => window.location.reload()}>تلاش دوباره</button></div>
           : products.length ? <div className="sk-product-grid">{products.slice(0, 12).map(product => <article className="sk-product-card" key={product.id}>
             <Link href={"/store/product/" + encodeURIComponent(product.id)} className="sk-product-visual" aria-label={"مشاهده " + product.title}>
-              <span className="sk-product-category">{product.category || "محصول"}</span><span className="sk-product-glyph">{categoryGlyph(product.category, product.title)}</span><span className="sk-visual-brand">SOOKAR</span>
+              <span className="sk-product-category">{product.category || "محصول"}</span>{safeImageUrl(product.image_url) ? <img src={safeImageUrl(product.image_url)!} alt={product.title} loading="lazy" decoding="async" /> : <span className="sk-product-glyph">{categoryGlyph(product.category, product.title)}</span>}<span className="sk-visual-brand">SOOKAR</span>
             </Link>
             <div className="sk-product-info"><span className="sk-seller-name"><i />{product.seller_name || "فروشنده ثبت‌شده"}</span><Link href={"/store/product/" + encodeURIComponent(product.id)} className="sk-product-title">{product.title}</Link><p>{product.description || "توضیحات تکمیلی از سوی فروشنده ثبت نشده است."}</p><div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>قیمت ثبت‌شده</small></div><Link href={"/store/product/" + encodeURIComponent(product.id)} className="sk-product-cta">مشاهده و بررسی کالا <span>←</span></Link></div>
           </article>)}</div>

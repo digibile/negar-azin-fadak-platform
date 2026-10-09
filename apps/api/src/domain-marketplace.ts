@@ -207,7 +207,7 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
   const tenantId=tenant.id;
   const [stores,products]=await Promise.all([
     query("select s.id,s.name,s.slug,s.domain,s.seller_id,sl.display_name as seller_name from stores s join sellers sl on sl.id=s.seller_id where s.tenant_id=$1 and s.status='active' order by s.name",[tenantId]),
-    query("select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,sl.display_name as seller_name from products p join sellers sl on sl.id=p.seller_id where p.tenant_id=$1 and p.status='active' order by p.updated_at desc",[tenantId])
+    query("select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name from products p join sellers sl on sl.id=p.seller_id where p.tenant_id=$1 and p.status='active' order by p.updated_at desc",[tenantId])
   ]);
   res.json({tenant,stores:stores.rows,products:products.rows});
 }));
