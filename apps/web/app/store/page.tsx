@@ -207,7 +207,7 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
         <section className="sk-hero sk-retail-hero" aria-labelledby="sk-hero-title">
           <div className="sk-hero-copy">
             <span className="sk-hero-kicker"><i /> {isTechnolife ? "فروشگاه کالای دیجیتال سوکار" : isDigikala ? "تجربه فروشگاهی سریع و آشنا" : isKipa ? "کتابخانه قالب‌ها · نسخه نخست کیپا" : "بازارگاه سوکار"}</span>
-            <h1 id="sk-hero-title">{isTechnolife ? <>تکنولوژی روز،<br /><em>انتخابی آگاهانه.</em></> : isDigikala ? <>از میان انتخاب‌ها،<br /><em>بهترین را پیدا کن.</em></> : <>هرچی لازم داری،<br /><em>یک‌جا پیدا کن.</em></>}</h1>
+            <h1 id="sk-hero-title">{isTechnolife ? <>تکنولوژی روز،<br /><em>انتخابی آگاهانه.</em></> : isDigikala ? <>از میان انتخاب‌ها،<br /><em>بهترین را پیدا کن.</em></> : isKipa ? <>خرید روشن‌تر،<br /><em>انتخاب مطمئن‌تر.</em></> : <>هرچی لازم داری،<br /><em>یک‌جا پیدا کن.</em></>}</h1>
             <p>{isTechnolife ? "محصولات دیجیتال ثبت‌شده را جستجو کن، مشخصات و قیمت واقعی را بررسی کن و با آگاهی انتخاب کن." : isKipa ? "کالاهای ثبت‌شده فروشندگان فعال را مرور کن، جزئیات و قیمت واقعی را ببین و انتخابت را با اطلاعات شفاف انجام بده." : "کالاهای فروشگاه‌های فعال را ببین، مشخصات و قیمت ثبت‌شده را بررسی کن و محصولات موردنظرت را به سبد خرید اضافه کن."}</p>
             <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">خرید از همه دسته‌ها <span>←</span></Link><Link href="/marketplace/directory" className="sk-quiet-btn">فروشگاه‌های بازارگاه</Link></div>
             <div className="sk-hero-note"><span>✓</span> فقط اطلاعات کاتالوگ واقعی؛ بدون محصول و قیمت ساختگی</div>
