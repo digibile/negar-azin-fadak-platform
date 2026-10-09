@@ -77,6 +77,34 @@ jobs:
       - name: Web build
         working-directory: apps/web
         run: pnpm build
+      - name: Probe live Digikala source
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          HTTP_CODE="$(curl --silent --show-error --max-time 12 -H 'accept: application/json' -H 'user-agent: SookarCatalogReference/1.0 (+https://sookar.ir)' -o /tmp/digikala-source.json -w '%{http_code}' 'https://api.digikala.com/v1/search/?q=%DA%AF%D9%88%D8%B4%DB%8C%20%D9%85%D9%88%D8%A8%D8%A7%DB%8C%D9%84&page=1' 2>/tmp/digikala-source.err)"
+          CURL_STATUS=$?
+          set -e
+          if [ "$CURL_STATUS" -ne 0 ] || [ "$HTTP_CODE" != "200" ]; then
+            echo "DIGIKALA_SOURCE_UNAVAILABLE http=$HTTP_CODE curl_status=$CURL_STATUS"
+            cat /tmp/digikala-source.err 2>/dev/null || true
+            exit 0
+          fi
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          payload=json.loads(Path("/tmp/digikala-source.json").read_text())
+          data=payload.get("data") or {}
+          products=data.get("products") or []
+          if isinstance(products,dict):
+              products=products.get("items") or []
+          if not isinstance(products,list):
+              print("DIGIKALA_SOURCE_INVALID_RESPONSE")
+          else:
+              with_images=sum(1 for p in products if isinstance(p,dict) and isinstance(p.get("images"),dict) and p["images"].get("main"))
+              print("DIGIKALA_SOURCE status=live products="+str(len(products))+" image_candidates="+str(with_images))
+          PY
+
       - name: Inspect currently published storefront catalog
         continue-on-error: true
         shell: bash
