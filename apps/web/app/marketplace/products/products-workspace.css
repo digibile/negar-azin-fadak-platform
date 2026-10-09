@@ -100,3 +100,8 @@
 .mp-source-id-row label{display:flex;flex-direction:column;gap:7px;color:#39485c;font-size:12px;font-weight:850}
 .mp-source-id-row input{min-height:43px;padding:0 12px;border:1px solid #dbe3ed;border-radius:10px;background:#fff;color:var(--mp-ink);font:inherit;font-size:12px}
 @media(max-width:560px){.mp-source-id-row{grid-template-columns:1fr}.mp-source-id-row button{width:100%}}
+
+.mp-source-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(210px,.5fr);gap:12px;align-items:end}
+.mp-source-search select{min-height:43px;padding:0 12px;border:1px solid #dbe3ed;border-radius:10px;background:#fff;color:var(--mp-ink);font:inherit;font-size:12px}
+.mp-import-head small{display:block;margin-top:7px;color:var(--mp-muted);font-size:10px}
+@media(max-width:760px){.mp-source-filters{grid-template-columns:1fr;gap:0}}
