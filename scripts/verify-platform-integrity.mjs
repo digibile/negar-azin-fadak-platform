@@ -148,7 +148,8 @@ if(!identityApi.includes("const guardRead=")||!identityApi.includes("const guard
 if(identityApi.includes("requireAuth,guard,"))throw new Error("Identity API contains a route using the unsafe combined authorization guard");
 if(!identityApi.includes('router.get("/api/identity/overview",requireAuth,guardRead,'))throw new Error("Identity overview must use read authorization");
 if(!identityApi.includes('router.post("/api/identity/roles",requireAuth,guardWrite,'))throw new Error("Role creation must use write authorization");
-if(!identityApi.includes('router.put("/api/identity/roles/:roleKey/permissions",requireAuth,guardWrite,'))throw new Error("Permission updates must use write authorization");
+if(!identityApi.includes('router.put("/api/identity/roles/:roleKey/permissions",requireAuth,guardAdmin,'))throw new Error("Permission updates must be restricted to system admins");
+if(!identityApi.includes('router.post("/api/identity/roles",requireAuth,guardAdmin,'))throw new Error("Role creation must be restricted to system admins");
 const identityWorkspace=fs.readFileSync(path.join(root,"apps/web/app/modules/IdentityWorkspace.tsx"),"utf8");
 if(!modulePage.includes('"03-users-access": <IdentityWorkspace />'))throw new Error("Canonical Panel 03 must use the unified identity workspace");
 for(const tab of ["users","profiles","roles","groups","permissions","policies","auth","twofa","sessions","audit"])if(!identityWorkspace.includes('["'+tab+'"'))throw new Error("Panel 03 workspace tab missing: "+tab);
