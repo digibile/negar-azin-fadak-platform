@@ -123,7 +123,7 @@ app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  const r=await query("select id,email,password_hash,full_name,role from users where email=$1 and status='active'",[input.email.toLowerCase()]);
  if(!r.rowCount||!(await verifyPassword(input.password,r.rows[0].password_hash)))return res.status(401).json({error:"اطلاعات ورود نادرست است"});
  const u=r.rows[0];
- issueSession(res,{id:u.id,email:u.email,role:u.role});
+ await issueSession(req,res,{id:u.id,email:u.email,role:u.role});
  res.json({user:{id:u.id,email:u.email,fullName:u.full_name,role:u.role}});
 }));
 
