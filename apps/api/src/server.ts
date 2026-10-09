@@ -123,12 +123,12 @@ app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  const method=req.body?.method==="mobile"?"mobile":req.body?.method==="nationalId"?"nationalId":"email";
  const rawIdentifier=String(req.body?.identifier??req.body?.email??"").trim();
  const normalizeDigits=(value:string)=>value.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
- const identifier=method==="mobile"?normalizeDigits(rawIdentifier).replace(/[\\s()+-]/g,""):method==="nationalId"?normalizeDigits(rawIdentifier).replace(/[\\s]/g,""):rawIdentifier.toLowerCase();
+ const identifier=method==="mobile"?normalizeDigits(rawIdentifier).replace(/[\s()+-]/g,""):method==="nationalId"?normalizeDigits(rawIdentifier).replace(/[\s]/g,""):rawIdentifier.toLowerCase();
  const input=loginIdentifierSchema.parse({email:identifier,password:req.body?.password});
  if(method==="email"&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier))return res.status(400).json({error:"آدرس ایمیل معتبر نیست"});
  if(method==="mobile"&&!/^[0-9]{8,15}$/.test(identifier.replace(/^\+/,"")))return res.status(400).json({error:"شماره موبایل معتبر نیست"});
  if(method==="nationalId"&&!/^\\d{10}$/.test(identifier))return res.status(400).json({error:"کد ملی باید ۱۰ رقم باشد"});
- if(!verifyHumanCheck(String(req.body?.humanCheck||""),String(req.body?.humanAnswer||""))return res.status(400).json({error:"تأیید انسانی نامعتبر یا منقضی شده است"});
+ if(!verifyHumanCheck(String(req.body?.humanCheck||""),String(req.body?.humanAnswer||"")))return res.status(400).json({error:"تأیید انسانی نامعتبر یا منقضی شده است"});
  const r=method==="mobile"
   ?await query("select id,email,password_hash,full_name,role from users where status='active' and exists (select 1 from user_contact_methods c where c.user_id=users.id and c.channel='sms' and c.status='active' and c.verified_at is not null and regexp_replace(translate(c.value,'۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩','01234567890123456789'),'[^0-9]','','g')=$1) limit 2",[identifier])
   :method==="nationalId"
