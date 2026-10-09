@@ -75,7 +75,7 @@ const canonicalChildTitles=panelObjects.flatMap(panel=>[...panel[4].matchAll(/ch
 const duplicateChildTitles=[...canonicalChildTitles.reduce((map,item)=>map.set(item.title,[...(map.get(item.title)||[]),item.panel]),new Map())].filter(([,panels])=>panels.length>1);
 if(duplicateChildTitles.length)throw new Error("Duplicate canonical child titles must be merged into one destination: "+duplicateChildTitles.map(([title,panels])=>title+" (panels "+panels.join(", ")+")").join("; "));
 for(const panel of panelObjects){
- const children=[...panel[4].matchAll(/child\("([^"]+)"(?:,\s*"([^"]*)")?(?:,\s*"([^"]*)")?\)/g)];
+ const children=[...panel[4].matchAll(/child\("([^"]+)"(?:,\s*(?:"([^"]*)"|undefined))?(?:,\s*(?:"([^"]*)"|undefined))?(?:,\s*"([^"]*)")?\)/g)];
  if(children.length===0)throw new Error("Canonical panel has no children: "+panel[1]);
  for(const child of children){
   if(!child[1].trim())throw new Error("Canonical child title is empty in panel "+panel[1]);
@@ -117,7 +117,7 @@ for(const panel of panelRoutes){
 }
 const firstPanel=panelObjects.find(panel=>panel[2]==="01");
 if(!firstPanel)throw new Error("Panel 01 is missing");
-const firstChildren=[...firstPanel[4].matchAll(/child\("([^"]+)"(?:,\s*"([^"]*)")?(?:,\s*"([^"]*)")?\)/g)];
+const firstChildren=[...firstPanel[4].matchAll(/child\("([^"]+)"(?:,\s*(?:"([^"]*)"|undefined))?(?:,\s*(?:"([^"]*)"|undefined))?(?:,\s*"([^"]*)")?\)/g)];
 const firstDestinations=firstChildren.map(child=>child[2]||child[3]).filter(Boolean);
 if(new Set(firstDestinations).size!==firstDestinations.length)throw new Error("Panel 01 contains duplicate child destinations");
 if(!masterMenu.includes('child("مرکز فرماندهی عملیاتی","","command-center","/command-center")'))throw new Error("Panel 01 command center route is not explicitly registered");
