@@ -12,8 +12,7 @@ where d.module_id=m.id
 
 insert into module_field_definitions(module_id,field_key,title,field_type,required,sort_order,options,record_type)
 select m.id,f.field_key,f.title,f.field_type,f.required,f.sort_order,f.options::jsonb,f.record_type
-from platform_modules m
-cross join (values
+from (values
 ('employees','personnel_no','کد پرسنلی','text',true,10,'{}','employees'),
 ('employees','full_name','نام و نام خانوادگی','text',true,20,'{}','employees'),
 ('employees','department','واحد سازمانی','text',true,30,'{}','employees'),
