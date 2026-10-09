@@ -49,6 +49,7 @@ import PageBuilderWorkspace from "./PageBuilderWorkspace";
 import PageBlockEditorWorkspace from "./PageBlockEditorWorkspace";
 import PageTemplatesWorkspace from "./PageTemplatesWorkspace";
 import FrontendSectionsWorkspace from "./FrontendSectionsWorkspace";
+import FrontendManagementWorkspace from "./FrontendManagementWorkspace";
 import NavigationRulesWorkspace from "./NavigationRulesWorkspace";
 import FrontendNotificationsWorkspace from "./FrontendNotificationsWorkspace";
 import NotificationTemplatesWorkspace from "./NotificationTemplatesWorkspace";
@@ -311,7 +312,7 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
 
  if(panel==="form")return <FormBuilderWorkspace/>;
  if(panel==="menu")return <MenuBuilderWorkspace/>;
- if(panel==="frontend")return <FrontendSectionsWorkspace/>;
+ if(panel==="frontend")return <FrontendManagementWorkspace/>;
  if(panel==="domains")return <CommercePanelWorkspace mode="domains"/>;
  if(panel==="acceptors")return <MerchantManagementWorkspace/>;
  if(panel==="sellers")return <CommercePanelWorkspace mode="sellers"/>;
