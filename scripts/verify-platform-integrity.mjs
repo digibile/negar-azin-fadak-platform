@@ -155,6 +155,21 @@ const rootLayout=fs.readFileSync(path.join(root,"apps/web/app/layout.tsx"),"utf8
 if(!rootPage.includes('from "./store/page"')||!marketplaceRoute.includes('from "../store/page"'))throw new Error("Sookar.ir root and /marketplace must share one canonical storefront implementation");
 if(!rootLayout.includes('const siteUrl = "https://sookar.ir"')||!rootLayout.includes('"@type": "OnlineStore"'))throw new Error("Root storefront SEO metadata must use sookar.ir and OnlineStore schema");
 
+const storefront=fs.readFileSync(path.join(root,"apps/web/app/store/page.tsx"),"utf8");
+const publicCatalogApi=fs.readFileSync(path.join(root,"apps/api/src/domain-marketplace.ts"),"utf8");
+const productManagement=fs.readFileSync(path.join(root,"apps/web/app/marketplace/products/page.tsx"),"utf8");
+const sellerManagement=fs.readFileSync(path.join(root,"apps/web/app/marketplace/sellers/page.tsx"),"utf8");
+const storeDirectory=path.join(root,"apps/web/app/marketplace/directory/page.tsx");
+if(!publicCatalogApi.includes('domainMarketplaceRouter.get("/api/public/marketplace"')||!publicCatalogApi.includes("p.status='active'")||!publicCatalogApi.includes("sl.status='active'"))throw new Error("Public catalog must expose only published products from active sellers");
+if(!storefront.includes("showAllProducts ? products.length : 12")||!storefront.includes("product.category === item"))throw new Error("Storefront must expose the full shop catalog and functional category filters");
+if(!productManagement.includes("/status")||!productManagement.includes("انتشار محصول")||!productManagement.includes("فعال‌سازی فروشنده لازم است"))throw new Error("Product management must support publishing and explain seller activation requirements");
+if(!sellerManagement.includes("/status")||!sellerManagement.includes("فعال‌سازی فروشنده"))throw new Error("Seller management must provide explicit activation controls");
+if(!fs.existsSync(storeDirectory))throw new Error("Public store directory route is missing");
+if(!fs.readFileSync(storeDirectory,"utf8").includes("/api/public/marketplace"))throw new Error("Public store directory must use real public catalog data");
+const adminDashboard=fs.readFileSync(path.join(root,"apps/web/app/admin/page.tsx"),"utf8");
+if(!adminDashboard.includes('import {MASTER_MENU} from "./master-menu"')||adminDashboard.includes("const GROUPS=")||!adminDashboard.includes("canonical-panel-grid"))throw new Error("Management dashboard must use the canonical 20-panel menu source");
+
+
 const identityApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"utf8");
 if(!identityApi.includes("const guardRead=")||!identityApi.includes("const guardWrite="))throw new Error("Identity API must separate read and write authorization");
 if(identityApi.includes("requireAuth,guard,"))throw new Error("Identity API contains a route using the unsafe combined authorization guard");
