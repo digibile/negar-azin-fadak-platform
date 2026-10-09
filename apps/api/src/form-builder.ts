@@ -51,8 +51,12 @@ formBuilderRouter.post("/api/form-builder/forms/:id/disable",requireAuth,require
 
 formBuilderRouter.delete("/api/form-builder/forms/:id",requireAuth,requirePermission("form:manage"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("delete from form_definitions where id=$1 and tenant_id=$2 returning id",[req.params.id,t.id]);
- if(!r.rowCount)return res.status(404).json({error:"فرم پیدا نشد"});
+ const r=await query("delete from form_definitions f where f.id=$1 and f.tenant_id=$2 and not exists (select 1 from form_submissions fs where fs.form_id=f.id and fs.tenant_id=f.tenant_id) returning f.id",[req.params.id,t.id]);
+ if(!r.rowCount){
+  const exists=await query("select 1 from form_definitions where id=$1 and tenant_id=$2",[req.params.id,t.id]);
+  if(!exists.rowCount)return res.status(404).json({error:"فرم پیدا نشد"});
+  return res.status(409).json({error:"فرم دارای Submission است و برای حفظ سوابق قابل حذف نیست؛ وضعیت آن را به آرشیو تغییر دهید."});
+ }
  res.status(204).end();
 }));
 
