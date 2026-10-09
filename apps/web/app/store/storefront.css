@@ -410,3 +410,30 @@
 .sk-store--ava .sk-footer{background:#211f3b}
 .sk-store--ava .sk-footer-brand p,.sk-store--ava .sk-footer-column a,.sk-store--ava .sk-footer-bottom{color:#c5c3df}
 .sk-store--ava .sk-footer-brand .sk-logo b,.sk-store--ava .sk-footer-column>b{color:#fff}
+
+
+/* KIPA: first reviewable template, isolated from the canonical Sookar storefront. */
+.sk-store--kipa{--sk-primary:#14745f;--sk-primary-dark:#0d5547;--sk-canvas:#f4f7f4;color:#172d2a}
+.sk-store--kipa .sk-service-strip{background:#102e2a;color:#e5f4ee}
+.sk-store--kipa .sk-service-inner a{color:#d6eee5}
+.sk-store--kipa .sk-header{background:#fff;border-bottom:1px solid #dce9e2}
+.sk-store--kipa .sk-logo-mark{background:linear-gradient(145deg,#219779,#0c5949);color:#fff;box-shadow:0 8px 20px #14745f2b}
+.sk-store--kipa .sk-hero{background:radial-gradient(ellipse at 82% 10%,#b7e8d7 0,transparent 36%),linear-gradient(120deg,#e5f5ed 0%,#f9fcf8 58%,#edf3d9 100%);border:1px solid #d5e9de}
+.sk-store--kipa .sk-hero-kicker{color:#11624f}
+.sk-store--kipa .sk-hero h1 em{color:#14745f}
+.sk-store--kipa .sk-art-core{background:linear-gradient(145deg,#2ab38d,#0d5949);box-shadow:0 18px 38px #14745f30}
+.sk-store--kipa .sk-benefit-icon{background:#e0f3e9;color:#11624f}
+.sk-store--kipa .sk-featured-category:hover,.sk-store--kipa .sk-featured-category.is-active{border-color:#a4d9c4}
+.sk-store--kipa .sk-featured-category.is-active{background:#eff9f3}
+.sk-store--kipa .sk-category-chip.is-active,.sk-store--kipa .sk-product-cta,.sk-store--kipa .sk-more a{background:#14745f;color:#fff}
+.sk-store--kipa .sk-product-card{border-color:#e0ebe4;border-radius:14px;box-shadow:0 5px 20px #143d2b08}
+.sk-store--kipa .sk-product-card:hover{border-color:#a4d9c4;box-shadow:0 14px 32px #14745f14}
+.sk-store--kipa .sk-product-visual{background:linear-gradient(180deg,#fbfdfb,#eef7f1)}
+.sk-store--kipa .sk-product-price strong{color:#11624f}
+.sk-store--kipa .sk-market-banner{background:linear-gradient(115deg,#102e2a,#14745f);border-radius:18px}
+.sk-store--kipa .sk-market-banner h2,.sk-store--kipa .sk-market-banner p{color:#fff}
+.sk-store--kipa .sk-market-banner a{background:#fff;color:#11624f}
+.sk-store--kipa .sk-banner-symbol>span{background:linear-gradient(145deg,#35c39a,#0d5949);color:#fff}
+.sk-store--kipa .sk-footer{background:#102824}
+.sk-store--kipa .sk-footer-brand p,.sk-store--kipa .sk-footer-column a,.sk-store--kipa .sk-footer-bottom{color:#c3ddd2}
+.sk-store--kipa .sk-footer-brand .sk-logo b,.sk-store--kipa .sk-footer-column>b{color:#fff}
