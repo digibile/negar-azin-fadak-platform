@@ -437,3 +437,22 @@
 .sk-store--kipa .sk-footer{background:#102824}
 .sk-store--kipa .sk-footer-brand p,.sk-store--kipa .sk-footer-column a,.sk-store--kipa .sk-footer-bottom{color:#c3ddd2}
 .sk-store--kipa .sk-footer-brand .sk-logo b,.sk-store--kipa .sk-footer-column>b{color:#fff}
+
+/* Multi-level category navigation, built for the independent Sookar storefront. */
+.sk-category-nav-mega{display:grid;grid-template-columns:minmax(205px,.72fr) minmax(0,1.8fr);width:min(850px,calc(100vw - 28px));min-height:370px;padding:0;overflow:hidden;direction:rtl}
+.sk-category-nav-mega .sk-category-mega-list{padding:8px;background:#fff;border-left:1px solid #edf0f4;max-height:min(68vh,560px);overflow:auto}
+.sk-category-nav-mega .sk-category-mega-list button{display:flex;width:100%;align-items:center;gap:10px;padding:10px 12px;border:0;border-radius:8px;background:transparent;color:#344054;text-align:right;font:inherit;font-size:12px;cursor:pointer}
+.sk-category-nav-mega .sk-category-mega-list button>span{display:grid;place-items:center;width:25px;height:25px;border-radius:7px;background:#f4f6f8;color:#475467;font-size:16px}
+.sk-category-nav-mega .sk-category-mega-list button>b{flex:1;font-weight:700}
+.sk-category-nav-mega .sk-category-mega-list button>i{font-style:normal;color:#98a2b3}
+.sk-category-nav-mega .sk-category-mega-list button:hover,.sk-category-nav-mega .sk-category-mega-list button.is-active{background:#fff0f0;color:#c62828}
+.sk-category-nav-mega .sk-category-mega-list button.is-active>span{background:#ffe0e0;color:#c62828}
+.sk-category-mega-content{padding:22px 24px;min-width:0;background:#fff}
+.sk-category-mega-content>header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-bottom:15px;border-bottom:1px solid #edf0f4}
+.sk-category-mega-content>header>b{font-size:17px;font-weight:900;color:#202939}
+.sk-category-mega-content>header>button{border:0;background:transparent;color:#c62828;font:inherit;font-size:11px;font-weight:800;cursor:pointer}
+.sk-category-mega-children{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 18px;padding-top:12px}
+.sk-category-mega-children>button{display:flex;justify-content:space-between;align-items:center;gap:10px;min-width:0;padding:10px 0;border:0;border-bottom:1px solid #f2f4f7;background:transparent;color:#475467;text-align:right;font:inherit;font-size:12px;cursor:pointer}
+.sk-category-mega-children>button:hover{color:#c62828}
+.sk-category-mega-children>button>span{color:#c5cbd4}
+@media(max-width:650px){.sk-category-nav-mega{grid-template-columns:minmax(125px,.8fr) minmax(0,1.2fr);min-height:320px}.sk-category-nav-mega .sk-category-mega-list{padding:5px}.sk-category-nav-mega .sk-category-mega-list button{padding:9px 6px;gap:6px;font-size:11px}.sk-category-nav-mega .sk-category-mega-list button>span{width:21px;height:21px}.sk-category-mega-content{padding:15px 12px}.sk-category-mega-content>header{align-items:flex-start;flex-direction:column;gap:8px}.sk-category-mega-content>header>b{font-size:14px}.sk-category-mega-children{grid-template-columns:1fr;gap:0}.sk-category-mega-children>button{padding:8px 0;font-size:11px}}
