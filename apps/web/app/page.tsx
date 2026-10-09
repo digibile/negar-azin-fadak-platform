@@ -30,7 +30,7 @@ export default function HomePage(){
         const first=rows.find(x=>x.parent_id===null&&x.path!==" /".trim());
         setOpen(first?.id??null);
       })
-      .catch(()=>{if(alive)window.location.href="/login";})
+      .catch(()=>{if(alive)setError("نمای زنده منوی سازمان در دسترس نیست؛ از بخش‌های عمومی سامانه استفاده کنید یا پس از بررسی اتصال، دوباره وارد مرکز مدیریت شوید.");})
       .finally(()=>{if(alive)setLoading(false);});
     return()=>{alive=false};
   },[]);
@@ -43,7 +43,17 @@ export default function HomePage(){
   },[children,query]);
 
   if(loading)return <main className="enterprise-loading">در حال بارگذاری ساختار واقعی سامانه...</main>;
-  if(error)return <main className="enterprise-loading error">{error}</main>;
+  if(error)return <main className="public-home" dir="rtl">
+    <header className="public-home-header"><a className="public-home-brand" href="/"><span>ن</span><div><b>نگار آذین فدک</b><small>پلتفرم بیزینس ایران</small></div></a><nav><a href="/marketplace">بازارگاه</a><a href="/pay">اعتبار و پرداخت</a><a href="/store">فروشگاه</a><a className="public-home-login" href="/login">ورود سازمانی ↗</a></nav></header>
+    <section className="public-home-hero"><div className="public-home-copy"><span className="public-home-eyebrow"><i/> سامانه یکپارچه مدیریت کسب‌وکار · نسخه ۲۰۲۶</span><h1>همه بخش‌های کسب‌وکار،<br/><em>در یک مسیر روشن.</em></h1><p>فضای یکپارچه نگار آذین فدک برای مدیریت سازمان، تجارت، پرداخت، اعتبار و عملیات؛ با مسیرهای مشخص و بدون پرش ناخواسته به صفحه ورود.</p><div className="public-home-actions"><a className="public-home-primary" href="/login">ورود به مرکز مدیریت ←</a><a className="public-home-secondary" href="/marketplace">مشاهده بخش‌های عمومی</a></div><div className="public-home-proof"><span><b>۲۰۲۶</b><small>طراحی به‌روز</small></span><span><b>یکپارچه</b><small>مسیرهای روشن</small></span><span><b>RTL</b><small>فارسی و موبایل‌محور</small></span></div></div>
+    <div className="public-home-visual" aria-hidden="true"><div className="public-home-orbit orbit-one"/><div className="public-home-orbit orbit-two"/><div className="public-home-orbit orbit-three"/><div className="public-home-core"><span>ن</span><b>هسته مرکزی</b><small>نگار آذین فدک</small></div><div className="public-home-float float-top">مدیریت سازمان <i>✓</i></div><div className="public-home-float float-bottom">تجارت و پرداخت <i>↗</i></div></div></section>
+    <section className="public-home-sections"><div className="public-home-section-title"><span>ورود به بخش‌ها</span><h2>از مسیر درست وارد شوید</h2><p>بخش‌های عمومی مستقیماً باز می‌شوند؛ ورود سازمانی فقط برای امکانات مدیریتی لازم است.</p></div><div className="public-home-grid">
+    <a className="public-home-card" href="/marketplace"><span className="public-home-card-icon">◈</span><small>۰۱ · COMMERCE</small><b>بازارگاه و فروشندگان</b><p>مشاهده فروشگاه‌ها، محصولات و مسیرهای تجاری.</p><span className="public-home-arrow">←</span></a>
+    <a className="public-home-card" href="/store"><span className="public-home-card-icon">▦</span><small>۰۲ · STORE</small><b>فروشگاه اینترنتی</b><p>ورود به فضای عمومی فروشگاه و محصولات.</p><span className="public-home-arrow">←</span></a>
+    <a className="public-home-card" href="/pay"><span className="public-home-card-icon">◇</span><small>۰۳ · PAYMENTS</small><b>اعتبار و پرداخت</b><p>طرح‌های اعتباری، پرداخت‌ها و خدمات مرتبط.</p><span className="public-home-arrow">←</span></a>
+    <a className="public-home-card" href="/login"><span className="public-home-card-icon">⌘</span><small>۰۴ · ORGANIZATION</small><b>مرکز مدیریت سازمان</b><p>ورود امن برای مدیریت و عملیات داخلی سازمان.</p><span className="public-home-arrow">←</span></a>
+    </div></section><footer className="public-home-footer"><span>نگار آذین فدک ایران</span><span>هسته مرکزی کسب‌وکار · طراحی فارسی و راست‌چین</span><a href="/login">ورود سازمانی ↗</a></footer>
+  </main>;
 
   return <main className="enterprise-shell" dir="rtl">
     <aside className="enterprise-sidebar">
