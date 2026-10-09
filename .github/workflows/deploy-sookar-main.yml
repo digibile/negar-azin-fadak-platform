@@ -1,9 +1,6 @@
 name: Deploy Sookar Main Safely
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       target_sha:
@@ -75,6 +72,14 @@ jobs:
       - name: Web build
         working-directory: apps/web
         run: pnpm build
+      - name: Upload reviewable build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: negar-platform-${{ inputs.target_sha }}
+          path: /tmp/negar-platform.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Prepare SSH
         if: ${{ inputs.deploy_to_server }}
         shell: bash
