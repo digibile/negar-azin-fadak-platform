@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import "./storefront.css";
+import { AddToCartButton, CartCount } from "./cart-actions";
 import { useEffect, useMemo, useState } from "react";
 
 type Product = {
@@ -164,7 +165,7 @@ export default function StorePage() {
           <div className="sk-header-actions">
             <Link className="sk-login" href="/login"><span aria-hidden="true">♙</span><span>ورود به حساب</span></Link>
             <Link className="sk-register" href="/register">عضویت</Link>
-            <Link className="sk-cart" href="/store/cart" aria-label="سبد خرید"><span aria-hidden="true">♧</span></Link>
+            <Link className="sk-cart" href="/store/cart" aria-label="سبد خرید"><span aria-hidden="true">🛒</span><CartCount /></Link>
           </div>
         </div>
         <nav className="sk-main-nav" aria-label="ناوبری اصلی">
@@ -178,20 +179,24 @@ export default function StorePage() {
       </header>
 
       <div className="sk-wrap">
-        <section className="sk-hero" aria-labelledby="sk-hero-title">
+        <section className="sk-hero sk-retail-hero" aria-labelledby="sk-hero-title">
           <div className="sk-hero-copy">
-            <span className="sk-hero-kicker"><i /> تجربه خرید یکپارچه سوکار</span>
-            <h1 id="sk-hero-title">انتخابت را پیدا کن.<br /><em>با خیال راحت‌تر</em> خرید کن.</h1>
-            <p>کالاها و فروشندگان را یک‌جا جستجو کن، اطلاعات ثبت‌شده را مقایسه کن و جزئیات هر محصول را پیش از خرید ببین.</p>
-            <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">دیدن همه کالاها <span>←</span></Link><Link href="/marketplace/directory" className="sk-quiet-btn">آشنایی با فروشندگان</Link></div>
-            <div className="sk-hero-note"><span>✓</span> نمایش اطلاعات کاتالوگ ثبت‌شده، بدون قیمت‌سازی یا موجودی ساختگی</div>
+            <span className="sk-hero-kicker"><i /> بازارگاه سوکار</span>
+            <h1 id="sk-hero-title">هرچی لازم داری،<br /><em>یک‌جا پیدا کن.</em></h1>
+            <p>کالاهای فروشگاه‌های فعال را ببین، مشخصات و قیمت ثبت‌شده را بررسی کن و محصولات موردنظرت را به سبد خرید اضافه کن.</p>
+            <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">خرید از همه دسته‌ها <span>←</span></Link><Link href="/marketplace/directory" className="sk-quiet-btn">فروشگاه‌های بازارگاه</Link></div>
+            <div className="sk-hero-note"><span>✓</span> فقط اطلاعات کاتالوگ واقعی؛ بدون محصول و قیمت ساختگی</div>
           </div>
-          <div className="sk-hero-art" aria-hidden="true">
-            <div className="sk-orbit sk-orbit-one" /><div className="sk-orbit sk-orbit-two" />
-            <div className="sk-art-panel"><div className="sk-art-top"><span>SOOKAR</span><b>بازارگاه</b></div><div className="sk-art-core"><span>س</span></div><div className="sk-art-caption"><b>یک مسیر ساده برای خرید</b><small>کالا · فروشگاه · انتخاب</small></div></div>
-            <div className="sk-art-chip sk-art-chip-a"><span>⌕</span> جستجوی یکپارچه</div><div className="sk-art-chip sk-art-chip-b"><span>◇</span> انتخاب آگاهانه</div>
+          <div className="sk-hero-products" aria-label="محصولات منتخب از کاتالوگ">
+            {(data?.products || []).filter(product => safeImageUrl(product.image_url)).slice(0, 3).map((product, index) => (
+              <Link href={"/store/product/" + encodeURIComponent(product.sku || product.id)} className={"sk-hero-product sk-hero-product-" + index} key={product.id}>
+                <img src={safeImageUrl(product.image_url) || ""} alt={product.title} />
+                <span>{product.title}</span><b>{money(product.price, product.currency)}</b>
+              </Link>
+            ))}
+            {(!data?.products?.length) && <div className="sk-hero-empty"><span>س</span><b>خرید ساده‌تر، انتخاب آگاهانه‌تر</b><small>محصولات فعال فروشگاه در اینجا نمایش داده می‌شوند</small></div>}
           </div>
-        </section>
+        </section>section>
 
         <section className="sk-benefits" aria-label="ویژگی‌های تجربه خرید">
           <article><span className="sk-benefit-icon">⌕</span><div><b>جستجوی آسان</b><small>کالا و فروشنده را سریع‌تر پیدا کن</small></div></article>
@@ -245,6 +250,7 @@ export default function StorePage() {
                 <p>{product.description || "مشخصات تکمیلی این کالا هنوز توسط فروشنده ثبت نشده است."}</p>
                 <div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>قیمت ثبت‌شده در کاتالوگ سوکار</small></div>
                 <Link href={productHref} className="sk-product-cta">مشاهده جزئیات و خرید <span>←</span></Link>
+               <AddToCartButton compact product={{ id: product.id, sku: product.sku, title: product.title, price: product.price, currency: product.currency, seller_name: product.seller_name, store_id: product.store_id, image_url: product.image_url }} />
               </div>
             </article>;
           })}</div>
