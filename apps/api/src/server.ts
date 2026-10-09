@@ -41,7 +41,7 @@ import {sellerSurfaceRouter} from "./seller-surface.js";
 import {tenantContentRouter} from "./tenant-content.js";
 import {checkoutRouter} from "./domain-checkout.js";
 import {settlementRouter} from "./domain-settlement.js";
-import {resolveTenant} from "./tenant-context.js";
+import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
 import {platformEnginesRouter,sweepSlaCases} from "./platform-engines.js";
 import {platformUpdatesRouter} from "./platform-updates.js";
 import {platformExperienceRouter} from "./platform-experience.js";
