@@ -161,7 +161,7 @@ const productManagement=fs.readFileSync(path.join(root,"apps/web/app/marketplace
 const sellerManagement=fs.readFileSync(path.join(root,"apps/web/app/marketplace/sellers/page.tsx"),"utf8");
 const storeDirectory=path.join(root,"apps/web/app/marketplace/directory/page.tsx");
 if(!publicCatalogApi.includes('domainMarketplaceRouter.get("/api/public/marketplace"')||!publicCatalogApi.includes("p.status='active'")||!publicCatalogApi.includes("sl.status='active'"))throw new Error("Public catalog must expose only published products from active sellers");
-if(!storefront.includes("showAllProducts ? products.length : 12")||!storefront.includes("product.category === item"))throw new Error("Storefront must expose the full shop catalog and functional category filters");
+if(!storefront.includes("showAllProducts ? products.length : 12")||!storefront.includes("normalizeText(product.category || \"\") === selectedCategory")||!storefront.includes("categories.slice(0, 8)")||!storefront.includes("دسته‌بندی‌های واقعی هنوز ثبت نشده‌اند"))throw new Error("Storefront must expose the full shop catalog, normalized real-category filters, and honest empty states");
 if(!productManagement.includes("/status")||!productManagement.includes("انتشار محصول")||!productManagement.includes("فعال‌سازی فروشنده لازم است"))throw new Error("Product management must support publishing and explain seller activation requirements");
 if(!sellerManagement.includes("/status")||!sellerManagement.includes("فعال‌سازی فروشنده"))throw new Error("Seller management must provide explicit activation controls");
 if(!fs.existsSync(storeDirectory))throw new Error("Public store directory route is missing");
