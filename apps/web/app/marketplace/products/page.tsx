@@ -33,6 +33,7 @@ export default function ProductsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sourceSearch, setSourceSearch] = useState("");
   const [sourceCategory, setSourceCategory] = useState("");
+  const [sourceCategoryUrl, setSourceCategoryUrl] = useState("");
   const [sourceFetchedAt, setSourceFetchedAt] = useState<string | null>(null);
   const [sourceProductId, setSourceProductId] = useState("");
   const [sourceStatus, setSourceStatus] = useState<"live" | "unavailable" | "unknown">("unknown");
@@ -94,6 +95,36 @@ export default function ProductsPage() {
     void load();
     if (wantsImport) void loadSourceCatalog();
   }, []);
+
+  async function lookupDigikalaCategory() {
+    const categoryUrl = sourceCategoryUrl.trim();
+    if (!categoryUrl) {
+      setError("لینک دسته‌بندی دیجی‌کالا را وارد کنید.");
+      return;
+    }
+    setError(""); setNotice(""); setLoadingSource(true);
+    try {
+      const result = await api<{category:string;products:SourceProduct[];total:number;fetchedAt:string;sourceStatus:"live"}>("/api/marketplace/digikala-category", {
+        method: "POST",
+        body: JSON.stringify({ categoryUrl })
+      });
+      setSourceProducts(current => {
+        const byId = new Map<string, SourceProduct>(result.products.map(item => [item.id, item]));
+        for (const item of current) if (!byId.has(item.id)) byId.set(item.id, item);
+        return [...byId.values()];
+      });
+      setSourceCategory("");
+      setSourceSearch("");
+      setSelectedIds(result.products.map(item => item.id).slice(0, 50));
+      setSourceStatus("live");
+      setSourceFetchedAt(result.fetchedAt);
+      setNotice(result.total.toLocaleString("fa-IR") + " محصول از دسته «" + result.category + "» دریافت و برای ورود انتخاب شد. همه ابتدا به‌صورت پیش‌نویس ثبت می‌شوند.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "دریافت محصولات دسته‌بندی ناموفق بود.");
+    } finally {
+      setLoadingSource(false);
+    }
+  }
 
   async function lookupDigikalaProduct() {
     const raw = sourceProductId.trim();
@@ -288,6 +319,10 @@ export default function ProductsPage() {
         <div className="mp-source-id-row">
           <label htmlFor="mp-source-product-id">شناسه یا لینک محصول دیجی‌کالا<input id="mp-source-product-id" value={sourceProductId} onChange={event => setSourceProductId(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void lookupDigikalaProduct(); } }} placeholder="شناسه یا لینک محصول؛ مثال dkp-12345678" /></label>
           <button type="button" className="mp-refresh" onClick={lookupDigikalaProduct} disabled={loadingSource || !sourceProductId.trim()}>{loadingSource ? "در حال دریافت…" : "دریافت محصول"}</button><button type="button" className="mp-refresh" onClick={() => void loadSourceCatalog()} disabled={loadingSource}>{loadingSource ? "در حال دریافت فهرست…" : "تازه‌سازی فهرست"}</button>
+        </div>
+        <div className="mp-source-id-row mp-source-category-row">
+          <label htmlFor="mp-source-category-url">لینک دسته‌بندی دیجی‌کالا<input id="mp-source-category-url" value={sourceCategoryUrl} onChange={event => setSourceCategoryUrl(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void lookupDigikalaCategory(); } }} placeholder="لینک یک دسته‌بندی از دیجی‌کالا" /></label>
+          <button type="button" className="mp-refresh" onClick={lookupDigikalaCategory} disabled={loadingSource || !sourceCategoryUrl.trim()}>{loadingSource ? "در حال دریافت…" : "دریافت حداکثر ۵۰ محصول دسته"}</button>
         </div>
         {sourceStatus === "unavailable" && <p className="mp-inline-warning">منبع مرجع فعلاً پاسخ نمی‌دهد. محصولات ثبت‌شدهٔ داخلی تغییری نمی‌کنند.</p>}
         {loadingSource ? <div className="mp-import-empty">در حال دریافت فهرست محصولات مرجع…</div>
