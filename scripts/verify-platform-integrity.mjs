@@ -149,10 +149,9 @@ if(deployWorkflow.includes("sookar.com")||!deployWorkflow.includes("/home/sookar
 
 
 const rootPage=fs.readFileSync(path.join(root,"apps/web/app/page.tsx"),"utf8");
-const marketplacePage=fs.readFileSync(path.join(root,"apps/web/app/marketplace/MarketplacePage.tsx"),"utf8");
 const marketplaceRoute=fs.readFileSync(path.join(root,"apps/web/app/marketplace/page.tsx"),"utf8");
 const rootLayout=fs.readFileSync(path.join(root,"apps/web/app/layout.tsx"),"utf8");
-if(!rootPage.includes('from "./store/page"')||!marketplaceRoute.includes('from "./MarketplacePage"')||!marketplacePage.includes("بازارگاه چندفروشنده سوکار"))throw new Error("Sookar.ir root must render the storefront while /marketplace remains a separate marketplace route");
+if(!rootPage.includes('from "./store/page"')||!marketplaceRoute.includes('from "../store/page"'))throw new Error("Sookar.ir root and /marketplace must share one canonical storefront implementation");
 if(!rootLayout.includes('const siteUrl = "https://sookar.ir"')||!rootLayout.includes('"@type": "OnlineStore"'))throw new Error("Root storefront SEO metadata must use sookar.ir and OnlineStore schema");
 
 const identityApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"utf8");

@@ -1,5 +1,5 @@
-import MarketplacePage from "./MarketplacePage";
+import StorePage from "../store/page";
 
 export default function MarketplaceRoute() {
-  return <MarketplacePage />;
+  return <StorePage />;
 }
