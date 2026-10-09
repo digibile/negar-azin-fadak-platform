@@ -1,6 +1,9 @@
 name: Deploy Sookar Main Safely
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       target_sha:
@@ -18,8 +21,8 @@ on:
         type: string
 
 concurrency:
-  group: ${{ inputs.deploy_to_server && 'sookar-production-direct' || 'sookar-build-main' }}
-  cancel-in-progress: ${{ !inputs.deploy_to_server }}
+  group: ${{ (github.event_name == 'push' || inputs.deploy_to_server) && 'sookar-production-direct' || 'sookar-build-main' }}
+  cancel-in-progress: ${{ !(github.event_name == 'push' || inputs.deploy_to_server) }}
 
 permissions:
   contents: read
@@ -86,7 +89,7 @@ jobs:
           retention-days: 7
 
       - name: Prepare SSH
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -97,7 +100,7 @@ jobs:
           ssh-keyscan -T 15 -p '${{ secrets.DEPLOY_PORT }}' '${{ secrets.DEPLOY_HOST }}' >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
       - name: Upload release
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -106,7 +109,7 @@ jobs:
           BASE=/home/sookar/domains/sookar.ir/negar-platform
           scp -i ~/.deploy_key -P "$PORT" -o BatchMode=yes /tmp/negar-platform.tar.gz "$HOST:$BASE/negar-platform.tar.gz"
       - name: Deploy with rollback
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         shell: bash
         env:
           RELEASE_SHA: ${{ inputs.target_sha || github.sha }}
@@ -162,7 +165,7 @@ jobs:
           echo "DEPLOYED_SHA=$SHA"
           REMOTE
       - name: Production health and release check
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         env:
           RELEASE_SHA: ${{ inputs.target_sha || github.sha }}
         run: |
@@ -179,7 +182,7 @@ jobs:
           echo PRODUCTION_DEPLOYMENT_OK
           REMOTE
       - name: Reload DirectAdmin Nginx configuration
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -188,7 +191,7 @@ jobs:
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" '/usr/local/directadmin/custombuild/build rewrite_confs >/dev/null && nginx -t && systemctl reload nginx'
 
       - name: Configure DirectAdmin Nginx routes
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -303,8 +306,58 @@ jobs:
           PY
           REMOTE
 
+      - name: Ensure DirectAdmin SSL is enabled
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
+          PORT='${{ secrets.DEPLOY_PORT }}'
+          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          DOMAIN=sookar.ir
+          USER=sookar
+          DOMAIN_CONF="/usr/local/directadmin/data/users/$USER/domains/$DOMAIN.conf"
+          SAN_CONFIG="/usr/local/directadmin/data/users/$USER/domains/$DOMAIN.san_config"
+          CERT="/usr/local/directadmin/data/users/$USER/domains/$DOMAIN.cert"
+          test -f "$DOMAIN_CONF"
+          if grep -q '^ssl=OFF        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 10); do
+            code=$(curl -L --connect-timeout 5 --max-time 10 -sS -o /tmp/sookar-health.html -w '%{http_code}' https://sookar.ir/ || true)
+            echo "PUBLIC_HTTP=$code attempt=$i"
+            if [ "$code" = "200" ]; then
+              echo "PUBLIC_HTTPS_HEALTH_OK"
+              exit 0
+            fi
+            sleep 2
+          done
+          head -c 1000 /tmp/sookar-health.html || true
+          exit 1
+ "$DOMAIN_CONF"; then
+            sed -i 's/^ssl=OFF$/ssl=ON/' "$DOMAIN_CONF"
+            echo "DIRECTADMIN_SSL_FLAG_ENABLED"
+          fi
+          /usr/local/directadmin/custombuild/build rewrite_confs >/dev/null
+          if [ -s "$CERT" ] && openssl x509 -in "$CERT" -noout -checkend 86400 >/dev/null 2>&1 && openssl x509 -in "$CERT" -noout -checkhost "$DOMAIN" >/dev/null 2>&1; then
+            echo "EXISTING_DOMAIN_CERTIFICATE_VALID"
+          else
+            echo "DOMAIN_CERTIFICATE_MISSING_OR_INVALID_REQUESTING_ONCE"
+            if [ -s "$SAN_CONFIG" ]; then
+              /usr/local/directadmin/scripts/letsencrypt.sh request "$DOMAIN" 4096 "$SAN_CONFIG" /var/www/html
+            else
+              /usr/local/directadmin/scripts/letsencrypt.sh request "$DOMAIN" 4096
+            fi
+          fi
+          /usr/local/directadmin/custombuild/build rewrite_confs >/dev/null
+          nginx -t
+          systemctl reload nginx
+          REMOTE
+
       - name: Verify public HTTPS endpoint
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
