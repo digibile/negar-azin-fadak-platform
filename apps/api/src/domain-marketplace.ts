@@ -200,6 +200,16 @@ domainMarketplaceRouter.get("/api/marketplace/settlements",requireAuth,requirePe
 }));
 
 
+domainMarketplaceRouter.get("/api/marketplace/categories",requireAuth,requirePermission("category:view"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const result=await query(
+    "select id,code,name,status,sort_order from marketplace_categories where tenant_id=$1 order by sort_order,name",
+    [ctx.id]
+  );
+  res.json({tenant:ctx,items:result.rows,total:result.rowCount});
+}));
+
 domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res)=>{
   const requestedCode=bodyString(req.query.tenantCode,80)||bodyString(req.query.tenant,80)||undefined;
   const tenant=await resolvePublicTenant(req,requestedCode);
