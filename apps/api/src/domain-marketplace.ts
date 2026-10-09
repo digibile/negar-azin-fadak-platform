@@ -36,6 +36,21 @@ function canonicalMarketplaceCategory(value:unknown):string{
 }
 function bodyNumber(value:unknown){const n=Number(value);return Number.isFinite(n)?n:null}
 
+async function importDigikalaImage(imageUrlValue:string,mediaDir:string,tenantId:string):Promise<string>{
+ const imageUrl=new URL(imageUrlValue);
+ if(imageUrl.protocol!=="https:"||imageUrl.hostname!=="dkstatics-public.digikala.com")throw new Error("منبع تصویر مجاز نیست");
+ const response=await fetch(imageUrl,{redirect:"error",signal:AbortSignal.timeout(8000),headers:{accept:"image/avif,image/webp,image/png,image/jpeg"}});
+ const contentType=(response.headers.get("content-type")||"").split(";")[0].trim().toLowerCase();
+ const extension:Record<string,string>={"image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/avif":"avif"};
+ const size=Number(response.headers.get("content-length")||0);
+ if(!response.ok||!extension[contentType]||(size>0&&size>5*1024*1024))throw new Error("تصویر معتبر یا در محدوده مجاز نیست");
+ const bytes=Buffer.from(await response.arrayBuffer());
+ if(bytes.length===0||bytes.length>5*1024*1024)throw new Error("حجم تصویر معتبر نیست");
+ const filename=randomUUID()+"."+extension[contentType];
+ await writeFile(path.join(mediaDir,filename),bytes,{flag:"wx"});
+ return "/api/public/media/catalog/"+tenantId+"/"+filename;
+}
+
 domainMarketplaceRouter.get("/api/tenancy/context",requireAuth,asyncHandler(async(req,res)=>{
   const user=(req as any).user as User;
   const ctx=await tenantContext(req,user);
@@ -303,21 +318,20 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requir
   for(const product of selected){
     let localImage:string|null=null;
     try{
-      const imageUrl=new URL(product.image_url);
-      if(imageUrl.protocol!=="https:"||imageUrl.hostname!=="dkstatics-public.digikala.com")throw new Error("منبع تصویر مجاز نیست");
-      const imageResponse=await fetch(imageUrl,{redirect:"error",signal:AbortSignal.timeout(8000),headers:{accept:"image/avif,image/webp,image/png,image/jpeg"}});
-      const contentType=(imageResponse.headers.get("content-type")||"").split(";")[0].trim().toLowerCase();
-      const extension:Record<string,string>={"image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/avif":"avif"};
-      const size=Number(imageResponse.headers.get("content-length")||0);
-      if(!imageResponse.ok||!extension[contentType]||(size>0&&size>5*1024*1024))throw new Error("تصویر معتبر یا در محدوده مجاز نیست");
-      const bytes=Buffer.from(await imageResponse.arrayBuffer());
-      if(bytes.length===0||bytes.length>5*1024*1024)throw new Error("حجم تصویر معتبر نیست");
-      const filename=randomUUID()+"."+extension[contentType];
-      await writeFile(path.join(mediaDir,filename),bytes,{flag:"wx"});
-      localImage="/api/public/media/catalog/"+ctx.id+"/"+filename;
+      localImage=await importDigikalaImage(product.image_url,mediaDir,ctx.id);
     }catch{
-      skipped.push(product.sku+": تصویر از منبع قابل دریافت نبود");
+      skipped.push(product.sku+": تصویر اصلی از منبع قابل دریافت نبود");
       continue;
+    }
+    const localGallery:string[]=[localImage];
+    for(const galleryUrl of product.gallery_images.slice(0,11)){
+      if(galleryUrl===product.image_url)continue;
+      try{
+        const importedImage=await importDigikalaImage(galleryUrl,mediaDir,ctx.id);
+        if(!localGallery.includes(importedImage))localGallery.push(importedImage);
+      }catch{
+        // A failed optional gallery image must not discard an otherwise valid product.
+      }
     }
     const attributes={
       imageUrl:localImage,
@@ -328,7 +342,7 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requir
       brand:product.brand,
       rating:product.rating,
       specifications:product.specifications,
-      galleryImages:product.gallery_images,
+      galleryImages:localGallery,
       importedAt:new Date().toISOString(),
       priceReviewRequired:true
     };
