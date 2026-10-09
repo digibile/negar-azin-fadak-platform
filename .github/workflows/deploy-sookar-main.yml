@@ -21,7 +21,7 @@ on:
         type: string
 
 concurrency:
-  group: ${{ inputs.deploy_to_server && 'sookar-production-direct' || 'sookar-build-main-v2' }}
+  group: ${{ (github.event_name == 'push' || inputs.deploy_to_server) && 'sookar-production-direct' || 'sookar-build-main-v2' }}
   cancel-in-progress: false
 
 permissions:
@@ -110,7 +110,7 @@ jobs:
           retention-days: 7
 
       - name: Prepare SSH
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -121,7 +121,7 @@ jobs:
           ssh-keyscan -T 15 -p '${{ secrets.DEPLOY_PORT }}' '${{ secrets.DEPLOY_HOST }}' >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
       - name: Upload release
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -130,7 +130,7 @@ jobs:
           BASE=/home/sookar/domains/sookar.ir/negar-platform
           scp -i ~/.deploy_key -P "$PORT" -o BatchMode=yes /tmp/negar-platform.tar.gz "$HOST:$BASE/negar-platform.tar.gz"
       - name: Deploy with rollback
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         shell: bash
         env:
           RELEASE_SHA: ${{ inputs.target_sha || github.sha }}
@@ -186,7 +186,7 @@ jobs:
           echo "DEPLOYED_SHA=$SHA"
           REMOTE
       - name: Production health and release check
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         env:
           RELEASE_SHA: ${{ inputs.target_sha || github.sha }}
         run: |
@@ -203,7 +203,7 @@ jobs:
           echo PRODUCTION_DEPLOYMENT_OK
           REMOTE
       - name: Reload DirectAdmin Nginx configuration
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -212,7 +212,7 @@ jobs:
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" '/usr/local/directadmin/custombuild/build rewrite_confs >/dev/null && nginx -t && systemctl reload nginx'
 
       - name: Configure DirectAdmin Nginx routes
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -328,7 +328,7 @@ jobs:
           REMOTE
 
       - name: Verify public HTTPS endpoint
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
