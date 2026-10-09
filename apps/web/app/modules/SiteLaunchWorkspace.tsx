@@ -14,7 +14,7 @@ const templates=[
  {value:"kipa-store",label:"کیپا · فروشگاهی"},
  {value:"technolife-store",label:"تکنولایف · فناوری"}
 ];
-const previewPaths:Record<string,string>={"digipay-fintech":"/store/digipay","digibile-commerce":"/store/digibile","technolife-store":"/store/technolife","kipa-store":"/store/kipa","digikala-store":"/store/digikala"};
+const previewPaths:Record<string,string>={"digipay-fintech":"/store/digipay","digibile-commerce":"/store/digibile","vamcity-lending":"/store/vamcity","technolife-store":"/store/technolife","kipa-store":"/store/kipa","digikala-store":"/store/digikala","naf-corporate":"/store/naf"};
 const businessTypes=[
  {value:"digital-products",label:"محصولات دیجیتال",detail:"فایل، لایسنس، اشتراک و تحویل دیجیتال"},
  {value:"home-goods",label:"لوازم خانه",detail:"کالای فیزیکی، موجودی، حمل و مرجوعی"},
