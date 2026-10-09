@@ -89,6 +89,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const isKipa = variant === "kipa";
   const isDigibile = variant === "digibile";
   const showAllProducts = pathname === "/store/shop";
+  const productHrefFor = (product:Product) => "/store/product/" + encodeURIComponent(product.sku || product.id) + "?site=" + variant;
   const [data, setData] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -235,7 +236,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
           </div>
           <div className="sk-hero-products" aria-label="محصولات منتخب از کاتالوگ">
             {sourceProducts.filter(product => safeImageUrl(product.image_url)).slice(0, 3).map((product, index) => (
-              <Link href={"/store/product/" + encodeURIComponent(product.sku || product.id)} className={"sk-hero-product sk-hero-product-" + index} key={product.id}>
+              <Link href={productHrefFor(product)} className={"sk-hero-product sk-hero-product-" + index} key={product.id}>
                 <img src={safeImageUrl(product.image_url) || ""} alt={product.title} />
                 <span>{product.title}</span><b>{money(product.price, product.currency)}</b>
               </Link>
@@ -282,7 +283,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
           {loading ? <div className="sk-state"><span className="sk-loader" />در حال دریافت اطلاعات واقعی محصولات…</div>
           : error ? <div className="sk-state sk-state-error"><b>دریافت محصولات انجام نشد</b><p>{error}</p><button type="button" onClick={() => window.location.reload()}>تلاش دوباره</button></div>
           : products.length ? <div className="sk-product-grid">{products.slice(0, showAllProducts ? products.length : 20).map(product => {
-            const productHref = "/store/product/" + encodeURIComponent(product.sku || product.id);
+            const productHref = productHrefFor(product);
             const image = safeImageUrl(product.image_url);
             return <article className="sk-product-card" key={product.id}>
               <Link href={productHref} className="sk-product-visual" aria-label={"مشاهده " + product.title}>
