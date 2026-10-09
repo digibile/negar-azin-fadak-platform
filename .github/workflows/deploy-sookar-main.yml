@@ -136,7 +136,7 @@ jobs:
           KEY="/usr/local/directadmin/data/users/$USER/domains/$DOMAIN.key"
           test -f "$DOMAIN_CONF"
           if [ ! -s "$CERT" ]; then
-            echo "ERROR: DirectAdmin certificate is missing. Automatic issuance is intentionally disabled while the CA rate limit is active." >&2
+            echo "ERROR: DirectAdmin certificate is missing. Automatic issuance is disabled while the CA rate limit is active." >&2
             exit 1
           fi
           if [ ! -s "$KEY" ]; then
@@ -144,12 +144,12 @@ jobs:
             exit 1
           fi
           if ! openssl x509 -in "$CERT" -noout -checkend 86400 >/dev/null 2>&1; then
-            echo "ERROR: DirectAdmin certificate is invalid or expires within 24 hours; do not trigger repeated ACME issuance." >&2
+            echo "ERROR: DirectAdmin certificate is invalid or expires within 24 hours; repeated ACME issuance is intentionally disabled." >&2
             openssl x509 -in "$CERT" -noout -dates 2>&1 || true
             exit 1
           fi
           if ! openssl x509 -in "$CERT" -noout -checkhost "$DOMAIN" >/dev/null 2>&1; then
-            echo "ERROR: Existing certificate SAN does not cover $DOMAIN." >&2
+            echo "ERROR: Existing certificate does not cover $DOMAIN." >&2
             openssl x509 -in "$CERT" -noout -subject -ext subjectAltName 2>&1 || true
             exit 1
           fi
@@ -161,7 +161,15 @@ jobs:
           fi
           echo "CERTIFICATE_VALID_FOR=$DOMAIN"
           openssl x509 -in "$CERT" -noout -issuer -dates
-          if grep -q '^ssl=OFF
+          if grep -q '^ssl=OFF$' "$DOMAIN_CONF"; then
+            sed -i 's/^ssl=OFF$/ssl=ON/' "$DOMAIN_CONF"
+            echo DIRECTADMIN_SSL_FLAG_ENABLED
+          fi
+          /usr/local/directadmin/custombuild/build rewrite_confs >/dev/null
+          nginx -t
+          systemctl reload nginx
+          curl --fail --silent --show-error --connect-timeout 5 --max-time 15 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/" -o /dev/null
+          echo LOCAL_TLS_HANDSHAKE_AND_CERTIFICATE_VALID
           REMOTE
 
       - name: Upload release
