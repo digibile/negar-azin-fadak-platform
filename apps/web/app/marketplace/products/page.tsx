@@ -66,7 +66,7 @@ export default function ProductsPage() {
       setLoading(false);
     }
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "import") setTab("import"); void load(); }, []);
 
   async function lookupDigikalaProduct() {
     const id = sourceProductId.trim().replace(/^dkp-/i, "");
