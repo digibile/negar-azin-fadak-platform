@@ -282,7 +282,7 @@ export default function ProductsPage() {
       <div className="mp-workspace-head"><div><h2>افزودن به کاتالوگ</h2><p>محصول را ثبت کنید یا دادهٔ مرجع را به رکورد داخلی قابل بررسی تبدیل کنید.</p></div>
         <div className="mp-tabs" role="tablist" aria-label="روش افزودن محصول">
           <button type="button" role="tab" aria-selected={tab === "manual"} className={tab === "manual" ? "is-active" : ""} onClick={() => setTab("manual")}>ثبت محصول</button>
-          <button type="button" role="tab" aria-selected={tab === "import"} className={tab === "import" ? "is-active" : ""} onClick={() => setTab("import")}>ورود از منبع</button>
+          <button type="button" role="tab" aria-selected={tab === "import"} className={tab === "import" ? "is-active" : ""} onClick={() => { setTab("import"); if (!sourceProducts.length) void loadSourceCatalog(); }}>ورود از منبع</button>
         </div>
       </div>
 
