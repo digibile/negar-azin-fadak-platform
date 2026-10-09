@@ -23,7 +23,7 @@ formBuilderRouter.post("/api/form-builder/forms",requireAuth,requirePermission("
  if(!code||!name||!slug)return res.status(400).json({error:"کد، عنوان و کلید فرم الزامی است"});
  const schema=req.body?.schema&&typeof req.body.schema==="object"?req.body.schema:{fields:[]};
  const version=n(req.body?.version??1)??1;
- const r=await query("insert into form_definitions(tenant_id,code,name,slug,module_key,schema,category,validation_mode,access_level,submit_mode,owner_ref,notes,status,version,published_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) returning *",[t.id,code,name,slug,s(req.body?.moduleKey,150)||"form-builder",schema,s(req.body?.category,80)||"عمومی",s(req.body?.validationMode,80)||"قابل تنظیم",s(req.body?.accessLevel,80)||"کاربران واردشده",s(req.body?.submitMode,80)||"ثبت مستقیم",s(req.body?.ownerRef,150)||null,s(req.body?.notes,2000)||null,s(req.body?.status,20)||"draft",version,req.body?.publishedAt||null]);
+ const r=await query("insert into form_definitions(tenant_id,code,name,slug,module_key,schema,category,validation_mode,access_level,submit_mode,owner_ref,notes,status,version,published_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) returning *",[t.id,code,name,slug,s(req.body?.moduleKey,150)||"form-builder",schema,s(req.body?.category,80)||"عمومی",s(req.body?.validationMode,80)||"قابل تنظیم",s(req.body?.accessLevel,80)||"کاربران واردشده",s(req.body?.submitMode,80)||"ثبت مستقیم",s(req.body?.ownerRef,150)||null,s(req.body?.notes,2000)||null,"draft",version,null]);
  res.status(201).json(r.rows[0]);
 }));
 
