@@ -174,7 +174,7 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
       <header className="sk-header">
         <div className="sk-wrap sk-header-main">
           <Link href="/" className="sk-logo" aria-label="سوکار، صفحه اصلی">
-            <span className="sk-logo-mark">س</span>
+            <span className="sk-logo-mark">{isKipa ? "ک" : "س"}</span>
             <span><b>{isTechnolife ? "سوکار تک" : isAva ? "آوا" : isKipa ? "کیپا" : "سوکار"}</b><small>{isTechnolife ? "دنیای فناوری، یک‌جا" : isKipa ? "انتخاب روشن، خرید مطمئن" : "خرید هوشمند، انتخاب مطمئن"}</small></span>
           </Link>
           <form className="sk-search" role="search" onSubmit={event => { event.preventDefault(); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth" }); }}>
