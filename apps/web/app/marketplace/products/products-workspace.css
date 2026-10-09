@@ -91,3 +91,7 @@
 .mp-uploaded-image img{width:58px;height:58px;object-fit:contain;border:1px solid #e1e8f2;border-radius:8px;background:#fff}
 .mp-uploaded-image code{max-width:100%;overflow-wrap:anywhere;color:#52647d;font-size:10px}
 .mp-uploaded-image button{min-height:32px;padding:0 9px;border:1px solid #e8cccc;border-radius:8px;background:#fff7f7;color:#a33b3b;font:inherit;font-size:10px;font-weight:800;cursor:pointer}
+
+
+.mp-source-search{display:flex;flex-direction:column;gap:7px;margin-bottom:13px;color:#405066;font-size:11px;font-weight:850}
+.mp-source-search input{max-width:520px}
