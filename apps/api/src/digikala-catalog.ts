@@ -141,8 +141,12 @@ async function fetchSearch(query: string, category: string, page = 1): Promise<D
   url.searchParams.set("page", String(page));
   const response = await fetch(url, {
     headers: {
-      accept: "application/json",
-      "user-agent": "SookarCatalogReference/1.0 (+https://sookar.ir)"
+      accept: "application/json, text/plain, */*",
+      referer: "https://www.digikala.com/",
+      "x-web-client-id": "web",
+      "x-web-client": "desktop",
+      "x-web-optimize-response": "1",
+      "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
     },
     signal: AbortSignal.timeout(6500)
   });
