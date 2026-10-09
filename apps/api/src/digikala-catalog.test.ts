@@ -57,3 +57,18 @@ test("accepts nested item-list payloads and preserves the supplied category",()=
   assert.equal(products[0].category,"لوازم اداری");
   assert.equal(products[0].source_type,"external-reference");
 });
+
+test("normalizes a single-product detail payload for admin ID lookup",()=>{
+  const products=normalizeDigikalaProducts({data:{product:{
+    id:987654,
+    title_fa:"کالای بازیابی‌شده با شناسه",
+    images:{main:{url:["https://dkstatics-public.digikala.com/digikala-products/id-lookup.jpg"]}},
+    default_variant:{price:{selling_price:765000},status:"marketable"},
+    category:{title_fa:"لوازم جانبی"}
+  }}}, "سایر کالاها");
+  assert.equal(products.length,1);
+  assert.equal(products[0].id,"digikala-987654");
+  assert.equal(products[0].sku,"DK-987654");
+  assert.equal(products[0].price,"765000");
+  assert.equal(products[0].source_available,true);
+});
