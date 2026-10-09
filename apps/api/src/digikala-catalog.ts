@@ -4,7 +4,7 @@ export type DigikalaCatalogProduct = {
   title: string;
   description: string | null;
   category: string;
-  price: string;
+  price: string | null;
   currency: "IRR";
   seller_name: "دیجی‌کالا · منبع اصلی";
   store_id: null;
@@ -104,7 +104,7 @@ export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: st
       at(product, "price", "sellingPrice"),
       product.selling_price
     );
-    if (!id || !title || !image || !price) continue;
+    if (!id || !title || !image) continue;
     const category = textValue(at(product, "category", "title_fa"))
       || textValue(at(product, "category", "name"))
       || fallbackCategory;
@@ -126,6 +126,7 @@ export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: st
           : status === "unavailable" || status === "sold_out"
             ? false
             : typeof product.is_available === "boolean" ? product.is_available : null;
+    if (price === null && sourceAvailable !== false) continue;
     const ratingNumber = typeof rawRating === "number" ? rawRating : typeof rawRating === "string" ? Number(rawRating) : NaN;
     normalized.push({
       id: "digikala-" + id,
@@ -133,7 +134,7 @@ export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: st
       title,
       description,
       category,
-      price: String(price),
+      price: price === null ? null : String(price),
       currency: "IRR",
       seller_name: "دیجی‌کالا · منبع اصلی",
       store_id: null,
@@ -166,14 +167,16 @@ export async function getDigikalaProductById(input: string): Promise<DigikalaCat
   if (!response.ok) throw new Error("دریافت محصول از دیجی‌کالا با خطای HTTP " + response.status + " روبه‌رو شد.");
   const payload = await response.json();
   const product = normalizeDigikalaProducts(payload, "سایر کالاها").find(item => item.id === "digikala-" + id);
-  if (!product) throw new Error("برای این شناسه، محصول دارای عنوان، تصویر و قیمت معتبر پیدا نشد.");
+  if (!product || product.price === null) throw new Error("برای این شناسه، محصول دارای عنوان، تصویر و قیمت معتبر پیدا نشد.");
   return product;
 }
 
 let cachedProducts: DigikalaCatalogProduct[] = [];
 let cachedAt = 0;
+let lastAttemptAt = 0;
+let lastFetchSucceeded = false;
 let inFlight: Promise<DigikalaCatalogProduct[]> | null = null;
-const CACHE_MS = 20 * 60 * 1000;
+const CACHE_MS = 5 * 60 * 1000;
 
 async function fetchSearch(query: string, category: string, page = 1): Promise<DigikalaCatalogProduct[]> {
   const url = new URL("/v1/search/", "https://api.digikala.com");
@@ -196,52 +199,32 @@ async function fetchSearch(query: string, category: string, page = 1): Promise<D
 
 async function loadCatalog(): Promise<DigikalaCatalogProduct[]> {
   const unique = new Map<string, DigikalaCatalogProduct>();
-  const firstPass = await Promise.allSettled(
-    SEARCHES.map(item => fetchSearch(item.query, item.category, 1))
-  );
-  for (const result of firstPass) {
-    if (result.status !== "fulfilled") continue;
-    for (const product of result.value) {
-      if (!unique.has(product.id)) unique.set(product.id, product);
-      if (unique.size >= 250) break;
-    }
-    if (unique.size >= 250) break;
-  }
-  if (unique.size < 200) {
-    const secondPass = await Promise.allSettled(
-      SEARCHES.slice(0, 6).map(item => fetchSearch(item.query, item.category, 2))
-    );
-    for (const result of secondPass) {
-      if (result.status !== "fulfilled") continue;
+  for (let start = 0; start < SEARCHES.length && unique.size < 250; start += 3) {
+    const batch = await Promise.allSettled(SEARCHES.slice(start, start + 3).map(item => fetchSearch(item.query, item.category, 1)));
+    for (const result of batch) if (result.status === "fulfilled") {
       for (const product of result.value) {
         if (!unique.has(product.id)) unique.set(product.id, product);
         if (unique.size >= 250) break;
       }
-      if (unique.size >= 250) break;
     }
+    if (start + 3 < SEARCHES.length && unique.size < 250) await new Promise(resolve => setTimeout(resolve, 350));
   }
   return [...unique.values()].slice(0, 250);
 }
 
-export async function getDigikalaCatalog(forceRefresh = false): Promise<{ products: DigikalaCatalogProduct[]; sourceStatus: "live" | "unavailable"; fetchedAt: string | null }> {
-  if (forceRefresh) cachedAt = 0;
-  if (Date.now() - cachedAt < CACHE_MS) {
-    return { products: cachedProducts, sourceStatus: cachedProducts.length ? "live" : "unavailable", fetchedAt: cachedAt ? new Date(cachedAt).toISOString() : null };
+export async function getDigikalaCatalog(forceRefresh = false): Promise<{ products: DigikalaCatalogProduct[]; categories: string[]; sourceStatus: "live" | "unavailable"; fetchedAt: string | null }> {
+  if (forceRefresh) lastAttemptAt = 0;
+  if (!forceRefresh && lastAttemptAt > 0 && Date.now() - lastAttemptAt < CACHE_MS) {
+    return { products: cachedProducts, categories: [...new Set(SEARCHES.map(item => item.category))], sourceStatus: lastFetchSucceeded && cachedProducts.length ? "live" : "unavailable", fetchedAt: cachedAt ? new Date(cachedAt).toISOString() : null };
   }
   if (!inFlight) {
-    inFlight = loadCatalog()
-      .then(products => {
-        cachedProducts = products;
-        cachedAt = Date.now();
-        return products;
-      })
-      .catch(() => {
-        cachedProducts = [];
-        cachedAt = Date.now();
-        return cachedProducts;
-      })
-      .finally(() => { inFlight = null; });
+    lastAttemptAt = Date.now();
+    inFlight = loadCatalog().then(products => {
+      if (products.length) { cachedProducts = products; cachedAt = Date.now(); lastFetchSucceeded = true; }
+      else lastFetchSucceeded = false;
+      return cachedProducts;
+    }).catch(() => { lastFetchSucceeded = false; return cachedProducts; }).finally(() => { inFlight = null; });
   }
   const products = await inFlight;
-  return { products, sourceStatus: products.length ? "live" : "unavailable", fetchedAt: cachedAt ? new Date(cachedAt).toISOString() : null };
+  return { products, categories: [...new Set(SEARCHES.map(item => item.category))], sourceStatus: lastFetchSucceeded && products.length ? "live" : "unavailable", fetchedAt: cachedAt ? new Date(cachedAt).toISOString() : null };
 }

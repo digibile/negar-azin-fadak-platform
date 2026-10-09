@@ -463,6 +463,12 @@ domainMarketplaceRouter.post("/api/marketplace/media",requireAuth,requirePermiss
   res.status(201).json({imageUrl:"/api/public/media/catalog/"+ctx.id+"/"+filename,contentType:"image/"+match[1],size:bytes.length});
 }));
 
+domainMarketplaceRouter.get("/api/public/digikala-catalog",asyncHandler(async(_req,res)=>{
+  const catalog=await getDigikalaCatalog();
+  res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
+  res.json({source:"دیجی‌کالا",sourceStatus:catalog.sourceStatus,fetchedAt:catalog.fetchedAt,categories:catalog.categories,products:catalog.products,total:catalog.products.length,notice:"قیمت و موجودی متعلق به منبع بیرونی است و هنگام خرید باید در صفحه دیجی‌کالا بررسی شود."});
+}));
+
 domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res)=>{
   const requestedCode=bodyString(req.query.tenantCode,80)||bodyString(req.query.tenant,80)||undefined;
   const tenant=await resolvePublicTenant(req,requestedCode);

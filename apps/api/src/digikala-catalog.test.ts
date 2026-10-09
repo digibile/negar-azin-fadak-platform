@@ -36,6 +36,11 @@ test("keeps source availability separate from local inventory",()=>{
   assert.equal(products.length,3);
 });
 
+test("keeps a sold-out product with no current price visible as unavailable",()=>{
+  const products=normalizeDigikalaProducts({data:{products:[{id:104,title_fa:"کالای ناموجود بدون قیمت",images:{main:{url:["https://dkstatics-public.digikala.com/item4.jpg"]}},default_variant:{is_sold_out:true}}]}}, "سایر کالاها");
+  assert.equal(products.length,1); assert.equal(products[0].price,null); assert.equal(products[0].source_available,false);
+});
+
 test("rejects records without a real image or valid price",()=>{
   const products=normalizeDigikalaProducts({data:{products:[
     {id:1,title_fa:"بدون تصویر",default_variant:{price:{selling_price:1000}}},

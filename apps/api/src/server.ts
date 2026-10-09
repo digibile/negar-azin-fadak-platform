@@ -35,6 +35,7 @@ import {domainDocumentsRouter} from "./domain-documents.js";
 import {domainOrganizationRouter} from "./domain-organization.js";
 import {domainCommandPlatformRouter} from "./domain-command-platform.js";
 import {domainMarketplaceRouter} from "./domain-marketplace.js";
+import {getDigikalaCatalog} from "./digikala-catalog.js";
 import {platformOperationsRouter} from "./platform-operations.js";
 import {sellerSurfaceRouter} from "./seller-surface.js";
 import {tenantContentRouter} from "./tenant-content.js";
@@ -236,4 +237,7 @@ const shutdown=async()=>{server.close();const {pool}=await import("./db.js");awa
 process.on("SIGTERM",shutdown);process.on("SIGINT",shutdown);
 const slaSweep=setInterval(()=>sweepSlaCases().catch(console.error),60000);
 slaSweep.unref();
+void getDigikalaCatalog(true).catch(error=>console.error("Digikala catalog warm-up failed",error));
+const digikalaCatalogSweep=setInterval(()=>getDigikalaCatalog(true).catch(error=>console.error("Digikala catalog refresh failed",error)),5*60*1000);
+digikalaCatalogSweep.unref();
 if(process.env.ADMIN_EMAIL&&process.env.ADMIN_PASSWORD)ensureAdmin(process.env.ADMIN_EMAIL,process.env.ADMIN_PASSWORD).catch(console.error);
