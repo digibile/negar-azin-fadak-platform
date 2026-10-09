@@ -1,5 +1,5 @@
 import StorePage from "./store/page";
 
 export default function HomePage() {
-  return <StorePage />;
+  return <StorePage variant="digikala" />;
 }
