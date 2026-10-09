@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../../../lib/api";
+import "./products-workspace.css";
 
 type Seller = { id: string; display_name: string; status: string };
 type Category = { id: string; code: string; name: string; status: string; sort_order: number };
-type Product = { id: string; sku: string; title: string; price: string | number; currency: string; status: string; seller_id: string; image_url?: string | null };
-const statusLabel:Record<string,string>={draft:"پیش‌نویس",active:"فعال و قابل نمایش",archived:"بایگانی‌شده"};
+type Product = { id: string; sku: string; title: string; price: string | number; currency: string; status: string; seller_id: string; image_url?: string | null; category?: string | null };
+type SourceProduct = { id: string; sku: string; title: string; price: string; currency: string; category: string; image_url: string; brand: string | null; source_name: string };
+type SourceCatalog = { products: SourceProduct[]; sourceStatus: "live" | "unavailable"; fetchedAt: string | null };
+type ImportResult = { totalImported: number; totalSkipped: number; imported: string[]; skipped: string[]; message: string };
+const statusLabel: Record<string,string> = { draft:"پیش‌نویس", active:"منتشرشده", archived:"بایگانی‌شده" };
+const money = (value: string | number, currency = "IRR") => `${Number(value).toLocaleString("fa-IR")} ${currency === "IRR" ? "ریال" : currency}`;
 
 export default function ProductsPage() {
   const [items, setItems] = useState<Product[]>([]);
@@ -15,12 +20,23 @@ export default function ProductsPage() {
   const [sellerId, setSellerId] = useState("");
   const [sku, setSku] = useState("");
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [tab, setTab] = useState<"manual" | "import">("manual");
+  const [sourceProducts, setSourceProducts] = useState<SourceProduct[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [sourceStatus, setSourceStatus] = useState<"live" | "unavailable" | "unknown">("unknown");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingId, setSavingId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadingSource, setLoadingSource] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   async function load() {
     setError("");
@@ -33,19 +49,38 @@ export default function ProductsPage() {
       setItems(productResult.items || []);
       setSellers(sellerResult.items || []);
       setCategories((categoryResult.items || []).filter(item => item.status === "active"));
-      if (!sellerId && sellerResult.items?.length) {
-        setSellerId((sellerResult.items.find(x => x.status === "active") || sellerResult.items[0]).id);
-      }
+      setSellerId(current => current || (sellerResult.items?.find(x => x.status === "active") || sellerResult.items?.[0])?.id || "");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "دریافت فهرست محصولات یا فروشندگان ناموفق بود.");
+      setError(reason instanceof Error ? reason.message : "دریافت کاتالوگ یا فروشندگان ناموفق بود.");
+    } finally {
+      setLoading(false);
     }
   }
   useEffect(() => { void load(); }, []);
 
+  async function loadSourceCatalog() {
+    setError("");
+    setNotice("");
+    setLoadingSource(true);
+    try {
+      const result = await api<SourceCatalog>("/api/public/digikala-catalog");
+      setSourceProducts(result.products || []);
+      setSourceStatus(result.sourceStatus || "unavailable");
+      setSelectedIds(current => current.filter(id => (result.products || []).some(product => product.id === id)));
+      if (!result.products?.length) setNotice("در حال حاضر محصول قابل ورود از منبع مرجع دریافت نشد.");
+    } catch (reason) {
+      setSourceStatus("unavailable");
+      setError(reason instanceof Error ? reason.message : "دریافت فهرست مرجع ناموفق بود.");
+    } finally {
+      setLoadingSource(false);
+    }
+  }
+
   async function create() {
     setError("");
-    if (imageUrl && !/^https?:\/\//i.test(imageUrl.trim()) && !(imageUrl.trim().startsWith("/") && !imageUrl.trim().startsWith("//"))) {
-      setError("نشانی تصویر باید HTTPS یا یک مسیر داخلی معتبر باشد.");
+    setNotice("");
+    if (imageUrl && !imageUrl.startsWith("/api/public/media/")) {
+      setError("برای جلوگیری از لینک تصویر خارجی، فقط مسیر رسانهٔ ذخیره‌شده در سوکار پذیرفته می‌شود. برای ورود گروهی از بخش «ورود از منبع» استفاده کنید.");
       return;
     }
     setSaving(true);
@@ -53,12 +88,13 @@ export default function ProductsPage() {
       await api("/api/marketplace/products", {
         method: "POST",
         body: JSON.stringify({
-          sellerId, sku: sku.trim(), title: title.trim(), price: Number(price),
-          category: category.trim() || undefined,
+          sellerId, sku: sku.trim(), title: title.trim(), description: description.trim(),
+          price: Number(price), category: category.trim() || undefined,
           attributes: imageUrl.trim() ? { imageUrl: imageUrl.trim() } : {}
         })
       });
-      setSku(""); setTitle(""); setPrice(""); setCategory(""); setImageUrl("");
+      setSku(""); setTitle(""); setDescription(""); setPrice(""); setCategory(""); setImageUrl("");
+      setNotice("محصول در کاتالوگ داخلی به‌صورت پیش‌نویس ثبت شد.");
       await load();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "ثبت محصول ناموفق بود.");
@@ -67,56 +103,120 @@ export default function ProductsPage() {
     }
   }
 
-  async function changeStatus(item:Product,status:"active"|"draft") {
-    setError("");setSavingId(item.id);
+  async function importSelected() {
+    if (!sellerId || !selectedIds.length) return;
+    setError("");
+    setNotice("");
+    setImporting(true);
     try {
-      await api("/api/marketplace/products/"+encodeURIComponent(item.id)+"/status", {
-        method:"PATCH",body:JSON.stringify({status})
+      const result = await api<ImportResult>("/api/marketplace/products/import-reference", {
+        method: "POST",
+        body: JSON.stringify({ sellerId, productIds: selectedIds })
       });
+      setNotice(`ورود تمام شد: ${result.totalImported.toLocaleString("fa-IR")} محصول در کاتالوگ داخلی ثبت شد؛ ${result.totalSkipped.toLocaleString("fa-IR")} مورد رد شد. همهٔ محصولات واردشده پیش‌نویس هستند و خودکار منتشر نمی‌شوند.`);
+      setSelectedIds([]);
       await load();
-    } catch(reason) {
-      setError(reason instanceof Error?reason.message:"تغییر وضعیت محصول ناموفق بود.");
-    } finally {setSavingId("");}
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "ورود محصولات به کاتالوگ داخلی ناموفق بود.");
+    } finally {
+      setImporting(false);
+    }
   }
 
-  const selectedSeller=sellers.find(x=>x.id===sellerId);
-  const sellerFor=(id:string)=>sellers.find(x=>x.id===id);
-  return <main className="enterprise-main" dir="rtl">
-    <header className="platform-header"><div><span className="section-kicker">کاتالوگ واقعی</span><h1>محصولات و تصاویر کالا</h1><p>اطلاعات محصول در PostgreSQL ثبت می‌شود. دسته‌بندی از فهرست مرکزی انتخاب می‌شود؛ برای نمایش عمومی، محصول و فروشنده باید فعال باشند.</p></div><a href="/platform">مرکز عملیات</a></header>
-    <section className="platform-panel">
-      <div className="platform-form">
-        <select value={sellerId} onChange={event=>setSellerId(event.target.value)} aria-label="فروشنده">
-          <option value="">انتخاب فروشنده</option>
-          {sellers.map(seller=><option key={seller.id} value={seller.id}>{seller.display_name} · {seller.status==="active"?"فعال":"غیرفعال"}</option>)}
-        </select>
-        <input value={sku} onChange={event => setSku(event.target.value)} placeholder="شناسه کالا (SKU)" aria-label="شناسه کالا" />
-        <input value={title} onChange={event => setTitle(event.target.value)} placeholder="عنوان محصول" aria-label="عنوان محصول" />
-        <select value={category} onChange={event => setCategory(event.target.value)} aria-label="دسته‌بندی کالا">
-          <option value="">انتخاب دسته‌بندی</option>
-          {categories.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
-        </select>
-        <input value={price} onChange={event => setPrice(event.target.value)} type="number" min="0" placeholder="قیمت" aria-label="قیمت" />
-        <input value={imageUrl} onChange={event => setImageUrl(event.target.value)} type="url" placeholder="نشانی تصویر کالا (HTTPS)" aria-label="نشانی تصویر کالا" />
-        <button onClick={create} disabled={saving || !sellerId || !sku.trim() || !title.trim() || price === ""}>{saving ? "در حال ثبت…" : "ثبت پیش‌نویس محصول"}</button>
+  async function changeStatus(item: Product, status: "active" | "draft") {
+    setError(""); setNotice(""); setSavingId(item.id);
+    try {
+      await api("/api/marketplace/products/" + encodeURIComponent(item.id) + "/status", {
+        method: "PATCH", body: JSON.stringify({ status })
+      });
+      setNotice(status === "active" ? "محصول در ویترین داخلی منتشر شد." : "محصول از ویترین برداشته شد.");
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "تغییر وضعیت محصول ناموفق بود.");
+    } finally { setSavingId(""); }
+  }
+
+  const selectedSeller = sellers.find(x => x.id === sellerId);
+  const sellerFor = (id: string) => sellers.find(x => x.id === id);
+  const visibleItems = useMemo(() => {
+    const needle = search.trim().toLocaleLowerCase("fa");
+    return items.filter(item => {
+      const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+      const matchesSearch = !needle || [item.title, item.sku, item.category || "", sellerFor(item.seller_id)?.display_name || ""].join(" ").toLocaleLowerCase("fa").includes(needle);
+      return matchesStatus && matchesSearch;
+    });
+  }, [items, search, statusFilter, sellers]);
+
+  return <main className="enterprise-main mp-products" dir="rtl">
+    <header className="mp-page-head">
+      <div><span className="mp-kicker">مدیریت کاتالوگ و ویترین</span><h1>محصولات بازارگاه</h1><p>محصولات در پایگاه دادهٔ سازمان ثبت می‌شوند. ورود گروهی، تصویر را در رسانهٔ داخلی ذخیره می‌کند و محصول را فقط به‌صورت پیش‌نویس می‌سازد.</p></div>
+      <a className="mp-back-link" href="/platform">بازگشت به مرکز عملیات <span>←</span></a>
+    </header>
+
+    <section className="mp-metrics" aria-label="خلاصه کاتالوگ">
+      <article><span>کل محصولات</span><strong>{items.length.toLocaleString("fa-IR")}</strong><small>رکوردهای کاتالوگ داخلی</small></article>
+      <article><span>منتشرشده</span><strong>{items.filter(item => item.status === "active").length.toLocaleString("fa-IR")}</strong><small>قابل نمایش در ویترین</small></article>
+      <article><span>پیش‌نویس</span><strong>{items.filter(item => item.status === "draft").length.toLocaleString("fa-IR")}</strong><small>نیازمند بررسی و تأیید</small></article>
+      <article><span>فروشندگان فعال</span><strong>{sellers.filter(item => item.status === "active").length.toLocaleString("fa-IR")}</strong><small>مجاز به انتشار محصول</small></article>
+    </section>
+
+    <section className="mp-workspace">
+      <div className="mp-workspace-head"><div><h2>افزودن به کاتالوگ</h2><p>محصول را ثبت کنید یا دادهٔ مرجع را به رکورد داخلی قابل بررسی تبدیل کنید.</p></div>
+        <div className="mp-tabs" role="tablist" aria-label="روش افزودن محصول">
+          <button type="button" role="tab" aria-selected={tab === "manual"} className={tab === "manual" ? "is-active" : ""} onClick={() => setTab("manual")}>ثبت محصول</button>
+          <button type="button" role="tab" aria-selected={tab === "import"} className={tab === "import" ? "is-active" : ""} onClick={() => { setTab("import"); if (!sourceProducts.length && !loadingSource) void loadSourceCatalog(); }}>ورود از منبع</button>
+        </div>
       </div>
-      {selectedSeller&&selectedSeller.status!=="active"&&<p className="enterprise-loading">فروشنده فعال نیست. محصول ثبت می‌شود، اما تا فعال‌سازی فروشنده در ویترین عمومی نمایش داده نمی‌شود.</p>}
-      {error && <p className="enterprise-loading error" role="alert">{error}</p>}
-      {items.length ? <div className="platform-list">{items.map(item => {
-        const seller=sellerFor(item.seller_id);
-        const canPublish=seller?.status==="active";
-        return <article className="platform-row" key={item.id}>
-          {item.image_url && <img src={item.image_url} alt="" loading="lazy" width="64" height="64" style={{ objectFit: "contain", borderRadius: 10, background: "#f4f6f8" }} />}
-          <div><b>{item.title}</b><small>{item.sku} · {seller?.display_name||"فروشنده"}</small></div>
-          <span>{Number(item.price).toLocaleString("fa-IR")} {item.currency}</span>
-          <strong>{statusLabel[item.status]||item.status}</strong>
-          <div className="record-actions">
-            {item.status==="active"
-              ? <button onClick={()=>changeStatus(item,"draft")} disabled={savingId===item.id}>{savingId===item.id?"در حال ذخیره…":"برداشتن از ویترین"}</button>
-              : <button onClick={()=>changeStatus(item,"active")} disabled={savingId===item.id||!canPublish} title={!canPublish?"ابتدا فروشنده را فعال کنید":""}>{savingId===item.id?"در حال ذخیره…":"انتشار محصول"}</button>}
-            {!canPublish&&<small>فعال‌سازی فروشنده لازم است</small>}
+
+      <div className="mp-seller-row"><label htmlFor="mp-seller">مالک محصول / فروشنده</label><select id="mp-seller" value={sellerId} onChange={event => setSellerId(event.target.value)}><option value="">انتخاب فروشنده</option>{sellers.map(seller => <option key={seller.id} value={seller.id}>{seller.display_name} · {seller.status === "active" ? "فعال" : "غیرفعال"}</option>)}</select>{selectedSeller && selectedSeller.status !== "active" && <small>فروشنده غیرفعال است؛ محصول تا فعال‌سازی او منتشر نمی‌شود.</small>}</div>
+
+      {tab === "manual" ? <div className="mp-form-grid">
+        <label>شناسه کالا (SKU)<input value={sku} onChange={event => setSku(event.target.value)} placeholder="مثلاً SKU-10025" /></label>
+        <label>عنوان محصول<input value={title} onChange={event => setTitle(event.target.value)} placeholder="نام دقیق و قابل جستجوی محصول" /></label>
+        <label>دسته‌بندی<select value={category} onChange={event => setCategory(event.target.value)}><option value="">انتخاب دسته‌بندی</option>{categories.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}</select></label>
+        <label>قیمت به ریال<input value={price} onChange={event => setPrice(event.target.value)} type="number" min="0" inputMode="numeric" placeholder="قیمت تأییدشده" /></label>
+        <label className="mp-field-wide">توضیحات محصول<textarea value={description} onChange={event => setDescription(event.target.value)} rows={3} placeholder="ویژگی‌ها، مشخصات و نکات مهم کالا" /></label>
+        <label className="mp-field-wide">مسیر تصویر داخلی (اختیاری)<input value={imageUrl} onChange={event => setImageUrl(event.target.value)} placeholder="/api/public/media/catalog/..." dir="ltr" /><small>تصویر باید قبلاً در رسانهٔ داخلی سوکار ذخیره شده باشد؛ لینک تصویر فروشگاه دیگر پذیرفته نمی‌شود.</small></label>
+        <div className="mp-form-actions"><button type="button" onClick={create} disabled={saving || !sellerId || !sku.trim() || !title.trim() || price === ""}>{saving ? "در حال ثبت…" : "ثبت پیش‌نویس محصول"} <span>←</span></button><small>انتشار عمومی مرحله‌ای جداگانه است.</small></div>
+      </div> : <div className="mp-import-panel">
+        <div className="mp-import-head"><div><h3>انتخاب کالا برای ورود به کاتالوگ داخلی</h3><p>محصول انتخابی در پایگاه دادهٔ خودمان ثبت می‌شود، تصویرش در رسانهٔ داخلی کپی می‌شود و برای بررسی قیمت و مشخصات در حالت پیش‌نویس می‌ماند.</p></div><button type="button" className="mp-refresh" onClick={loadSourceCatalog} disabled={loadingSource}>{loadingSource ? "در حال دریافت…" : "به‌روزرسانی فهرست"}</button></div>
+        {sourceStatus === "unavailable" && <p className="mp-inline-warning">منبع مرجع فعلاً پاسخ نمی‌دهد. محصولات ثبت‌شدهٔ داخلی تغییری نمی‌کنند.</p>}
+        {loadingSource ? <div className="mp-import-empty">در حال دریافت فهرست محصولات مرجع…</div>
+        : sourceProducts.length ? <>
+          <div className="mp-selection-bar"><span>{selectedIds.length.toLocaleString("fa-IR")} محصول انتخاب شده</span><button type="button" onClick={() => setSelectedIds(selectedIds.length === sourceProducts.length ? [] : sourceProducts.map(item => item.id))}>{selectedIds.length === sourceProducts.length ? "لغو انتخاب همه" : "انتخاب همه"}</button><button type="button" className="mp-import-submit" onClick={importSelected} disabled={!sellerId || !selectedIds.length || importing}>{importing ? "در حال ورود و ذخیره تصاویر…" : "ورود به کاتالوگ داخلی"}</button></div>
+          <div className="mp-source-grid">{sourceProducts.map(item => <label key={item.id} className={selectedIds.includes(item.id) ? "mp-source-card is-selected" : "mp-source-card"}>
+            <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={event => setSelectedIds(current => event.target.checked ? [...current, item.id] : current.filter(id => id !== item.id))} />
+            <img src={item.image_url} alt="" loading="lazy" />
+            <span className="mp-source-card-copy"><b>{item.title}</b><small>{item.category}{item.brand ? " · " + item.brand : ""}</small><strong>{money(item.price, item.currency)}</strong><em>پس از ورود: پیش‌نویس</em></span>
+          </label>)}</div>
+        </> : <div className="mp-import-empty">فهرست مرجع خالی است. از ثبت دستی محصول استفاده کنید یا بعداً فهرست را تازه‌سازی کنید.</div>}
+      </div>}
+
+      {error && <div className="mp-feedback is-error" role="alert">{error}</div>}
+      {notice && <div className="mp-feedback is-success" role="status">{notice}</div>}
+    </section>
+
+    <section className="mp-inventory">
+      <div className="mp-inventory-head"><div><h2>محصولات ثبت‌شده</h2><p>هر کالا صفحهٔ داخلی دارد؛ انتشار فقط پس از بررسی اطلاعات و فعال بودن فروشنده انجام می‌شود.</p></div><div className="mp-filters">
+        <input value={search} onChange={event => setSearch(event.target.value)} placeholder="جستجوی نام، شناسه یا فروشنده…" aria-label="جستجوی محصولات" />
+        <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} aria-label="فیلتر وضعیت"><option value="all">همه وضعیت‌ها</option><option value="draft">پیش‌نویس</option><option value="active">منتشرشده</option><option value="archived">بایگانی‌شده</option></select>
+      </div></div>
+      {loading ? <div className="mp-inventory-empty">در حال دریافت اطلاعات کاتالوگ…</div>
+      : visibleItems.length ? <div className="mp-product-list">{visibleItems.map(item => {
+        const seller = sellerFor(item.seller_id);
+        const canPublish = seller?.status === "active";
+        return <article className="mp-product-row" key={item.id}>
+          <div className="mp-product-thumb">{item.image_url ? <img src={item.image_url} alt="" loading="lazy" /> : <span>◇</span>}</div>
+          <div className="mp-product-name"><b>{item.title}</b><small>{item.sku} · {seller?.display_name || "فروشنده"}{item.category ? " · " + item.category : ""}</small></div>
+          <strong className="mp-product-price">{money(item.price, item.currency)}</strong>
+          <span className={"mp-status status-" + item.status}><i />{statusLabel[item.status] || item.status}</span>
+          <div className="mp-row-actions">{item.status === "active"
+            ? <button type="button" onClick={() => changeStatus(item, "draft")} disabled={savingId === item.id}>{savingId === item.id ? "در حال ذخیره…" : "برداشتن از ویترین"}</button>
+            : <button type="button" onClick={() => changeStatus(item, "active")} disabled={savingId === item.id || !canPublish} title={!canPublish ? "ابتدا فروشنده را فعال کنید" : ""}>{savingId === item.id ? "در حال ذخیره…" : "انتشار محصول"}</button>}
+            {!canPublish && <small>فعال‌سازی فروشنده لازم است</small>}
           </div>
         </article>;
-      })}</div> : <div className="enterprise-loading">هنوز محصولی برای نمایش ثبت نشده است.</div>}
+      })}</div> : <div className="mp-inventory-empty">{items.length ? "محصولی با این فیلتر پیدا نشد." : "هنوز محصولی در کاتالوگ داخلی ثبت نشده است."}</div>}
     </section>
   </main>;
 }
