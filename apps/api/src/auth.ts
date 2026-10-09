@@ -7,7 +7,7 @@ const secret=process.env.JWT_SECRET||"development-only-change-me";
 const isProduction=process.env.NODE_ENV==="production";
 const cookieOptions=`Path=/; HttpOnly; SameSite=${process.env.COOKIE_SAMESITE||"Lax"}${isProduction?"; Secure":""}`;
 const csrfOptions=`Path=/; SameSite=${process.env.COOKIE_SAMESITE||"Lax"}${isProduction?"; Secure":""}`;
-export type AuthUser={id:string,email:string,role:string};
+export type AuthUser={id:string,email:string,role:string,sessionId?:string};
 declare global { namespace Express { interface Request { user?: AuthUser } } }
 export function sign(user:AuthUser,sessionId:string){return jwt.sign({...user,sid:sessionId},secret,{expiresIn:"8h"});}
 export function hashPassword(value:string){return bcrypt.hash(value,12);}
@@ -36,7 +36,7 @@ export async function requireAuth(req:Request,res:Response,next:NextFunction){
   if(!claims.id||!claims.sid)return res.status(401).json({error:"نشست معتبر نیست؛ دوباره وارد شوید"});
   const active=await query("select u.id,u.email,u.role from users u join security_sessions s on s.user_id=u.id where u.id=$1 and s.id=$2 and s.revoked_at is null and (s.expires_at is null or s.expires_at>now()) and u.status='active'",[claims.id,claims.sid]);
   if(!active.rowCount)return res.status(401).json({error:"نشست لغو شده، منقضی یا حساب غیرفعال است"});
-  (req as any).user={id:active.rows[0].id,email:active.rows[0].email,role:active.rows[0].role};
+  (req as any).user={id:active.rows[0].id,email:active.rows[0].email,role:active.rows[0].role,sessionId:claims.sid};
   await query("update security_sessions set last_seen_at=now() where id=$1",[claims.sid]);
   next();
  }catch(error){
