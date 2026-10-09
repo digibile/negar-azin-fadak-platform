@@ -80,9 +80,3 @@ jobs:
       - name: Test
         run: pnpm test
 
-
-  deploy-sookar:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy smoke
-        run: echo "DEPLOY_JOB_OK"
