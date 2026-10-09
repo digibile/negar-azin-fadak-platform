@@ -340,3 +340,25 @@
 @media(max-width:560px){.sk-category-nav-dropdown{position:fixed;top:auto;right:14px;left:14px;width:auto;max-height:65vh}}
 
 
+
+
+/* Owned product detail: gallery, specification groups and clear catalog truth */
+.sk-store .sk-product-detail-media{align-content:start;gap:12px}
+.sk-store .sk-product-main-image{display:block;width:100%;max-width:430px;height:340px;object-fit:contain}
+.sk-store .sk-product-gallery-thumbs{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;width:100%;padding-top:10px;border-top:1px solid #edf0f3}
+.sk-store .sk-product-gallery-thumbs a{display:grid;place-items:center;width:66px;height:66px;overflow:hidden;border:1px solid #e2e6eb;border-radius:9px;background:#fff}
+.sk-store .sk-product-gallery-thumbs a:hover{border-color:var(--sk-primary)}
+.sk-store .sk-product-gallery-thumbs img{width:100%;height:100%;object-fit:contain;padding:4px}
+.sk-store .sk-product-specs{width:calc(100% - 64px);max-width:1360px;margin:0 auto 34px;padding:26px;border:1px solid #e6e9ed;border-radius:16px;background:#fff}
+.sk-store .sk-product-specs-head{margin-bottom:18px}
+.sk-store .sk-product-specs-head>span{color:var(--sk-primary);font-size:10px;font-weight:900}
+.sk-store .sk-product-specs-head h2{margin:6px 0;font-size:21px;font-weight:950}
+.sk-store .sk-product-specs-head p{margin:0;color:#77818d;font-size:11px;line-height:1.9}
+.sk-store .sk-product-spec-group{margin-top:16px;border:1px solid #edf0f3;border-radius:12px;overflow:hidden}
+.sk-store .sk-product-spec-group h3{margin:0;padding:13px 15px;background:#f7f8fa;font-size:12px;font-weight:900}
+.sk-store .sk-product-spec-group dl{margin:0;padding:0 15px}
+.sk-store .sk-product-spec-group dl>div{display:grid;grid-template-columns:minmax(130px,.4fr) minmax(0,1fr);gap:16px;padding:12px 0;border-top:1px solid #edf0f3;font-size:11px;line-height:1.9}
+.sk-store .sk-product-spec-group dt{color:#7a8490}
+.sk-store .sk-product-spec-group dd{margin:0;color:#283441;font-weight:750;overflow-wrap:anywhere}
+.sk-store .sk-product-spec-empty{padding:18px;border:1px dashed #d9dfe6;border-radius:10px;color:#77818d;font-size:11px;line-height:2}
+@media(max-width:760px){.sk-store .sk-product-main-image{height:240px}.sk-store .sk-product-gallery-thumbs a{width:54px;height:54px}.sk-store .sk-product-specs{width:calc(100% - 24px);margin-bottom:24px;padding:14px}.sk-store .sk-product-spec-group dl>div{grid-template-columns:1fr;gap:4px;padding:10px 0}}
