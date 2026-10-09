@@ -1,5 +1,5 @@
 name: Deploy Sookar Main Safely
-run-name: Direct release ${{ inputs.target_sha || github.sha }}
+run-name: Build and reviewed release ${{ inputs.target_sha || github.sha }}
 
 on:
   push:
@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   deploy:
-    if: ${{ github.event_name != 'push' || false }}
+    if: ${{ github.event_name == 'push' || inputs.deploy_to_server == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
