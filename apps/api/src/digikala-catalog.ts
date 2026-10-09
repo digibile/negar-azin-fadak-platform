@@ -84,7 +84,7 @@ function productUrl(product: UnknownRecord, id: string): string {
 function normalizedSpecifications(product: UnknownRecord): Array<{ group: string; items: Array<{ name: string; values: string[] }> }> {
   const raw = product.specifications ?? product.specs ?? product.product_specifications;
   if (!Array.isArray(raw)) return [];
-  return raw.map((entry, index) => {
+  return raw.map((entry) => {
     const groupRecord = record(entry);
     const group = textValue(groupRecord.title) || textValue(groupRecord.name) || textValue(groupRecord.title_fa) || "مشخصات";
     const rawItems = groupRecord.attributes ?? groupRecord.items ?? groupRecord.specifications;
