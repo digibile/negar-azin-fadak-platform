@@ -32,8 +32,8 @@ router.get("/api/identity/overview",requireAuth,guardRead,async(req:any,res)=>{
  const admin=isAdmin(req);
  const [users,roles,groups,members,permissions,grants,sessions,logins]=await Promise.all([
   admin
-   ? query("select id,email,full_name,role,status,created_at from users order by created_at desc")
-   : query("select id,email,full_name,role,status,created_at from users where id=$1",[req.user.id]),
+   ? query("select id,email,national_id,full_name,role,status,created_at from users order by created_at desc")
+   : query("select id,email,national_id,full_name,role,status,created_at from users where id=$1",[req.user.id]),
   query("select r.role_key,r.title,r.description,r.is_system,r.is_active,count(u.id)::int user_count from identity_roles r left join users u on u.role=r.role_key group by r.role_key order by r.title"),
   query("select g.id,g.group_key,g.title,g.description,g.is_active,count(gm.user_id)::int member_count from identity_groups g left join identity_group_members gm on gm.group_id=g.id group by g.id order by g.title"),
   query("select gm.group_id,gm.user_id,u.full_name,u.email from identity_group_members gm join users u on u.id::text=gm.user_id order by gm.group_id,u.full_name"),
@@ -67,11 +67,14 @@ router.post("/api/identity/users",requireAuth,guardWrite,requireCsrf,async(req:a
 router.patch("/api/identity/users/:id",requireAuth,guardWrite,requireCsrf,async(req:any,res)=>{
  if(!UUID.test(String(req.params.id)))return res.status(400).json({error:"شناسه کاربر معتبر نیست"});
  const {fullName,role,status}=req.body||{};
+ const nationalIdRaw=req.body?.nationalId;
+ const nationalId=nationalIdRaw===undefined?undefined:(typeof nationalIdRaw==="string"&&nationalIdRaw.trim()?nationalIdRaw.trim().replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))):null);
+ if(nationalId!==undefined&&nationalId!==null&&!/^\d{10}$/.test(nationalId))return res.status(400).json({error:"کد ملی باید ۱۰ رقم باشد"});
  if(fullName!==undefined&&(typeof fullName!=="string"||!fullName.trim()))return res.status(400).json({error:"نام کاربر معتبر نیست"});
  if(!isAdmin(req)&&(role!==undefined||status!==undefined))return res.status(403).json({error:"تغییر نقش یا وضعیت حساب فقط برای مدیر سامانه مجاز است"});
  if(role!==undefined){if(typeof role!=="string")return res.status(400).json({error:"نقش معتبر نیست"});const x=await query("select 1 from identity_roles where role_key=$1 and is_active=true",[role]);if(!x.rowCount)return res.status(400).json({error:"نقش معتبر نیست"});}
  if(status!==undefined&&!["active","pending","suspended"].includes(status))return res.status(400).json({error:"وضعیت حساب معتبر نیست"});
- const r=await query("update users set full_name=coalesce($1,full_name),role=coalesce($2,role),status=coalesce($3,status),updated_at=now() where id=$4 returning id,email,full_name,role,status,created_at",[fullName?.trim()||null,role??null,status??null,req.params.id]);
+ const r=await query("update users set full_name=coalesce($1,full_name),role=coalesce($2,role),status=coalesce($3,status),national_id=case when $4::boolean then $5 else national_id end,updated_at=now() where id=$6 returning id,email,national_id,full_name,role,status,created_at",[fullName?.trim()||null,role??null,status??null,nationalIdRaw!==undefined,nationalId??null,req.params.id]);
  if(!r.rowCount)return res.status(404).json({error:"کاربر پیدا نشد"});
  res.json(r.rows[0]);
 });

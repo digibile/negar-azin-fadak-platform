@@ -23,7 +23,7 @@ export default function Login(){
  const [brandKey,setBrandKey]=useState<BrandKey>("naf");
  const brand=brands[brandKey];
  const [check,setCheck]=useState<HumanCheck>({challenge:"",question:"در حال دریافت تأیید انسانی..."});
- const [method,setMethod]=useState<"email"|"mobile">("email");
+ const [method,setMethod]=useState<"email"|"mobile"|"nationalId">("email");
  const [identifier,setIdentifier]=useState("");
  const [showPassword,setShowPassword]=useState(false);
  const [password,setPassword]=useState("");
@@ -39,13 +39,15 @@ export default function Login(){
   setLoading(true);
   try{
    const normalized=identifier.trim();
-  if(method==="email"&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalized)){setError("آدرس ایمیل را به‌درستی وارد کنید");setLoading(false);return;}
-  if(method==="mobile"&&!/^\\+?[0-9۰-۹٠-٩\\s()-]{8,20}$/.test(normalized)){setError("شماره موبایل را به‌درستی وارد کنید");setLoading(false);return;}
+  if(method==="email"&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)){setError("آدرس ایمیل را به‌درستی وارد کنید");setLoading(false);return;}
+  if(method==="mobile"&&!/^\+?[0-9۰-۹٠-٩\s()-]{8,20}$/.test(normalized)){setError("شماره موبایل را به‌درستی وارد کنید");setLoading(false);return;}
+  const normalizedDigits=normalized.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+  if(method==="nationalId"&&!/^\d{10}$/.test(normalizedDigits)){setError("کد ملی باید ۱۰ رقم باشد");setLoading(false);return;}
   const res=await fetch("/api/auth/login",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     credentials:"include",
-    body:JSON.stringify({method,identifier:normalized,password,humanCheck:check.challenge,humanAnswer:answer})
+    body:JSON.stringify({method,identifier:method==="nationalId"?normalizedDigits:normalized,password,humanCheck:check.challenge,humanAnswer:answer})
    });
    const data=await res.json().catch(()=>({}));
    if(!res.ok)throw new Error(data.error||"ورود انجام نشد");
@@ -66,8 +68,8 @@ export default function Login(){
     <p className="naf-subtitle">{brand.description}</p>
     {error&&<div className="naf-error" role="alert">{error}</div>}
     <form onSubmit={submit} className="naf-login-form">
-     <div className="naf-login-method" role="group" aria-label="روش ورود"><button type="button" className={method==="email"?"active":""} aria-pressed={method==="email"} onClick={()=>{setMethod("email");setIdentifier("");setError("");}}>ورود با ایمیل</button><button type="button" className={method==="mobile"?"active":""} aria-pressed={method==="mobile"} onClick={()=>{setMethod("mobile");setIdentifier("");setError("");}}>ورود با موبایل</button></div>
-     <label><span>{method==="email"?"آدرس ایمیل":"شماره موبایل"}</span><input name="identifier" type={method==="email"?"email":"tel"} inputMode={method==="email"?"email":"tel"} autoComplete={method==="email"?"username":"tel"} dir="ltr" placeholder={method==="email"?"name@company.com":"09123456789"} value={identifier} onChange={e=>setIdentifier(e.target.value)} required/></label>
+     <div className="naf-login-method" role="group" aria-label="روش ورود"><button type="button" className={method==="email"?"active":""} aria-pressed={method==="email"} onClick={()=>{setMethod("email");setIdentifier("");setError("");}}>ورود با ایمیل</button><button type="button" className={method==="mobile"?"active":""} aria-pressed={method==="mobile"} onClick={()=>{setMethod("mobile");setIdentifier("");setError("");}}>ورود با موبایل</button><button type="button" className={method==="nationalId"?"active":""} aria-pressed={method==="nationalId"} onClick={()=>{setMethod("nationalId");setIdentifier("");setError("");}}>ورود با کد ملی</button></div>
+     <label><span>{method==="email"?"آدرس ایمیل":method==="mobile"?"شماره موبایل":"کد ملی"}</span><input name="identifier" type={method==="email"?"email":"tel"} inputMode={method==="email"?"email":method==="mobile"?"tel":"numeric"} autoComplete={method==="email"?"username":method==="mobile"?"tel":"off"} dir="ltr" placeholder={method==="email"?"name@company.com":method==="mobile"?"09123456789":"0123456789"} maxLength={method==="nationalId"?10:undefined} value={identifier} onChange={e=>setIdentifier(e.target.value)} required/></label>
      <label><span>رمز عبور</span><div className="naf-password-wrap"><input name="password" type={showPassword?"text":"password"} autoComplete="current-password" placeholder="رمز عبور خود را وارد کنید" value={password} onChange={e=>setPassword(e.target.value)} required/><button className="naf-password-toggle" type="button" onClick={()=>setShowPassword(v=>!v)} aria-label={showPassword?"پنهان کردن رمز عبور":"نمایش رمز عبور"} aria-pressed={showPassword} title={showPassword?"پنهان کردن رمز":"نمایش رمز"}>{showPassword?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.2A10.8 10.8 0 0112 5c5.5 0 9 7 9 7a15 15 0 01-3.1 3.8M6.2 6.2C3.9 7.7 2 12 2 12s3.5 7 10 7c1.2 0 2.3-.2 3.3-.7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>:<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8"/></svg>}</button></div></label>
      <div className="naf-form-row"><label className="naf-remember"><input type="checkbox" name="remember" value="1"/><span>مرا به خاطر بسپار</span></label><a href={"/forgot-password?brand="+brandKey}>بازیابی دسترسی</a></div>
      <input type="hidden" name="humanCheck" value={check.challenge}/>

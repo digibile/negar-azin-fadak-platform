@@ -14,7 +14,7 @@ export async function POST(request:Request){
    method:"POST",
    headers:{"content-type":"application/json"},
    body:JSON.stringify({
-    method:input.method==="mobile"?"mobile":"email",
+    method:input.method==="mobile"?"mobile":input.method==="nationalId"?"nationalId":"email",
     identifier:String(input.identifier??input.email??""),
     email:String(input.identifier??input.email??""),
     password:String(input.password||""),
