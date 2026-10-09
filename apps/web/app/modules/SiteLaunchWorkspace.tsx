@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import styles from "./SiteLaunchWorkspace.module.css";
 
 type SiteRecord = { id:number; title:string; status:string; data:Record<string,any>; updated_at?:string };
@@ -54,7 +54,7 @@ export default function SiteLaunchWorkspace(){
  const load=async()=>{
   setLoading(true);setError("");
   try{
-   const r=await fetch(api+"/api/platform/modules/36-page-templates/records?page=1&pageSize=300&q=",{credentials:"include",cache:"no-store"});
+   const r=await fetch(api+"/api/platform/modules/36-page-templates/records?page=1&pageSize=100&recordType=site-configuration&q=",{credentials:"include",cache:"no-store"});
    const b=await r.json().catch(()=>null);
    if(!r.ok)throw new Error(b?.error||"دریافت سایت‌ها ناموفق بود");
    setItems((b.items||[]).filter((x:SiteRecord)=>x.record_type==="site-configuration"));
@@ -134,7 +134,7 @@ export default function SiteLaunchWorkspace(){
     <footer className={styles.formFooter}><button className={styles.primary} disabled={saving}>{saving?"در حال ذخیره...":editing?"ذخیره تغییرات سایت":"ذخیره پیکربندی سایت"}</button><button type="button" className={styles.secondary} onClick={reset}>پاک‌کردن فرم</button></footer>
    </form>
    <aside className={styles.side}>
-    <section className={styles.previewCard}><span className={styles.previewLabel}>پیش‌نمایش هویت</span><div className={styles.brandPreview} style={{"--brand":form.primaryColor,"--accent":form.accentColor} as React.CSSProperties}>{form.logoUrl?<img src={form.logoUrl} alt="پیش‌نمایش لوگو" onError={e=>{(e.currentTarget as HTMLImageElement).style.display="none"}}/>:<div className={styles.logoPlaceholder}>LOGO</div>}<div><b>{form.siteName||"نام سایت شما"}</b><small>{templates.find(x=>x.value===form.template)?.label}</small></div></div><div className={styles.swatches}><i style={{background:form.primaryColor}}/><i style={{background:form.accentColor}}/><span>{form.fontFamily}</span></div><div className={styles.previewMeta}><span>نوع کسب‌وکار</span><b>{selectedBusiness.label}</b><span>داشبورد</span><b>{dashboards.find(x=>x.value===form.dashboard)?.label}</b><span>دامنه</span><b>{form.domain||"هنوز تعیین نشده"}</b></div></section>
+    <section className={styles.previewCard}><span className={styles.previewLabel}>پیش‌نمایش هویت</span><div className={styles.brandPreview} style={{"--brand":form.primaryColor,"--accent":form.accentColor} as CSSProperties}>{form.logoUrl?<img src={form.logoUrl} alt="پیش‌نمایش لوگو" onError={e=>{(e.currentTarget as HTMLImageElement).style.display="none"}}/>:<div className={styles.logoPlaceholder}>LOGO</div>}<div><b>{form.siteName||"نام سایت شما"}</b><small>{templates.find(x=>x.value===form.template)?.label}</small></div></div><div className={styles.swatches}><i style={{background:form.primaryColor}}/><i style={{background:form.accentColor}}/><span>{form.fontFamily}</span></div><div className={styles.previewMeta}><span>نوع کسب‌وکار</span><b>{selectedBusiness.label}</b><span>داشبورد</span><b>{dashboards.find(x=>x.value===form.dashboard)?.label}</b><span>دامنه</span><b>{form.domain||"هنوز تعیین نشده"}</b></div></section>
     <section className={styles.listCard}><header><div><span>پیکربندی‌های ذخیره‌شده</span><h2>سایت‌های شما</h2></div><button className={styles.refresh} onClick={load} disabled={loading}>↻</button></header>
      {loading?<p className={styles.empty}>در حال بارگذاری...</p>:items.length===0?<p className={styles.empty}>هنوز پیکربندی سایتی ثبت نشده است.</p>:items.map(row=><article className={styles.siteRow} key={row.id}><div className={styles.siteIdentity}><span className={styles.siteDot} style={{background:row.data.primaryColor||"#94a3b8"}}/><div><b>{row.data.siteName||row.title}</b><small>{row.data.domain||row.data.subdomain||row.data.siteSlug}</small><span className={styles.status}>{row.data.domainStatus==="verified"?"دامنه تأیید شده":row.data.domain?"در انتظار تأیید دامنه":"بدون دامنه"}</span></div></div><div className={styles.rowActions}><button onClick={()=>edit(row)}>تنظیمات</button><button className={styles.danger} onClick={()=>remove(row.id)}>حذف</button></div><small className={styles.readiness}>{ready(row)?"پیکربندی پایه ثبت شده":"اطلاعات پایه ناقص است"} · {templates.find(x=>x.value===row.data.template)?.label||row.data.template}</small></article>)}
     </section>
