@@ -1,34 +1,34 @@
 import {NextResponse} from "next/server";
 
-function publicOrigin(request:Request){
- const forwardedHost=request.headers.get("x-forwarded-host");
- const forwardedProto=request.headers.get("x-forwarded-proto");
- if(forwardedHost)return `${forwardedProto||"https"}://${forwardedHost}`;
- const codespace=process.env.CODESPACE_NAME;
- if(codespace)return `https://${codespace}-3000.app.github.dev`;
- const publicUrl=process.env.NEXT_PUBLIC_APP_URL;
- if(publicUrl)return publicUrl.replace(/\/$/,"");
- const host=request.headers.get("host")||"localhost:3000";
- return `http://${host}`;
-}
-
 export async function POST(request:Request){
- const form=await request.formData();
- const base=process.env.API_INTERNAL_URL||"http://api:4000";
- const upstream=await fetch(base+"/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
-  email:String(form.get("email")||""),
-  password:String(form.get("password")||""),
-  humanCheck:String(form.get("humanCheck")||""),
-  humanAnswer:String(form.get("humanAnswer")||"")
- }),cache:"no-store"});
- const origin=publicOrigin(request);
- if(!upstream.ok){
-  const data=await upstream.json().catch(()=>({error:"ورود ناموفق بود"}));
-  const url=new URL("/login",origin);url.searchParams.set("error",String(data.error||"ورود ناموفق بود"));
-  return NextResponse.redirect(url,303);
+ let input:{email?:unknown;password?:unknown;humanCheck?:unknown;humanAnswer?:unknown};
+ try{
+  input=await request.json();
+ }catch{
+  return NextResponse.json({error:"درخواست ورود نامعتبر است"}, {status:400});
  }
- const response=NextResponse.redirect(new URL("/admin",origin),303);
- const cookies=upstream.headers.getSetCookie?.()||[];
- for(const cookie of cookies)response.headers.append("set-cookie",cookie);
+ const base=process.env.API_INTERNAL_URL||"http://api:4000";
+ let upstream:Response;
+ try{
+  upstream=await fetch(base+"/api/auth/login",{
+   method:"POST",
+   headers:{"content-type":"application/json"},
+   body:JSON.stringify({
+    email:String(input.email||""),
+    password:String(input.password||""),
+    humanCheck:String(input.humanCheck||""),
+    humanAnswer:String(input.humanAnswer||"")
+   }),
+   cache:"no-store"
+  });
+ }catch{
+  return NextResponse.json({error:"سرویس ورود موقتاً در دسترس نیست"}, {status:503});
+ }
+ const data=await upstream.json().catch(()=>({error:"پاسخ سرویس ورود نامعتبر است"}));
+ const response=NextResponse.json(data,{status:upstream.status});
+ for(const cookie of upstream.headers.getSetCookie?.()||[]){
+  response.headers.append("set-cookie",cookie);
+ }
+ response.headers.set("cache-control","no-store");
  return response;
 }
