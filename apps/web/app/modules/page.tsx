@@ -177,90 +177,105 @@ function ModulesContent(){
    return <input value={String(v)} onChange={e=>setField(f.field_key,e.target.value)} required={f.required}/>;
  };
  const visible=useMemo(()=>items,[items]);
-const WORKSPACE_REGISTRY: Record<string, React.ReactNode> = {
-  "01-dashboard": <DashboardWorkspace />,
-  "02-organizations": <OrganizationWorkspace />,
-  "03-users-access": <IdentityWorkspace />,
-  "04-customers-360": <Customer360Workspace />,
-  "05-smart-calendar": <SmartCalendarWorkspace />,
-  "06-business-rules": <BusinessRulesWorkspace />,
-  "07-sla": <SLAWorkspace />,
-  "08-accounting-finance": <AccountingFinanceWorkspace />,
-  "08-check-documents": <TreasuryChecksWorkspace />,
-  "14-form-builder": <FormBuilderWorkspace />,
-  "15-menu-builder": <MenuBuilderWorkspace />,
-  "16-page-builder": <PageBuilderWorkspace />,
-  "17-frontend-management": <FrontendSectionsWorkspace />,
-  "18-notifications": <FrontendNotificationsWorkspace />,
-  "19-documents-governance": <DocumentGovernancePanelWorkspace />,
-  "20-system-settings": <CentralSettingsWorkspace />,
-  "21-purchasing-supply": <PurchasingSupplyWorkspace />,
-  "22-sales-revenue": <SalesWorkspace />,
-  "23-inventory-warehouse": <InventoryWarehouseWorkspace />,
-  "12-logistics-supply": <LogisticsWorkspace />,
-  "26-treasury-bank": <TreasuryBankWorkspace />,
-  "29-wallet-ledger": <WalletLedgerWorkspace />,
-  "37-collateral-guarantees": <CollateralGuaranteesWorkspace />,
-  "38-collections": <CollectionWorkflowWorkspace />,
-  "command-center": <DashboardWorkspace />,
-  "accounting-finance": <AccountingWorkspace />,
-  "09-treasury-bank": <TreasuryBankWorkspace />,
-  "10-wallet-ledger": <WalletLedgerWorkspace />,
-  "01-governance": <DashboardWorkspace />,
-  "dashboard": <DashboardWorkspace />,
-  "governance": <DashboardWorkspace />,
-  "security": <IdentityWorkspace />,
-  "02-identity": <IdentityWorkspace />,
-  "03-master-data": <MasterDataWorkspace />,
-  "04-customer-360": <Customer360Workspace />,
-  "central-settings": <CentralSettingsWorkspace />,
-  "11-credit-facilities": <CreditFacilitiesWorkspace />,
-  "12-credit-applications": <CreditApplicationsWorkspace />,
-  "13-loan-contracts": <LoanContractsWorkspace />,
-  "14-installment-schedules": <InstallmentSchedulesWorkspace />,
-  "15-installment-collections": <InstallmentCollectionsWorkspace />,
-  "16-collateral-guarantees": <CollateralGuaranteesWorkspace />,
-  "17-digital-binder": <DigitalBinderWorkspace />,
-  "18-identity-verification": <IdentityVerificationWorkspace />,
-  "19-credit-scoring": <CreditScoringWorkspace />,
-  "20-credit-decisions": <CreditDecisionsWorkspace />,
-  "21-credit-committee": <CreditCommitteeWorkspace />,
-  "22-credit-disbursement": <CreditDisbursementWorkspace />,
-  "23-loan-settlement": <LoanSettlementWorkspace />,
-  "24-loan-ledger": <LoanLedgerWorkspace />,
-  "25-loan-refunds": <LoanRefundsWorkspace />,
-  "26-loan-closure": <LoanClosureWorkspace />,
-  "27-loan-delinquency": <LoanDelinquencyWorkspace />,
-  "28-collection-workflow": <CollectionWorkflowWorkspace />,
-  "29-loan-restructuring": <LoanRestructuringWorkspace />,
-  "30-loan-relief": <LoanReliefWorkspace />,
-  "31-loan-legal-cases": <LoanLegalCasesWorkspace />,
-  "32-form-builder": <FormBuilderWorkspace />,
-  "33-menu-builder": <MenuBuilderWorkspace />,
-  "34-page-builder": <PageBuilderWorkspace />,
-  "35-page-block-editor": <PageBlockEditorWorkspace />,
-  "36-page-templates": <PageTemplatesWorkspace />,
-  "37-frontend-sections": <FrontendSectionsWorkspace />,
-  "38-navigation-rules": <NavigationRulesWorkspace />,
-  "39-frontend-notifications": <FrontendNotificationsWorkspace />,
-  "40-notification-templates": <NotificationTemplatesWorkspace />,
-  "41-documentation": <DocumentationWorkspace />,
-  "42-document-approvals": <DocumentApprovalsWorkspace />,
-  "43-document-versions": <DocumentVersionsWorkspace />,
-  "44-document-search": <DocumentSearchWorkspace />,
-  "45-document-retention": <DocumentRetentionWorkspace />,
-  "46-document-distribution": <DocumentDistributionWorkspace />,
-  "47-document-access-log": <DocumentAccessLogWorkspace />,
-  "48-document-audit-reports": <DocumentAuditReportsWorkspace />,
-  "49-document-compliance": <DocumentComplianceWorkspace />,
-  "50-document-governance": <DocumentGovernanceWorkspace />,
-  ...Object.fromEntries([
-    "24-production","25-costing","27-receivables","28-payables","30-projects-cost-centers","31-fixed-assets",
+type ModuleRouteContext = {
+  code: string; module: ModuleInfo | null; menuChildren: MenuItem[]; error: string;
+  activeMenu: string; items: RecordItem[]; actions: Action[]; panel: string; activeItem: string;
+};
+const operationalModuleCodes = [
+"24-production","25-costing","27-receivables","28-payables","30-projects-cost-centers","31-fixed-assets",
     "32-tax-e-invoicing","33-budget-financial-control","34-financial-commitments","35-credit-financing","36-loans",
     "39-human-resources","40-ai-finance","41-ai-documents-ocr","42-audit-internal-control","43-communication-hub",
     "44-marketing-content","45-search-analytics","46-unified-applications","47-contracts-legal","48-shipping-delivery",
     "49-reconciliation","50-release-health"
-  ].map(code => [code, <OperationalModuleWorkspace code={code} />]))
+];
+const canonicalLandingCodes = ["10-domains","11-merchants","12-sellers","13-payments-settlement"];
+const MODULE_ROUTE_REGISTRY: Record<string, (context: ModuleRouteContext) => React.ReactNode> = {
+  "panel:form": () => <FormBuilderWorkspace />,
+  "panel:menu": () => <MenuBuilderWorkspace />,
+  "panel:frontend": () => <FrontendManagementWorkspace />,
+  "panel:domains": () => <CommercePanelWorkspace mode="domains" />,
+  "panel:acceptors": () => <MerchantManagementWorkspace />,
+  "panel:sellers": () => <CommercePanelWorkspace mode="sellers" />,
+  "panel:payments": () => <CommercePanelWorkspace mode="payments" />,
+  "09-commerce-stores": () => <CommercePanelWorkspace mode="commerce" />,
+  "01-dashboard": () => <DashboardWorkspace />,
+  "02-organizations": () => <OrganizationWorkspace />,
+  "03-users-access": () => <IdentityWorkspace />,
+  "04-customers-360": () => <Customer360Workspace />,
+  "05-smart-calendar": () => <SmartCalendarWorkspace />,
+  "06-business-rules": () => <BusinessRulesWorkspace />,
+  "07-sla": () => <SLAWorkspace />,
+  "08-accounting-finance": () => <AccountingFinanceWorkspace />,
+  "08-check-documents": () => <TreasuryChecksWorkspace />,
+  "14-form-builder": () => <FormBuilderWorkspace />,
+  "15-menu-builder": () => <MenuBuilderWorkspace />,
+  "16-page-builder": () => <PageBuilderWorkspace />,
+  "17-frontend-management": () => <FrontendSectionsWorkspace />,
+  "18-notifications": () => <FrontendNotificationsWorkspace />,
+  "19-documents-governance": () => <DocumentGovernancePanelWorkspace />,
+  "20-system-settings": () => <CentralSettingsWorkspace />,
+  "21-purchasing-supply": () => <PurchasingSupplyWorkspace />,
+  "22-sales-revenue": () => <SalesWorkspace />,
+  "23-inventory-warehouse": () => <InventoryWarehouseWorkspace />,
+  "12-logistics-supply": () => <LogisticsWorkspace />,
+  "26-treasury-bank": () => <TreasuryBankWorkspace />,
+  "29-wallet-ledger": () => <WalletLedgerWorkspace />,
+  "37-collateral-guarantees": () => <CollateralGuaranteesWorkspace />,
+  "38-collections": () => <CollectionWorkflowWorkspace />,
+  "command-center": () => <DashboardWorkspace />,
+  "accounting-finance": () => <AccountingWorkspace />,
+  "09-treasury-bank": () => <TreasuryBankWorkspace />,
+  "10-wallet-ledger": () => <WalletLedgerWorkspace />,
+  "01-governance": () => <DashboardWorkspace />,
+  "dashboard": () => <DashboardWorkspace />,
+  "governance": () => <DashboardWorkspace />,
+  "security": () => <IdentityWorkspace />,
+  "02-identity": () => <IdentityWorkspace />,
+  "03-master-data": () => <MasterDataWorkspace />,
+  "04-customer-360": () => <Customer360Workspace />,
+  "central-settings": () => <CentralSettingsWorkspace />,
+  "11-credit-facilities": () => <CreditFacilitiesWorkspace />,
+  "12-credit-applications": () => <CreditApplicationsWorkspace />,
+  "13-loan-contracts": () => <LoanContractsWorkspace />,
+  "14-installment-schedules": () => <InstallmentSchedulesWorkspace />,
+  "15-installment-collections": () => <InstallmentCollectionsWorkspace />,
+  "16-collateral-guarantees": () => <CollateralGuaranteesWorkspace />,
+  "17-digital-binder": () => <DigitalBinderWorkspace />,
+  "18-identity-verification": () => <IdentityVerificationWorkspace />,
+  "19-credit-scoring": () => <CreditScoringWorkspace />,
+  "20-credit-decisions": () => <CreditDecisionsWorkspace />,
+  "21-credit-committee": () => <CreditCommitteeWorkspace />,
+  "22-credit-disbursement": () => <CreditDisbursementWorkspace />,
+  "23-loan-settlement": () => <LoanSettlementWorkspace />,
+  "24-loan-ledger": () => <LoanLedgerWorkspace />,
+  "25-loan-refunds": () => <LoanRefundsWorkspace />,
+  "26-loan-closure": () => <LoanClosureWorkspace />,
+  "27-loan-delinquency": () => <LoanDelinquencyWorkspace />,
+  "28-collection-workflow": () => <CollectionWorkflowWorkspace />,
+  "29-loan-restructuring": () => <LoanRestructuringWorkspace />,
+  "30-loan-relief": () => <LoanReliefWorkspace />,
+  "31-loan-legal-cases": () => <LoanLegalCasesWorkspace />,
+  "32-form-builder": () => <FormBuilderWorkspace />,
+  "33-menu-builder": () => <MenuBuilderWorkspace />,
+  "34-page-builder": () => <PageBuilderWorkspace />,
+  "35-page-block-editor": () => <PageBlockEditorWorkspace />,
+  "36-page-templates": () => <PageTemplatesWorkspace />,
+  "37-frontend-sections": () => <FrontendSectionsWorkspace />,
+  "38-navigation-rules": () => <NavigationRulesWorkspace />,
+  "39-frontend-notifications": () => <FrontendNotificationsWorkspace />,
+  "40-notification-templates": () => <NotificationTemplatesWorkspace />,
+  "41-documentation": () => <DocumentationWorkspace />,
+  "42-document-approvals": () => <DocumentApprovalsWorkspace />,
+  "43-document-versions": () => <DocumentVersionsWorkspace />,
+  "44-document-search": () => <DocumentSearchWorkspace />,
+  "45-document-retention": () => <DocumentRetentionWorkspace />,
+  "46-document-distribution": () => <DocumentDistributionWorkspace />,
+  "47-document-access-log": () => <DocumentAccessLogWorkspace />,
+  "48-document-audit-reports": () => <DocumentAuditReportsWorkspace />,
+  "49-document-compliance": () => <DocumentComplianceWorkspace />,
+  "50-document-governance": () => <DocumentGovernanceWorkspace />,
+  ...Object.fromEntries(operationalModuleCodes.map(code => [code, ({code}: ModuleRouteContext) => <OperationalModuleWorkspace code={code} />]))
+  ...Object.fromEntries(canonicalLandingCodes.map(code => [code, (context: ModuleRouteContext) => <CanonicalModuleLanding {...context} />]))
 };
 
 function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu, items, actions, panel, activeItem }: {
@@ -310,24 +325,11 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
   </main>;
 }
 
- if(panel==="form")return <FormBuilderWorkspace/>;
- if(panel==="menu")return <MenuBuilderWorkspace/>;
- if(panel==="frontend")return <FrontendManagementWorkspace/>;
- if(panel==="domains")return <CommercePanelWorkspace mode="domains"/>;
- if(panel==="acceptors")return <MerchantManagementWorkspace/>;
- if(panel==="sellers")return <CommercePanelWorkspace mode="sellers"/>;
- if(panel==="payments")return <CommercePanelWorkspace mode="payments"/>;
- if(code==="09-commerce-stores")return <CommercePanelWorkspace mode="commerce"/>;
- if(WORKSPACE_REGISTRY[code])return WORKSPACE_REGISTRY[code];
- const CANONICAL_LANDING_CODES = new Set([
-  "09-commerce-stores","10-domains","11-merchants","12-sellers","13-payments-settlement",
-  "24-production","25-costing","27-receivables","28-payables","30-projects-cost-centers","31-fixed-assets",
-  "32-tax-e-invoicing","33-budget-financial-control","34-financial-commitments","35-credit-financing","36-loans",
-  "39-human-resources","40-ai-finance","41-ai-documents-ocr","42-audit-internal-control","43-communication-hub",
-  "44-marketing-content","45-search-analytics","46-unified-applications","47-contracts-legal","48-shipping-delivery",
-  "49-reconciliation","50-release-health"
- ]);
- if(CANONICAL_LANDING_CODES.has(code))return <CanonicalModuleLanding code={code} module={module} menuChildren={menuChildren} error={error} activeMenu={activeMenu} items={items} actions={actions} panel={panel} activeItem={activeItem}/>;
+ const routeContext: ModuleRouteContext = {code,module,menuChildren,error,activeMenu,items,actions,panel,activeItem};
+ const panelRenderer = panel ? MODULE_ROUTE_REGISTRY["panel:"+panel] : undefined;
+ const routeRenderer = panelRenderer || MODULE_ROUTE_REGISTRY[code];
+ if(routeRenderer)return routeRenderer(routeContext);
+
  return <main className="module-runtime">
   <header className="page-head">
    <div><span className="eyebrow">هسته مرکزی کسب‌وکار{activeMenu?" · "+activeMenu:""}</span><h1>{menuChildren.find(x=>x.path.includes("tab="+activeSection))?.title||module?.title||"فضای عملیاتی ماژول"}</h1><p className="muted">کد ماژول: {code}{activeSection?" · فضای عملیاتی: "+activeSection:""}</p></div>

@@ -95,12 +95,14 @@ const expectedLegacyCodes=[
 ];
 const missingLegacy=expectedLegacyCodes.filter(code=>!masterMenu.includes('"'+code+'"'));
 if(missingLegacy.length)throw new Error("Legacy menu codes missing from canonical panels: "+missingLegacy.join(", "));
-const workspaceBlock=modulePage.match(/const WORKSPACE_REGISTRY\s*:\s*Record<string,\s*React\.ReactNode>\s*=\s*\{([\s\S]*?)\n\};/);
-const landingBlock=modulePage.match(/const CANONICAL_LANDING_CODES\s*=\s*new Set\(\[([\s\S]*?)\]\);/);
-if(!workspaceBlock||!landingBlock)throw new Error("Unified module workspace registry could not be parsed");
-if(modulePage.includes("CANONICAL_WORKSPACES")||modulePage.includes("GENERIC_OPERATIONAL_WORKSPACES")||modulePage.includes("const canonicalCodes"))throw new Error("Duplicate module dispatcher registries must be removed");
+const routeRegistryBlock=modulePage.match(/const MODULE_ROUTE_REGISTRY\s*:\s*Record<string,\s*\(context:\s*ModuleRouteContext\)\s*=>\s*React\.ReactNode>\s*=\s*\{([\s\S]*?)\n\};/);
+const operationalCodesBlock=modulePage.match(/const operationalModuleCodes\s*=\s*\[([\s\S]*?)\];/);
+const landingCodesBlock=modulePage.match(/const canonicalLandingCodes\s*=\s*\[([\s\S]*?)\];/);
+if(!routeRegistryBlock||!operationalCodesBlock||!landingCodesBlock)throw new Error("Unified module route registry could not be parsed");
+if(modulePage.includes("WORKSPACE_REGISTRY")||modulePage.includes("CANONICAL_LANDING_CODES")||modulePage.includes("CANONICAL_WORKSPACES")||modulePage.includes("GENERIC_OPERATIONAL_WORKSPACES")||modulePage.includes("const canonicalCodes"))throw new Error("Duplicate module dispatcher registries must be removed");
 const declaredCodes=new Set([
-  ...[workspaceBlock[1],landingBlock[1]].flatMap(block=>[...block.matchAll(/"([^"]+)"/g)].map(match=>match[1])),
+  ...[...routeRegistryBlock[1].matchAll(/^\s*"([^"]+)"\s*:/gm)].map(match=>match[1]).filter(code=>!code.startsWith("panel:")),
+  ...[operationalCodesBlock[1],landingCodesBlock[1]].flatMap(block=>[...block.matchAll(/"([^"]+)"/g)].map(match=>match[1])),
   ...[...modulePage.matchAll(/if\(code===["']([^"']+)["']\)/g)].map(match=>match[1])
 ]);
 for(const panel of panelObjects){
