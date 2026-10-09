@@ -18,3 +18,102 @@
 .editorialMock{align-items:stretch}.editorialMock b{height:38px;flex:1;background:linear-gradient(135deg,#d6d3d1,#78716c);border:1px solid #ffffff40;border-radius:3px}.editorialMock b:first-child{flex:1.8;background:linear-gradient(135deg,#f5f5f4,#a8a29e)}.editorialMock span{font-size:9px;align-self:flex-end}
 
 .previewOverlay{position:fixed;inset:0;z-index:1000;background:#0f172acc;display:grid;place-items:center;padding:18px;overflow:auto}.previewDialog{width:min(1100px,100%);max-height:95vh;overflow:auto;background:#f8fafc;border-radius:22px;padding:20px;box-shadow:0 24px 80px #02061766}.previewHeader{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px}.previewHeader h2{margin:5px 0}.previewHeader p{color:#64748b;line-height:1.8;margin:0}.previewHeader button,.previewSettings button{border:1px solid #cbd5e1;background:white;border-radius:10px;padding:10px 14px;font:inherit;cursor:pointer;white-space:nowrap}.previewCanvas{background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;min-height:420px}.previewTopbar{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:18px 22px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px}.previewTopbar span{color:#64748b}.previewHero{padding:clamp(24px,5vw,58px);background:linear-gradient(125deg,#e0f2fe,#f8fafc 58%,#dcfce7);color:#0f172a}.previewHero small{color:#047857;font-weight:800}.previewHero h3{font-size:clamp(26px,5vw,44px);margin:10px 0}.previewHero p{max-width:650px;line-height:1.9;color:#475569}.previewCTA{display:inline-block;background:#0f172a;color:#fff;border-radius:9px;padding:10px 16px;font-size:12px}.previewBlocks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:20px}.previewBlocks article{display:grid;gap:8px;min-height:90px;padding:15px;border:1px solid #e2e8f0;border-radius:12px;background:#fff}.previewBlocks i{font-style:normal;color:#0f766e;font-weight:900;font-size:12px}.previewBlocks b{text-transform:capitalize;overflow-wrap:anywhere}.previewBlocks span{font-size:11px;color:#64748b}.previewFooter{padding:16px 22px;background:#f1f5f9;color:#64748b;font-size:12px}.previewSettings{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding-top:14px;color:#64748b;font-size:12px}.previewSettings span{background:#e2e8f0;border-radius:9px;padding:9px 11px}.previewSettings b{color:#0f172a}.previewSettings button{margin-right:auto;background:#0f172a;color:#fff;border-color:#0f172a}@media(max-width:650px){.previewDialog{padding:12px}.previewTopbar span{display:none}.previewBlocks{grid-template-columns:1fr 1fr;padding:12px}.previewHeader{flex-direction:column}.previewSettings button{width:100%;margin:0}}@media(max-width:420px){.previewBlocks{grid-template-columns:1fr}}
+
+/* Dedicated fintech layout inspired by Digipay's service-first financial UX. */
+.digipayVisual{background:radial-gradient(ellipse at 18% 15%,#5ee7f455 0,transparent 38%),linear-gradient(125deg,#062b52 0%,#075b91 52%,#00a9c7 100%)}
+.digipayMock{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:auto;position:relative;z-index:1}
+.digipayMock b{font-size:9px;font-weight:700;padding:7px 8px;border-radius:7px;background:#ffffff1c;border:1px solid #ffffff3b}
+.digipayMock span{flex-basis:100%;font-size:9px;opacity:.8}
+.digipaySite{background:#fff;color:#112b45;min-height:580px;font-family:inherit}
+.digipayNav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px clamp(16px,4vw,42px);border-bottom:1px solid #e5edf3}
+.digipayNav>b{font-size:21px;white-space:nowrap;color:#075b91}.digipayNav>b span{color:#00a9c7}
+.digipayNav>div{display:flex;gap:clamp(8px,2vw,22px);align-items:center;font-size:12px;color:#52697c}
+.digipayNav button,.digipayHeroActions button,.digipayBusiness button{border:0;border-radius:9px;background:#087db1;color:white;padding:10px 15px;font:inherit;font-size:12px;font-weight:800;white-space:nowrap}
+.digipayHero{display:grid;grid-template-columns:1.05fr .95fr;align-items:center;gap:22px;padding:clamp(28px,5vw,64px) clamp(18px,5vw,60px);background:linear-gradient(120deg,#f1fbff 0%,#fff 60%,#e6f9fc 100%);overflow:hidden}
+.digipayHeroCopy>small,.digipaySectionTitle>small,.digipayBusiness small{color:#008bb7;font-weight:900;font-size:12px}
+.digipayHeroCopy h3{font-size:clamp(27px,4vw,45px);line-height:1.45;letter-spacing:-.7px;margin:12px 0;color:#082f50;max-width:520px}
+.digipayHeroCopy p,.digipayBusiness p{line-height:2;color:#5c7285;font-size:13px;max-width:490px}
+.digipayHeroActions{display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin-top:20px}
+.digipayHeroActions span{font-size:10px;color:#688094}
+.digipayHeroVisual{min-height:240px;position:relative;display:grid;place-items:center}
+.digipayGlow{position:absolute;width:230px;height:230px;border-radius:50%;background:#8ce6f2;filter:blur(1px);opacity:.45;right:10%}
+.digipayCreditCard{position:relative;z-index:1;width:min(310px,90%);min-height:155px;padding:23px;border-radius:18px;background:linear-gradient(135deg,#063e6d,#087db1 65%,#00a9c7);box-shadow:0 22px 55px #075b9133;color:#fff;display:flex;flex-direction:column;gap:12px;transform:rotate(-4deg)}
+.digipayCreditCard small{font-size:10px;opacity:.8}.digipayCreditCard strong{font-size:19px;line-height:1.7}.digipayCreditCard span{font-size:10px;opacity:.8}.digipayCreditCard i{position:absolute;left:20px;bottom:17px;font-style:normal;font-size:25px;color:#8eeaf2}
+.digipayOrbit{position:absolute;z-index:2;left:8%;bottom:8%;display:grid;place-items:center;width:54px;height:54px;border-radius:17px;background:#fff;color:#0789b7;font-size:24px;font-weight:900;box-shadow:0 12px 35px #0b567522}
+.digipayServiceSection{padding:34px clamp(16px,4vw,42px) 38px}
+.digipaySectionTitle{text-align:center;margin:0 auto 22px;max-width:600px}
+.digipaySectionTitle h4,.digipayBusiness h4{font-size:clamp(20px,3vw,28px);margin:8px 0;color:#0b3556}
+.digipaySectionTitle p{font-size:11px;color:#708395;line-height:1.8}
+.digipayServiceGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.digipayServiceGrid article{display:flex;flex-direction:column;gap:10px;padding:17px;border:1px solid #e0edf3;border-radius:14px;background:linear-gradient(180deg,#fff,#f8fcfe);min-height:145px}
+.digipayServiceGrid article>i{display:grid;place-items:center;width:37px;height:37px;border-radius:11px;background:#e4f8fc;color:#0089b8;font-style:normal;font-size:19px;font-weight:900}
+.digipayServiceGrid article>b{font-size:13px}.digipayServiceGrid article>span{font-size:11px;line-height:1.8;color:#6b8192;flex:1}.digipayServiceGrid article>a{font-size:10px;color:#087db1;font-weight:800}
+.digipayBusiness{display:flex;justify-content:space-between;align-items:center;gap:20px;margin:0 clamp(16px,4vw,42px) 28px;padding:25px;border-radius:17px;background:#eff9fc;border:1px solid #d8eff6}
+.digipayBusiness h4{margin-bottom:4px}.digipayBusiness p{margin:4px 0 0}
+.digipayFooter{display:flex;justify-content:space-between;gap:15px;align-items:center;padding:20px clamp(16px,4vw,42px);background:#082f50;color:#d5e8f1;font-size:11px}.digipayFooter b{font-size:16px;color:#fff}
+@media(max-width:700px){.digipayNav{flex-wrap:wrap}.digipayNav>div{order:3;width:100%;overflow:auto;padding-top:8px}.digipayHero{grid-template-columns:1fr}.digipayHeroVisual{min-height:205px;grid-row:1}.digipayServiceGrid{grid-template-columns:1fr 1fr}.digipayBusiness{align-items:flex-start;flex-direction:column}.digipayFooter{flex-direction:column;align-items:flex-start}}
+@media(max-width:420px){.digipayNav button{padding:9px;font-size:10px}.digipayServiceGrid{grid-template-columns:1fr}.digipayHeroVisual{min-height:175px}.digipayCreditCard{min-height:130px}.digipayBusiness{padding:18px}}
+
+/* Brand-specific previews: commerce, lending and corporate portal. */
+.digibileVisual{background:radial-gradient(circle at 75% 20%,#fbbf2455,transparent 30%),linear-gradient(130deg,#102b46,#087c79)}
+.digibileMock,.vamcityMock,.nafMock{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:auto;position:relative;z-index:1}
+.digibileMock b,.vamcityMock b,.nafMock b{font-size:9px;padding:7px 8px;border-radius:7px;background:#ffffff18;border:1px solid #ffffff38}
+.digibileMock span,.vamcityMock span{flex-basis:100%;font-size:9px;opacity:.8}
+.vamcityVisual{background:radial-gradient(circle at 20% 15%,#c4b5fd44,transparent 30%),linear-gradient(135deg,#111b3b,#3730a3 65%,#6d5bd0)}
+.nafVisual{background:radial-gradient(circle at 85% 20%,#7dd3fc44,transparent 28%),linear-gradient(135deg,#102b46,#245b78)}
+.digibileSite,.vamcitySite,.nafSite{font-family:inherit;min-height:560px;background:#fff;color:#172b3c}
+.digibileHeader,.vamcityHeader,.nafHeader{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:16px clamp(15px,4vw,38px);border-bottom:1px solid #e6edf0}
+.digibileHeader>b,.vamcityHeader>b,.nafHeader>b{font-size:18px;white-space:nowrap}.digibileHeader>b{color:#146b68}.digibileHeader>b span{color:#e8a92c}.vamcityHeader>b{color:#3730a3}.vamcityHeader>b span{display:inline-grid;place-items:center;background:#3730a3;color:white;border-radius:7px;width:28px;height:28px}.nafHeader>b{color:#164b6c}.nafHeader>b span{color:#0ea5a4}
+.digibileHeader>div,.vamcityHeader>div,.nafHeader>div{display:flex;gap:clamp(8px,2vw,19px);font-size:11px;color:#607586}
+.digibileHeader button,.vamcityHeader button,.nafHeader button{font:inherit;font-size:11px;font-weight:800;border:0;border-radius:8px;padding:10px 13px;white-space:nowrap}
+.digibileHeader button{background:#146b68;color:#fff}.vamcityHeader button{background:#3730a3;color:#fff}.nafHeader button{background:#164b6c;color:#fff}
+.digibileHero{display:grid;grid-template-columns:1.1fr .9fr;gap:22px;align-items:center;padding:clamp(25px,5vw,54px);background:linear-gradient(120deg,#f0fdfa,#fff 65%,#fffbeb)}
+.digibileHero small{font-size:11px;font-weight:900;color:#147c75}.digibileHero h3{font-size:clamp(26px,4vw,42px);line-height:1.5;margin:12px 0;color:#12394a}.digibileHero p,.vamcityHero p,.nafHero p{font-size:12px;line-height:2;color:#63788a}
+.digibileSearch{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:18px;padding:9px 10px;border:1px solid #d5e8e5;background:#fff;border-radius:10px;font-size:11px;color:#7b8d98}.digibileSearch b{background:#146b68;color:white;padding:9px 13px;border-radius:7px}
+.digibileTags{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.digibileTags span{font-size:10px;padding:7px 9px;background:#fff;border:1px solid #e2eee9;border-radius:20px;color:#456c69}
+.digibileHeroArt{min-height:200px;border-radius:20px;background:linear-gradient(140deg,#0f766e,#14532d);color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;box-shadow:0 20px 40px #0f766e22}.digibileHeroArt div{display:grid;place-items:center;width:76px;height:76px;border-radius:22px;background:#ffffff1c;border:1px solid #ffffff4a;font-size:39px}.digibileHeroArt b{letter-spacing:3px;font-size:15px}.digibileHeroArt span{font-size:10px;opacity:.8}
+.digibileDepartments{padding:25px clamp(15px,4vw,38px)}.digibileDepartments h4{margin:0 0 15px;font-size:19px}.digibileDepartments>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.digibileDepartments article{display:flex;flex-direction:column;gap:12px;padding:17px;border:1px solid #e4eeeb;border-radius:12px;color:#147c75;font-size:22px}.digibileDepartments article b{font-size:11px;color:#1e3948}.digibileDepartments p{font-size:10px;color:#81919b}
+.digibileFooter,.vamcityFooter,.nafFooter{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:18px clamp(15px,4vw,38px);font-size:10px}.digibileFooter{background:#103b3a;color:#d7f4ed}.digibileFooter b{font-size:15px;color:white}
+.vamcityHero{display:grid;grid-template-columns:1fr .9fr;gap:24px;align-items:center;padding:clamp(26px,5vw,55px);background:linear-gradient(125deg,#f5f3ff,#fff 65%,#eef2ff)}
+.vamcityHero small{font-size:11px;color:#5b50bf;font-weight:900}.vamcityHero h3{font-size:clamp(25px,4vw,40px);line-height:1.5;margin:12px 0;color:#1d2350}.vamcityHero>div:first-child>button{border:0;border-radius:9px;padding:11px 15px;background:#4338ca;color:white;font:inherit;font-size:11px;font-weight:800;margin-top:8px}
+.vamcitySteps{display:grid;gap:10px}.vamcitySteps article{display:grid;grid-template-columns:38px 1fr;gap:4px 12px;padding:13px;border:1px solid #e5e4f6;border-radius:12px;background:#ffffffd9}.vamcitySteps i{grid-row:span 2;display:grid;place-items:center;width:35px;height:35px;border-radius:10px;background:#ede9fe;color:#5145b5;font-style:normal;font-size:11px;font-weight:900}.vamcitySteps b{font-size:12px}.vamcitySteps span{font-size:10px;color:#7b8197}
+.vamcityDisclosure{display:flex;gap:12px;align-items:flex-start;margin:0 clamp(15px,4vw,38px) 25px;padding:16px;border:1px solid #e4e0ff;border-radius:12px;background:#faf9ff}.vamcityDisclosure b{white-space:nowrap;color:#4338ca;font-size:11px}.vamcityDisclosure span{font-size:10px;line-height:1.9;color:#6d7190}
+.vamcityFooter{background:#171b42;color:#dcdcf7}.vamcityFooter b{font-size:15px;color:#fff}
+.nafHero{padding:clamp(30px,6vw,65px) clamp(18px,5vw,54px);background:radial-gradient(ellipse at 85% 15%,#38bdf833,transparent 30%),linear-gradient(120deg,#f0f9ff,#fff 58%,#f0fdfa)}
+.nafHero>small{color:#0e7490;font-size:11px;font-weight:900}.nafHero h3{max-width:760px;font-size:clamp(27px,4.5vw,46px);line-height:1.55;color:#123d5a;margin:12px 0}.nafHero p{max-width:620px}
+.nafHero>div{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:20px}.nafHero button{border:0;border-radius:9px;padding:11px 15px;background:#164b6c;color:#fff;font:inherit;font-size:11px;font-weight:800}.nafHero>div span{font-size:10px;color:#668193}
+.nafPillars{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:24px clamp(15px,4vw,38px) 30px}.nafPillars article{display:flex;flex-direction:column;gap:10px;padding:18px;border:1px solid #e0edf3;border-radius:13px}.nafPillars i{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:#e0f2fe;color:#075985;font-size:19px;font-style:normal}.nafPillars b{font-size:13px}.nafPillars span{font-size:10px;line-height:1.8;color:#708394}
+.nafFooter{background:#102f46;color:#d3e5f0}.nafFooter b{font-size:14px;color:white}
+@media(max-width:680px){.digibileHeader,.vamcityHeader,.nafHeader{flex-wrap:wrap}.digibileHeader>div,.vamcityHeader>div,.nafHeader>div{order:3;width:100%;overflow:auto;padding-top:6px}.digibileHero,.vamcityHero{grid-template-columns:1fr}.digibileHeroArt{min-height:155px}.digibileDepartments>div{grid-template-columns:1fr 1fr}.nafPillars{grid-template-columns:1fr}.digibileFooter,.vamcityFooter,.nafFooter{flex-direction:column;align-items:flex-start}.vamcityDisclosure{flex-direction:column}}
+@media(max-width:400px){.digibileSearch{font-size:9px}.digibileSearch b{padding:8px}.digibileDepartments>div{grid-template-columns:1fr 1fr}.digibileHeader button,.vamcityHeader button,.nafHeader button{font-size:10px;padding:8px}}
+
+/* Distinct site previews for Technolife and KIPA, not generic wireframes. */
+.technolifeSite,.kipaSite{font-family:inherit;min-height:560px;background:#fff;color:#1c2937}
+.technolifeHeader{display:flex;align-items:center;gap:12px;padding:15px clamp(14px,3vw,30px);border-bottom:1px solid #e8edf1}
+.technolifeHeader>b{font-size:21px;color:#e11d48;white-space:nowrap}
+.technolifeSearch{flex:1;min-width:80px;border:1px solid #e1e7ec;background:#f7f9fb;border-radius:9px;padding:12px;color:#7b8794;font-size:11px}
+.technolifeHeader button{border:1px solid #e1e7ec;border-radius:8px;background:#fff;padding:9px 11px;font:inherit;font-size:10px;white-space:nowrap}
+.technolifeCategories{display:flex;gap:clamp(10px,2vw,24px);padding:12px clamp(14px,3vw,30px);font-size:11px;color:#596878;border-bottom:1px solid #edf0f3;overflow:auto;white-space:nowrap}
+.technolifeHero{display:grid;grid-template-columns:1fr .8fr;gap:22px;align-items:center;padding:clamp(24px,5vw,50px);background:linear-gradient(120deg,#fff1f2,#fff 58%,#f8fafc)}
+.technolifeHero small{color:#e11d48;font-size:11px;font-weight:900}.technolifeHero h3{font-size:clamp(25px,4vw,39px);line-height:1.55;color:#202c3a;margin:12px 0}.technolifeHero p{font-size:12px;line-height:2;color:#687789}
+.technolifeHero button{background:#e11d48;color:#fff;border:0;border-radius:8px;padding:11px 14px;font:inherit;font-size:11px;font-weight:800;margin-top:8px}
+.technolifeDevice{min-height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(circle at 50% 40%,#fecdd3,#fff1f2 58%,#ffe4e6);border-radius:18px;color:#be123c}
+.technolifeDevice div{display:grid;place-items:center;width:90px;height:125px;border:5px solid #334155;border-radius:15px;background:linear-gradient(160deg,#f8fafc,#cbd5e1);font-size:40px;box-shadow:0 16px 28px #33415522}
+.technolifeDevice span{font-size:10px}
+.technolifeProducts{padding:24px clamp(14px,3vw,30px)}.technolifeProducts h4{margin:0 0 14px;font-size:18px}
+.technolifeProducts>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.technolifeProducts article{display:flex;flex-direction:column;gap:9px;border:1px solid #e6ebef;border-radius:12px;padding:14px}
+.technolifeProducts article i{display:grid;place-items:center;height:45px;background:#f8fafc;border-radius:8px;color:#e11d48;font-size:23px;font-style:normal}
+.technolifeProducts article b{font-size:11px}.technolifeProducts article span,.technolifeProducts p{font-size:10px;color:#7b8794;line-height:1.8}
+.technolifeFooter{display:flex;justify-content:space-between;gap:12px;padding:17px clamp(14px,3vw,30px);background:#202c3a;color:#e2e8f0;font-size:10px}.technolifeFooter b{font-size:15px;color:#fff}
+.kipaHeader{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px clamp(15px,4vw,36px);border-bottom:1px solid #e3ece9}
+.kipaHeader>b{font-size:20px;letter-spacing:1px;color:#0f766e;white-space:nowrap}.kipaHeader>b span{color:#d97706}
+.kipaHeader>div{display:flex;gap:clamp(8px,2vw,20px);font-size:11px;color:#5f7774}
+.kipaHeader button{border:0;border-radius:8px;background:#0f766e;color:#fff;padding:10px 12px;font:inherit;font-size:10px;white-space:nowrap}
+.kipaHero{display:grid;grid-template-columns:1fr .9fr;gap:20px;align-items:center;padding:clamp(25px,5vw,52px);background:linear-gradient(125deg,#ecfdf5,#fff 60%,#fffbeb)}
+.kipaHero small{font-size:11px;color:#0f766e;font-weight:900}.kipaHero h3{font-size:clamp(25px,4vw,39px);line-height:1.55;color:#164e4a;margin:12px 0}.kipaHero p{font-size:12px;line-height:2;color:#647b77}
+.kipaHero button{border:0;border-radius:8px;background:#0f766e;color:#fff;padding:11px 15px;font:inherit;font-size:11px;font-weight:800;margin-top:8px}
+.kipaTiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}.kipaTiles article{display:flex;flex-direction:column;justify-content:center;gap:14px;min-height:90px;padding:16px;border:1px solid #d6eee5;border-radius:12px;background:#ffffffd9;color:#0f766e;font-size:24px}.kipaTiles article b{font-size:11px;color:#264d49}
+.kipaBenefits{padding:24px clamp(15px,4vw,36px)}.kipaBenefits h4{font-size:18px;margin:0 0 14px}.kipaBenefits>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.kipaBenefits article{display:grid;grid-template-columns:30px 1fr;gap:5px 10px;padding:14px;border:1px solid #e0eee8;border-radius:12px}.kipaBenefits i{grid-row:span 2;font-size:11px;font-style:normal;font-weight:900;color:#0f766e}.kipaBenefits b{font-size:11px}.kipaBenefits span{font-size:10px;color:#758984;line-height:1.8}
+.kipaFooter{display:flex;justify-content:space-between;gap:12px;padding:17px clamp(15px,4vw,36px);background:#123d3b;color:#d5f5e8;font-size:10px}.kipaFooter b{font-size:15px;color:white}
+@media(max-width:680px){.technolifeHeader{flex-wrap:wrap}.technolifeSearch{order:3;flex-basis:100%}.technolifeHero,.kipaHero{grid-template-columns:1fr}.technolifeDevice{min-height:140px}.technolifeProducts>div{grid-template-columns:1fr 1fr}.kipaHeader{flex-wrap:wrap}.kipaHeader>div{order:3;width:100%;overflow:auto;padding-top:6px}.kipaBenefits>div{grid-template-columns:1fr}.technolifeFooter,.kipaFooter{flex-direction:column;align-items:flex-start}}
