@@ -9,7 +9,7 @@ type Category = { id: string; code: string; name: string; status: string; sort_o
 type Product = { id: string; sku: string; title: string; description?: string | null; price: string | number; currency: string; status: string; seller_id: string; image_url?: string | null; category?: string | null; attributes?: Record<string, unknown> | null };
 type SourceProduct = { id: string; sku: string; title: string; price: string; currency: string; category: string; image_url: string; brand: string | null; source_name: string };
 type SourceCatalog = { products: SourceProduct[]; categories: string[]; sourceStatus: "live" | "unavailable"; fetchedAt: string | null };
-type SourceLink = { id:string; product_id:string; source_name:string; source_product_id:string; source_sku:string|null; source_url:string|null; source_currency:string; source_price:string|number|null; source_available:boolean|null; price_policy:"manual"; markup_percent:string|number; last_checked_at:string|null; last_success_at:string|null; last_error:string|null; sku:string; title:string; sale_price:string|number; product_status:string };
+type SourceLink = { id:string; product_id:string; source_name:string; source_product_id:string; source_sku:string|null; source_url:string|null; source_currency:string; source_price:string|number|null; source_available:boolean|null; price_policy:"manual"; last_checked_at:string|null; last_success_at:string|null; last_error:string|null; sku:string; title:string; sale_price:string|number; product_status:string };
 type SourceSyncResult = { items:SourceLink[]; runs:Array<{id:string;status:string;updated_count:number;started_at:string}>; total:number };
 type ImportResult = { totalImported: number; totalSkipped: number; imported: string[]; skipped: string[]; message: string };
 const statusLabel: Record<string,string> = { draft:"پیش‌نویس", active:"منتشرشده", archived:"بایگانی‌شده" };
@@ -252,7 +252,7 @@ export default function ProductsPage() {
         method: "POST",
         body: JSON.stringify({ sourceProductIds: batch.map(item => item.source_product_id) })
       });
-      setNotice(`همگام‌سازی منبع تمام شد: ${result.updatedCount} رکورد به‌روز شد، ${result.skippedCount} مورد رد شد و ${result.failedCount} خطا داشت. قیمت فروش فقط طبق سیاست انتخابی تغییر می‌کند؛ موجودی داخلی مستقل می‌ماند.`);
+      setNotice(`همگام‌سازی منبع تمام شد: ${result.updatedCount} رکورد به‌روز شد، ${result.skippedCount} مورد رد شد و ${result.failedCount} خطا داشت. قیمت فروش داخلی و موجودی شما تغییر نمی‌کند؛ فقط اطلاعات مرجع تازه می‌شود.`);
       await load();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "همگام‌سازی مرجع ناموفق بود.");
