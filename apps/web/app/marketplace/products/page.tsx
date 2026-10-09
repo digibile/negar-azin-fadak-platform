@@ -32,6 +32,7 @@ export default function ProductsPage() {
   const [sourceProducts, setSourceProducts] = useState<SourceProduct[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sourceSearch, setSourceSearch] = useState("");
+  const [sourceProductId, setSourceProductId] = useState("");
   const [sourceStatus, setSourceStatus] = useState<"live" | "unavailable" | "unknown">("unknown");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -80,6 +81,27 @@ export default function ProductsPage() {
     } catch (reason) {
       setSourceStatus("unavailable");
       setError(reason instanceof Error ? reason.message : "دریافت فهرست مرجع ناموفق بود.");
+    } finally {
+      setLoadingSource(false);
+    }
+  }
+
+  async function lookupDigikalaProduct() {
+    const id = sourceProductId.trim().replace(/^dkp-/i, "");
+    if (!/^\d{1,16}$/.test(id)) {
+      setError("شناسه محصول دیجی‌کالا را به‌صورت عددی وارد کنید.");
+      return;
+    }
+    setError(""); setNotice(""); setLoadingSource(true);
+    try {
+      const result = await api<{product:SourceProduct}>("/api/marketplace/digikala-product/" + encodeURIComponent(id));
+      const product = result.product;
+      setSourceProducts(current => [product, ...current.filter(item => item.id !== product.id)]);
+      setSelectedIds(current => current.includes(product.id) ? current : [...current, product.id].slice(0, 50));
+      setSourceStatus("live");
+      setNotice("محصول با شناسهٔ " + id + " از منبع دریافت شد. پس از انتخاب «ورود به کاتالوگ داخلی»، رکورد به‌صورت پیش‌نویس ثبت می‌شود.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "دریافت محصول با این شناسه ناموفق بود.");
     } finally {
       setLoadingSource(false);
     }
@@ -255,7 +277,11 @@ export default function ProductsPage() {
         <label className="mp-field-wide">تصویر محصول (اختیاری، حداکثر ۵ مگابایت)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => void uploadImage(event.target.files?.[0])} disabled={uploadingImage} /><small>{uploadingImage ? "در حال بررسی و ذخیره تصویر در رسانهٔ داخلی…" : "تصویر در رسانهٔ داخلی سوکار ذخیره می‌شود؛ لینک خارجی تصویر پذیرفته نمی‌شود."}</small>{imageUrl && <span className="mp-uploaded-image"><img src={imageUrl} alt="پیش‌نمایش تصویر ثبت‌شده" /><code dir="ltr">{imageUrl}</code><button type="button" onClick={() => setImageUrl("")}>حذف تصویر از پیش‌نویس</button></span>}</label>
         <div className="mp-form-actions"><button type="button" onClick={create} disabled={saving || uploadingImage || !sellerId || !sku.trim() || !title.trim() || price === ""}>{saving ? "در حال ثبت…" : "ثبت پیش‌نویس محصول"} <span>←</span></button><small>انتشار عمومی مرحله‌ای جداگانه است.</small></div>
       </div> : <div className="mp-import-panel">
-        <div className="mp-import-head"><div><h3>انتخاب کالا برای ورود به کاتالوگ داخلی</h3><p>محصول انتخابی در پایگاه دادهٔ خودمان ثبت می‌شود، تصویرش در رسانهٔ داخلی کپی می‌شود و برای بررسی قیمت و مشخصات در حالت پیش‌نویس می‌ماند.</p></div><button type="button" className="mp-refresh" onClick={loadSourceCatalog} disabled={loadingSource}>{loadingSource ? "در حال دریافت…" : "به‌روزرسانی فهرست"}</button></div>
+        <div className="mp-import-head"><div><h3>ورود مرجع به کاتالوگ داخلی</h3><p>دیجی‌کالا فقط منبع مرجع در پنل مدیریت است؛ کالا در ویترین سوکار با شناسه و صفحهٔ داخلی خودش ثبت می‌شود.</p></div><button type="button" className="mp-refresh" onClick={loadSourceCatalog} disabled={loadingSource}>{loadingSource ? "در حال دریافت…" : "بارگیری فهرست عمومی"}</button></div>
+        <div className="mp-source-id-row">
+          <label htmlFor="mp-source-product-id">شناسه محصول دیجی‌کالا<input id="mp-source-product-id" value={sourceProductId} onChange={event => setSourceProductId(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void lookupDigikalaProduct(); } }} placeholder="مثلاً 12345678 یا dkp-12345678" inputMode="numeric" /></label>
+          <button type="button" className="mp-refresh" onClick={lookupDigikalaProduct} disabled={loadingSource || !sourceProductId.trim()}>{loadingSource ? "در حال دریافت…" : "دریافت با شناسه"}</button>
+        </div>
         {sourceStatus === "unavailable" && <p className="mp-inline-warning">منبع مرجع فعلاً پاسخ نمی‌دهد. محصولات ثبت‌شدهٔ داخلی تغییری نمی‌کنند.</p>}
         {loadingSource ? <div className="mp-import-empty">در حال دریافت فهرست محصولات مرجع…</div>
         : filteredSourceProducts.length ? <>
