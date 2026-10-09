@@ -11,7 +11,7 @@ on:
         required: true
         type: string
       deploy_to_server:
-        description: "Deploy to Sookar only after the reviewed build is approved"
+        description: "Deploy this exact reviewed commit to Sookar"
         required: true
         default: false
         type: boolean
@@ -21,7 +21,7 @@ on:
         type: string
 
 concurrency:
-  group: ${{ (inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]'))) && 'sookar-production-direct' || 'sookar-build-main-v2' }}
+  group: ${{ inputs.deploy_to_server && 'sookar-production-direct' || 'sookar-build-main-v2' }}
   cancel-in-progress: false
 
 permissions:
@@ -110,7 +110,7 @@ jobs:
           retention-days: 7
 
       - name: Prepare SSH
-        if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -120,66 +120,8 @@ jobs:
           chmod 700 ~/.ssh
           ssh-keyscan -T 15 -p '${{ secrets.DEPLOY_PORT }}' '${{ secrets.DEPLOY_HOST }}' >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
-      - name: Ensure DirectAdmin SSL is enabled
-        if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
-          PORT='${{ secrets.DEPLOY_PORT }}'
-          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" 'bash -s' <<'REMOTE'
-          set -euo pipefail
-          DOMAIN=sookar.ir
-          USER=sookar
-          DOMAIN_CONF="/usr/local/directadmin/data/users/$USER/domains/$DOMAIN.conf"
-          CERT="/usr/local/directadmin/data/users/$USER/domains/$DOMAIN.cert"
-          KEY="/usr/local/directadmin/data/users/$USER/domains/$DOMAIN.key"
-          test -f "$DOMAIN_CONF"
-          if [ ! -s "$CERT" ]; then
-            echo "ERROR: DirectAdmin certificate is missing. Automatic issuance is disabled while the CA rate limit is active." >&2
-            exit 1
-          fi
-          if [ ! -s "$KEY" ]; then
-            echo "ERROR: DirectAdmin private key is missing at $KEY." >&2
-            exit 1
-          fi
-          if ! openssl x509 -in "$CERT" -noout -checkend 86400 >/dev/null 2>&1; then
-            echo "ERROR: DirectAdmin certificate is invalid or expires within 24 hours; repeated ACME issuance is intentionally disabled." >&2
-            openssl x509 -in "$CERT" -noout -dates 2>&1 || true
-            exit 1
-          fi
-          if ! openssl x509 -in "$CERT" -noout -checkhost "$DOMAIN" >/dev/null 2>&1; then
-            echo "ERROR: Existing certificate does not cover $DOMAIN." >&2
-            openssl x509 -in "$CERT" -noout -subject -ext subjectAltName 2>&1 || true
-            exit 1
-          fi
-          CERT_PUB="$(openssl x509 -in "$CERT" -pubkey -noout | openssl pkey -pubin -outform DER 2>/dev/null | sha256sum | awk '{print $1}')"
-          KEY_PUB="$(openssl pkey -in "$KEY" -pubout -outform DER 2>/dev/null | sha256sum | awk '{print $1}')"
-          if [ -z "$CERT_PUB" ] || [ "$CERT_PUB" != "$KEY_PUB" ]; then
-            echo "ERROR: DirectAdmin certificate and private key do not match." >&2
-            exit 1
-          fi
-          echo "CERTIFICATE_VALID_FOR=$DOMAIN"
-          openssl x509 -in "$CERT" -noout -issuer -dates
-          if grep -q '^ssl=OFF$' "$DOMAIN_CONF"; then
-            sed -i 's/^ssl=OFF$/ssl=ON/' "$DOMAIN_CONF"
-            echo DIRECTADMIN_SSL_FLAG_ENABLED
-          fi
-          /usr/local/directadmin/custombuild/build rewrite_confs >/dev/null
-          nginx -t
-          systemctl reload nginx
-          echo "===== NGINX VHOST AND CERTIFICATE PATHS ====="
-          nginx -T 2>/dev/null | grep -nE 'server_name .*sookar\\.ir|ssl_certificate(_key)? ' | head -100 || true
-          echo "===== CERTIFICATE PRESENTED BY LOCAL HTTPS ====="
-          timeout 10 openssl s_client -connect 127.0.0.1:443 -servername "$DOMAIN" </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -dates -fingerprint -sha256 || true
-          echo "===== DIRECTADMIN CERTIFICATE FILE ====="
-          openssl x509 -in "$CERT" -noout -subject -issuer -dates -fingerprint -sha256
-          curl --fail --silent --show-error --connect-timeout 5 --max-time 15 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/" -o /dev/null
-          echo LOCAL_TLS_HANDSHAKE_AND_CERTIFICATE_VALID
-          REMOTE
-
       - name: Upload release
-        if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -188,7 +130,7 @@ jobs:
           BASE=/home/sookar/domains/sookar.ir/negar-platform
           scp -i ~/.deploy_key -P "$PORT" -o BatchMode=yes /tmp/negar-platform.tar.gz "$HOST:$BASE/negar-platform.tar.gz"
       - name: Deploy with rollback
-        if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         env:
           RELEASE_SHA: ${{ inputs.target_sha || github.sha }}
@@ -244,7 +186,7 @@ jobs:
           echo "DEPLOYED_SHA=$SHA"
           REMOTE
       - name: Production health and release check
-        if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
+        if: ${{ inputs.deploy_to_server }}
         env:
           RELEASE_SHA: ${{ inputs.target_sha || github.sha }}
         run: |
@@ -261,7 +203,7 @@ jobs:
           echo PRODUCTION_DEPLOYMENT_OK
           REMOTE
       - name: Reload DirectAdmin Nginx configuration
-        if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -270,7 +212,7 @@ jobs:
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" '/usr/local/directadmin/custombuild/build rewrite_confs >/dev/null && nginx -t && systemctl reload nginx'
 
       - name: Configure DirectAdmin Nginx routes
-        if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -386,7 +328,7 @@ jobs:
           REMOTE
 
       - name: Verify public HTTPS endpoint
-        if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
