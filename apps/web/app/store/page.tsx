@@ -73,13 +73,14 @@ export default function StorePage() {
   }, []);
 
   const categories = useMemo(() => {
-    const names = (data?.products || [])
-      .map(product => product.category?.trim())
-      .filter((value): value is string => Boolean(value));
+    const names = [
+      ...(data?.categories || []),
+      ...(data?.products || []).map(product => product.category?.trim() || "")
+    ].filter((value): value is string => typeof value === "string" && Boolean(value.trim()));
     const unique = new Map<string, string>();
     for (const name of names) {
       const key = normalizeText(name);
-      if (key && !unique.has(key)) unique.set(key, name);
+      if (key && !unique.has(key)) unique.set(key, name.trim());
     }
     return [...unique.entries()].sort((a, b) => a[1].localeCompare(b[1], "fa"));
   }, [data]);
@@ -116,6 +117,7 @@ export default function StorePage() {
           </form>
           <div className="sk-header-actions">
             <Link className="sk-login" href="/login"><span aria-hidden="true">♙</span><span>ورود به حساب</span></Link>
+            <Link className="sk-register" href="/register">عضویت</Link>
             <Link className="sk-cart" href="/store/cart" aria-label="سبد خرید"><span aria-hidden="true">♧</span></Link>
           </div>
         </div>
@@ -159,7 +161,7 @@ export default function StorePage() {
               const count = (data?.products || []).filter(product => normalizeText(product.category || "") === key).length;
               const active = normalizeText(category) === key;
               return <button type="button" key={key} className={active ? "sk-featured-category is-active" : "sk-featured-category"} aria-pressed={active} onClick={() => { setCategory(active ? "" : name); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
-                <span className="sk-featured-image sk-category-art"><i>{categoryGlyph(name, name)}</i></span>
+                <span className="sk-featured-image sk-category-art" style={(() => { const image = safeImageUrl((data?.products || []).find(product => normalizeText(product.category || "") === key && safeImageUrl(product.image_url))?.image_url); return image ? { backgroundImage: `linear-gradient(0deg,rgba(20,32,45,.12),rgba(20,32,45,.02)),url("${image}")` } : undefined; })()}><i>{categoryGlyph(name, name)}</i></span>
                 <span className="sk-featured-copy"><b>{name}</b><small>{count.toLocaleString("fa-IR")} محصول ثبت‌شده</small></span><span className="sk-featured-arrow">←</span>
               </button>;
             })}
