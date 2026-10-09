@@ -121,7 +121,10 @@ app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  const input=loginSchema.parse(req.body);
  if(!verifyHumanCheck(String(req.body?.humanCheck||""),String(req.body?.humanAnswer||"")))return res.status(400).json({error:"تأیید انسانی نامعتبر یا منقضی شده است"});
  const r=await query("select id,email,password_hash,full_name,role from users where email=$1 and status='active'",[input.email.toLowerCase()]);
- if(!r.rowCount||!(await verifyPassword(input.password,r.rows[0].password_hash)))return res.status(401).json({error:"اطلاعات ورود نادرست است"});
+ if(!r.rowCount||!(await verifyPassword(input.password,r.rows[0].password_hash))){
+  await query("insert into security_login_events(user_id,email,ip_address,user_agent,success,failure_reason) values($1,$2,$3::inet,$4,false,$5)",[r.rows[0]?.id||null,input.email.toLowerCase(),req.ip||null,String(req.headers["user-agent"]||"").slice(0,1000)||null,"invalid_credentials_or_inactive_account"]);
+  return res.status(401).json({error:"اطلاعات ورود نادرست است"});
+ }
  const u=r.rows[0];
  await issueSession(req,res,{id:u.id,email:u.email,role:u.role});
  await query("insert into security_login_events(user_id,email,ip_address,user_agent,success) values($1,$2,$3::inet,$4,true)",[u.id,u.email,req.ip||null,String(req.headers["user-agent"]||"").slice(0,1000)||null]);
