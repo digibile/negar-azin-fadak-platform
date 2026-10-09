@@ -22,8 +22,6 @@ type Product = {
 };
 type Store = { id: string; name: string; slug: string; seller_name: string };
 type Catalog = { tenant?: { name?: string }; products: Product[]; stores?: Store[]; categories?: string[]; total?: number };
-type DigikalaProduct = { id:string; sku:string; title:string; description:string|null; category:string; price:string|null; currency:"IRR"; image_url:string; source_url:string; source_name:string; brand:string|null; rating:number|null; source_available:boolean|null };
-type DigikalaCatalog = { source:string; sourceStatus:"live"|"unavailable"; fetchedAt:string|null; categories:string[]; products:DigikalaProduct[]; total:number; notice:string };
 
 const money = (value: string, currency: string) => {
   const amount = Number(value);
@@ -76,7 +74,6 @@ export default function StorePage() {
   const pathname = usePathname();
   const showAllProducts = pathname === "/store/shop";
   const [data, setData] = useState<Catalog | null>(null);
-  const [digikala, setDigikala] = useState<DigikalaCatalog | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
@@ -112,13 +109,6 @@ export default function StorePage() {
     return () => controller.abort();
   }, []);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("/api/public/digikala-catalog", { headers:{accept:"application/json"}, cache:"no-store", signal:controller.signal })
-      .then(async response => { const body=await response.json(); if(!response.ok) throw new Error(body.error || "دریافت کاتالوگ مرجع دیجی‌کالا ناموفق بود."); if(!controller.signal.aborted && Array.isArray(body.products)) setDigikala(body as DigikalaCatalog); })
-      .catch(reason => { if(controller.signal.aborted || (reason instanceof Error && reason.name==="AbortError")) return; setDigikala(current=>current || {source:"دیجی‌کالا",sourceStatus:"unavailable",fetchedAt:null,categories:[],products:[],total:0,notice:"منبع فعلاً در دسترس نیست."}); });
-    return () => controller.abort();
-  }, []);
 
   const canonicalCategory = (value: string | null | undefined) => {
     const key = normalizeText(value || "");
@@ -146,7 +136,7 @@ export default function StorePage() {
     return aliases.find(([pattern]) => pattern.test(key))?.[1] || BROWSE_CATEGORIES.find(name => normalizeText(name) === key) || key;
   };
 
-  const categoryNames = [...new Set([...(data ? (Array.isArray(data.categories) ? data.categories : BROWSE_CATEGORIES) : BROWSE_CATEGORIES), ...(digikala?.categories || [])])];
+  const categoryNames = [...new Set([...(data ? (Array.isArray(data.categories) ? data.categories : BROWSE_CATEGORIES) : BROWSE_CATEGORIES), ])];
   const categories = [...new Set(categoryNames.map(name => canonicalCategory(name.trim())).filter(Boolean))]
     .filter((name, index, all) => all.findIndex(item => normalizeText(item) === normalizeText(name)) === index)
     .map(name => [normalizeText(name), name] as [string, string]);
@@ -165,14 +155,6 @@ export default function StorePage() {
     return filtered;
   }, [data, query, category, sortBy]);
 
-  const sourceProducts = useMemo(() => {
-    const needle=normalizeText(query), selected=canonicalCategory(category);
-    const filtered=(digikala?.products||[]).filter(product=>(!selected||canonicalCategory(product.category)===selected)&&(!needle||normalizeText([product.title,product.sku,product.category,product.brand||"",product.source_name].join(" ")).includes(needle)));
-    if(sortBy==="price-asc") filtered.sort((a,b)=>(a.price===null?Number.MAX_SAFE_INTEGER:Number(a.price))-(b.price===null?Number.MAX_SAFE_INTEGER:Number(b.price)));
-    else if(sortBy==="price-desc") filtered.sort((a,b)=>(b.price===null?-1:Number(b.price))-(a.price===null?-1:Number(a.price)));
-    else if(sortBy==="title") filtered.sort((a,b)=>a.title.localeCompare(b.title,"fa"));
-    return filtered;
-  },[digikala,query,category,sortBy]);
 
   return (
     <main className="sk-store" dir="rtl">
@@ -296,19 +278,6 @@ export default function StorePage() {
           {showAllProducts && products.length > 12 && <div className="sk-catalog-meta"><span>نمایش همه نتایج دریافت‌شده از کاتالوگ</span><Link href="/">بازگشت به صفحه اصلی</Link></div>}
         </section>
 
-        <section className="sk-source-catalog" aria-labelledby="sk-source-catalog-title">
-          <div className="sk-section-heading"><div><span className="sk-eyebrow">کاتالوگ مرجع بیرونی</span><h2 id="sk-source-catalog-title">کالاهای دیجی‌کالا</h2><p>قیمت و موجودی از منبع مرجع می‌آیند؛ خرید این کالاها در صفحه دیجی‌کالا انجام می‌شود.</p></div><span className={digikala?.sourceStatus==="live"?"sk-source-status is-live":"sk-source-status"}>{digikala?.sourceStatus==="live"?"اتصال منبع برقرار":"منبع موقتاً در دسترس نیست"}</span></div>
-          <div className="sk-source-meta"><span>{sourceProducts.length.toLocaleString("fa-IR")} کالای مرجع</span><span>بروزرسانی خودکار هر ۵ دقیقه</span><span>{digikala?.fetchedAt?"آخرین دریافت موفق: "+new Date(digikala.fetchedAt).toLocaleString("fa-IR"):"هنوز دریافت موفق ثبت نشده"}</span></div>
-          {sourceProducts.length?<div className="sk-source-grid">{sourceProducts.slice(0,showAllProducts?250:12).map(product=>{
-            const image=safeImageUrl(product.image_url);
-            const availability=product.source_available===true?"موجود طبق منبع":product.source_available===false?"ناموجود در منبع":"موجودی نامشخص";
-            return <article className="sk-source-card" key={product.id}>
-              <a className="sk-source-image" href={product.source_url} target="_blank" rel="nofollow sponsored noopener noreferrer" aria-label={"بررسی "+product.title+" در دیجی‌کالا"}>{image?<img src={image} alt={product.title} loading="lazy" decoding="async"/>:<span>تصویر موجود نیست</span>}<span className="sk-source-badge">منبع: دیجی‌کالا</span></a>
-              <div className="sk-source-card-body"><span className={product.source_available===false?"sk-source-stock is-out":"sk-source-stock"}>{availability}</span><b className="sk-source-title">{product.title}</b><small>{product.category}{product.brand?" · "+product.brand:""}</small><strong className="sk-source-price">{product.price===null?"قیمت فعلی اعلام نشده":money(product.price,product.currency)}</strong><a className="sk-source-link" href={product.source_url} target="_blank" rel="nofollow sponsored noopener noreferrer">بررسی قیمت و خرید در دیجی‌کالا <span>↗</span></a></div>
-            </article>;
-          })}</div>:<div className="sk-state"><b>کاتالوگ مرجع فعلاً در دسترس نیست.</b><p>در صورت اختلال منبع، آخرین دریافت موفق حفظ و وضعیت اتصال جداگانه نمایش داده می‌شود.</p></div>}
-          <p className="sk-source-disclaimer">{digikala?.notice||"قیمت و موجودی مرجع ممکن است تغییر کند؛ پیش از خرید صفحه منبع را بررسی کنید."}</p>
-        </section>
 
         <section className="sk-market-banner">
           <div><span className="sk-eyebrow">برای فروشندگان</span><h2>کسب‌وکارت را به بازارگاه سوکار وصل کن.</h2><p>مسیر فروشندگان و فروشگاه‌های ثبت‌شده را ببین و درباره حضور در بازارگاه اطلاعات بگیر.</p><Link href="/login">ورود به بخش فروشندگان <span>←</span></Link></div>
