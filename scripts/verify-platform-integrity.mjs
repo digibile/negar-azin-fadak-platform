@@ -144,8 +144,8 @@ for(const step of ["Prepare SSH","Upload release","Deploy with rollback","Produc
 if(!deployWorkflow.includes("Upload reviewable build artifact")||deployWorkflow.indexOf("Package exact SHA")>deployWorkflow.indexOf("Upload reviewable build artifact"))throw new Error("Build artifact must be packaged before review upload");
 if(!deployWorkflow.includes("--exclude='.env.*'"))throw new Error("Release package must exclude environment files");
 if(deployWorkflow.includes("letsencrypt.sh request"))throw new Error("Production deployment must not request SSL certificates automatically; prevent rate-limit loops");
-if(!deployWorkflow.includes("-checkend 86400")||!deployWorkflow.includes('-checkhost sookar.com'))throw new Error("Production deployment must validate the existing Sookar.com SSL certificate expiry and hostname");
-if(deployWorkflow.includes("sookar.ir")||!deployWorkflow.includes("/home/sookar/domains/sookar.com/negar-platform")||!deployWorkflow.includes("Preflight Sookar.com production target"))throw new Error("Deployment must target and preflight only the canonical Sookar.com domain");
+if(!deployWorkflow.includes("-checkend 86400")||!deployWorkflow.includes('-checkhost sookar.ir'))throw new Error("Production deployment must validate the existing sookar.ir SSL certificate expiry and hostname");
+if(deployWorkflow.includes("sookar.com")||!deployWorkflow.includes("/home/sookar/domains/sookar.ir/negar-platform")||!deployWorkflow.includes("Preflight Sookar.ir production target"))throw new Error("Deployment must target and preflight only the canonical sookar.ir domain");
 
 
 const rootPage=fs.readFileSync(path.join(root,"apps/web/app/page.tsx"),"utf8");
