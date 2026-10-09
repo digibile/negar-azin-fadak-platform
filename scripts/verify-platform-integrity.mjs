@@ -156,6 +156,8 @@ if(!rootPage.includes('from "./store/page"')||!marketplaceRoute.includes('from "
 if(!rootLayout.includes('const siteUrl = "https://sookar.ir"')||!rootLayout.includes('"@type": "OnlineStore"'))throw new Error("Root storefront SEO metadata must use sookar.ir and OnlineStore schema");
 
 const storefront=fs.readFileSync(path.join(root,"apps/web/app/store/page.tsx"),"utf8");
+const productDetail=fs.readFileSync(path.join(root,"apps/web/app/store/product/[slug]/page.tsx"),"utf8");
+if(!productDetail.includes('|| "https://sookar.ir"')||!productDetail.includes('"x-forwarded-host":publicHost')||productDetail.includes("negarzinfadak.ir")||productDetail.includes("schema.org/InStock"))throw new Error("Product detail must resolve the Sookar catalog host and avoid unverified stock claims");
 const publicCatalogApi=fs.readFileSync(path.join(root,"apps/api/src/domain-marketplace.ts"),"utf8");
 const productManagement=fs.readFileSync(path.join(root,"apps/web/app/marketplace/products/page.tsx"),"utf8");
 const sellerManagement=fs.readFileSync(path.join(root,"apps/web/app/marketplace/sellers/page.tsx"),"utf8");
