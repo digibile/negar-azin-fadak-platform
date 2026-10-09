@@ -70,11 +70,12 @@ const categoryGlyph = (category: string | null, title: string) => {
   return "◈";
 };
 
-export default function StorePage({ variant = "default" }: { variant?: "default" | "digikala" | "technolife" | "ava" }) {
+export default function StorePage({ variant = "default" }: { variant?: "default" | "digikala" | "technolife" | "ava" | "kipa" }) {
   const pathname = usePathname();
   const isTechnolife = variant === "technolife";
   const isDigikala = variant === "digikala";
   const isAva = variant === "ava";
+  const isKipa = variant === "kipa";
   const showAllProducts = pathname === "/store/shop";
   const [data, setData] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
@@ -162,10 +163,10 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
 
 
   return (
-    <main className={`sk-store${isTechnolife ? " sk-store--technolife" : isDigikala ? " sk-store--digikala" : isAva ? " sk-store--ava" : ""}`} dir="rtl">
+    <main className={`sk-store${isTechnolife ? " sk-store--technolife" : isDigikala ? " sk-store--digikala" : isAva ? " sk-store--ava" : isKipa ? " sk-store--kipa" : ""}`} dir="rtl">
       <div className="sk-service-strip">
         <div className="sk-wrap sk-service-inner">
-          <span>{isTechnolife ? "سوکار تک، فروشگاه تخصصی کالای دیجیتال" : isDigikala ? "قالب فروشگاهی الهام‌گرفته از تجربه دیجی‌کالا" : isAva ? "آوا، تجربه خرید آرام و هوشمند" : "سوکار، بازارگاه یکپارچه خرید و فروش"}</span>
+          <span>{isTechnolife ? "سوکار تک، فروشگاه تخصصی کالای دیجیتال" : isDigikala ? "قالب فروشگاهی الهام‌گرفته از تجربه دیجی‌کالا"  : isAva ? "آوا، تجربه خرید آرام و هوشمند" : isKipa ? "کیپا، بازارگاه هوشمند و یکپارچه" : "سوکار، بازارگاه یکپارچه خرید و فروش"}</span>
           <div><Link href="/marketplace/directory">فروشندگان</Link><Link href="/pay">خدمات اعتباری</Link><Link href="/store/orders">پیگیری سفارش</Link></div>
         </div>
       </div>
@@ -174,7 +175,7 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
         <div className="sk-wrap sk-header-main">
           <Link href="/" className="sk-logo" aria-label="سوکار، صفحه اصلی">
             <span className="sk-logo-mark">س</span>
-            <span><b>{isTechnolife ? "سوکار تک" : isAva ? "آوا" : "سوکار"}</b><small>{isTechnolife ? "دنیای فناوری، یک‌جا" : isDigikala ? "خرید هوشمند، انتخاب مطمئن" : "خرید هوشمند، انتخاب مطمئن"}</small></span>
+            <span><b>{isTechnolife ? "سوکار تک" : isAva ? "آوا" : isKipa ? "کیپا" : "سوکار"}</b><small>{isTechnolife ? "دنیای فناوری، یک‌جا" : isKipa ? "انتخاب روشن، خرید مطمئن" : "خرید هوشمند، انتخاب مطمئن"}</small></span>
           </Link>
           <form className="sk-search" role="search" onSubmit={event => { event.preventDefault(); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth" }); }}>
             <span aria-hidden="true">⌕</span>
@@ -205,9 +206,9 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
       <div className="sk-wrap">
         <section className="sk-hero sk-retail-hero" aria-labelledby="sk-hero-title">
           <div className="sk-hero-copy">
-            <span className="sk-hero-kicker"><i /> {isTechnolife ? "فروشگاه کالای دیجیتال سوکار" : isDigikala ? "تجربه فروشگاهی سریع و آشنا" : "بازارگاه سوکار"}</span>
+            <span className="sk-hero-kicker"><i /> {isTechnolife ? "فروشگاه کالای دیجیتال سوکار" : isDigikala ? "تجربه فروشگاهی سریع و آشنا" : isKipa ? "کتابخانه قالب‌ها · نسخه نخست کیپا" : "بازارگاه سوکار"}</span>
             <h1 id="sk-hero-title">{isTechnolife ? <>تکنولوژی روز،<br /><em>انتخابی آگاهانه.</em></> : isDigikala ? <>از میان انتخاب‌ها،<br /><em>بهترین را پیدا کن.</em></> : <>هرچی لازم داری،<br /><em>یک‌جا پیدا کن.</em></>}</h1>
-            <p>{isTechnolife ? "محصولات دیجیتال ثبت‌شده را جستجو کن، مشخصات و قیمت واقعی را بررسی کن و با آگاهی انتخاب کن." : "کالاهای فروشگاه‌های فعال را ببین، مشخصات و قیمت ثبت‌شده را بررسی کن و محصولات موردنظرت را به سبد خرید اضافه کن."}</p>
+            <p>{isTechnolife ? "محصولات دیجیتال ثبت‌شده را جستجو کن، مشخصات و قیمت واقعی را بررسی کن و با آگاهی انتخاب کن." : isKipa ? "کالاهای ثبت‌شده فروشندگان فعال را مرور کن، جزئیات و قیمت واقعی را ببین و انتخابت را با اطلاعات شفاف انجام بده." : "کالاهای فروشگاه‌های فعال را ببین، مشخصات و قیمت ثبت‌شده را بررسی کن و محصولات موردنظرت را به سبد خرید اضافه کن."}</p>
             <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">خرید از همه دسته‌ها <span>←</span></Link><Link href="/marketplace/directory" className="sk-quiet-btn">فروشگاه‌های بازارگاه</Link></div>
             <div className="sk-hero-note"><span>✓</span> فقط اطلاعات کاتالوگ واقعی؛ بدون محصول و قیمت ساختگی</div>
           </div>
