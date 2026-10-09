@@ -54,6 +54,10 @@ for(const file of [migration,storage,runtime,stage1927,stage2835,stage3645,serve
 for(const [index,item] of [...masterMenu.matchAll(/\{code:"([^"]+)",number:"([0-9]{2})",title:"([^"]+)"[^\n]*children:\[/g)].entries())if(!item[1]||!item[3])throw new Error("Canonical panel has a missing code or title at index "+index);
 const panelEntries=[...masterMenu.matchAll(/code:"([^"]+)",number:"([0-9]{2})",title:/g)];
 if(panelEntries.length!==20)throw new Error("Master menu must contain exactly 20 canonical panels; found "+panelEntries.length);
+const panelRoutes=[...masterMenu.matchAll(/code:"([^"]+)",number:"([0-9]{2})",title:"([^"]+)"[^}]*route:"([^"]+)"/g)];
+if(panelRoutes.length!==20)throw new Error("All 20 canonical panels must define a route; found "+panelRoutes.length);
+if(new Set(panelRoutes.map(x=>x[1])).size!==20)throw new Error("Canonical panel route codes must be unique");
+if(panelRoutes.some(x=>!x[4].startsWith("/")))throw new Error("Canonical panel route must be an internal application path");
 const panelNumbers=panelEntries.map(x=>x[2]);
 if(new Set(panelNumbers).size!==20||panelNumbers.some((x,i)=>x!==String(i+1).padStart(2,"0")))throw new Error("Canonical panel numbers must be unique and ordered 01-20");
 if(!sidebar.includes("const visit=(nodes:MenuNode[])")||!sidebar.includes("visit(node.child_items||[])"))throw new Error("Legacy menu merge must index every nested level");
