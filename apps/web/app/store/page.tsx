@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import "./storefront.css";
+import { STORE_CATEGORY_NAVIGATION } from "./category-navigation";
 import { AddToCartButton, CartCount } from "./cart-actions";
 import { useEffect, useMemo, useState } from "react";
 
@@ -82,6 +83,7 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const [activeNavCategory, setActiveNavCategory] = useState("موبایل");
   const [sortBy, setSortBy] = useState<"newest" | "price-asc" | "price-desc" | "title">("newest");
   const [loading, setLoading] = useState(true);
 
@@ -192,8 +194,16 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
           <div className="sk-wrap sk-nav-inner">
             <div className="sk-category-nav-menu">
               <button type="button" className="sk-all-cats" aria-expanded={showCategoryMenu} aria-haspopup="menu" onClick={() => setShowCategoryMenu(open => !open)}><span>☰</span> دسته‌بندی کالاها <span className="sk-category-nav-chevron">{showCategoryMenu ? "⌃" : "⌄"}</span></button>
-              {showCategoryMenu && <div className="sk-category-nav-dropdown" role="menu" aria-label="دسته‌بندی کالاها">
-                {categories.map(([key,name]) => <button type="button" role="menuitem" key={key} onClick={() => { setCategory(name); setShowCategoryMenu(false); document.getElementById("sk-products")?.scrollIntoView({behavior:"smooth",block:"start"}); }}><span>{categoryGlyph(name,name)}</span><b>{name}</b><i>←</i></button>)}
+              {showCategoryMenu && <div className="sk-category-nav-dropdown sk-category-nav-mega" role="menu" aria-label="دسته‌بندی کالاها">
+                <div className="sk-category-mega-list">
+                  {STORE_CATEGORY_NAVIGATION.map(item => <button type="button" role="menuitem" key={item.name} className={activeNavCategory===item.name?"is-active":""} onMouseEnter={() => setActiveNavCategory(item.name)} onFocus={() => setActiveNavCategory(item.name)} onClick={() => { setCategory(item.name); setShowCategoryMenu(false); document.getElementById("sk-products")?.scrollIntoView({behavior:"smooth",block:"start"}); }}><span>{categoryGlyph(item.name,item.name)}</span><b>{item.name}</b><i>←</i></button>)}
+                </div>
+                <section className="sk-category-mega-content" aria-label={"زیر دسته‌های "+activeNavCategory}>
+                  <header><b>{activeNavCategory}</b><button type="button" onClick={() => {setCategory(activeNavCategory);setShowCategoryMenu(false);document.getElementById("sk-products")?.scrollIntoView({behavior:"smooth",block:"start"});}}>مشاهده همه کالاهای این دسته ←</button></header>
+                  <div className="sk-category-mega-children">
+                    {(STORE_CATEGORY_NAVIGATION.find(item=>item.name===activeNavCategory)?.children||[]).map(child=><button type="button" key={child} onClick={() => {setCategory(activeNavCategory);setQuery(child==="همه محصولات "+activeNavCategory?"":child.startsWith("همه ")?"":child);setShowCategoryMenu(false);document.getElementById("sk-products")?.scrollIntoView({behavior:"smooth",block:"start"});}}>{child}<span>←</span></button>)}
+                  </div>
+                </section>
               </div>}
             </div>
             <Link href="/store/shop">فروشگاه و فروشندگان</Link>
