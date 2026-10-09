@@ -17,6 +17,7 @@ const organization=fs.readFileSync(path.join(root,"apps/api/src/domain-organizat
 const commandPage=fs.readFileSync(path.join(root,"apps/web/app/command-center/page.tsx"),"utf8");
 const masterMenu=fs.readFileSync(path.join(root,"apps/web/app/admin/master-menu.ts"),"utf8");
 const sidebar=fs.readFileSync(path.join(root,"apps/web/app/admin/AdminSidebar.tsx"),"utf8");
+const modulePage=fs.readFileSync(path.join(root,"apps/web/app/modules/page.tsx"),"utf8");
 
 const expected=[
 "governance","identity","master-data","customer-360","smart-calendar","business-rules","sla",
@@ -60,6 +61,21 @@ if(new Set(panelRoutes.map(x=>x[1])).size!==20)throw new Error("Canonical panel 
 if(panelRoutes.some(x=>!x[4].startsWith("/")))throw new Error("Canonical panel route must be an internal application path");
 const panelNumbers=panelEntries.map(x=>x[2]);
 if(new Set(panelNumbers).size!==20||panelNumbers.some((x,i)=>x!==String(i+1).padStart(2,"0")))throw new Error("Canonical panel numbers must be unique and ordered 01-20");
+const expectedLegacyCodes=[
+"02-organizations","02-identity","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla",
+"08-accounting-finance","08-check-documents","09-commerce-stores","10-wallet-ledger","12-logistics-supply",
+"14-form-builder","15-menu-builder","16-page-builder","17-frontend-management","18-notifications","19-documents-governance","20-system-settings",
+"21-purchasing-supply","22-sales-revenue","23-inventory-warehouse","24-production","25-costing","26-treasury-bank","27-receivables","28-payables",
+"29-wallet-ledger","30-projects-cost-centers","31-fixed-assets","32-tax-e-invoicing","33-budget-financial-control","34-financial-commitments",
+"35-credit-financing","36-loans","37-collateral-guarantees","38-collections","39-human-resources","40-ai-finance","41-ai-documents-ocr",
+"42-audit-internal-control","43-communication-hub","44-marketing-content","45-search-analytics","46-unified-applications","47-contracts-legal",
+"48-shipping-delivery","49-reconciliation","50-release-health"
+];
+const missingLegacy=expectedLegacyCodes.filter(code=>!masterMenu.includes('"'+code+'"'));
+if(missingLegacy.length)throw new Error("Legacy menu codes missing from canonical panels: "+missingLegacy.join(", "));
+const unroutedLegacy=expectedLegacyCodes.filter(code=>!modulePage.includes('"'+code+'"'));
+if(unroutedLegacy.length)throw new Error("Legacy menu codes missing a module dispatcher mapping: "+unroutedLegacy.join(", "));
+
 if(!sidebar.includes("const visit=(nodes:MenuNode[])")||!sidebar.includes("visit(node.child_items||[])"))throw new Error("Legacy menu merge must index every nested level");
 if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.includes("...flattenTitles(x.dbChildren)"))throw new Error("Menu search must include all nested legacy levels");
-console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, stages 19-45 operational layers, 8 command-platform domains, mounted routers, storage, pagination, and activation verified.");
+console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, full legacy-code coverage and routing, stages 19-45 operational layers, 8 command-platform domains, mounted routers, storage, pagination, and activation verified.");
