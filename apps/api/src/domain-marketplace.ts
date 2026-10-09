@@ -348,7 +348,7 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requir
     };
     const result=await query(
       "insert into products(tenant_id,seller_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,'draft',$9::jsonb) on conflict(tenant_id,sku) do nothing returning id,sku,title,status",
-      [ctx.id,sellerId,product.sku,product.title,product.description,canonicalMarketplaceCategory(product.category),Number(product.price),product.currency,JSON.stringify(attributes)]
+      [ctx.id,sellerId,product.sku,product.title,product.description,canonicalMarketplaceCategory(product.category),0,product.currency,JSON.stringify(attributes)]
     );
     if(result.rowCount){
       await query(
@@ -521,8 +521,29 @@ domainMarketplaceRouter.patch("/api/marketplace/stores/:id/status",requireAuth,r
  const status=bodyString(req.body?.status,20);if(!["draft","active","suspended","closed"].includes(status))return res.status(400).json({error:"وضعیت فروشگاه نامعتبر است"});
  const r=await query("update stores set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);if(!r.rowCount)return res.status(404).json({error:"فروشگاه پیدا نشد"});res.json(r.rows[0]);
 }));
+domainMarketplaceRouter.patch("/api/marketplace/products/:id",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const title=bodyString(req.body?.title,250);
+ const price=bodyNumber(req.body?.price);
+ const description=bodyString(req.body?.description,5000);
+ const category=bodyString(req.body?.category,200);
+ if(!title||price===null||price<=0)return res.status(400).json({error:"عنوان و قیمت فروش داخلی باید معتبر و قیمت بیشتر از صفر باشد"});
+ const result=await query(
+  "update products set title=$1,description=$2,category=$3,price=$4,attributes=jsonb_set(coalesce(attributes,'{}'::jsonb),'{priceReviewRequired}','false'::jsonb,true),updated_at=now() where id=$5 and tenant_id=$6 returning id,sku,title,description,category,price,currency,status,seller_id,attributes",
+  [title,description||null,category||null,price,req.params.id,ctx.id]
+ );
+ if(!result.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});
+ res.json({item:result.rows[0],message:"قیمت فروش و مشخصات در کاتالوگ داخلی ذخیره شد"});
+}));
+
 domainMarketplaceRouter.patch("/api/marketplace/products/:id/status",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
  const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const status=bodyString(req.body?.status,20);if(!["draft","active","archived"].includes(status))return res.status(400).json({error:"وضعیت محصول نامعتبر است"});
- const r=await query("update products set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);if(!r.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});res.json(r.rows[0]);
+ const current=await query("select p.id,p.price,p.attributes,s.status as seller_status from products p join sellers s on s.id=p.seller_id and s.tenant_id=p.tenant_id where p.id=$1 and p.tenant_id=$2",[req.params.id,ctx.id]);
+ if(!current.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});
+ if(status==="active"&&current.rows[0].seller_status!=="active")return res.status(409).json({error:"برای انتشار محصول ابتدا فروشنده را فعال کنید"});
+ const attributes=current.rows[0].attributes&&typeof current.rows[0].attributes==="object"?current.rows[0].attributes as Record<string,unknown>:{};
+ if(status==="active"&&(Number(current.rows[0].price)<=0||attributes.priceReviewRequired===true))return res.status(409).json({error:"قبل از انتشار، قیمت فروش داخلی و اطلاعات محصول را بررسی و ذخیره کنید"});
+ const r=await query("update products set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);
+ res.json(r.rows[0]);
 }));
