@@ -395,16 +395,6 @@ jobs:
           done
           head -c 1000 /tmp/sookar-health.html || true
           exit 1
- "$DOMAIN_CONF"; then
-            sed -i 's/^ssl=OFF$/ssl=ON/' "$DOMAIN_CONF"
-            echo DIRECTADMIN_SSL_FLAG_ENABLED
-          fi
-          /usr/local/directadmin/custombuild/build rewrite_confs >/dev/null
-          nginx -t
-          systemctl reload nginx
-          curl --fail --silent --show-error --connect-timeout 5 --max-time 15 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/" -o /dev/null
-          echo LOCAL_TLS_HANDSHAKE_AND_CERTIFICATE_VALID
-          REMOTE
 
       - name: Upload release
         if: ${{ inputs.deploy_to_server }}
