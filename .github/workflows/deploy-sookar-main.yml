@@ -1,6 +1,9 @@
 name: Deploy Sookar Main Safely
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       target_sha:
@@ -57,6 +60,9 @@ jobs:
       - name: Install API dependencies
         working-directory: .
         run: pnpm install --frozen-lockfile
+      - name: Verify platform integrity
+        working-directory: .
+        run: pnpm verify:platform
       - name: API build
         working-directory: apps/api
         run: pnpm build
@@ -89,7 +95,7 @@ jobs:
       - name: Upload reviewable build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: negar-platform-${{ inputs.target_sha }}
+          name: negar-platform-${{ inputs.target_sha || github.sha }}
           path: /tmp/negar-platform.tar.gz
           if-no-files-found: error
           retention-days: 7
