@@ -35,6 +35,21 @@ const normalizeText = (value: string) => value
   .trim()
   .toLocaleLowerCase("fa");
 
+const BROWSE_CATEGORIES = [
+  "موبایل و تبلت",
+  "لپ‌تاپ و کامپیوتر",
+  "خانه و آشپزخانه",
+  "مد و پوشاک",
+  "زیبایی و سلامت",
+  "صوتی و تصویری",
+  "ورزش و سفر",
+  "کتاب و لوازم‌التحریر",
+  "کودک و نوزاد",
+  "خودرو و ابزار",
+  "سوپرمارکت",
+  "لوازم اداری"
+];
+
 const categoryGlyph = (category: string | null, title: string) => {
   const value = `${category || ""} ${title}`.toLocaleLowerCase("fa");
   if (/موبایل|گوشی|تلفن|تبلت/.test(value)) return "▯";
@@ -82,7 +97,10 @@ export default function StorePage() {
       const key = normalizeText(name);
       if (key && !unique.has(key)) unique.set(key, name.trim());
     }
-    return [...unique.entries()].sort((a, b) => a[1].localeCompare(b[1], "fa"));
+    const registered = [...unique.entries()].sort((a, b) => a[1].localeCompare(b[1], "fa"));
+    // Keep the browse taxonomy visible even before the first real product is published.
+    // Counts and product cards remain driven exclusively by the live catalog API.
+    return registered.length ? registered : BROWSE_CATEGORIES.map(name => [normalizeText(name), name] as [string, string]);
   }, [data]);
 
   const products = useMemo(() => {
@@ -165,7 +183,7 @@ export default function StorePage() {
                 <span className="sk-featured-copy"><b>{name}</b><small>{count.toLocaleString("fa-IR")} محصول ثبت‌شده</small></span><span className="sk-featured-arrow">←</span>
               </button>;
             })}
-          </div> : <div className="sk-category-empty"><span>▦</span><div><b>دسته‌بندی‌های واقعی هنوز ثبت نشده‌اند</b><p>با ثبت محصول فعال و انتخاب دسته‌بندی در پنل فروشندگان، دسته‌ها به‌صورت خودکار در این بخش ظاهر می‌شوند.</p></div></div>}
+          </div> : <div className="sk-category-empty"><span>▦</span><div><b>دسته‌بندی‌های اصلی بازارگاه</b><p>این فهرست برای مرور دسته‌ها آماده است؛ تعداد کالاها فقط از محصولات واقعی و منتشرشده محاسبه می‌شود.</p></div></div>}
         </section>
 
         <section className="sk-catalog" id="sk-products" aria-labelledby="sk-products-title">
