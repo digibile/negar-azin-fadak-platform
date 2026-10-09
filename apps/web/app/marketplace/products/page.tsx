@@ -6,7 +6,7 @@ import "./products-workspace.css";
 
 type Seller = { id: string; display_name: string; status: string };
 type Category = { id: string; code: string; name: string; status: string; sort_order: number };
-type Product = { id: string; sku: string; title: string; price: string | number; currency: string; status: string; seller_id: string; image_url?: string | null; category?: string | null };
+type Product = { id: string; sku: string; title: string; description?: string | null; price: string | number; currency: string; status: string; seller_id: string; image_url?: string | null; category?: string | null; attributes?: Record<string, unknown> | null };
 type SourceProduct = { id: string; sku: string; title: string; price: string; currency: string; category: string; image_url: string; brand: string | null; source_name: string };
 type SourceCatalog = { products: SourceProduct[]; categories: string[]; sourceStatus: "live" | "unavailable"; fetchedAt: string | null };
 type SourceLink = { id:string; product_id:string; source_name:string; source_product_id:string; source_sku:string|null; source_url:string|null; source_currency:string; source_price:string|number|null; source_available:boolean|null; price_policy:"manual"; markup_percent:string|number; last_checked_at:string|null; last_success_at:string|null; last_error:string|null; sku:string; title:string; sale_price:string|number; product_status:string };
@@ -41,6 +41,11 @@ export default function ProductsPage() {
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingId, setSavingId] = useState("");
+  const [editingId, setEditingId] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editCategory, setEditCategory] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingSource, setLoadingSource] = useState(false);
@@ -255,6 +260,38 @@ export default function ProductsPage() {
   }
 
 
+  function startEdit(item: Product) {
+    setEditingId(item.id);
+    setEditTitle(item.title);
+    setEditDescription(item.description || "");
+    setEditPrice(Number(item.price) > 0 ? String(item.price) : "");
+    setEditCategory(item.category || "");
+    setError("");
+    setNotice("");
+  }
+
+  async function saveProductEdits(item: Product) {
+    const numericPrice = Number(editPrice);
+    if (!editTitle.trim() || !Number.isFinite(numericPrice) || numericPrice <= 0) {
+      setError("عنوان و قیمت فروش داخلی را وارد کنید؛ قیمت باید بیشتر از صفر باشد.");
+      return;
+    }
+    setError(""); setNotice(""); setSavingId(item.id);
+    try {
+      await api("/api/marketplace/products/" + encodeURIComponent(item.id), {
+        method: "PATCH",
+        body: JSON.stringify({ title: editTitle.trim(), description: editDescription, category: editCategory, price: numericPrice })
+      });
+      setNotice("قیمت فروش خودتان و مشخصات محصول ذخیره شد؛ منبع مرجع قیمت فروش را تغییر نمی‌دهد.");
+      setEditingId("");
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "ذخیره قیمت و مشخصات محصول ناموفق بود.");
+    } finally {
+      setSavingId("");
+    }
+  }
+
   async function changeStatus(item: Product, status: "active" | "draft") {
     setError(""); setNotice(""); setSavingId(item.id);
     try {
@@ -349,17 +386,28 @@ export default function ProductsPage() {
       {loading ? <div className="mp-inventory-empty">در حال دریافت اطلاعات کاتالوگ…</div>
       : visibleItems.length ? <div className="mp-product-list">{visibleItems.map(item => {
         const seller = sellerFor(item.seller_id);
-        const canPublish = seller?.status === "active";
+        const needsPriceReview = item.attributes?.priceReviewRequired === true || Number(item.price) <= 0;
+        const canPublish = seller?.status === "active" && !needsPriceReview;
         return <article className="mp-product-row" key={item.id}>
           <div className="mp-product-thumb">{item.image_url ? <img src={item.image_url} alt="" loading="lazy" /> : <span>◇</span>}</div>
           <div className="mp-product-name"><b>{item.title}</b><small>{item.sku} · {seller?.display_name || "فروشنده"}{item.category ? " · " + item.category : ""}</small></div>
-          <strong className="mp-product-price">{money(item.price, item.currency)}</strong>
+          <strong className="mp-product-price">{needsPriceReview ? "نیازمند قیمت‌گذاری" : money(item.price, item.currency)}</strong>
           <span className={"mp-status status-" + item.status}><i />{statusLabel[item.status] || item.status}</span>
-          <div className="mp-row-actions">{item.status === "active"
-            ? <button type="button" onClick={() => changeStatus(item, "draft")} disabled={savingId === item.id}>{savingId === item.id ? "در حال ذخیره…" : "برداشتن از ویترین"}</button>
-            : <button type="button" onClick={() => changeStatus(item, "active")} disabled={savingId === item.id || !canPublish} title={!canPublish ? "ابتدا فروشنده را فعال کنید" : ""}>{savingId === item.id ? "در حال ذخیره…" : "انتشار محصول"}</button>}
-            {!canPublish && <small>فعال‌سازی فروشنده لازم است</small>}
+          <div className="mp-row-actions">
+            <button type="button" onClick={() => startEdit(item)} disabled={savingId === item.id}>ویرایش قیمت و مشخصات</button>
+            {item.status === "active"
+              ? <button type="button" onClick={() => changeStatus(item, "draft")} disabled={savingId === item.id}>{savingId === item.id ? "در حال ذخیره…" : "برداشتن از ویترین"}</button>
+              : <button type="button" onClick={() => changeStatus(item, "active")} disabled={savingId === item.id || !canPublish} title={needsPriceReview ? "ابتدا قیمت فروش خودتان را ثبت و ذخیره کنید" : !canPublish ? "ابتدا فروشنده را فعال کنید" : ""}>{savingId === item.id ? "در حال ذخیره…" : "انتشار محصول"}</button>}
+            {needsPriceReview && <small>قیمت منبع فقط برای مرجع است؛ قیمت فروش خودتان را وارد کنید.</small>}
+            {!seller || seller.status !== "active" ? <small>فعال‌سازی فروشنده لازم است</small> : null}
           </div>
+          {editingId === item.id && <div className="mp-product-edit-form">
+            <label>عنوان محصول<input value={editTitle} onChange={event => setEditTitle(event.target.value)} maxLength={250} /></label>
+            <label>قیمت فروش خودمان (ریال)<input type="number" min="1" step="1" value={editPrice} onChange={event => setEditPrice(event.target.value)} placeholder="قیمت نهایی خودمان" /></label>
+            <label>دسته‌بندی<select value={editCategory} onChange={event => setEditCategory(event.target.value)}><option value="">بدون دسته‌بندی</option>{editCategory && !categories.some(category => category.name === editCategory) && <option value={editCategory}>{editCategory}</option>}{categories.map(category => <option key={category.id} value={category.name}>{category.name}</option>)}</select></label>
+            <label className="mp-edit-description">توضیحات محصول<textarea value={editDescription} onChange={event => setEditDescription(event.target.value)} rows={4} maxLength={5000} /></label>
+            <div className="mp-edit-actions"><button type="button" onClick={() => void saveProductEdits(item)} disabled={savingId === item.id || !editTitle.trim() || !editPrice}>{savingId === item.id ? "در حال ذخیره…" : "ذخیره قیمت و مشخصات"}</button><button type="button" onClick={() => setEditingId("")} disabled={savingId === item.id}>انصراف</button></div>
+          </div>}
         </article>;
       })}</div> : <div className="mp-inventory-empty">{items.length ? "محصولی با این فیلتر پیدا نشد." : "هنوز محصولی در کاتالوگ داخلی ثبت نشده است."}</div>}
     </section>
