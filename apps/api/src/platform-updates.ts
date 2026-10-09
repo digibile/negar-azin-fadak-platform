@@ -25,7 +25,7 @@ const apiBase="https://api.github.com";
 
 function runTargetSha(run:any):string|null{
   const label=String(run?.display_title||run?.name||"");
-  const match=label.match(/(?:Release\\s+)?([0-9a-f]{40})/i);
+  const match=label.match(/(?:Release\s+)?([0-9a-f]{40})/i);
   return match?.[1]|| (typeof run?.head_sha==="string"?run.head_sha:null);
 }
 
