@@ -70,7 +70,6 @@ for(const panel of panelObjects){
  for(const child of children){
   if(!child[1].trim())throw new Error("Canonical child title is empty in panel "+panel[1]);
   if(!child[2]&&!child[3])throw new Error("Canonical child has no destination mapping: "+panel[1]+" / "+child[1]);
-  if(child[3]&&!declaredCodes.has(child[3]))throw new Error("Canonical child module is not routed: "+panel[1]+" / "+child[1]+" -> "+child[3]);
  }
 }
 
@@ -94,6 +93,12 @@ const declaredCodes=new Set([
   ...[workspaceBlock[1],genericBlock[1],landingBlock[1]].flatMap(block=>[...block.matchAll(/"([^"]+)"/g)].map(match=>match[1])),
   ...[...modulePage.matchAll(/if\(code===["']([^"']+)["']\)/g)].map(match=>match[1])
 ]);
+for(const panel of panelObjects){
+ const children=[...panel[4].matchAll(/child\\("([^"]+)"(?:,\\s*"([^"]*)")?(?:,\\s*"([^"]*)")?\\)/g)];
+ for(const child of children){
+  if(child[3]&&!declaredCodes.has(child[3]))throw new Error("Canonical child module is not routed: "+panel[1]+" / "+child[1]+" -> "+child[3]);
+ }
+}
 const unroutedLegacy=expectedLegacyCodes.filter(code=>!declaredCodes.has(code));
 if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered in a real dispatcher branch/workspace: "+unroutedLegacy.join(", "));
 
