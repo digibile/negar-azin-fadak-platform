@@ -78,31 +78,6 @@ jobs:
       - name: Upload reviewable build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: negar-platform-${{ inputs.target_sha }}
-          path: /tmp/negar-platform.tar.gz
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Prepare SSH
-        if: ${{ inputs.deploy_to_server }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          umask 077
-          printf '%s\n' '${{ secrets.DEPLOY_SSH_KEY }}' > ~/.deploy_key
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          ssh-keyscan -T 15 -p '${{ secrets.DEPLOY_PORT }}' '${{ secrets.DEPLOY_HOST }}' >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-      - name: Package exact SHA
-        shell: bash
-        run: |
-          set -euo pipefail
-          tar --exclude='.git' --exclude='node_modules' --exclude='.next' --exclude='.cache' --exclude='*.log' --exclude='.env' --exclude='.env.*' --exclude='tmp' --exclude='temp' --exclude='backups' -czf /tmp/negar-platform.tar.gz .
-
-      - name: Upload reviewable build artifact
-        uses: actions/upload-artifact@v4
-        with:
           name: negar-platform-${{ inputs.target_sha || github.sha }}
           path: /tmp/negar-platform.tar.gz
           if-no-files-found: error
