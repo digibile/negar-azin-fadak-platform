@@ -373,3 +373,15 @@
 .sk-store .sk-product-option-grid span{color:var(--sk-primary);font-size:11px;font-weight:850}
 .sk-store .sk-product-option-grid small{color:#77818d;font-size:10px;line-height:1.8}
 @media(max-width:760px){.sk-store .sk-product-buying-options{width:calc(100% - 24px);padding:14px;margin-bottom:22px}.sk-store .sk-product-option-grid{grid-template-columns:1fr}}
+
+
+/* Independent template variants. Keep the existing Sookar storefront untouched. */
+.sk-store--digikala{--sk-primary:#e5322b;--sk-primary-dark:#bf201d;--sk-canvas:#f5f6f8}
+.sk-store--technolife{--sk-primary:#f28c00;--sk-primary-dark:#d97800;--sk-canvas:#f4f6f9}
+.sk-store--technolife .sk-hero{background:linear-gradient(118deg,#102a43 0%,#174a69 58%,#273c54 100%)}
+.sk-store--technolife .sk-hero-kicker{color:#ffd7a0}
+.sk-store--technolife .sk-hero h1 em{color:#ffb84f}
+.sk-store--technolife .sk-art-core{background:linear-gradient(145deg,#ffb43f,#e87900)}
+.sk-store--technolife .sk-benefit-icon{background:#fff4e2}
+.sk-store--technolife .sk-featured-category:hover,.sk-store--technolife .sk-featured-category.is-active{border-color:#f3c47f}
+.sk-store--technolife .sk-featured-category.is-active{background:#fffaf1}
