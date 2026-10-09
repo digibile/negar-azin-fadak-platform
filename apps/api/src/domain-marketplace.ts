@@ -487,7 +487,7 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
       [tenantId]
     ),
     query(
-      "select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,p.attributes,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name from products p join sellers sl on sl.id=p.seller_id and sl.tenant_id=p.tenant_id left join stores st on st.id=p.store_id and st.tenant_id=p.tenant_id where p.tenant_id=$1 and p.status='active' and sl.status='active' and (p.store_id is null or st.status='active') order by p.updated_at desc limit 1000",
+      "select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,jsonb_strip_nulls(jsonb_build_object('brand',p.attributes->'brand','rating',p.attributes->'rating','specifications',p.attributes->'specifications','galleryImages',p.attributes->'galleryImages')) as attributes,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name from products p join sellers sl on sl.id=p.seller_id and sl.tenant_id=p.tenant_id left join stores st on st.id=p.store_id and st.tenant_id=p.tenant_id where p.tenant_id=$1 and p.status='active' and sl.status='active' and (p.store_id is null or st.status='active') order by p.updated_at desc limit 1000",
       [tenantId]
     ),
     query(
