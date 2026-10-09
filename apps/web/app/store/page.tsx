@@ -27,16 +27,13 @@ const money = (value: string, currency: string) => {
 };
 
 const safeImageUrl = (value: string | null | undefined) => value && (value.startsWith("https://") || value.startsWith("http://") || (value.startsWith("/") && !value.startsWith("//"))) ? value : null;
-const featuredCategories = [
-  { title: "موبایل و تبلت", subtitle: "گوشی، تبلت و ابزار دیجیتال", icon: "▯", image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=700&q=85", keywords: ["موبایل", "گوشی", "تبلت", "phone", "mobile"] },
-  { title: "خانه و آشپزخانه", subtitle: "لوازم خانه و وسایل کاربردی", icon: "⌂", image: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=700&q=85", keywords: ["خانه", "آشپزخانه", "لوازم خانگی", "ظرف", "home", "kitchen"] },
-  { title: "لوازم جانبی", subtitle: "هدفون، ساعت و لوازم دیجیتال", icon: "◇", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=700&q=85", keywords: ["جانبی", "هدفون", "هندزفری", "شارژر", "ساعت", "accessory", "headphone"] },
-  { title: "طلا و زیورآلات", subtitle: "زیورآلات و اکسسوری", icon: "✧", image: "https://images.unsplash.com/photo-1617038220319-276d3cfab638?auto=format&fit=crop&w=700&q=85", keywords: ["طلا", "زیور", "جواهر", "گردنبند", "انگشتر", "gold", "jewelry"] },
-  { title: "سوپرمارکت و خوراکی", subtitle: "مواد غذایی و کالاهای روزمره", icon: "✳", image: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=700&q=85", keywords: ["خوراکی", "سوپرمارکت", "غذا", "نوشیدنی", "مواد غذایی", "grocery", "food"] },
-  { title: "مد و پوشاک", subtitle: "لباس، کفش و استایل روزانه", icon: "◇", image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=700&q=85", keywords: ["پوشاک", "لباس", "کفش", "کیف", "مد", "fashion", "clothing"] },
-  { title: "زیبایی و سلامت", subtitle: "مراقبت شخصی و بهداشت", icon: "✳", image: "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&w=700&q=85", keywords: ["زیبایی", "آرایش", "بهداشت", "سلامت", "پوست", "beauty", "health"] },
-  { title: "کتاب و نوشت‌افزار", subtitle: "کتاب، دفتر و ابزار مطالعه", icon: "▤", image: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=700&q=85", keywords: ["کتاب", "نوشت", "لوازم التحریر", "دفتر", "book", "stationery"] },
-];
+const normalizeText = (value: string) => value
+  .normalize("NFKC")
+  .replace(/[يى]/g, "ی")
+  .replace(/ك/g, "ک")
+  .replace(/[\u200c\s]+/g, " ")
+  .trim()
+  .toLocaleLowerCase("fa");
 
 const categoryGlyph = (category: string | null, title: string) => {
   const value = `${category || ""} ${title}`.toLocaleLowerCase("fa");
@@ -75,20 +72,24 @@ export default function StorePage() {
     return () => controller.abort();
   }, []);
 
-  const categories = useMemo(() => [...new Set((data?.products || [])
-    .map(product => product.category?.trim()).filter((value): value is string => Boolean(value)))]
-    .sort((a, b) => a.localeCompare(b, "fa")), [data]);
+  const categories = useMemo(() => {
+    const names = (data?.products || [])
+      .map(product => product.category?.trim())
+      .filter((value): value is string => Boolean(value));
+    const unique = new Map<string, string>();
+    for (const name of names) {
+      const key = normalizeText(name);
+      if (key && !unique.has(key)) unique.set(key, name);
+    }
+    return [...unique.entries()].sort((a, b) => a[1].localeCompare(b[1], "fa"));
+  }, [data]);
 
   const products = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase("fa");
-    const selectedFeatured = featuredCategories.find(item => item.title === category);
+    const needle = normalizeText(query);
+    const selectedCategory = normalizeText(category);
     return (data?.products || []).filter(product => {
-      const categoryText = `${product.category || ""} ${product.title}`.toLocaleLowerCase("fa");
-      const matchesCategory = !category || (selectedFeatured
-        ? selectedFeatured.keywords.some(keyword => categoryText.includes(keyword.toLocaleLowerCase("fa")))
-        : product.category === category);
-      const searchable = [product.title, product.sku, product.category || "", product.seller_name, product.description || ""]
-        .join(" ").toLocaleLowerCase("fa");
+      const matchesCategory = !selectedCategory || normalizeText(product.category || "") === selectedCategory;
+      const searchable = normalizeText([product.title, product.sku, product.category || "", product.seller_name, product.description || ""].join(" "));
       return matchesCategory && (!needle || searchable.includes(needle));
     });
   }, [data, query, category]);
@@ -153,12 +154,16 @@ export default function StorePage() {
 
         <section className="sk-featured-categories" aria-labelledby="sk-featured-categories-title">
           <div className="sk-section-heading"><div><span className="sk-eyebrow">دسته‌بندی‌های بازارگاه</span><h2 id="sk-featured-categories-title">از کجا شروع کنیم؟</h2><p>دستهٔ موردنظرت را انتخاب کن تا کالاهای مرتبط از کاتالوگ نمایش داده شوند.</p></div><Link href="/store/shop" className="sk-section-link">همه کالاها <span>←</span></Link></div>
-          <div className="sk-featured-grid">
-            {featuredCategories.map(item => <button type="button" key={item.title} className={category === item.title ? "sk-featured-category is-active" : "sk-featured-category"} onClick={() => { setCategory(category === item.title ? "" : item.title); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
-              <span className="sk-featured-image" style={{ backgroundImage: `linear-gradient(0deg,rgba(18,25,35,.64),rgba(18,25,35,.02)),url("${item.image}")` }}><i>{item.icon}</i></span>
-              <span className="sk-featured-copy"><b>{item.title}</b><small>{item.subtitle}</small><small>{(data?.products || []).filter(product => item.keywords.some(keyword => (`${product.category || ""} ${product.title}`).toLocaleLowerCase("fa").includes(keyword.toLocaleLowerCase("fa")))).length.toLocaleString("fa-IR")} کالا در کاتالوگ</small></span><span className="sk-featured-arrow">←</span>
-            </button>)}
-          </div>
+          {categories.length ? <div className="sk-featured-grid">
+            {categories.slice(0, 8).map(([key, name]) => {
+              const count = (data?.products || []).filter(product => normalizeText(product.category || "") === key).length;
+              const active = normalizeText(category) === key;
+              return <button type="button" key={key} className={active ? "sk-featured-category is-active" : "sk-featured-category"} aria-pressed={active} onClick={() => { setCategory(active ? "" : name); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
+                <span className="sk-featured-image sk-category-art"><i>{categoryGlyph(name, name)}</i></span>
+                <span className="sk-featured-copy"><b>{name}</b><small>{count.toLocaleString("fa-IR")} محصول ثبت‌شده</small></span><span className="sk-featured-arrow">←</span>
+              </button>;
+            })}
+          </div> : <div className="sk-category-empty"><span>▦</span><div><b>دسته‌بندی‌های واقعی هنوز ثبت نشده‌اند</b><p>با ثبت محصول فعال و انتخاب دسته‌بندی در پنل فروشندگان، دسته‌ها به‌صورت خودکار در این بخش ظاهر می‌شوند.</p></div></div>}
         </section>
 
         <section className="sk-catalog" id="sk-products" aria-labelledby="sk-products-title">
@@ -166,7 +171,11 @@ export default function StorePage() {
 
           <div className="sk-category-row" aria-label="فیلتر دسته‌بندی">
             <button type="button" className={!category ? "sk-category-chip is-active" : "sk-category-chip"} onClick={() => setCategory("")}>همه کالاها</button>
-            {categories.map((item, index) => <button type="button" key={item} className={category === item ? "sk-category-chip is-active" : "sk-category-chip"} onClick={() => setCategory(category === item ? "" : item)}><span>{["◈", "▯", "◇", "⌂", "✳", "▤"][index % 6]}</span>{item} <small>({(data?.products || []).filter(product => product.category === item).length.toLocaleString("fa-IR")})</small></button>)}
+            {categories.map(([key, item]) => {
+              const active = normalizeText(category) === key;
+              const count = (data?.products || []).filter(product => normalizeText(product.category || "") === key).length;
+              return <button type="button" key={key} aria-pressed={active} className={active ? "sk-category-chip is-active" : "sk-category-chip"} onClick={() => setCategory(active ? "" : item)}><span>{categoryGlyph(item, item)}</span>{item} <small>({count.toLocaleString("fa-IR")})</small></button>;
+            })}
           </div>
 
           <div className="sk-catalog-meta"><span>{loading ? "در حال دریافت کاتالوگ…" : <><b>{products.length.toLocaleString("fa-IR")}</b> نتیجه</>}</span>{(query || category) && <button type="button" onClick={() => { setQuery(""); setCategory(""); }}>پاک‌کردن فیلترها ×</button>}</div>
