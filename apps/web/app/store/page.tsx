@@ -72,6 +72,7 @@ export default function StorePage() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
+  const [sortBy, setSortBy] = useState<"newest" | "price-asc" | "price-desc" | "title">("newest");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -135,12 +136,16 @@ export default function StorePage() {
   const products = useMemo(() => {
     const needle = normalizeText(query);
     const selectedCategory = canonicalCategory(category);
-    return (data?.products || []).filter(product => {
+    const filtered = (data?.products || []).filter(product => {
       const matchesCategory = !selectedCategory || canonicalCategory(product.category) === selectedCategory;
       const searchable = normalizeText([product.title, product.sku, product.category || "", product.seller_name, product.description || "", product.brand || ""].join(" "));
       return matchesCategory && (!needle || searchable.includes(needle));
     });
-  }, [data, query, category]);
+    if (sortBy === "price-asc") filtered.sort((a, b) => Number(a.price) - Number(b.price));
+    else if (sortBy === "price-desc") filtered.sort((a, b) => Number(b.price) - Number(a.price));
+    else if (sortBy === "title") filtered.sort((a, b) => a.title.localeCompare(b.title, "fa"));
+    return filtered;
+  }, [data, query, category, sortBy]);
 
   return (
     <main className="sk-store" dir="rtl">
@@ -231,7 +236,7 @@ export default function StorePage() {
             })}
           </div>
 
-          <div className="sk-catalog-meta"><span>{loading ? "در حال دریافت کاتالوگ…" : <><b>{products.length.toLocaleString("fa-IR")}</b> نتیجه</>}</span>{(query || category) && <button type="button" onClick={() => { setQuery(""); setCategory(""); }}>پاک‌کردن فیلترها ×</button>}</div>
+          <div className="sk-catalog-meta"><span>{loading ? "در حال دریافت کاتالوگ…" : <><b>{products.length.toLocaleString("fa-IR")}</b> نتیجه</>}</span><label className="sk-sort-control">مرتب‌سازی <select value={sortBy} onChange={event => setSortBy(event.target.value as typeof sortBy)}><option value="newest">جدیدترین ثبت‌شده</option><option value="price-asc">ارزان‌ترین</option><option value="price-desc">گران‌ترین</option><option value="title">نام کالا</option></select></label>{(query || category) && <button type="button" onClick={() => { setQuery(""); setCategory(""); }}>پاک‌کردن فیلترها ×</button>}</div>
 
           {loading ? <div className="sk-state"><span className="sk-loader" />در حال دریافت اطلاعات واقعی محصولات…</div>
           : error ? <div className="sk-state sk-state-error"><b>دریافت محصولات انجام نشد</b><p>{error}</p><button type="button" onClick={() => window.location.reload()}>تلاش دوباره</button></div>
