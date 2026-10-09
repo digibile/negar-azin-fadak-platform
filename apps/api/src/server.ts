@@ -124,6 +124,7 @@ app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  if(!r.rowCount||!(await verifyPassword(input.password,r.rows[0].password_hash)))return res.status(401).json({error:"اطلاعات ورود نادرست است"});
  const u=r.rows[0];
  await issueSession(req,res,{id:u.id,email:u.email,role:u.role});
+ await query("insert into security_login_events(user_id,email,ip_address,user_agent,success) values($1,$2,$3::inet,$4,true)",[u.id,u.email,req.ip||null,String(req.headers["user-agent"]||"").slice(0,1000)||null]);
  res.json({user:{id:u.id,email:u.email,fullName:u.full_name,role:u.role}});
 }));
 
