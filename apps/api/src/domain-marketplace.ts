@@ -241,7 +241,7 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requir
   const selected=catalog.products.filter(product=>selectedIds.includes(product.id));
   if(!selected.length)return res.status(404).json({error:"محصول انتخاب‌شده در فهرست مرجع فعلی وجود ندارد؛ فهرست را تازه‌سازی کنید"});
   const mediaRoot=process.env.MEDIA_ROOT||"/app/media";
-  const mediaDir=path.join(mediaRoot,"catalog");
+  const mediaDir=path.join(mediaRoot,"catalog",ctx.id);
   await mkdir(mediaDir,{recursive:true});
   const imported:string[]=[];
   const skipped:string[]=[];
@@ -259,7 +259,7 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requir
       if(bytes.length===0||bytes.length>5*1024*1024)throw new Error("حجم تصویر معتبر نیست");
       const filename=randomUUID()+"."+extension[contentType];
       await writeFile(path.join(mediaDir,filename),bytes,{flag:"wx"});
-      localImage="/api/public/media/catalog/"+filename;
+      localImage="/api/public/media/catalog/"+ctx.id+"/"+filename;
     }catch{
       skipped.push(product.sku+": تصویر از منبع قابل دریافت نبود");
       continue;
@@ -283,6 +283,29 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requir
     else skipped.push(product.sku+": شناسه کالا از قبل در کاتالوگ ثبت شده است");
   }
   res.status(201).json({imported,skipped,totalImported:imported.length,totalSkipped:skipped.length,status:"draft",message:"محصولات در کاتالوگ داخلی ثبت شدند؛ قیمت و اطلاعات باید بررسی شوند و هیچ محصولی خودکار منتشر نشده است"});
+}));
+
+domainMarketplaceRouter.post("/api/marketplace/media",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const dataUrl=typeof req.body?.dataUrl==="string"?req.body.dataUrl:"";
+  if(dataUrl.length>7*1024*1024)return res.status(413).json({error:"حجم تصویر از ۵ مگابایت بیشتر است"});
+  const match=dataUrl.match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/);
+  if(!match)return res.status(400).json({error:"فقط تصویر JPG، PNG یا WebP پذیرفته می‌شود"});
+  const bytes=Buffer.from(match[2],"base64");
+  if(!bytes.length||bytes.length>5*1024*1024)return res.status(413).json({error:"حجم تصویر باید حداکثر ۵ مگابایت باشد"});
+  const valid=match[1]==="jpeg"
+    ?bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff
+    :match[1]==="png"
+      ?bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))
+      :bytes.subarray(0,4).toString("ascii")==="RIFF"&&bytes.subarray(8,12).toString("ascii")==="WEBP";
+  if(!valid)return res.status(400).json({error:"محتوای فایل با نوع تصویر اعلام‌شده مطابقت ندارد"});
+  const extension=match[1]==="jpeg"?"jpg":match[1];
+  const filename=randomUUID()+"."+extension;
+  const directory=path.join(process.env.MEDIA_ROOT||"/app/media","catalog",ctx.id);
+  await mkdir(directory,{recursive:true});
+  await writeFile(path.join(directory,filename),bytes,{flag:"wx"});
+  res.status(201).json({imageUrl:"/api/public/media/catalog/"+ctx.id+"/"+filename,contentType:"image/"+match[1],size:bytes.length});
 }));
 
 domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res)=>{
