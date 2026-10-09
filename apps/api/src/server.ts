@@ -95,7 +95,8 @@ app.get("/api/public/storefront-theme",asyncHandler(async(req,res)=>{
   showHero:d.showHero!==false,
   showCategories:d.showCategories!==false,
   headerMode:["استاندارد","فشرده","بدون هدر"].includes(d["header-mode"])?d["header-mode"]:"استاندارد",
-  footerMode:["استاندارد","فشرده","بدون فوتر"].includes(d["footer-mode"])?d["footer-mode"]:"استاندارد"
+  footerMode:["استاندارد","فشرده","بدون فوتر"].includes(d["footer-mode"])?d["footer-mode"]:"استاندارد",
+  sectionOrder:(()=>{const allowed=["hero","benefits","categories","products"];const requested=String(d.sectionOrder||"").split(",").map((x:string)=>x.trim()).filter((x:string)=>allowed.includes(x));return [...new Set([...requested,...allowed])].join(",")})()
  }:null});
 }));
 app.use(dynamicMenuRouter);
