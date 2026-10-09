@@ -5,6 +5,9 @@ import {asyncHandler} from "./http.js";
 import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
 import {emitBusinessEvent} from "./business-events.js";
 import {getDigikalaCatalog} from "./digikala-catalog.js";
+import {randomUUID} from "node:crypto";
+import {mkdir,writeFile} from "node:fs/promises";
+import path from "node:path";
 
 export const domainMarketplaceRouter=Router();
 
@@ -222,6 +225,64 @@ domainMarketplaceRouter.get("/api/public/digikala-catalog",asyncHandler(async(_r
     products:catalog.products,
     total:catalog.products.length
   });
+}));
+
+domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const sellerId=bodyString(req.body?.sellerId,100);
+  const selectedIds=Array.isArray(req.body?.productIds)
+    ?[...new Set(req.body.productIds.filter((value:unknown):value is string=>typeof value==="string").map((value:string)=>value.trim()).filter(Boolean))].slice(0,50)
+    :[];
+  if(!sellerId||!selectedIds.length)return res.status(400).json({error:"فروشنده و حداقل یک محصول برای ورود انتخاب کنید"});
+  const seller=await query("select id,display_name,status from sellers where id=$1 and tenant_id=$2",[sellerId,ctx.id]);
+  if(!seller.rowCount)return res.status(404).json({error:"فروشنده در این محدوده سازمانی پیدا نشد"});
+  const catalog=await getDigikalaCatalog();
+  const selected=catalog.products.filter(product=>selectedIds.includes(product.id));
+  if(!selected.length)return res.status(404).json({error:"محصول انتخاب‌شده در فهرست مرجع فعلی وجود ندارد؛ فهرست را تازه‌سازی کنید"});
+  const mediaRoot=process.env.MEDIA_ROOT||"/app/media";
+  const mediaDir=path.join(mediaRoot,"catalog");
+  await mkdir(mediaDir,{recursive:true});
+  const imported:string[]=[];
+  const skipped:string[]=[];
+  for(const product of selected){
+    let localImage:string|null=null;
+    try{
+      const imageUrl=new URL(product.image_url);
+      if(imageUrl.protocol!=="https:"||imageUrl.hostname!=="dkstatics-public.digikala.com")throw new Error("منبع تصویر مجاز نیست");
+      const imageResponse=await fetch(imageUrl,{redirect:"error",signal:AbortSignal.timeout(8000),headers:{accept:"image/avif,image/webp,image/png,image/jpeg"}});
+      const contentType=(imageResponse.headers.get("content-type")||"").split(";")[0].trim().toLowerCase();
+      const extension:Record<string,string>={"image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/avif":"avif"};
+      const size=Number(imageResponse.headers.get("content-length")||0);
+      if(!imageResponse.ok||!extension[contentType]||(size>0&&size>5*1024*1024))throw new Error("تصویر معتبر یا در محدوده مجاز نیست");
+      const bytes=Buffer.from(await imageResponse.arrayBuffer());
+      if(bytes.length===0||bytes.length>5*1024*1024)throw new Error("حجم تصویر معتبر نیست");
+      const filename=randomUUID()+"."+extension[contentType];
+      await writeFile(path.join(mediaDir,filename),bytes,{flag:"wx"});
+      localImage="/api/public/media/catalog/"+filename;
+    }catch{
+      skipped.push(product.sku+": تصویر از منبع قابل دریافت نبود");
+      continue;
+    }
+    const attributes={
+      imageUrl:localImage,
+      sourceName:product.source_name,
+      sourceUrl:product.source_url,
+      sourceType:"reference-import",
+      sourceProductId:product.id,
+      brand:product.brand,
+      rating:product.rating,
+      importedAt:new Date().toISOString(),
+      priceReviewRequired:true
+    };
+    const result=await query(
+      "insert into products(tenant_id,seller_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,'draft',$9::jsonb) on conflict(tenant_id,sku) do nothing returning id,sku,title,status",
+      [ctx.id,sellerId,product.sku,product.title,product.description,product.category,Number(product.price),product.currency,JSON.stringify(attributes)]
+    );
+    if(result.rowCount)imported.push(product.sku);
+    else skipped.push(product.sku+": شناسه کالا از قبل در کاتالوگ ثبت شده است");
+  }
+  res.status(201).json({imported,skipped,totalImported:imported.length,totalSkipped:skipped.length,status:"draft",message:"محصولات در کاتالوگ داخلی ثبت شدند؛ قیمت و اطلاعات باید بررسی شوند و هیچ محصولی خودکار منتشر نشده است"});
 }));
 
 domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res)=>{
