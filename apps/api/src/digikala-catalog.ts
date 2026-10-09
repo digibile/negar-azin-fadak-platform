@@ -198,6 +198,64 @@ export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: st
   return normalized;
 }
 
+export function parseDigikalaCategoryReference(input: string): string {
+  const value = input.trim();
+  if (!value) throw new Error("لینک یا شناسه دسته‌بندی را وارد کنید.");
+  if (/^https?:\/\//i.test(value)) {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (host !== "digikala.com" && host !== "www.digikala.com") throw new Error("فقط لینک دسته‌بندی از دامنه رسمی دیجی‌کالا پذیرفته می‌شود.");
+    const match = url.pathname.match(/(?:^|\/)category-([a-z0-9-]+)(?:\/|$)/i)
+      || url.pathname.match(/\/categories\/([a-z0-9-]+)(?:\/|$)/i);
+    if (!match) throw new Error("از لینک ارسالی شناسه دسته‌بندی قابل استخراج نیست؛ لینک صفحه دسته‌بندی را وارد کنید.");
+    return match[1].toLowerCase();
+  }
+  const slug = value.replace(/^category-/i, "").replace(/^\/+|\/+$/g, "").toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]{1,79}$/.test(slug)) throw new Error("شناسه دسته‌بندی معتبر نیست.");
+  return slug;
+}
+
+export async function getDigikalaCategoryProducts(input: string, maxProducts = 50): Promise<{ category: string; products: DigikalaCatalogProduct[]; fetchedAt: string }> {
+  const slug = parseDigikalaCategoryReference(input);
+  const limit = Math.max(1, Math.min(50, Math.floor(maxProducts)));
+  const pageUrl = (page: number) => {
+    const url = new URL("/v1/categories/" + encodeURIComponent(slug) + "/search/", "https://api.digikala.com");
+    url.searchParams.set("page", String(page));
+    return url;
+  };
+  const fetchPage = async (page: number): Promise<{ payload: unknown; totalPages: number }> => {
+    const response = await fetch(pageUrl(page), {
+      headers: {
+        accept: "application/json, text/plain, */*",
+        referer: "https://www.digikala.com/",
+        "x-web-client-id": "web",
+        "x-web-client": "desktop",
+        "x-web-optimize-response": "1",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+      },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error("دریافت دسته‌بندی مرجع با خطای HTTP " + response.status + " روبه‌رو شد.");
+    const payload: unknown = await response.json();
+    const totalPagesValue = at(payload, "data", "pager", "total_pages");
+    const totalPages = typeof totalPagesValue === "number" && Number.isFinite(totalPagesValue) ? Math.max(1, totalPagesValue) : 1;
+    return { payload, totalPages };
+  };
+  const first = await fetchPage(1);
+  const pageCount = Math.min(3, first.totalPages, Math.ceil(limit / 20));
+  const remaining = await Promise.allSettled(Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => fetchPage(index + 2)));
+  const payloads = [first.payload, ...remaining.filter((result): result is PromiseFulfilledResult<{ payload: unknown; totalPages: number }> => result.status === "fulfilled").map(result => result.value.payload)];
+  const products = new Map<string, DigikalaCatalogProduct>();
+  for (const payload of payloads) {
+    for (const product of normalizeDigikalaProducts(payload, slug.replace(/-/g, " "))) {
+      if (!products.has(product.id) && product.price !== null) products.set(product.id, product);
+      if (products.size >= limit) break;
+    }
+    if (products.size >= limit) break;
+  }
+  return { category: slug, products: [...products.values()].slice(0, limit), fetchedAt: new Date().toISOString() };
+}
+
 export async function getDigikalaProductById(input: string): Promise<DigikalaCatalogProduct> {
   const id = input.trim().replace(/^dkp-/i, "");
   if (!/^\d{1,16}$/.test(id)) throw new Error("شناسه محصول دیجی‌کالا باید عددی باشد.");
