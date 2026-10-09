@@ -232,6 +232,40 @@ domainMarketplaceRouter.get("/api/marketplace/categories",requireAuth,requirePer
   res.json({tenant:ctx,items:result.rows,total:result.rowCount});
 }));
 
+domainMarketplaceRouter.post("/api/marketplace/categories",requireAuth,requirePermission("category:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const name=bodyString(req.body?.name,120);
+  const code=bodyString(req.body?.code,80).toLowerCase();
+  const status=bodyString(req.body?.status,20)||"active";
+  const sortOrder=bodyNumber(req.body?.sortOrder)??0;
+  if(!name||!code)return res.status(400).json({error:"نام و کد دسته‌بندی الزامی است"});
+  if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(code))return res.status(400).json({error:"کد باید انگلیسی، کوچک و با خط تیره جدا شده باشد"});
+  if(!["active","inactive"].includes(status))return res.status(400).json({error:"وضعیت دسته‌بندی نامعتبر است"});
+  const duplicate=await query("select id from marketplace_categories where tenant_id=$1 and (code=$2 or name=$3) limit 1",[ctx.id,code,name]);
+  if(duplicate.rowCount)return res.status(409).json({error:"کد یا نام این دسته‌بندی قبلاً ثبت شده است"});
+  const result=await query("insert into marketplace_categories(tenant_id,code,name,status,sort_order) values($1,$2,$3,$4,$5) returning id,code,name,status,sort_order",[ctx.id,code,name,status,sortOrder]);
+  res.status(201).json({item:result.rows[0]});
+}));
+
+domainMarketplaceRouter.patch("/api/marketplace/categories/:id",requireAuth,requirePermission("category:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const name=bodyString(req.body?.name,120);
+  const status=bodyString(req.body?.status,20);
+  const sortOrder=bodyNumber(req.body?.sortOrder);
+  if(!name)return res.status(400).json({error:"نام دسته‌بندی الزامی است"});
+  if(status&&!["active","inactive"].includes(status))return res.status(400).json({error:"وضعیت دسته‌بندی نامعتبر است"});
+  const duplicate=await query("select id from marketplace_categories where tenant_id=$1 and name=$2 and id<>$3 limit 1",[ctx.id,name,req.params.id]);
+  if(duplicate.rowCount)return res.status(409).json({error:"این نام برای دسته‌بندی دیگری ثبت شده است"});
+  const result=await query(
+    "update marketplace_categories set name=$1,status=coalesce($2,status),sort_order=coalesce($3,sort_order),updated_at=now() where tenant_id=$4 and id=$5 returning id,code,name,status,sort_order",
+    [name,status||null,sortOrder,ctx.id,req.params.id]
+  );
+  if(!result.rowCount)return res.status(404).json({error:"دسته‌بندی پیدا نشد"});
+  res.json({item:result.rows[0]});
+}));
+
 domainMarketplaceRouter.get("/api/marketplace/digikala-product/:sourceId",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
   const sourceId=bodyString(req.params.sourceId,40).replace(/^dkp-/i,"");
   if(!/^\d{1,16}$/.test(sourceId))return res.status(400).json({error:"شناسه محصول دیجی‌کالا باید عددی باشد"});
