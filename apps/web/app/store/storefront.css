@@ -539,3 +539,18 @@
   .sk-store--digikala .sk-nav-inner{min-height:42px}
   .sk-store--digibile .sk-nav-inner{min-height:46px}
 }
+
+/* Published template runtime tokens: theme settings come from the active template record. */
+.sk-store{background:var(--sk-canvas,#f5f6f8)}
+.sk-store .sk-product-grid{grid-template-columns:repeat(var(--sk-product-columns,4),minmax(0,1fr))}
+.sk-store .sk-product-card{border-radius:var(--sk-product-radius,14px);background:var(--sk-surface,#fff)}
+.sk-store[data-product-card="flat"] .sk-product-card{box-shadow:none;border-color:transparent}
+.sk-store[data-product-card="bordered"] .sk-product-card{border-width:2px;box-shadow:none}
+.sk-store[data-product-card="elevated"] .sk-product-card{box-shadow:0 9px 26px #17203314;border-color:transparent}
+.sk-store[data-product-image-ratio="portrait"] .sk-product-visual{height:auto;aspect-ratio:3/4}
+.sk-store[data-product-image-ratio="landscape"] .sk-product-visual{height:auto;aspect-ratio:4/3}
+.sk-store[data-product-image-ratio="square"] .sk-product-visual{height:auto;aspect-ratio:1/1}
+.sk-store.sk-hide-header .sk-service-strip,.sk-store.sk-hide-header .sk-header,.sk-store.sk-hide-header .sk-main-nav{display:none!important}
+.sk-store.sk-hide-footer .sk-footer{display:none!important}
+@media(max-width:1050px){.sk-store .sk-product-grid{grid-template-columns:repeat(min(3,var(--sk-product-columns,4)),minmax(0,1fr))}}
+@media(max-width:760px){.sk-store .sk-product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
