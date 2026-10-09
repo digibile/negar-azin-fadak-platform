@@ -23,7 +23,7 @@ type Product = {
 };
 type Store = { id: string; name: string; slug: string; seller_name: string };
 type Catalog = { tenant?: { name?: string }; products: Product[]; stores?: Store[]; categories?: string[]; total?: number };
-type StoreTheme = {primaryColor:string;accentColor:string;canvasColor:string;surfaceColor:string;productColumns:number;productCard:"rounded"|"bordered"|"flat"|"elevated";productImageRatio:"square"|"portrait"|"landscape";showHero:boolean;showCategories:boolean;headerMode:string;footerMode:string};
+type StoreTheme = {primaryColor:string;accentColor:string;canvasColor:string;surfaceColor:string;productColumns:number;productCard:"rounded"|"bordered"|"flat"|"elevated";productImageRatio:"square"|"portrait"|"landscape";showHero:boolean;showCategories:boolean;headerMode:string;footerMode:string;sectionOrder:string};
 
 const money = (value: string, currency: string) => {
   const amount = Number(value);
@@ -239,6 +239,9 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
     .filter((name, index, all) => all.findIndex(item => normalizeText(item) === normalizeText(name)) === index)
     .map(name => [normalizeText(name), name] as [string, string]);
 
+  const sectionOrder = (theme?.sectionOrder || "hero,benefits,categories,products").split(",");
+  const orderOf = (section:string) => { const index=sectionOrder.indexOf(section); return index<0?99:index; };
+
   const products = useMemo(() => {
     const needle = normalizeText(query);
     const selectedCategory = canonicalCategory(category);
@@ -255,7 +258,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
 
 
   return (
-    <main className={`sk-store sk-store--${variant}${isTechnolife ? " sk-store--technolife" : isDigikala ? " sk-store--digikala" : isAva ? " sk-store--ava" : isKipa ? " sk-store--kipa" : isDigibile ? " sk-store--digibile" : ""}${theme?.headerMode === "بدون هدر" ? " sk-hide-header" : theme?.headerMode === "فشرده" ? " sk-compact-header" : ""}${theme?.footerMode === "بدون فوتر" ? " sk-hide-footer" : theme?.footerMode === "فشرده" ? " sk-compact-footer" : ""}`} data-product-card={theme?.productCard||"rounded"} data-product-image-ratio={theme?.productImageRatio||"square"} dir="rtl" style={{"--sk-primary":theme?.primaryColor,"--sk-primary-dark":theme?.primaryColor,"--sk-canvas":theme?.canvasColor,"--sk-surface":theme?.surfaceColor,"--sk-product-columns":String(theme?.productColumns||4),"--sk-product-radius":theme?.productCard==="flat"?"4px":theme?.productCard==="bordered"?"7px":theme?.productCard==="elevated"?"18px":"14px"} as CSSProperties}>
+    <main className={`sk-store sk-store--${variant}${isTechnolife ? " sk-store--technolife" : isDigikala ? " sk-store--digikala" : isAva ? " sk-store--ava" : isKipa ? " sk-store--kipa" : isDigibile ? " sk-store--digibile" : ""}${theme?.headerMode === "بدون هدر" ? " sk-hide-header" : theme?.headerMode === "فشرده" ? " sk-compact-header" : ""}${theme?.footerMode === "بدون فوتر" ? " sk-hide-footer" : theme?.footerMode === "فشرده" ? " sk-compact-footer" : ""}`} data-product-card={theme?.productCard||"rounded"} data-product-image-ratio={theme?.productImageRatio||"square"} dir="rtl" style={{"--sk-primary":theme?.primaryColor,"--sk-primary-dark":theme?.primaryColor,"--sk-accent":theme?.accentColor,"--sk-canvas":theme?.canvasColor,"--sk-surface":theme?.surfaceColor,"--sk-product-columns":String(theme?.productColumns||4),"--sk-product-radius":theme?.productCard==="flat"?"4px":theme?.productCard==="bordered"?"7px":theme?.productCard==="elevated"?"18px":"14px"} as CSSProperties}>
       <div className="sk-service-strip">
         <div className="sk-wrap sk-service-inner">
           <span>{identity.strip}</span>
@@ -304,7 +307,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
       </header>
 
       <div className="sk-wrap">
-        <section className="sk-hero sk-retail-hero" aria-labelledby="sk-hero-title" style={{display:theme?.showHero===false?"none":undefined}}>
+        <section className="sk-hero sk-retail-hero" aria-labelledby="sk-hero-title" style={{display:theme?.showHero===false?"none":undefined,order:orderOf("hero")}}>
           <div className="sk-hero-copy">
             <span className="sk-hero-kicker"><i /> {identity.heroKicker}</span>
             <h1 id="sk-hero-title">{identity.heroTitle}</h1>
@@ -323,14 +326,14 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
           </div>
         </section>
 
-        <section className="sk-benefits" aria-label="ویژگی‌های تجربه خرید">
+        <section className="sk-benefits" aria-label="ویژگی‌های تجربه خرید" style={{order:orderOf("benefits")}}>
           <article><span className="sk-benefit-icon">⌕</span><div><b>جستجوی آسان</b><small>کالا و فروشنده را سریع‌تر پیدا کن</small></div></article>
           <article><span className="sk-benefit-icon">▦</span><div><b>بازارگاه چندفروشنده</b><small>محصولات فروشندگان در یک کاتالوگ</small></div></article>
           <article><span className="sk-benefit-icon">↗</span><div><b>جزئیات شفاف</b><small>مشاهده اطلاعات ثبت‌شده محصول</small></div></article>
           <article><span className="sk-benefit-icon">◷</span><div><b>پیگیری سفارش</b><small>دسترسی به مسیر سفارش‌های شما</small></div></article>
         </section>
 
-        <section className="sk-featured-categories" aria-labelledby="sk-featured-categories-title" style={{display:theme?.showCategories===false?"none":undefined}}>
+        <section className="sk-featured-categories" aria-labelledby="sk-featured-categories-title" style={{display:theme?.showCategories===false?"none":undefined,order:orderOf("categories")}}>
           <div className="sk-section-heading"><div><span className="sk-eyebrow">دسته‌بندی‌های بازارگاه</span><h2 id="sk-featured-categories-title">از کجا شروع کنیم؟</h2><p>دستهٔ موردنظرت را انتخاب کن تا کالاهای مرتبط از کاتالوگ نمایش داده شوند.</p></div><Link href="/store/shop" className="sk-section-link">همه کالاها <span>←</span></Link></div>
           {categories.length ? <div className="sk-featured-grid">
             {categories.map(([key, name]) => {
@@ -344,7 +347,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
           </div> : <div className="sk-category-empty"><span>▦</span><div><b>دسته‌بندی‌های اصلی بازارگاه</b><p>این فهرست برای مرور دسته‌ها آماده است؛ تعداد کالاها فقط از محصولات واقعی و منتشرشده محاسبه می‌شود.</p></div></div>}
         </section>
 
-        <section className="sk-catalog" id="sk-products" aria-labelledby="sk-products-title">
+        <section className="sk-catalog" id="sk-products" aria-labelledby="sk-products-title" style={{order:orderOf("products")}}>
           <div className="sk-section-heading"><div><span className="sk-eyebrow">کاتالوگ بازارگاه</span><h2 id="sk-products-title">محصولات برای انتخاب تو</h2><p>فقط محصولاتی نمایش داده می‌شوند که در کاتالوگ خود سوکار ثبت و برای فروش فعال شده‌اند.</p></div><Link href="/marketplace" className="sk-section-link">رفتن به بازارگاه <span>←</span></Link></div>
 
           <div className="sk-category-row" aria-label="فیلتر دسته‌بندی">
