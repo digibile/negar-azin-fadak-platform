@@ -77,3 +77,20 @@ test("normalizes a single-product detail payload for admin ID lookup",()=>{
   assert.equal(products[0].price,"765000");
   assert.equal(products[0].source_available,true);
 });
+
+
+test("preserves product specifications and gallery images for internal review",()=>{
+  const products=normalizeDigikalaProducts({data:{products:[{
+    id:765432,
+    title_fa:"کالای دارای مشخصات",
+    images:{main:{url:["https://dkstatics-public.digikala.com/main.jpg"]},gallery:[{url:"https://dkstatics-public.digikala.com/side.jpg"},{url:"https://dkstatics-public.digikala.com/back.jpg"}]},
+    default_variant:{price:{selling_price:125000}},
+    specifications:[{title:"مشخصات فنی",attributes:[
+      {title:"رنگ",values:["مشکی"]},
+      {title:"وزن",values:["۲۰۰ گرم"]}
+    ]}]
+  }]}},"سایر کالاها");
+  assert.equal(products.length,1);
+  assert.deepEqual(products[0].specifications,[{group:"مشخصات فنی",items:[{name:"رنگ",values:["مشکی"]},{name:"وزن",values:["۲۰۰ گرم"]}]}]);
+  assert.deepEqual(products[0].gallery_images,["https://dkstatics-public.digikala.com/main.jpg","https://dkstatics-public.digikala.com/side.jpg","https://dkstatics-public.digikala.com/back.jpg"]);
+});
