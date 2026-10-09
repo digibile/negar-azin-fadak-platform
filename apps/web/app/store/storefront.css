@@ -309,3 +309,25 @@
  .sk-store .sk-product-detail-actions .sk-add-cart{max-width:none}
  .sk-store .sk-cart-summary{padding:16px}
 }
+
+/* Live third-party reference catalog: never imply these listings are sold by Sookar. */
+.sk-store .sk-reference-catalog{margin:34px 0;padding:26px;border:1px solid #e5e9ed;border-radius:18px;background:#fff}
+.sk-store .sk-reference-catalog .sk-section-heading{align-items:flex-end}
+.sk-store .sk-reference-updated{max-width:260px;color:#7a8591;font-size:10px;line-height:1.9}
+.sk-store .sk-reference-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:20px}
+.sk-store .sk-reference-card{min-width:0;overflow:hidden;border:1px solid #edf0f2;border-radius:13px;background:#fff}
+.sk-store .sk-reference-image{position:relative;display:flex;height:180px;align-items:center;justify-content:center;padding:14px;background:#fafbfc}
+.sk-store .sk-reference-image img{width:100%;height:100%;object-fit:contain}
+.sk-store .sk-reference-image>span{position:absolute;right:9px;top:9px;padding:5px 8px;border-radius:6px;background:#fff;color:#586575;font-size:9px;box-shadow:0 2px 8px #18212b0d}
+.sk-store .sk-reference-copy{display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:13px}
+.sk-store .sk-reference-copy>small{color:#7c8793;font-size:10px;line-height:1.8}
+.sk-store .sk-reference-copy h3{margin:0;min-height:44px;font-size:12px;line-height:1.9;font-weight:800}
+.sk-store .sk-reference-copy h3 a{color:#253142}
+.sk-store .sk-reference-copy>strong{color:#263647;font-size:13px;font-weight:950}
+.sk-store .sk-reference-rating{color:#6f7c89;font-size:10px}
+.sk-store .sk-reference-link{display:block;margin-top:3px;color:#b72b27;font-size:10px;font-weight:850}
+.sk-store .sk-reference-status{margin-top:18px;padding:20px;border:1px dashed #dce2e7;border-radius:12px;background:#fafbfc}
+.sk-store .sk-reference-status b{color:#394656;font-size:12px}
+.sk-store .sk-reference-status p,.sk-store .sk-reference-status small{display:block;margin-top:8px;color:#7c8793;font-size:11px;line-height:1.9}
+@media(max-width:1000px){.sk-store .sk-reference-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.sk-store .sk-reference-catalog{padding:20px}}
+@media(max-width:720px){.sk-store .sk-reference-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.sk-store .sk-reference-image{height:140px}.sk-store .sk-reference-copy{padding:10px}.sk-store .sk-reference-copy h3{font-size:11px}.sk-store .sk-reference-catalog{padding:14px;margin:22px 0}.sk-store .sk-reference-catalog .sk-section-heading{display:block}.sk-store .sk-reference-updated{display:block;margin-top:10px}}
