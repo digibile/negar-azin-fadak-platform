@@ -98,7 +98,7 @@ export default function StorePage() {
       <div className="sk-service-strip">
         <div className="sk-wrap sk-service-inner">
           <span>سوکار، بازارگاه یکپارچه خرید و فروش</span>
-          <div><Link href="/marketplace/stores">فروشندگان</Link><Link href="/pay">خدمات اعتباری</Link><Link href="/store/orders">پیگیری سفارش</Link></div>
+          <div><Link href="/marketplace/directory">فروشندگان</Link><Link href="/pay">خدمات اعتباری</Link><Link href="/store/orders">پیگیری سفارش</Link></div>
         </div>
       </div>
 
@@ -134,7 +134,7 @@ export default function StorePage() {
             <span className="sk-hero-kicker"><i /> تجربه خرید یکپارچه سوکار</span>
             <h1 id="sk-hero-title">انتخابت را پیدا کن.<br /><em>با خیال راحت‌تر</em> خرید کن.</h1>
             <p>کالاها و فروشندگان را یک‌جا جستجو کن، اطلاعات ثبت‌شده را مقایسه کن و جزئیات هر محصول را پیش از خرید ببین.</p>
-            <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">دیدن همه کالاها <span>←</span></Link><Link href="/marketplace/stores" className="sk-quiet-btn">آشنایی با فروشندگان</Link></div>
+            <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">دیدن همه کالاها <span>←</span></Link><Link href="/marketplace/directory" className="sk-quiet-btn">آشنایی با فروشندگان</Link></div>
             <div className="sk-hero-note"><span>✓</span> نمایش اطلاعات کاتالوگ ثبت‌شده، بدون قیمت‌سازی یا موجودی ساختگی</div>
           </div>
           <div className="sk-hero-art" aria-hidden="true">
@@ -185,14 +185,14 @@ export default function StorePage() {
         </section>
 
         <section className="sk-market-banner">
-          <div><span className="sk-eyebrow">برای فروشندگان</span><h2>کسب‌وکارت را به بازارگاه سوکار وصل کن.</h2><p>مسیر فروشندگان و فروشگاه‌های ثبت‌شده را ببین و درباره حضور در بازارگاه اطلاعات بگیر.</p><Link href="/marketplace/seller">ورود به بخش فروشندگان <span>←</span></Link></div>
+          <div><span className="sk-eyebrow">برای فروشندگان</span><h2>کسب‌وکارت را به بازارگاه سوکار وصل کن.</h2><p>مسیر فروشندگان و فروشگاه‌های ثبت‌شده را ببین و درباره حضور در بازارگاه اطلاعات بگیر.</p><Link href="/login">ورود به بخش فروشندگان <span>←</span></Link></div>
           <div className="sk-banner-symbol" aria-hidden="true"><span>س</span><i /><i /><i /></div>
         </section>
 
-        <section className="sk-bottom-links"><Link href="/marketplace/stores"><span>▦</span><b>فروشگاه‌های بازارگاه</b><small>مرور فروشگاه‌های ثبت‌شده</small><em>←</em></Link><Link href="/pay"><span>◇</span><b>خدمات اعتباری</b><small>مشاهده مسیرهای فعال</small><em>←</em></Link><Link href="/store/orders"><span>◷</span><b>پیگیری سفارش</b><small>رفتن به بخش سفارش‌ها</small><em>←</em></Link></section>
+        <section className="sk-bottom-links"><Link href="/marketplace/directory"><span>▦</span><b>فروشگاه‌های بازارگاه</b><small>مرور فروشگاه‌های ثبت‌شده</small><em>←</em></Link><Link href="/pay"><span>◇</span><b>خدمات اعتباری</b><small>مشاهده مسیرهای فعال</small><em>←</em></Link><Link href="/store/orders"><span>◷</span><b>پیگیری سفارش</b><small>رفتن به بخش سفارش‌ها</small><em>←</em></Link></section>
       </div>
 
-      <footer className="sk-footer"><div className="sk-wrap sk-footer-main"><div className="sk-footer-brand"><Link href="/" className="sk-logo"><span className="sk-logo-mark">س</span><span><b>سوکار</b><small>فروشگاه و بازارگاه</small></span></Link><p>یک مسیر روشن برای کشف کالا، فروشگاه و انتخاب آگاهانه.</p></div><div><b>خرید</b><Link href="/store/shop">همه کالاها</Link><Link href="/marketplace">بازارگاه</Link><Link href="/marketplace/stores">فروشگاه‌ها</Link></div><div><b>خدمات</b><Link href="/store/orders">پیگیری سفارش</Link><Link href="/pay">خدمات اعتباری</Link><Link href="/marketplace/seller">فروشندگان</Link></div><div><b>حساب کاربری</b><Link href="/login">ورود</Link><Link href="/account/orders">سفارش‌های من</Link><Link href="/store/terms">قوانین و شرایط</Link></div></div><div className="sk-footer-bottom"><div className="sk-wrap"><span>سوکار · بازارگاه و فروشگاه اینترنتی</span><span>دامنه رسمی: sookar.ir</span></div></div></footer>
+      <footer className="sk-footer"><div className="sk-wrap sk-footer-main"><div className="sk-footer-brand"><Link href="/" className="sk-logo"><span className="sk-logo-mark">س</span><span><b>سوکار</b><small>فروشگاه و بازارگاه</small></span></Link><p>یک مسیر روشن برای کشف کالا، فروشگاه و انتخاب آگاهانه.</p></div><div><b>خرید</b><Link href="/store/shop">همه کالاها</Link><Link href="/marketplace">بازارگاه</Link><Link href="/marketplace/directory">فروشگاه‌ها</Link></div><div><b>خدمات</b><Link href="/store/orders">پیگیری سفارش</Link><Link href="/pay">خدمات اعتباری</Link><Link href="/login">فروشندگان</Link></div><div><b>حساب کاربری</b><Link href="/login">ورود</Link><Link href="/account/orders">سفارش‌های من</Link><Link href="/store/terms">قوانین و شرایط</Link></div></div><div className="sk-footer-bottom"><div className="sk-wrap"><span>سوکار · بازارگاه و فروشگاه اینترنتی</span><span>دامنه رسمی: sookar.ir</span></div></div></footer>
     </main>
   );
 }
