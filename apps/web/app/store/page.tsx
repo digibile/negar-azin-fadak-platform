@@ -135,12 +135,8 @@ export default function StorePage() {
     return aliases.find(([pattern]) => pattern.test(key))?.[1] || BROWSE_CATEGORIES.find(name => normalizeText(name) === key) || key;
   };
 
-  const categories = [...new Set([
-    ...(data?.categories || []),
-    ...(data?.products || []).map(product => product.category || ""),
-    ...BROWSE_CATEGORIES
-  ].map(name => name.trim()).filter(Boolean))]
-    .map(name => canonicalCategory(name))
+  const categoryNames = data?.categories?.length ? data.categories : BROWSE_CATEGORIES;
+  const categories = [...new Set(categoryNames.map(name => canonicalCategory(name.trim())).filter(Boolean))]
     .filter((name, index, all) => all.findIndex(item => normalizeText(item) === normalizeText(name)) === index)
     .map(name => [normalizeText(name), name] as [string, string]);
 
