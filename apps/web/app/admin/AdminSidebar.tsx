@@ -98,13 +98,13 @@ export default function AdminSidebar(){
   const children=item.children.map((child:MasterChild,i)=>{
    const legacyCode=child.legacyCode||"";
    const db=dbByLegacy.get(legacyCode);
-   const childRoute=db?.path&&db.path!== "#"
-    ? db.path
-    : legacyCode
-      ? "/modules/?code="+encodeURIComponent(legacyCode)+(item.panel?"&panel="+encodeURIComponent(item.panel):"")
-      : (child.moduleCode&&moduleSet.has(child.moduleCode)
-        ? "/modules/?code="+encodeURIComponent(child.moduleCode)+(item.panel?"&panel="+encodeURIComponent(item.panel):"")
-        : route+(route.includes("?")?"&":"?")+"menu="+encodeURIComponent(child.title));
+   // The canonical menu owns navigation. Database menu paths are retained only as
+   // legacy metadata, never allowed to override the approved 20-panel route map.
+   const childRoute=legacyCode
+    ? "/modules/?code="+encodeURIComponent(legacyCode)+(item.panel?"&panel="+encodeURIComponent(item.panel):"")
+    : (child.moduleCode&&moduleSet.has(child.moduleCode)
+      ? "/modules/?code="+encodeURIComponent(child.moduleCode)+(item.panel?"&panel="+encodeURIComponent(item.panel):"")
+      : route+(route.includes("?")?"&":"?")+"menu="+encodeURIComponent(child.title));
    return {id:item.code+"-"+i,title:child.title,path:childRoute,sort_order:i,db,dbChildren:normalize(db?.child_items||[])};
   });
   return {...item,route,children};
