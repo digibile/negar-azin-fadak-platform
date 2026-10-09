@@ -156,7 +156,7 @@ export default function StorePage() {
           <div className="sk-featured-grid">
             {featuredCategories.map(item => <button type="button" key={item.title} className={category === item.title ? "sk-featured-category is-active" : "sk-featured-category"} onClick={() => { setCategory(category === item.title ? "" : item.title); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
               <span className="sk-featured-image" style={{ backgroundImage: `linear-gradient(0deg,rgba(18,25,35,.64),rgba(18,25,35,.02)),url("${item.image}")` }}><i>{item.icon}</i></span>
-              <span className="sk-featured-copy"><b>{item.title}</b><small>{item.subtitle}</small></span><span className="sk-featured-arrow">←</span>
+              <span className="sk-featured-copy"><b>{item.title}</b><small>{item.subtitle}</small><small>{(data?.products || []).filter(product => item.keywords.some(keyword => (`${product.category || ""} ${product.title}`).toLocaleLowerCase("fa").includes(keyword.toLocaleLowerCase("fa")))).length.toLocaleString("fa-IR")} کالا در کاتالوگ</small></span><span className="sk-featured-arrow">←</span>
             </button>)}
           </div>
         </section>
