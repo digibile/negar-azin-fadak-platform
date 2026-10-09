@@ -249,7 +249,7 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
             <button type="button" className={!category ? "sk-category-chip is-active" : "sk-category-chip"} onClick={() => setCategory("")}>همه کالاها</button>
             {categories.map(([key, item]) => {
               const active = normalizeText(category) === key;
-              const count = (data?.products || []).filter(product => normalizeText(canonicalCategory(product.category)) === key).length;
+              const count = sourceProducts.filter(product => normalizeText(canonicalCategory(product.category)) === key).length;
               return <button type="button" key={key} aria-pressed={active} className={active ? "sk-category-chip is-active" : "sk-category-chip"} onClick={() => setCategory(active ? "" : item)}><span>{categoryGlyph(item, item)}</span>{item} <small>({count.toLocaleString("fa-IR")})</small></button>;
             })}
           </div>
