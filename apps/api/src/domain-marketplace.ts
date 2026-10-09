@@ -205,7 +205,7 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
   const tenant=await resolvePublicTenant(req,requestedCode);
   if(!tenant)return res.status(404).json({error:"بازارگاه فعال پیدا نشد",products:[],stores:[],categories:[],total:0});
   const tenantId=tenant.id;
-  const [stores,products]=await Promise.all([
+  const [stores,products,categoryRows]=await Promise.all([
     query(
       "select s.id,s.name,s.slug,s.domain,s.seller_id,sl.display_name as seller_name from stores s join sellers sl on sl.id=s.seller_id and sl.tenant_id=s.tenant_id where s.tenant_id=$1 and s.status='active' and sl.status='active' order by s.name limit 500",
       [tenantId]
@@ -213,9 +213,16 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
     query(
       "select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name from products p join sellers sl on sl.id=p.seller_id and sl.tenant_id=p.tenant_id left join stores st on st.id=p.store_id and st.tenant_id=p.tenant_id where p.tenant_id=$1 and p.status='active' and sl.status='active' and (p.store_id is null or st.status='active') order by p.updated_at desc limit 1000",
       [tenantId]
+    ),
+    query(
+      "select name from marketplace_categories where tenant_id=$1 and status='active' order by sort_order,name",
+      [tenantId]
     )
   ]);
-  const categories=[...new Set(products.rows.map((p:any)=>typeof p.category==="string"?p.category.trim():"").filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fa"));
+  const categories=[...new Set([
+    ...categoryRows.rows.map((row:any)=>typeof row.name==="string"?row.name.trim():""),
+    ...products.rows.map((p:any)=>typeof p.category==="string"?p.category.trim():"")
+  ].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fa"));
   res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
   res.json({tenant,stores:stores.rows,products:products.rows,categories,total:products.rowCount});
 }));
