@@ -93,7 +93,12 @@ jobs:
             --exclude='*.pem' --exclude='**/*.pem' --exclude='*.key' --exclude='**/*.key' \
             -czf /tmp/negar-platform.tar.gz .
           tar -tzf /tmp/negar-platform.tar.gz > /tmp/negar-platform-files.txt
-          if grep -E '(^|/)(\.env([.]|$)|node_modules|\.next|\.cache|tmp|temp|backups|secrets)(/|$)|(^|/)(id_rsa|id_ed25519)([._-]|$)|\.(pem|key|log)
+          if grep -E '(^|/)(\.env([.]|$)|node_modules|\.next|\.cache|tmp|temp|backups|secrets)(/|$)|(^|/)(id_rsa|id_ed25519)([._-]|$)|\.(pem|key|log)$' /tmp/negar-platform-files.txt; then
+            echo 'Forbidden environment, secret, cache, temporary, or backup content found in release package.'
+            exit 1
+          fi
+          sha256sum /tmp/negar-platform.tar.gz | tee /tmp/negar-platform.tar.gz.sha256
+
       - name: Upload reviewable build artifact
         uses: actions/upload-artifact@v4
         with:
