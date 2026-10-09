@@ -76,7 +76,7 @@ app.use((req,res,next)=>{if(["GET","HEAD","OPTIONS"].includes(req.method)||req.p
 app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.json({status:"ok",database:"ok"});}));
 
 app.get("/api/public/storefront-theme",asyncHandler(async(req,res)=>{
- const tenant=await resolvePublicTenant(req,typeof req.query.tenant==="string"?req.query.tenant:"");
+ const tenant=await resolvePublicTenant({hostname:String(req.headers["x-forwarded-host"]||req.hostname||"").trim().toLowerCase().split(":")[0]},typeof req.query.tenant==="string"?req.query.tenant:"");
  res.setHeader("Cache-Control","no-store, max-age=0");
  if(!tenant)return res.json({tenant:null,theme:null});
  const r=await query("select data from module_records mr join platform_modules m on m.id=mr.module_id where mr.tenant_id=$1 and m.code='36-page-templates' and mr.record_type='page-template' and mr.status='فعال' and mr.data->>'template-type' in ('فروشگاهی','بازارگاه') order by mr.updated_at desc limit 1",[tenant.id]);
