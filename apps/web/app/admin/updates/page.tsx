@@ -21,6 +21,7 @@ export default function UpdatesPage(){
  const [logLoading,setLogLoading]=useState(false);
  const [triggering,setTriggering]=useState(false);
  const [triggerMessage,setTriggerMessage]=useState("");
+ const [submittedRelease,setSubmittedRelease]=useState<{sha:string;message:string}|null>(null);
  const [deploying,setDeploying]=useState(false);
  const [databaseStatus,setDatabaseStatus]=useState<DatabaseStatus|null>(null);
  const [databaseError,setDatabaseError]=useState("");
@@ -53,9 +54,19 @@ export default function UpdatesPage(){
   if(triggering)return;
   setTriggering(true);setTriggerMessage("");setError("");
   try{
-   const result=await api<{message?:string}>("/api/platform/update",{method:"POST",body:JSON.stringify({})});
-   setTriggerMessage(result.message||"اجرای بروزرسانی آغاز شد.");
-   await load();
+   const result=await api<{message?:string;targetSha?:string}>("/api/platform/update",{method:"POST",body:JSON.stringify({})});
+   setTriggerMessage(result.message||"نسخه برای بررسی ارسال شد.");
+   if(result.targetSha){
+    setSubmittedRelease({sha:result.targetSha,message:"در حال دریافت عنوان نسخه..."});
+    try{
+     const fresh=await api<Status>("/api/platform/update-status");
+     setStatus(fresh);
+     const match=(fresh.pendingUpdates||[]).find(item=>item.sha===result.targetSha);
+     setSubmittedRelease({sha:result.targetSha,message:match?.message||"عنوان نسخه در فهرست تغییرات قابل دریافت نیست."});
+    }catch{}
+   }else{
+    await load();
+   }
   }catch(e){setError(e instanceof Error?e.message:"اجرای بروزرسانی انجام نشد")}finally{setTriggering(false)}
  }
 
@@ -78,6 +89,14 @@ export default function UpdatesPage(){
   <div className="platform-update-head"><div><span className="section-kicker">PLATFORM RELEASE LIFECYCLE · 2026</span><h2>مرکز انتشار و بروزرسانی سامانه</h2><p>منبع حقیقت این صفحه GitHub Actions است. Build می‌تواند نسخه‌های جدید را آماده کند، اما هیچ نسخه‌ای روی Production خودکار منتشر نمی‌شود. انتخاب و اجرای بروزرسانی فقط با مدیر انجام می‌شود.</p></div><div className="platform-update-actions"><button className="admin-link release-trigger-button" onClick={triggerUpdate} disabled={triggering||status?.running}>{triggering||status?.running?"ساخت نسخه در حال اجرا...":"ساخت نسخه برای بررسی"}</button>{reviewReady&&<button className="admin-link release-trigger-button" onClick={deployReviewed} disabled={deploying||status?.running}>{deploying?"در حال ارسال استقرار...":"تأیید و استقرار نسخه بررسی‌شده"}</button>}<Link className="admin-link" href="/admin">بازگشت به مرکز مدیریت</Link></div></div>
   {error&&<div className="error">{error}</div>}
   {triggerMessage&&<div className="update-success">{triggerMessage}</div>}
+  {submittedRelease&&<section className="update-card submitted-release-card">
+   <div className="release-lifecycle-head"><div><h3>نسخه ارسال‌شده برای بررسی مدیر</h3><p>این شناسه نسخه دقیقاً از پاسخ سرویس انتشار دریافت شده است.</p></div><strong>در انتظار بررسی</strong></div>
+   <div className="release-summary">
+    <div><span>شناسه کامل نسخه (SHA)</span><code>{submittedRelease.sha}</code></div>
+    <div><span>عنوان تغییر</span><strong>{submittedRelease.message}</strong></div>
+   </div>
+   <button className="admin-link" onClick={()=>{void navigator.clipboard?.writeText(submittedRelease.sha)}}>کپی شناسه نسخه</button>
+  </section>}
   <section className="update-card github-connection-card">
    <div className="release-lifecycle-head"><div><h3>اتصال GitHub</h3><p>توکن در PostgreSQL به‌صورت رمزنگاری‌شده نگهداری می‌شود و مقدار کامل آن هرگز در پنل نمایش داده نمی‌شود.</p></div><strong>{githubConnection?.configured?"متصل":"تنظیم نشده"}</strong></div>
    <div className="github-connection-row"><input type="password" autoComplete="new-password" value={githubToken} onChange={e=>setGithubToken(e.target.value)} placeholder="github_pat_..." /><button className="admin-link release-trigger-button" onClick={saveGithubToken} disabled={savingGithub||!githubToken.trim()}>{savingGithub?"در حال بررسی...":"ذخیره و بررسی اتصال"}</button>{githubConnection?.source==="panel"&&<button className="admin-link" onClick={removeGithubToken} disabled={savingGithub}>حذف توکن پنل</button>}</div>
