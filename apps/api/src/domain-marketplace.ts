@@ -429,7 +429,7 @@ domainMarketplaceRouter.post("/api/marketplace/products/sync-reference",requireA
       const entry=link.rows[0];
       await query(
         "update catalog_source_links set source_price=$1,source_currency=$2,source_available=$3,source_url=$4,source_sku=$5,last_checked_at=now(),last_success_at=now(),last_error=null,updated_at=now() where id=$6 and tenant_id=$7",
-        [Number(source.price),source.currency,source.source_available,source.source_url,source.sku,entry.id,ctx.id]
+        [source.price===null?null:Number(source.price),source.currency,source.source_available,source.source_url,source.sku,entry.id,ctx.id]
       );
       updated++;details.push({sourceProductId:sourceId,status:"updated"});
     }catch(error){
