@@ -75,6 +75,11 @@ jobs:
       - name: Web build
         working-directory: apps/web
         run: pnpm build
+      - name: Package exact SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar --exclude='.git' --exclude='node_modules' --exclude='.next' --exclude='.cache' --exclude='*.log' --exclude='.env' --exclude='.env.*' --exclude='tmp' --exclude='temp' --exclude='backups' -czf /tmp/negar-platform.tar.gz .
       - name: Upload reviewable build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -82,7 +87,6 @@ jobs:
           path: /tmp/negar-platform.tar.gz
           if-no-files-found: error
           retention-days: 7
-
 
       - name: Prepare SSH
         if: ${{ inputs.deploy_to_server }}
