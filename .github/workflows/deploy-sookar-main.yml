@@ -188,7 +188,7 @@ p=Path("/usr/local/directadmin/data/users/sookar/nginx.conf")
 text=p.read_text()
 def blocks(s,w):
     out=[]
-    for m in re.finditer(r"(?m)^\\s*"+w+r"\\b[^\\{]*\\{",s):
+    for m in re.finditer(r"(?m)^\s*"+w+r"\b[^\{]*\{",s):
         d=0
         for i in range(m.end()-1,len(s)):
             if s[i]=="{": d+=1
@@ -197,7 +197,7 @@ def blocks(s,w):
                 if d==0:
                     out.append((m.start(),i+1)); break
     return out
-servers=[x for x in blocks(text,"server") if re.search(r"server_name\\s+[^;]*\\bsookar\\.ir\\b",text[x[0]:x[1]])]
+servers=[x for x in blocks(text,"server") if re.search(r"server_name\s+[^;]*\bsookar\.ir\b",text[x[0]:x[1]])]
 if not servers: raise SystemExit("Sookar server block not found")
 api='''    location ^~ /api/ {
         proxy_http_version 1.1;
@@ -227,14 +227,14 @@ for a,b in servers:
     locs=blocks(block,"location")
     rootloc=None
     for la,lb in locs:
-        if re.match(r"(?s)^\\s*location\\s+/\\s*\\{",block[la:lb]):
+        if re.match(r"(?s)^\s*location\s+/\s*\{",block[la:lb]):
             rootloc=(la,lb); break
     if rootloc:
         la,lb=rootloc; block=block[:la]+root+block[lb:]
     else:
         pos=block.rfind("}"); block=block[:pos]+root+block[pos:]
-    block=re.sub(r"(?ms)^\\s*location\\s+\\^~\\s+/api/\\s*\\{.*?^\\s*\\}\\s*\\n?","",block)
-    first=re.search(r"(?m)^\\s*location\\s+",block)
+    block=re.sub(r"(?ms)^\s*location\s+\^~\s+/api/\s*\{.*?^\s*\}\s*\n?","",block)
+    first=re.search(r"(?m)^\s*location\s+",block)
     pos=first.start() if first else block.rfind("}")
     block=block[:pos]+api+block[pos:]
     parts.append(block); cur=b
@@ -242,7 +242,7 @@ parts.append(text[cur:])
 p.write_text("".join(parts))
 subprocess.run(["nginx","-t"],check=True)
 subprocess.run(["systemctl","reload","nginx"],check=True)
-print("NGINX_PROXY_ROUTES_OK")
+print("NGINX_OK")
 PY
           REMOTE
 
