@@ -40,11 +40,11 @@ walletLedgerRouter.post("/api/wallet-ledger/wallets",requireAuth,requirePermissi
 
 walletLedgerRouter.patch("/api/wallet-ledger/wallets/:id",requireAuth,requirePermission("wallet-ledger.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"محدوده سازمانی معتبر پیدا نشد");
- const old=await query("select * from wallet_accounts where id=$1 and tenant_id=$2",[String(req.params.id),t.id]);if(!old.rowCount)return deny(res,404,"کیف پول پیدا نشد");
+ const old=await query("select * from wallet_accounts where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!old.rowCount)return deny(res,404,"کیف پول پیدا نشد");
  const {title,status,ownerUserId}=req.body||{};
  if(status!==undefined&&!["active","blocked","closed"].includes(status))return deny(res,400,"وضعیت کیف پول نامعتبر است");
- const r=await query("update wallet_accounts set title=coalesce($1,title),status=coalesce($2,status),owner_user_id=coalesce($3,owner_user_id),updated_at=now() where id=$4 and tenant_id=$5 returning *",[title??null,status??null,ownerUserId??null,String(req.params.id),t.id]);
- await audit(t.id,(req as any).user.id,"wallet",String(req.params.id),"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+ const r=await query("update wallet_accounts set title=coalesce($1,title),status=coalesce($2,status),owner_user_id=coalesce($3,owner_user_id),updated_at=now() where id=$4 and tenant_id=$5 returning *",[title??null,status??null,ownerUserId??null,String(String(req.params.id)),t.id]);
+ await audit(t.id,(req as any).user.id,"wallet",String(String(req.params.id)),"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 
 walletLedgerRouter.get("/api/wallet-ledger/entries",requireAuth,requirePermission("wallet-ledger.read"),async(req,res)=>{
