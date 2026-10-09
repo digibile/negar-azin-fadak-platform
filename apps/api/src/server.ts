@@ -132,7 +132,7 @@ app.post("/api/auth/login",asyncHandler(async(req,res)=>{
 }));
 
 app.get("/api/auth/me",requireAuth,(req,res)=>res.json({user:(req as any).user}));
-app.post("/api/auth/logout",requireAuth,(req,res)=>{clearSession(res);res.status(204).end();});
+app.post("/api/auth/logout",requireAuth,asyncHandler(async(req,res)=>{const user=(req as any).user;if(user.sessionId)await query("update security_sessions set revoked_at=now() where id=$1 and user_id=$2 and revoked_at is null",[user.sessionId,user.id]);clearSession(res);res.status(204).end();}));
 
 app.get("/api/admin/users",requireAuth,requirePermission("users:manage"),asyncHandler(async(_req,res)=>res.json((await query("select id,email,full_name,role,status,created_at from users order by created_at desc")).rows)));
 app.post("/api/admin/users",requireAuth,requirePermission("users:manage"),asyncHandler(async(req,res)=>{
