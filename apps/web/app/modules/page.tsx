@@ -274,7 +274,7 @@ const MODULE_ROUTE_REGISTRY: Record<string, (context: ModuleRouteContext) => Rea
   "48-document-audit-reports": () => <DocumentAuditReportsWorkspace />,
   "49-document-compliance": () => <DocumentComplianceWorkspace />,
   "50-document-governance": () => <DocumentGovernanceWorkspace />,
-  ...Object.fromEntries(operationalModuleCodes.map(code => [code, ({code}: ModuleRouteContext) => <OperationalModuleWorkspace code={code} />]))
+  ...Object.fromEntries(operationalModuleCodes.map(code => [code, ({code}: ModuleRouteContext) => <OperationalModuleWorkspace code={code} />])),
   ...Object.fromEntries(canonicalLandingCodes.map(code => [code, (context: ModuleRouteContext) => <CanonicalModuleLanding {...context} />]))
 };
 
