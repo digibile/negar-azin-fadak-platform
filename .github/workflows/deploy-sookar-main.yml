@@ -1,6 +1,9 @@
 name: Deploy Sookar Main Safely
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       target_sha:
@@ -117,6 +120,26 @@ jobs:
           chmod 700 ~/.ssh
           ssh-keyscan -T 15 -p '${{ secrets.DEPLOY_PORT }}' '${{ secrets.DEPLOY_HOST }}' >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
+      - name: Preflight Sookar.com production target
+        if: ${{ inputs.deploy_to_server }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
+          PORT='${{ secrets.DEPLOY_PORT }}'
+          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          BASE=/home/sookar/domains/sookar.com/negar-platform
+          DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.com.conf
+          test -f "$DOMAIN_CONF" || { echo "Sookar.com DirectAdmin domain configuration is missing; deployment stopped."; exit 20; }
+          test -d /home/sookar/domains/sookar.com || { echo "Sookar.com home directory is missing; deployment stopped."; exit 21; }
+          test -f "$BASE/.env" || { echo "Sookar.com production environment file is missing; no other domain environment will be copied."; exit 22; }
+          test "$(stat -c %a "$BASE/.env")" = "600" || { echo "Sookar.com environment permissions must be 600."; exit 23; }
+          grep -Eq 'server_name[^;]*sookar\.com' "$DOMAIN_CONF" || { echo "Sookar.com is not registered in its DirectAdmin domain configuration."; exit 24; }
+          printf '' | openssl s_client -connect sookar.com:443 -servername sookar.com 2>/dev/null | openssl x509 -noout -checkend 86400 -checkhost sookar.com
+          echo SOOKAR_COM_PREFLIGHT_OK
+          REMOTE
+
       - name: Upload release
         if: ${{ inputs.deploy_to_server }}
         shell: bash
