@@ -136,7 +136,7 @@ const deployWorkflow=fs.readFileSync(path.join(workflowDir,"deploy-sookar-main.y
 if(!dynamicMenu.includes('router.get("/api/dashboard/menu-tree"')||!server.includes("app.use(dynamicMenuRouter)"))throw new Error("Canonical dashboard menu-tree API is missing or not mounted");
 if(!deployWorkflow.includes("workflow_dispatch:")||!deployWorkflow.includes("deploy_to_server:")||!deployWorkflow.includes("default: false"))throw new Error("Production deployment must require explicit approval input");
 for(const step of ["Prepare SSH","Upload release","Deploy with rollback","Production health and release check","Reload DirectAdmin Nginx configuration","Configure DirectAdmin Nginx routes","Ensure DirectAdmin SSL is enabled","Verify public HTTPS endpoint"]){
- const gatedStep="- name: "+step+"\\n        if: ${{ inputs.deploy_to_server }}";
+ const gatedStep="- name: "+step+"\n        if: ${{ inputs.deploy_to_server }}";
  if(!deployWorkflow.includes(gatedStep))throw new Error("Production step is not gated by explicit approval: "+step);
 }
 if(!deployWorkflow.includes("Upload reviewable build artifact")||deployWorkflow.indexOf("Package exact SHA")>deployWorkflow.indexOf("Upload reviewable build artifact"))throw new Error("Build artifact must be packaged before review upload");
