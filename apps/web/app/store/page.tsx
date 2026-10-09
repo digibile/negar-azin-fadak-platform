@@ -202,7 +202,7 @@ export default function StorePage() {
 
           {loading ? <div className="sk-state"><span className="sk-loader" />در حال دریافت اطلاعات واقعی محصولات…</div>
           : error ? <div className="sk-state sk-state-error"><b>دریافت محصولات انجام نشد</b><p>{error}</p><button type="button" onClick={() => window.location.reload()}>تلاش دوباره</button></div>
-          : products.length ? <div className="sk-product-grid">{products.slice(0, showAllProducts ? products.length : 12).map(product => <article className="sk-product-card" key={product.id}>
+          : products.length ? <div className="sk-product-grid">{products.slice(0, showAllProducts ? products.length : 20).map(product => <article className="sk-product-card" key={product.id}>
             <Link href={"/store/product/" + encodeURIComponent(product.id)} className="sk-product-visual" aria-label={"مشاهده " + product.title}>
               <span className="sk-product-category">{product.category || "محصول"}</span>{safeImageUrl(product.image_url) ? <img src={safeImageUrl(product.image_url)!} alt={product.title} loading="lazy" decoding="async" /> : <span className="sk-product-glyph"><span aria-hidden="true">{categoryGlyph(product.category, product.title)}</span><small>تصویر توسط فروشنده ثبت نشده</small></span>}<span className="sk-visual-brand">SOOKAR</span>
             </Link>
