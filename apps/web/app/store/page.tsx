@@ -214,7 +214,7 @@ export default function StorePage() {
           {categories.length ? <div className="sk-featured-grid">
             {categories.slice(0, 8).map(([key, name]) => {
               const count = (data?.products || []).filter(product => normalizeText(canonicalCategory(product.category)) === key).length;
-              const active = normalizeText(category) === key;
+              const active = normalizeText(canonicalCategory(category)) === key;
               return <button type="button" key={key} className={active ? "sk-featured-category is-active" : "sk-featured-category"} aria-pressed={active} onClick={() => { setCategory(active ? "" : name); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
                 <span className="sk-featured-image sk-category-art" style={(() => { const image = safeImageUrl((data?.products || []).find(product => normalizeText(product.category || "") === key && safeImageUrl(product.image_url))?.image_url); return image ? { backgroundImage: `linear-gradient(0deg,rgba(20,32,45,.12),rgba(20,32,45,.02)),url("${image}")` } : undefined; })()}><i>{categoryGlyph(name, name)}</i></span>
                 <span className="sk-featured-copy"><b>{name}</b><small>{count.toLocaleString("fa-IR")} محصول ثبت‌شده</small></span><span className="sk-featured-arrow">←</span>
