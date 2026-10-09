@@ -7,7 +7,7 @@
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "lint": "pnpm -r lint",
+    "lint": "pnpm -r --if-present lint",
     "verify:platform": "node scripts/verify-platform-integrity.mjs"
   }
 }
