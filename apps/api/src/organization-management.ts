@@ -31,6 +31,12 @@ router.patch("/api/organization/organizations/:id",requireAuth,requireCsrf,async
  const r=await query("update organizations set name=coalesce($1,name),organization_type=coalesce($2,organization_type),national_id=$3,registration_no=$4,economic_code=$5,status=coalesce($6,status),updated_at=now() where id=$7 and tenant_id=$8 returning *",[clean(b.name),clean(b.organizationType),clean(b.nationalId)||null,clean(b.registrationNo)||null,clean(b.economicCode)||null,clean(b.status),req.params.id,t.id]);
  if(!r.rowCount)return res.status(404).json({error:"سازمان پیدا نشد"});res.json(r.rows[0]);
 });
+router.delete("/api/organization/organizations/:id",requireAuth,requireCsrf,async(req:any,res)=>{
+ const t=await guard(req,res);if(!t)return;
+ const r=await query("delete from organizations where id=$1 and tenant_id=$2 returning id",[req.params.id,t.id]);
+ if(!r.rowCount)return res.status(404).json({error:"سازمان پیدا نشد"});
+ res.status(204).end();
+});
 router.post("/api/organization/entities",requireAuth,requireCsrf,async(req:any,res)=>{
  const t=await guard(req,res);if(!t)return; const b=req.body||{};
  const entityType=clean(b.entityType),code=clean(b.code),name=clean(b.name);
@@ -95,6 +101,12 @@ router.patch("/api/organization/centers/:id",requireAuth,requireCsrf,async(req:a
  const r=await query("update organization_centers set organization_id=coalesce($1,organization_id),center_type=$2,code=coalesce($3,code),name=coalesce($4,name),parent_id=$5,status=coalesce($6,status),metadata=coalesce($7,metadata),updated_at=now() where id=$8 and tenant_id=$9 returning *",[b.organizationId||null,type,code,name,b.parentId||null,clean(b.status),b.metadata||null,req.params.id,t.id]);
  res.json(r.rows[0]);
 });
+router.delete("/api/organization/centers/:id",requireAuth,requireCsrf,async(req:any,res)=>{
+ const t=await guard(req,res);if(!t)return;
+ const r=await query("delete from organization_centers where id=$1 and tenant_id=$2 returning id",[req.params.id,t.id]);
+ if(!r.rowCount)return res.status(404).json({error:"مرکز پیدا نشد"});
+ res.status(204).end();
+});
 router.post("/api/organization/ownership",requireAuth,requireCsrf,async(req:any,res)=>{
  const t=await guard(req,res);if(!t)return;const b=req.body||{};const pct=Number(b.ownershipPercent);
  if(!b.ownerEntityId||!b.ownedEntityId||b.ownerEntityId===b.ownedEntityId||!Number.isFinite(pct)||pct<0||pct>100)return res.status(400).json({error:"مالک و زیرمجموعه متفاوت و درصد مالکیت بین صفر تا صد الزامی است"});
@@ -107,6 +119,12 @@ router.post("/api/organization/ownership",requireAuth,requireCsrf,async(req:any,
  if(!["direct","indirect","joint"].includes(ownershipType))return res.status(400).json({error:"نوع مالکیت معتبر نیست"});
  const r=await query("insert into organization_ownership(tenant_id,owner_entity_id,owned_entity_id,ownership_percent,ownership_type) values($1,$2,$3,$4,$5) on conflict(tenant_id,owner_entity_id,owned_entity_id) do update set ownership_percent=excluded.ownership_percent,ownership_type=excluded.ownership_type,status='active' returning *",[t.id,b.ownerEntityId,b.ownedEntityId,pct,ownershipType]);
  res.status(201).json(r.rows[0]);
+});
+router.delete("/api/organization/ownership/:id",requireAuth,requireCsrf,async(req:any,res)=>{
+ const t=await guard(req,res);if(!t)return;
+ const r=await query("delete from organization_ownership where id=$1 and tenant_id=$2 returning id",[req.params.id,t.id]);
+ if(!r.rowCount)return res.status(404).json({error:"رابطه مالکیت پیدا نشد"});
+ res.status(204).end();
 });
 router.put("/api/organization/settings/:organizationId/:key",requireAuth,requireCsrf,async(req:any,res)=>{
  const t=await guard(req,res);if(!t)return;
