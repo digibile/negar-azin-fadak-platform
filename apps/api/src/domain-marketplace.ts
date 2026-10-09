@@ -278,8 +278,8 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requir
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const sellerId=bodyString(req.body?.sellerId,100);
-  const selectedIds=Array.isArray(req.body?.productIds)
-    ?[...new Set(req.body.productIds.filter((value:unknown):value is string=>typeof value==="string").map((value:string)=>value.trim()).filter(Boolean))].slice(0,50)
+  const selectedIds:string[]=Array.isArray(req.body?.productIds)
+    ?[...new Set<string>((req.body.productIds as unknown[]).filter((value:unknown):value is string=>typeof value==="string").map((value:string)=>value.trim()).filter(Boolean))].slice(0,50)
     :[];
   if(!sellerId||!selectedIds.length)return res.status(400).json({error:"فروشنده و حداقل یک محصول برای ورود انتخاب کنید"});
   const seller=await query("select id,display_name,status from sellers where id=$1 and tenant_id=$2",[sellerId,ctx.id]);
