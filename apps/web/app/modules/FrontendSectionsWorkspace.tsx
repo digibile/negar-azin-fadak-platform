@@ -9,7 +9,7 @@ const tabs=[["all","همه بخش‌ها"],["draft","پیش‌نویس"],["activ
 export default function FrontendSectionsWorkspace(){
 const[rows,setRows]=useState<R[]>([]),[form,setForm]=useState({...blank}),[edit,setEdit]=useState<number|null>(null),[tab,setTab]=useState("all"),[q,setQ]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
 const load=async()=>{try{const r=await fetch(API+"/api/platform/modules/17-frontend-management/records?page=1&pageSize=300&q="+encodeURIComponent(q),{credentials:"include"}),b=await r.json();if(!r.ok)throw Error(b?.error||"دریافت بخش‌ها ناموفق بود");setRows(b.items||[])}catch(e){setError(e instanceof Error?e.message:"خطا")}};
-useEffect(()=>{load()},[]);
+useEffect(()=>{load()},[q]);
 const visible=useMemo(()=>rows.filter(r=>tab==="all"||String(r.data.status)===({draft:"پیش‌نویس",active:"فعال",disabled:"غیرفعال",archived:"آرشیو شده"}as any)[tab]).sort((a,b)=>String(a.data["page-code"]||"").localeCompare(String(b.data["page-code"]||""))||Number(a.data["order-index"]||0)-Number(b.data["order-index"]||0)),[rows,tab]);
 const set=(k:string,v:any)=>setForm((x:any)=>({...x,[k]:v}));const reset=()=>{setEdit(null);setForm({...blank})};
 const payload=(d=form)=>({recordType:"frontend-section",title:String(d.title),status:String(d.status),data:{"section-code":d.code,"section-title":d.title,"page-code":d.page,"section-type":d.type,"template-code":d.template,"block-reference":d.block,"order-index":Number(d.order||0),visibility:d.visibility,"responsive-mode":d.responsive,status:d.status,version:Number(d.version||1),"content-reference":d.content,notes:d.notes}});
