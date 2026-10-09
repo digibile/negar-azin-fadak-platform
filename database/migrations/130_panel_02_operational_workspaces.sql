@@ -71,7 +71,15 @@ from (values
 ('maintenance','maintenance_cost','هزینه تعمیر','number',false,70,'{}','maintenance'),
 ('maintenance','maintenance_status','وضعیت کار','select',true,80,'{"options":["برنامه‌ریزی‌شده","در حال انجام","در انتظار قطعه","تکمیل‌شده","لغوشده"]}','maintenance')
 ) as f(module_code,field_key,title,field_type,required,sort_order,options,record_type)
-join platform_modules m on m.code=f.module_code
+join platform_modules m on m.code=case f.module_code
+  when 'employees' then '39-human-resources'
+  when 'payroll' then '39-human-resources'
+  when 'attendance' then '39-human-resources'
+  when 'projects' then '30-projects-cost-centers'
+  when 'production' then '24-production'
+  when 'maintenance' then '24-production'
+  else null
+end
 on conflict(module_id,field_key) do update set
   title=excluded.title,
   field_type=excluded.field_type,
