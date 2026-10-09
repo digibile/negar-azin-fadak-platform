@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "فروشگاه اینترنتی سوکار",
-  description: "فروشگاه اینترنتی سوکار برای مشاهده محصولات، فروشندگان، سفارش و خرید اعتباری.",
+  description: "مشاهده محصولات، فروشندگان، سفارش و خرید اعتباری در سوکار.",
   alternates: { canonical: "/store" },
   openGraph: {
     title: "فروشگاه اینترنتی سوکار",
