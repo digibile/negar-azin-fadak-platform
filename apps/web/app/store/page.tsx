@@ -156,7 +156,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
 
   const technologyPattern = /موبایل|گوشی|تبلت|لپ.?تاپ|کامپیوتر|مانیتور|کالای دیجیتال|صوتی|تصویری|هدفون|اسپیکر|دوربین|گیمینگ|کنسول|الکترونیک|mobile|phone|tablet|laptop|computer|monitor|digital|audio|video|headphone|speaker|camera|gaming|console|electronics/i;
   const sourceProducts = isTechnolife ? (data?.products || []).filter(product => technologyPattern.test(normalizeText([product.title, product.category || "", product.description || "", product.brand || ""].join(" ")))) : (data?.products || []);
-  const categoryNames = [...new Set([...(data ? (Array.isArray(data.categories) ? data.categories : BROWSE_CATEGORIES) : BROWSE_CATEGORIES), ])].filter(name => !isTechnolife || technologyPattern.test(normalizeText(name)));
+  const categoryNames = [...new Set([...STORE_CATEGORY_NAVIGATION.map(item => item.name), ...BROWSE_CATEGORIES, ...(Array.isArray(data?.categories) ? data.categories : [])])].filter(name => !isTechnolife || technologyPattern.test(normalizeText(name)));
   const categories = [...new Set(categoryNames.map(name => canonicalCategory(name.trim())).filter(Boolean))]
     .filter((name, index, all) => all.findIndex(item => normalizeText(item) === normalizeText(name)) === index)
     .map(name => [normalizeText(name), name] as [string, string]);
@@ -255,7 +255,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
         <section className="sk-featured-categories" aria-labelledby="sk-featured-categories-title">
           <div className="sk-section-heading"><div><span className="sk-eyebrow">دسته‌بندی‌های بازارگاه</span><h2 id="sk-featured-categories-title">از کجا شروع کنیم؟</h2><p>دستهٔ موردنظرت را انتخاب کن تا کالاهای مرتبط از کاتالوگ نمایش داده شوند.</p></div><Link href="/store/shop" className="sk-section-link">همه کالاها <span>←</span></Link></div>
           {categories.length ? <div className="sk-featured-grid">
-            {categories.slice(0, 8).map(([key, name]) => {
+            {categories.map(([key, name]) => {
               const count = sourceProducts.filter(product => normalizeText(canonicalCategory(product.category)) === key).length;
               const active = normalizeText(canonicalCategory(category)) === key;
               return <button type="button" key={key} className={active ? "sk-featured-category is-active" : "sk-featured-category"} aria-pressed={active} onClick={() => { setCategory(active ? "" : name); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
