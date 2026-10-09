@@ -135,10 +135,10 @@ let cachedAt = 0;
 let inFlight: Promise<DigikalaCatalogProduct[]> | null = null;
 const CACHE_MS = 20 * 60 * 1000;
 
-async function fetchSearch(query: string, category: string): Promise<DigikalaCatalogProduct[]> {
+async function fetchSearch(query: string, category: string, page = 1): Promise<DigikalaCatalogProduct[]> {
   const url = new URL("/v1/search/", "https://api.digikala.com");
   url.searchParams.set("q", query);
-  url.searchParams.set("page", "1");
+  url.searchParams.set("page", String(page));
   const response = await fetch(url, {
     headers: {
       accept: "application/json",
@@ -151,17 +151,30 @@ async function fetchSearch(query: string, category: string): Promise<DigikalaCat
 }
 
 async function loadCatalog(): Promise<DigikalaCatalogProduct[]> {
-  const results = await Promise.allSettled(
-    SEARCHES.map(item => fetchSearch(item.query, item.category))
-  );
   const unique = new Map<string, DigikalaCatalogProduct>();
-  for (const result of results) {
+  const firstPass = await Promise.allSettled(
+    SEARCHES.map(item => fetchSearch(item.query, item.category, 1))
+  );
+  for (const result of firstPass) {
     if (result.status !== "fulfilled") continue;
     for (const product of result.value) {
       if (!unique.has(product.id)) unique.set(product.id, product);
       if (unique.size >= 250) break;
     }
     if (unique.size >= 250) break;
+  }
+  if (unique.size < 200) {
+    const secondPass = await Promise.allSettled(
+      SEARCHES.slice(0, 6).map(item => fetchSearch(item.query, item.category, 2))
+    );
+    for (const result of secondPass) {
+      if (result.status !== "fulfilled") continue;
+      for (const product of result.value) {
+        if (!unique.has(product.id)) unique.set(product.id, product);
+        if (unique.size >= 250) break;
+      }
+      if (unique.size >= 250) break;
+    }
   }
   return [...unique.values()].slice(0, 250);
 }
