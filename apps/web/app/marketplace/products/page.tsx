@@ -68,24 +68,6 @@ export default function ProductsPage() {
   }
   useEffect(() => { void load(); }, []);
 
-  async function loadSourceCatalog() {
-    setError("");
-    setNotice("");
-    setLoadingSource(true);
-    try {
-      const result = await api<SourceCatalog>("/api/public/digikala-catalog");
-      setSourceProducts(result.products || []);
-      setSourceStatus(result.sourceStatus || "unavailable");
-      setSelectedIds(current => current.filter(id => (result.products || []).some(product => product.id === id)));
-      if (!result.products?.length) setNotice("در حال حاضر محصول قابل ورود از منبع مرجع دریافت نشد.");
-    } catch (reason) {
-      setSourceStatus("unavailable");
-      setError(reason instanceof Error ? reason.message : "دریافت فهرست مرجع ناموفق بود.");
-    } finally {
-      setLoadingSource(false);
-    }
-  }
-
   async function lookupDigikalaProduct() {
     const id = sourceProductId.trim().replace(/^dkp-/i, "");
     if (!/^\d{1,16}$/.test(id)) {
@@ -262,7 +244,7 @@ export default function ProductsPage() {
       <div className="mp-workspace-head"><div><h2>افزودن به کاتالوگ</h2><p>محصول را ثبت کنید یا دادهٔ مرجع را به رکورد داخلی قابل بررسی تبدیل کنید.</p></div>
         <div className="mp-tabs" role="tablist" aria-label="روش افزودن محصول">
           <button type="button" role="tab" aria-selected={tab === "manual"} className={tab === "manual" ? "is-active" : ""} onClick={() => setTab("manual")}>ثبت محصول</button>
-          <button type="button" role="tab" aria-selected={tab === "import"} className={tab === "import" ? "is-active" : ""} onClick={() => { setTab("import"); if (!sourceProducts.length && !loadingSource) void loadSourceCatalog(); }}>ورود از منبع</button>
+          <button type="button" role="tab" aria-selected={tab === "import"} className={tab === "import" ? "is-active" : ""} onClick={() => setTab("import")}>ورود از منبع</button>
         </div>
       </div>
 
@@ -277,7 +259,7 @@ export default function ProductsPage() {
         <label className="mp-field-wide">تصویر محصول (اختیاری، حداکثر ۵ مگابایت)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => void uploadImage(event.target.files?.[0])} disabled={uploadingImage} /><small>{uploadingImage ? "در حال بررسی و ذخیره تصویر در رسانهٔ داخلی…" : "تصویر در رسانهٔ داخلی سوکار ذخیره می‌شود؛ لینک خارجی تصویر پذیرفته نمی‌شود."}</small>{imageUrl && <span className="mp-uploaded-image"><img src={imageUrl} alt="پیش‌نمایش تصویر ثبت‌شده" /><code dir="ltr">{imageUrl}</code><button type="button" onClick={() => setImageUrl("")}>حذف تصویر از پیش‌نویس</button></span>}</label>
         <div className="mp-form-actions"><button type="button" onClick={create} disabled={saving || uploadingImage || !sellerId || !sku.trim() || !title.trim() || price === ""}>{saving ? "در حال ثبت…" : "ثبت پیش‌نویس محصول"} <span>←</span></button><small>انتشار عمومی مرحله‌ای جداگانه است.</small></div>
       </div> : <div className="mp-import-panel">
-        <div className="mp-import-head"><div><h3>ورود مرجع به کاتالوگ داخلی</h3><p>دیجی‌کالا فقط منبع مرجع در پنل مدیریت است؛ کالا در ویترین سوکار با شناسه و صفحهٔ داخلی خودش ثبت می‌شود.</p></div><button type="button" className="mp-refresh" onClick={loadSourceCatalog} disabled={loadingSource}>{loadingSource ? "در حال دریافت…" : "بارگیری فهرست عمومی"}</button></div>
+        <div className="mp-import-head"><div><h3>ورود مرجع به کاتالوگ داخلی</h3><p>دیجی‌کالا فقط منبع مرجع در پنل مدیریت است؛ کالا در ویترین سوکار با شناسه و صفحهٔ داخلی خودش ثبت می‌شود.</p></div></div>
         <div className="mp-source-id-row">
           <label htmlFor="mp-source-product-id">شناسه محصول دیجی‌کالا<input id="mp-source-product-id" value={sourceProductId} onChange={event => setSourceProductId(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void lookupDigikalaProduct(); } }} placeholder="مثلاً 12345678 یا dkp-12345678" inputMode="numeric" /></label>
           <button type="button" className="mp-refresh" onClick={lookupDigikalaProduct} disabled={loadingSource || !sourceProductId.trim()}>{loadingSource ? "در حال دریافت…" : "دریافت با شناسه"}</button>
