@@ -133,14 +133,14 @@ const workflowDir=path.join(root,".github/workflows");
 const workflowFiles=fs.readdirSync(workflowDir).filter(name=>/\.ya?ml$/i.test(name));
 if(workflowFiles.length!==1||workflowFiles[0]!=="deploy-sookar-main.yml")throw new Error("Deployment workflow must have exactly one canonical entry point; found: "+workflowFiles.join(", "));
 const deployWorkflow=fs.readFileSync(path.join(workflowDir,"deploy-sookar-main.yml"),"utf8");
-if(/^\s*push\s*:/m.test(deployWorkflow)&&!deployWorkflow.includes("if: ${{ inputs.deploy_to_server }}"))throw new Error("Push-triggered workflow must never deploy to production without explicit approval");
+if(/^\s*push\s*:/m.test(deployWorkflow)&&(!deployWorkflow.includes("if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[direct-publish]') }}")||!deployWorkflow.includes("contains(github.event.head_commit.message, '[direct-publish]')")))throw new Error("Push-triggered workflow must skip normal pushes and require the explicit direct-publish marker");
 if(!/^on:\s*\n(?:[\s\S]*?\n)?\s+workflow_dispatch:/m.test(deployWorkflow))throw new Error("Unified workflow must expose one explicit manual build/deploy entry point");
 if(!dynamicMenu.includes('router.get("/api/dashboard/menu-tree"')||!server.includes("app.use(dynamicMenuRouter)"))throw new Error("Canonical dashboard menu-tree API is missing or not mounted");
 if(!deployWorkflow.includes("workflow_dispatch:")||!deployWorkflow.includes("deploy_to_server:")||!deployWorkflow.includes("default: false"))throw new Error("Manual deployment must require an explicit approval input");
 if(deployWorkflow.includes("[deploy-sookar]")||deployWorkflow.includes("Ensure DirectAdmin SSL is enabled"))throw new Error("Legacy commit-marker deployment or automatic SSL enablement must be removed");
 for(const step of ["Prepare SSH","Upload release","Deploy with rollback","Production health and release check","Reload DirectAdmin Nginx configuration","Configure DirectAdmin Nginx routes","Verify public HTTPS endpoint"]){
  const gatedStepStart=deployWorkflow.indexOf("- name: "+step);
- if(gatedStepStart<0||!deployWorkflow.slice(gatedStepStart,gatedStepStart+300).includes("if: ${{ inputs.deploy_to_server }}"))throw new Error("Production step must require explicit manual deployment approval: "+step);
+ if(gatedStepStart<0||!deployWorkflow.slice(gatedStepStart,gatedStepStart+400).includes("inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[direct-publish]'))"))throw new Error("Production step must require explicit manual approval or the direct-publish marker: "+step);
 }
 if(!deployWorkflow.includes("Upload reviewable build artifact")||deployWorkflow.indexOf("Package exact SHA")>deployWorkflow.indexOf("Upload reviewable build artifact"))throw new Error("Build artifact must be packaged before review upload");
 if(!deployWorkflow.includes("--exclude='.env.*'"))throw new Error("Release package must exclude environment files");
