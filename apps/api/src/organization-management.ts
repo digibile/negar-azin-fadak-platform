@@ -33,8 +33,14 @@ router.patch("/api/organization/organizations/:id",requireAuth,requireCsrf,async
 });
 router.delete("/api/organization/organizations/:id",requireAuth,requireCsrf,async(req:any,res)=>{
  const t=await guard(req,res);if(!t)return;
- const r=await query("delete from organizations where id=$1 and tenant_id=$2 returning id",[req.params.id,t.id]);
- if(!r.rowCount)return res.status(404).json({error:"سازمان پیدا نشد"});
+ const exists=await query("select id from organizations where id=$1 and tenant_id=$2",[req.params.id,t.id]);
+ if(!exists.rowCount)return res.status(404).json({error:"سازمان پیدا نشد"});
+ const [entities,centers]=await Promise.all([
+  query("select 1 from organization_entities where organization_id=$1 and tenant_id=$2 limit 1",[req.params.id,t.id]),
+  query("select 1 from organization_centers where organization_id=$1 and tenant_id=$2 limit 1",[req.params.id,t.id])
+ ]);
+ if(entities.rowCount||centers.rowCount)return res.status(409).json({error:"این سازمان هنوز موجودیت یا مرکز مدیریتی وابسته دارد؛ ابتدا وابستگی‌ها را منتقل یا حذف کنید."});
+ await query("delete from organizations where id=$1 and tenant_id=$2",[req.params.id,t.id]);
  res.status(204).end();
 });
 router.post("/api/organization/entities",requireAuth,requireCsrf,async(req:any,res)=>{
@@ -77,7 +83,16 @@ router.patch("/api/organization/entities/:id",requireAuth,requireCsrf,async(req:
  res.json(r.rows[0]);
 });
 router.delete("/api/organization/entities/:id",requireAuth,requireCsrf,async(req:any,res)=>{
- const t=await guard(req,res);if(!t)return;const r=await query("delete from organization_entities where id=$1 and tenant_id=$2 returning id",[req.params.id,t.id]);if(!r.rowCount)return res.status(404).json({error:"موجودیت پیدا نشد"});res.status(204).end();
+ const t=await guard(req,res);if(!t)return;
+ const exists=await query("select id from organization_entities where id=$1 and tenant_id=$2",[req.params.id,t.id]);
+ if(!exists.rowCount)return res.status(404).json({error:"موجودیت پیدا نشد"});
+ const [children,ownership]=await Promise.all([
+  query("select 1 from organization_entities where parent_id=$1 and tenant_id=$2 limit 1",[req.params.id,t.id]),
+  query("select 1 from organization_ownership where tenant_id=$1 and (owner_entity_id=$2 or owned_entity_id=$2) limit 1",[t.id,req.params.id])
+ ]);
+ if(children.rowCount||ownership.rowCount)return res.status(409).json({error:"این موجودیت زیرمجموعه یا رابطه مالکیت دارد؛ ابتدا وابستگی‌ها را مدیریت کنید."});
+ await query("delete from organization_entities where id=$1 and tenant_id=$2",[req.params.id,t.id]);
+ res.status(204).end();
 });
 router.post("/api/organization/centers",requireAuth,requireCsrf,async(req:any,res)=>{
  const t=await guard(req,res);if(!t)return;const b=req.body||{};
@@ -103,8 +118,11 @@ router.patch("/api/organization/centers/:id",requireAuth,requireCsrf,async(req:a
 });
 router.delete("/api/organization/centers/:id",requireAuth,requireCsrf,async(req:any,res)=>{
  const t=await guard(req,res);if(!t)return;
- const r=await query("delete from organization_centers where id=$1 and tenant_id=$2 returning id",[req.params.id,t.id]);
- if(!r.rowCount)return res.status(404).json({error:"مرکز پیدا نشد"});
+ const exists=await query("select id from organization_centers where id=$1 and tenant_id=$2",[req.params.id,t.id]);
+ if(!exists.rowCount)return res.status(404).json({error:"مرکز پیدا نشد"});
+ const children=await query("select 1 from organization_centers where parent_id=$1 and tenant_id=$2 limit 1",[req.params.id,t.id]);
+ if(children.rowCount)return res.status(409).json({error:"این مرکز دارای زیرمجموعه است؛ ابتدا مراکز وابسته را منتقل کنید."});
+ await query("delete from organization_centers where id=$1 and tenant_id=$2",[req.params.id,t.id]);
  res.status(204).end();
 });
 router.post("/api/organization/ownership",requireAuth,requireCsrf,async(req:any,res)=>{
