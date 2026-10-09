@@ -187,9 +187,9 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
 
       <header className="sk-header">
         <div className="sk-wrap sk-header-main">
-          <Link href="/" className="sk-logo" aria-label="سوکار، صفحه اصلی">
-            <span className="sk-logo-mark">{isKipa ? "ک" : "س"}</span>
-            <span><b>{isTechnolife ? "سوکار تک" : isAva ? "آوا" : isKipa ? "کیپا" : "سوکار"}</b><small>{isTechnolife ? "دنیای فناوری، یک‌جا" : isKipa ? "انتخاب روشن، خرید مطمئن" : "خرید هوشمند، انتخاب مطمئن"}</small></span>
+          <Link href={identity.domain==="sookar.ir"?"/":identity.domain==="digibile.ir"?"/store/digibile":"/store/"+variant} className="sk-logo" aria-label={identity.name+"، صفحه اصلی"}>
+            <span className="sk-logo-mark">{identity.mark}</span>
+            <span><b>{identity.name}</b><small>{identity.tagline}</small></span>
           </Link>
           <form className="sk-search" role="search" onSubmit={event => { event.preventDefault(); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth" }); }}>
             <span aria-hidden="true">⌕</span>
@@ -197,8 +197,8 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
             {query && <button type="button" aria-label="پاک کردن جستجو" onClick={() => setQuery("")}>×</button>}
           </form>
           <div className="sk-header-actions">
-            <Link className="sk-login" href="/login"><span aria-hidden="true">♙</span><span>ورود به حساب</span></Link>
-            <Link className="sk-register" href="/register">عضویت</Link>
+            <Link className="sk-login" href={"/login?brand="+identity.loginBrand}><span aria-hidden="true">♙</span><span>ورود به حساب</span></Link>
+            <Link className="sk-register" href={"/register?brand="+identity.loginBrand}>عضویت</Link>
             <Link className="sk-cart" href="/store/cart" aria-label="سبد خرید"><span aria-hidden="true">🛒</span><CartCount /></Link>
           </div>
         </div>
@@ -241,7 +241,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
                 <span>{product.title}</span><b>{money(product.price, product.currency)}</b>
               </Link>
             ))}
-            {(!sourceProducts.length) && <div className="sk-hero-empty"><span>س</span><b>{isTechnolife ? "فناوری مناسب، خرید مطمئن" : "خرید ساده‌تر، انتخاب آگاهانه‌تر"}</b><small>محصولات فعال فروشگاه در اینجا نمایش داده می‌شوند</small></div>}
+            {(!sourceProducts.length) && <div className="sk-hero-empty"><span>{identity.mark}</span><b>{isTechnolife ? "فناوری مناسب، خرید مطمئن" : "خرید ساده‌تر، انتخاب آگاهانه‌تر"}</b><small>محصولات فعال فروشگاه در اینجا نمایش داده می‌شوند</small></div>}
           </div>
         </section>
 
@@ -289,7 +289,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
               <Link href={productHref} className="sk-product-visual" aria-label={"مشاهده " + product.title}>
                 <span className="sk-product-category">{canonicalCategory(product.category) || "سایر کالاها"}</span>
                 {image ? <img src={image} alt={product.title} loading="lazy" decoding="async" /> : <span className="sk-product-glyph"><span aria-hidden="true">{categoryGlyph(product.category, product.title)}</span><small>تصویر کالا هنوز ثبت نشده</small></span>}
-                <span className="sk-visual-brand">SOOKAR</span>
+                <span className="sk-visual-brand">{identity.name}</span>
               </Link>
               <div className="sk-product-info">
                 <span className="sk-seller-name"><i />{product.seller_name || "فروشنده ثبت‌شده"}</span>
@@ -318,14 +318,14 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
       <footer className="sk-footer">
         <div className="sk-wrap sk-footer-main">
           <div className="sk-footer-brand">
-            <Link href="/" className="sk-logo"><span className="sk-logo-mark">س</span><span><b>{isTechnolife ? "سوکار تک" : "سوکار"}</b><small>فروشگاه و بازارگاه</small></span></Link>
-            <p>یک مسیر یکپارچه برای کشف کالا، مقایسه انتخاب‌ها و خرید از فروشگاه‌های ثبت‌شده.</p>
-            <div className="sk-footer-domain"><span aria-hidden="true">↗</span><span><small>نشانی رسمی</small><b>sookar.ir</b></span></div>
+            <Link href={identity.domain==="sookar.ir"?"/":identity.domain==="digibile.ir"?"/store/digibile":"/store/"+variant} className="sk-logo"><span className="sk-logo-mark">{identity.mark}</span><span><b>{identity.name}</b><small>{identity.tagline}</small></span></Link>
+            <p>{identity.footerDescription}</p>
+            <div className="sk-footer-domain"><span aria-hidden="true">↗</span><span><small>نشانی سایت</small><b>{identity.domain}</b></span></div>
           </div>
           <div className="sk-footer-column"><b>خرید و کشف کالا</b><Link href="/store/shop">همه کالاها</Link><Link href="/marketplace">بازارگاه</Link><Link href="/marketplace/directory">فروشگاه‌های ثبت‌شده</Link><Link href="/store">دسته‌بندی‌های کالا</Link></div>
           <div className="sk-footer-column"><b>سفارش و پرداخت</b><Link href="/store/cart">سبد خرید</Link><Link href="/store/orders">پیگیری سفارش</Link><Link href="/pay">خدمات اعتباری</Link><Link href="/store/returns">بازگشت کالا</Link></div>
           <div className="sk-footer-column"><b>حساب کاربری</b><Link href={"/login?brand="+identity.loginBrand}>ورود به حساب</Link><Link href="/account/orders">سفارش‌های من</Link><Link href={"/login?brand="+identity.loginBrand}>پنل فروشندگان</Link><Link href="/store/faq">پرسش‌های متداول</Link></div>
-          <div className="sk-footer-column"><b>راهنما و قوانین</b><Link href="/store/terms">قوانین و شرایط</Link><Link href="/store/faq">راهنمای خرید</Link><Link href="/marketplace/directory">معرفی فروشگاه‌ها</Link><Link href="/login">ارتباط با پشتیبانی</Link></div>
+          <div className="sk-footer-column"><b>راهنما و قوانین</b><Link href="/store/terms">قوانین و شرایط</Link><Link href="/store/faq">راهنمای خرید</Link><Link href="/marketplace/directory">معرفی فروشگاه‌ها</Link><Link href={"/login?brand="+identity.loginBrand}>ارتباط با پشتیبانی</Link></div>
         </div>
         <div className="sk-footer-trust"><div className="sk-wrap"><span><i>✓</i> نمایش اطلاعات ثبت‌شدهٔ کاتالوگ</span><span><i>⌕</i> جستجو و دسته‌بندی کالاها</span><span><i>↗</i> دسترسی مستقیم به صفحات فروشگاه</span></div></div>
         <div className="sk-footer-bottom"><div className="sk-wrap"><span>{identity.name} · فروشگاه و بازارگاه</span><span>نشانی سایت: {identity.domain==="sookar.ir" ? <a href="https://sookar.ir" target="_blank" rel="noopener noreferrer">sookar.ir ↗</a> : identity.domain}</span><span>اطلاعات قیمت و موجودی باید پیش از خرید بررسی شود.</span></div></div>
