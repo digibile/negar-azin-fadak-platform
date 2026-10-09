@@ -48,3 +48,31 @@
     --naf-motion-slow: 0ms;
   }
 }
+
+/* Canonical component and interaction tokens used by newly approved surfaces. */
+:root {
+  --naf-font-family: "Vazirmatn", "Segoe UI", Tahoma, Arial, sans-serif;
+  --naf-color-surface-raised: #ffffff;
+  --naf-color-surface-muted: #edf4f7;
+  --naf-color-text-subtle: #98a2b3;
+  --naf-color-border-strong: #d0d5dd;
+  --naf-color-focus: #0b8f87;
+  --naf-color-focus-ring: 0 0 0 3px rgba(11, 143, 135, .18);
+  --naf-color-accent-soft: #e8f5f2;
+  --naf-color-danger-soft: #fff1f0;
+
+  --naf-font-size-xs: 10px;
+  --naf-font-size-sm: 12px;
+  --naf-font-size-md: 14px;
+  --naf-font-size-lg: 18px;
+  --naf-font-size-xl: 24px;
+  --naf-font-size-display: clamp(30px, 4vw, 48px);
+
+  --naf-control-height-sm: 36px;
+  --naf-control-height-md: 44px;
+  --naf-control-height-lg: 48px;
+  --naf-content-max-width: 1240px;
+  --naf-focus-outline: 2px solid var(--naf-color-focus);
+  --naf-z-sticky: 20;
+  --naf-z-overlay: 40;
+}
