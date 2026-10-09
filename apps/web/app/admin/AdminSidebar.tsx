@@ -22,7 +22,7 @@ type MenuNode={
 };
 
 type ModuleItem={code:string;title:string;is_active?:boolean;route?:string|null};
-type MasterChild={title:string;legacyCode?:string;moduleCode?:string};
+type MasterChild={title:string;legacyCode?:string;moduleCode?:string;route?:string};
 
 function SearchIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m16 16 4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
 function ChevronIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -100,11 +100,13 @@ export default function AdminSidebar(){
    const db=dbByLegacy.get(legacyCode);
    // The canonical menu owns navigation. Database menu paths are retained only as
    // legacy metadata, never allowed to override the approved 20-panel route map.
-   const childRoute=legacyCode
-    ? "/modules/?code="+encodeURIComponent(legacyCode)+(item.panel?"&panel="+encodeURIComponent(item.panel):"")
-    : (child.moduleCode&&moduleSet.has(child.moduleCode)
-      ? "/modules/?code="+encodeURIComponent(child.moduleCode)+(item.panel?"&panel="+encodeURIComponent(item.panel):"")
-      : route+(route.includes("?")?"&":"?")+"menu="+encodeURIComponent(child.title));
+   const childRoute=child.route
+    ? child.route
+    : legacyCode
+      ? "/modules/?code="+encodeURIComponent(legacyCode)+(item.panel?"&panel="+encodeURIComponent(item.panel):"")
+      : (child.moduleCode&&moduleSet.has(child.moduleCode)
+        ? "/modules/?code="+encodeURIComponent(child.moduleCode)+(item.panel?"&panel="+encodeURIComponent(item.panel):"")
+        : route+(route.includes("?")?"&":"?")+"menu="+encodeURIComponent(child.title));
    return {id:item.code+"-"+i,title:child.title,path:childRoute,sort_order:i,db,dbChildren:normalize(db?.child_items||[])};
   });
   return {...item,route,children};

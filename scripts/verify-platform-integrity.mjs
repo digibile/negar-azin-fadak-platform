@@ -105,6 +105,13 @@ for(const panel of panelRoutes){
  const match=route.match(/[?&]code=([^&]+)/);
  if(route!=="/admin"&&(!match||!declaredCodes.has(decodeURIComponent(match[1]))))throw new Error("Canonical panel route has no registered destination: "+panel[1]+" -> "+route);
 }
+const firstPanel=panelObjects.find(panel=>panel[2]==="01");
+if(!firstPanel)throw new Error("Panel 01 is missing");
+const firstChildren=[...firstPanel[4].matchAll(/child\("([^"]+)"(?:,\s*"([^"]*)")?(?:,\s*"([^"]*)")?\)/g)];
+const firstDestinations=firstChildren.map(child=>child[2]||child[3]).filter(Boolean);
+if(new Set(firstDestinations).size!==firstDestinations.length)throw new Error("Panel 01 contains duplicate child destinations");
+if(!masterMenu.includes('child("مرکز فرماندهی عملیاتی","","command-center","/command-center")'))throw new Error("Panel 01 command center route is not explicitly registered");
+if(!sidebar.includes("const childRoute=child.route"))throw new Error("Sidebar does not honor explicit canonical child routes");
 const unroutedLegacy=expectedLegacyCodes.filter(code=>!declaredCodes.has(code));
 if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered in a real dispatcher branch/workspace: "+unroutedLegacy.join(", "));
 
