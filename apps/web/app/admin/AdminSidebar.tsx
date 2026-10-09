@@ -173,7 +173,8 @@ export default function AdminSidebar(){
     })}
    </nav>
    <footer className={styles["sidebar-footer"]}>
-    <Link href="/admin/editors" onClick={closeMobile}><span>✦</span><div><b>ویرایشگرهای سامانه</b><small>قالب، صفحه، فرم و منو</small></div></Link>
+    <Link href="/admin/templates" onClick={closeMobile}><span>▦</span><div><b>کتابخانه مرکزی قالب‌ها</b><small>قالب پایه، فروشگاه، لندتک و پرداخت</small></div></Link>
+    <Link href="/admin/editors" onClick={closeMobile}><span>✦</span><div><b>ویرایشگرهای سامانه</b><small>صفحه، فرم و منو</small></div></Link>
     <Link className={updateAvailable?styles["update-available"]:""} href="/admin/updates" onClick={closeMobile}><span>↻</span><div><b>نسخه و بروزرسانی {updateAvailable&&<em>نسخه جدید</em>}</b><small>{updateAvailable?"نسخه جدید GitHub آماده نصب است":"بررسی نسخه و نصب امن از GitHub"}</small></div></Link>
     <small className={styles["sidebar-version"]}>پنل‌های سازمانی · زیرمنوهای واقعی · درخت چندلایه · RTL · Responsive</small>
    </footer>
