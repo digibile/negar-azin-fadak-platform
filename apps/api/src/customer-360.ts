@@ -27,28 +27,28 @@ router.post("/api/customer-360/customers",requireAuth,write,requireCsrf,async(re
 });
 router.patch("/api/customer-360/customers/:id",requireAuth,write,requireCsrf,async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const old=await query("select * from crm_customers where id=$1 and tenant_id=$2",[String(req.params.id),t.id]);if(!old.rowCount)return res.status(404).json({error:"مشتری پیدا نشد"});
- const b=req.body||{};const r=await query("update crm_customers set full_name=coalesce($1,full_name),mobile=coalesce($2,mobile),email=coalesce($3,email),status=coalesce($4,status),notes=coalesce($5,notes),updated_at=now() where id=$6 and tenant_id=$7 returning *",[b.fullName??null,b.mobile??null,b.email??null,b.status??null,b.notes??null,String(req.params.id),t.id]);
- await audit(req,t,String(req.params.id),"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+ const old=await query("select * from crm_customers where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!old.rowCount)return res.status(404).json({error:"مشتری پیدا نشد"});
+ const b=req.body||{};const r=await query("update crm_customers set full_name=coalesce($1,full_name),mobile=coalesce($2,mobile),email=coalesce($3,email),status=coalesce($4,status),notes=coalesce($5,notes),updated_at=now() where id=$6 and tenant_id=$7 returning *",[b.fullName??null,b.mobile??null,b.email??null,b.status??null,b.notes??null,String(String(req.params.id)),t.id]);
+ await audit(req,t,String(String(req.params.id)),"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 router.post("/api/customer-360/customers/:id/identities",requireAuth,write,requireCsrf,async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const own=await query("select 1 from crm_customers where id=$1 and tenant_id=$2",[String(req.params.id),t.id]);if(!own.rowCount)return res.status(404).json({error:"مشتری پیدا نشد"});
- const b=req.body||{};const r=await query("insert into crm_customer_identities(customer_id,document_type,document_number,first_name,last_name,father_name,gender,birth_place,address,postal_code,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[String(req.params.id),b.documentType||"national-id",b.documentNumber||null,b.firstName||null,b.lastName||null,b.fatherName||null,b.gender||null,b.birthPlace||null,b.address||null,b.postalCode||null,b.metadata||{}]);res.status(201).json(r.rows[0]);
+ const own=await query("select 1 from crm_customers where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!own.rowCount)return res.status(404).json({error:"مشتری پیدا نشد"});
+ const b=req.body||{};const r=await query("insert into crm_customer_identities(customer_id,document_type,document_number,first_name,last_name,father_name,gender,birth_place,address,postal_code,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[String(String(req.params.id)),b.documentType||"national-id",b.documentNumber||null,b.firstName||null,b.lastName||null,b.fatherName||null,b.gender||null,b.birthPlace||null,b.address||null,b.postalCode||null,b.metadata||{}]);res.status(201).json(r.rows[0]);
 });
 router.post("/api/customer-360/customers/:id/interactions",requireAuth,write,requireCsrf,async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const b=req.body||{};const own=await query("select 1 from crm_customers where id=$1 and tenant_id=$2",[String(req.params.id),t.id]);if(!own.rowCount)return res.status(404).json({error:"مشتری پیدا نشد"});
- const r=await query("insert into crm_customer_interactions(tenant_id,customer_id,channel,subject,body,actor_user_id,metadata) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,String(req.params.id),b.channel||"internal",b.subject||"تعامل جدید",b.body||"",(req as any).user.id,b.metadata||{}]);res.status(201).json(r.rows[0]);
+ const b=req.body||{};const own=await query("select 1 from crm_customers where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!own.rowCount)return res.status(404).json({error:"مشتری پیدا نشد"});
+ const r=await query("insert into crm_customer_interactions(tenant_id,customer_id,channel,subject,body,actor_user_id,metadata) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,String(String(req.params.id)),b.channel||"internal",b.subject||"تعامل جدید",b.body||"",(req as any).user.id,b.metadata||{}]);res.status(201).json(r.rows[0]);
 });
 router.post("/api/customer-360/customers/:id/purchases",requireAuth,write,requireCsrf,async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const b=req.body||{};const own=await query("select 1 from crm_customers where id=$1 and tenant_id=$2",[String(req.params.id),t.id]);if(!own.rowCount)return res.status(404).json({error:"مشتری پیدا نشد"});
- const r=await query("insert into crm_customer_purchases(tenant_id,customer_id,external_ref,description,amount,status) values($1,$2,$3,$4,$5,$6) returning *",[t.id,String(req.params.id),b.externalRef||null,b.description||"خرید",Number(b.amount||0),b.status||"completed"]);res.status(201).json(r.rows[0]);
+ const b=req.body||{};const own=await query("select 1 from crm_customers where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!own.rowCount)return res.status(404).json({error:"مشتری پیدا نشد"});
+ const r=await query("insert into crm_customer_purchases(tenant_id,customer_id,external_ref,description,amount,status) values($1,$2,$3,$4,$5,$6) returning *",[t.id,String(String(req.params.id)),b.externalRef||null,b.description||"خرید",Number(b.amount||0),b.status||"completed"]);res.status(201).json(r.rows[0]);
 });
 router.post("/api/customer-360/customers/:id/financial",requireAuth,write,requireCsrf,async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const b=req.body||{};const own=await query("select 1 from crm_customers where id=$1 and tenant_id=$2",[String(req.params.id),t.id]);if(!own.rowCount)return res.status(404).json({error:"مشتری پیدا نشد"});
- const r=await query("insert into crm_customer_financial_snapshots(tenant_id,customer_id,receivable,payable,credit_limit,credit_used) values($1,$2,$3,$4,$5,$6) returning *",[t.id,String(req.params.id),Number(b.receivable||0),Number(b.payable||0),Number(b.creditLimit||0),Number(b.creditUsed||0)]);res.status(201).json(r.rows[0]);
+ const b=req.body||{};const own=await query("select 1 from crm_customers where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!own.rowCount)return res.status(404).json({error:"مشتری پیدا نشد"});
+ const r=await query("insert into crm_customer_financial_snapshots(tenant_id,customer_id,receivable,payable,credit_limit,credit_used) values($1,$2,$3,$4,$5,$6) returning *",[t.id,String(String(req.params.id)),Number(b.receivable||0),Number(b.payable||0),Number(b.creditLimit||0),Number(b.creditUsed||0)]);res.status(201).json(r.rows[0]);
 });
 export {router as customer360Router};
