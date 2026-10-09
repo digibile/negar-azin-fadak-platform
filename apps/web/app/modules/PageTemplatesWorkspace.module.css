@@ -6,3 +6,13 @@
 .presetActions a{display:inline-flex;align-items:center;justify-content:center;padding:10px 11px;border:1px solid #cbd5e1;border-radius:10px;color:#145c4b;text-decoration:none;font-size:12px;font-weight:800;white-space:nowrap}
 .presetActions button{min-width:0}
 @media(max-width:430px){.presetActions{grid-template-columns:1fr}.presetActions a{width:100%;box-sizing:border-box}}
+
+/* Distinct preview compositions: each preset previews its actual information architecture. */
+.kipaMock,.techMock,.fashionMock,.homeMock,.corporateMock,.saasMock,.editorialMock{display:flex;align-items:center;gap:7px;margin-top:auto;position:relative;z-index:1;min-height:38px}
+.kipaMock{flex-wrap:wrap}.kipaMock b{font-size:10px;flex-basis:100%;font-weight:700}.kipaMock i{height:22px;flex:1;border-radius:6px;background:#d8f3e8;border:1px solid #ffffff66}.kipaMock span,.techMock span,.homeMock span,.saasMock span,.editorialMock span{font-size:9px;opacity:.85;align-self:flex-end}
+.techMock b{height:32px;flex:1;display:grid;place-items:center;background:#ffffff18;border:1px solid #ffffff35;border-radius:6px;font-size:18px}.techMock span{flex-basis:100%}
+.fashionMock{display:flex;align-items:stretch;gap:7px;margin-top:auto;position:relative;z-index:1}.fashionMock b{height:43px;flex:1;border-radius:20px 20px 5px 5px;background:linear-gradient(150deg,#e7c7d4,#f8e9ed 50%,#7d526c);border:1px solid #ffffff55}.fashionMock b:nth-child(2){background:linear-gradient(150deg,#c7a6b6,#f2dce6 50%,#53364f)}.fashionMock span{font-size:9px;align-self:center;letter-spacing:1px}
+.homeMock b{height:38px;flex:1;border-radius:5px;background:linear-gradient(135deg,#dfd6b7,#9eab88);border:1px solid #ffffff55}.homeMock b:nth-child(2){flex:1.5;background:linear-gradient(135deg,#c6b69a,#6f8571)}.homeMock b:nth-child(3){background:linear-gradient(135deg,#e8e0ce,#a1a68b)}.homeMock span{font-size:9px}
+.corporateMock{justify-content:space-between}.corporateMock b{display:grid;gap:3px;text-align:center;min-width:0;flex:1;padding:6px 3px;border-radius:6px;background:#ffffff16;border:1px solid #ffffff28}.corporateMock i{font-style:normal;font-size:15px}.corporateMock small{font-size:8px;opacity:.8}
+.saasMock{flex-wrap:wrap}.saasMock b{display:grid;place-items:center;width:31px;height:28px;border-radius:7px;background:#ffffff20;border:1px solid #ffffff40;font-size:16px}.saasMock span{flex-basis:100%}
+.editorialMock{align-items:stretch}.editorialMock b{height:38px;flex:1;background:linear-gradient(135deg,#d6d3d1,#78716c);border:1px solid #ffffff40;border-radius:3px}.editorialMock b:first-child{flex:1.8;background:linear-gradient(135deg,#f5f5f4,#a8a29e)}.editorialMock span{font-size:9px;align-self:flex-end}
