@@ -14,6 +14,7 @@ export type DigikalaCatalogProduct = {
   source_type: "external-reference";
   brand: string | null;
   rating: number | null;
+  source_available: boolean | null;
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -108,6 +109,19 @@ export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: st
       || textValue(product.description)
       || textValue(product.summary);
     const rawRating = at(product, "rating", "rate") ?? at(product, "rating", "average") ?? product.rating;
+    const variant = record(product.default_variant);
+    const rawAvailability = variant.is_available ?? variant.isAvailable;
+    const status = variant.status ?? product.status;
+    const soldOut = variant.is_sold_out ?? variant.isSoldOut;
+    const sourceAvailable = typeof rawAvailability === "boolean"
+      ? rawAvailability
+      : typeof soldOut === "boolean"
+        ? !soldOut
+        : status === "marketable"
+          ? true
+          : status === "unavailable" || status === "sold_out"
+            ? false
+            : typeof product.is_available === "boolean" ? product.is_available : null;
     const ratingNumber = typeof rawRating === "number" ? rawRating : typeof rawRating === "string" ? Number(rawRating) : NaN;
     normalized.push({
       id: "digikala-" + id,
@@ -124,7 +138,8 @@ export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: st
       source_name: "دیجی‌کالا",
       source_type: "external-reference",
       brand,
-      rating: Number.isFinite(ratingNumber) && ratingNumber > 0 && ratingNumber <= 5 ? ratingNumber : null
+      rating: Number.isFinite(ratingNumber) && ratingNumber > 0 && ratingNumber <= 5 ? ratingNumber : null,
+      source_available: sourceAvailable
     });
   }
   return normalized;
@@ -183,7 +198,8 @@ async function loadCatalog(): Promise<DigikalaCatalogProduct[]> {
   return [...unique.values()].slice(0, 250);
 }
 
-export async function getDigikalaCatalog(): Promise<{ products: DigikalaCatalogProduct[]; sourceStatus: "live" | "unavailable"; fetchedAt: string | null }> {
+export async function getDigikalaCatalog(forceRefresh = false): Promise<{ products: DigikalaCatalogProduct[]; sourceStatus: "live" | "unavailable"; fetchedAt: string | null }> {
+  if (forceRefresh) cachedAt = 0;
   if (Date.now() - cachedAt < CACHE_MS) {
     return { products: cachedProducts, sourceStatus: cachedProducts.length ? "live" : "unavailable", fetchedAt: cachedAt ? new Date(cachedAt).toISOString() : null };
   }
