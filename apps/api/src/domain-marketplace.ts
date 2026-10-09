@@ -4,7 +4,7 @@ import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
 import {emitBusinessEvent} from "./business-events.js";
-import {getDigikalaCatalog, type DigikalaCatalogProduct} from "./digikala-catalog.js";
+import {getDigikalaCatalog, getDigikalaProductById, type DigikalaCatalogProduct} from "./digikala-catalog.js";
 import {randomUUID} from "node:crypto";
 import {mkdir,writeFile} from "node:fs/promises";
 import path from "node:path";
@@ -232,17 +232,12 @@ domainMarketplaceRouter.get("/api/marketplace/categories",requireAuth,requirePer
   res.json({tenant:ctx,items:result.rows,total:result.rowCount});
 }));
 
-domainMarketplaceRouter.get("/api/public/digikala-catalog",asyncHandler(async(_req,res)=>{
-  const catalog=await getDigikalaCatalog();
-  res.setHeader("Cache-Control","public, max-age=120, stale-while-revalidate=600");
-  res.json({
-    source:"digikala",
-    sourceLabel:"دیجی‌کالا",
-    sourceStatus:catalog.sourceStatus,
-    fetchedAt:catalog.fetchedAt,
-    products:catalog.products,
-    total:catalog.products.length
-  });
+domainMarketplaceRouter.get("/api/marketplace/digikala-product/:sourceId",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+  const sourceId=bodyString(req.params.sourceId,40).replace(/^dkp-/i,"");
+  if(!/^\d{1,16}$/.test(sourceId))return res.status(400).json({error:"شناسه محصول دیجی‌کالا باید عددی باشد"});
+  const product=await getDigikalaProductById(sourceId);
+  res.setHeader("Cache-Control","private, no-store");
+  res.json({product});
 }));
 
 domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
@@ -256,8 +251,20 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requir
   const seller=await query("select id,display_name,status from sellers where id=$1 and tenant_id=$2",[sellerId,ctx.id]);
   if(!seller.rowCount)return res.status(404).json({error:"فروشنده در این محدوده سازمانی پیدا نشد"});
   const catalog=await getDigikalaCatalog();
-  const selected=catalog.products.filter(product=>selectedIds.includes(product.id));
-  if(!selected.length)return res.status(404).json({error:"محصول انتخاب‌شده در فهرست مرجع فعلی وجود ندارد؛ فهرست را تازه‌سازی کنید"});
+  const selectedMap=new Map(catalog.products.filter(product=>selectedIds.includes(product.id)).map(product=>[product.id,product]));
+  for(const selectedId of selectedIds){
+    if(selectedMap.has(selectedId))continue;
+    const sourceId=selectedId.replace(/^digikala-/,"");
+    if(!/^\d{1,16}$/.test(sourceId))continue;
+    try{
+      const product=await getDigikalaProductById(sourceId);
+      selectedMap.set(product.id,product);
+    }catch{
+      // Invalid or unavailable source IDs are reported as skipped below.
+    }
+  }
+  const selected=[...selectedMap.values()];
+  if(!selected.length)return res.status(404).json({error:"محصولی با این شناسه در منبع پیدا نشد؛ شناسه را بررسی کنید"});
   const mediaRoot=process.env.MEDIA_ROOT||"/app/media";
   const mediaDir=path.join(mediaRoot,"catalog",ctx.id);
   await mkdir(mediaDir,{recursive:true});
