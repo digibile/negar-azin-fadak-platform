@@ -75,11 +75,25 @@ router.delete("/api/organization/entities/:id",requireAuth,requireCsrf,async(req
 });
 router.post("/api/organization/centers",requireAuth,requireCsrf,async(req:any,res)=>{
  const t=await guard(req,res);if(!t)return;const b=req.body||{};
- if(!clean(b.code)||!clean(b.name)||!clean(b.centerType))return res.status(400).json({error:"نوع، کد و نام مرکز الزامی است"});
- const r=await query("insert into organization_centers(tenant_id,organization_id,center_type,code,name,parent_id,metadata) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,b.organizationId||null,clean(b.centerType),clean(b.code),clean(b.name),b.parentId||null,b.metadata||{}]);res.status(201).json(r.rows[0]);
+ const type=clean(b.centerType),code=clean(b.code),name=clean(b.name);
+ if(!["cost","revenue","profit"].includes(type)||!code||!name)return res.status(400).json({error:"نوع معتبر، کد و نام مرکز الزامی است"});
+ if(code.length>80||name.length>200)return res.status(400).json({error:"کد یا نام مرکز از حد مجاز طولانی‌تر است"});
+ if(b.organizationId){const org=await query("select 1 from organizations where id=$1 and tenant_id=$2",[b.organizationId,t.id]);if(!org.rowCount)return res.status(400).json({error:"سازمان انتخاب‌شده متعلق به این محدوده نیست"});}
+ if(b.parentId){const parent=await query("select 1 from organization_centers where id=$1 and tenant_id=$2 and center_type=$3",[b.parentId,t.id,type]);if(!parent.rowCount)return res.status(400).json({error:"مرکز والد نامعتبر است"});}
+ const r=await query("insert into organization_centers(tenant_id,organization_id,center_type,code,name,parent_id,metadata) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,b.organizationId||null,type,code,name,b.parentId||null,b.metadata||{}]);res.status(201).json(r.rows[0]);
 });
 router.patch("/api/organization/centers/:id",requireAuth,requireCsrf,async(req:any,res)=>{
- const t=await guard(req,res);if(!t)return;const b=req.body||{};const r=await query("update organization_centers set code=coalesce($1,code),name=coalesce($2,name),parent_id=$3,status=coalesce($4,status),metadata=coalesce($5,metadata),updated_at=now() where id=$6 and tenant_id=$7 returning *",[clean(b.code),clean(b.name),b.parentId||null,clean(b.status),b.metadata||null,req.params.id,t.id]);if(!r.rowCount)return res.status(404).json({error:"مرکز پیدا نشد"});res.json(r.rows[0]);
+ const t=await guard(req,res);if(!t)return;const b=req.body||{};
+ const current=await query("select id,center_type from organization_centers where id=$1 and tenant_id=$2",[req.params.id,t.id]);
+ if(!current.rowCount)return res.status(404).json({error:"مرکز پیدا نشد"});
+ const type=clean(b.centerType)||current.rows[0].center_type,code=clean(b.code),name=clean(b.name);
+ if(!["cost","revenue","profit"].includes(type))return res.status(400).json({error:"نوع مرکز معتبر نیست"});
+ if(code!==undefined&&(!code||code.length>80))return res.status(400).json({error:"کد مرکز نامعتبر است"});
+ if(name!==undefined&&(!name||name.length>200))return res.status(400).json({error:"نام مرکز نامعتبر است"});
+ if(b.organizationId){const org=await query("select 1 from organizations where id=$1 and tenant_id=$2",[b.organizationId,t.id]);if(!org.rowCount)return res.status(400).json({error:"سازمان انتخاب‌شده متعلق به این محدوده نیست"});}
+ if(b.parentId){if(b.parentId===req.params.id)return res.status(400).json({error:"مرکز نمی‌تواند والد خودش باشد"});const parent=await query("select 1 from organization_centers where id=$1 and tenant_id=$2 and center_type=$3",[b.parentId,t.id,type]);if(!parent.rowCount)return res.status(400).json({error:"مرکز والد نامعتبر است"});const cycle=await query("with recursive descendants(id) as (select id from organization_centers where parent_id=$1 and tenant_id=$2 union all select c.id from organization_centers c join descendants d on c.parent_id=d.id where c.tenant_id=$2) select 1 from descendants where id=$3 limit 1",[req.params.id,t.id,b.parentId]);if(cycle.rowCount)return res.status(400).json({error:"انتخاب این والد باعث ایجاد چرخه در مراکز می‌شود"});}
+ const r=await query("update organization_centers set organization_id=coalesce($1,organization_id),center_type=$2,code=coalesce($3,code),name=coalesce($4,name),parent_id=$5,status=coalesce($6,status),metadata=coalesce($7,metadata),updated_at=now() where id=$8 and tenant_id=$9 returning *",[b.organizationId||null,type,code,name,b.parentId||null,clean(b.status),b.metadata||null,req.params.id,t.id]);
+ res.json(r.rows[0]);
 });
 router.post("/api/organization/ownership",requireAuth,requireCsrf,async(req:any,res)=>{
  const t=await guard(req,res);if(!t)return;const b=req.body||{};const pct=Number(b.ownershipPercent);
