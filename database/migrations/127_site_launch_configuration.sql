@@ -19,6 +19,10 @@ insert into role_permissions(role,permission) values
  ('manager','modules:36-page-templates:write')
 on conflict do nothing;
 
+insert into menu_items(title,path,sort_order,permission)
+select 'مدیریت قالب‌های صفحات','/modules/?code=36-page-templates',36,'modules:36-page-templates:read'
+where not exists(select 1 from menu_items where path='/modules/?code=36-page-templates');
+
 insert into menu_items(title,path,sort_order,permission,parent_id)
 select 'راه‌اندازی و تنظیمات سایت','/modules/?code=36-page-templates&panel=site-launch',25,'modules:36-page-templates:write',p.id
 from menu_items p
