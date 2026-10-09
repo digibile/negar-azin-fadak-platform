@@ -191,22 +191,32 @@ platformUpdatesRouter.post("/api/platform/update",requireAuth,requirePermission(
   const githubToken=await token();
   if(!githubToken)return res.status(503).json({error:"اتصال امن GitHub برای اجرای بروزرسانی مدیریتی تنظیم نشده است"});
   const main=await github("/repos/"+ownerRepo+"/branches/main",{},githubToken);
-  const mainSha=main.commit?.sha||null;
-  if(!mainSha)return res.status(503).json({error:"نسخه اصلی GitHub قابل شناسایی نیست"});
+  const targetSha=String(main.commit?.sha||"");
+  if(!/^[0-9a-f]{40}$/i.test(targetSha))return res.status(503).json({error:"نسخه اصلی GitHub قابل شناسایی نیست"});
   const deployed=await resolveDeployedSha(githubToken);
   if(!deployed)return res.status(503).json({error:"نسخه نصب‌شده Production قابل شناسایی نیست"});
-  const compare=await github("/repos/"+ownerRepo+"/compare/"+encodeURIComponent(deployed)+"..."+encodeURIComponent(mainSha),{},githubToken);
-  const pending=(compare.commits||[]).map((x:any,index:number)=>({order:index+1,sha:x.sha,message:String(x.commit?.message||"").split("\n")[0],ready:index===0}));
-  const next=pending[0];
-  if(!next)return res.status(409).json({error:"نسخه منتشرنشده‌ای برای انتشار وجود ندارد"});
-  const runs=await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?branch=main&per_page=20",{},githubToken);
-  const existing=(runs.workflow_runs||[]).find((x:any)=>runTargetSha(x)===next.sha&&activeStatuses.includes(x.status));
-  if(existing)return res.status(202).json({accepted:true,targetSha:next.sha,runId:existing.id,message:"یک انتشار دیگر در حال اجراست؛ تا پایان آن نسخه بعدی قابل انتشار نیست."});
+  if(deployed===targetSha)return res.status(409).json({error:"نسخه اصلی با نسخه نصب‌شده برابر است؛ نسخه جدیدی برای ساخت وجود ندارد"});
+  const runs=await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?branch=main&per_page=50",{},githubToken);
+  const allRuns=runs.workflow_runs||[];
+  const activeRun=allRuns.find((run:any)=>activeStatuses.includes(run.status));
+  if(activeRun)return res.status(409).json({error:"یک اجرای واحد از مسیر انتشار در حال اجراست؛ از اجرای موازی جلوگیری شد",runId:activeRun.id,targetSha:runTargetSha(activeRun)});
+  const existingBuilds=allRuns.filter((run:any)=>runTargetSha(run)===targetSha&&run?.conclusion==="success");
+  for(const run of existingBuilds){
+    const jobData=await github("/repos/"+ownerRepo+"/actions/runs/"+run.id+"/jobs?per_page=100",{},githubToken);
+    const steps=(jobData.jobs||[]).flatMap((job:any)=>job.steps||[]);
+    const required=["Verify platform integrity","API build","Database migrations","API tests","Web build","Package exact SHA","Upload reviewable build artifact"];
+    if(required.every(name=>steps.some((step:any)=>step.name===name&&step.conclusion==="success"))){
+      const deployedSteps=["Deploy with rollback","Production health and release check","Verify public HTTPS endpoint"];
+      if(!deployedSteps.some(name=>steps.some((step:any)=>step.name===name&&step.conclusion==="success"))){
+        return res.status(202).json({accepted:true,targetSha,message:"Build همین نسخه قبلاً موفق شده و برای بررسی و تأیید مدیر آماده است؛ ساخت تکراری اجرا نشد."});
+      }
+    }
+  }
   await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/dispatches",{
     method:"POST",
-    body:JSON.stringify({ref:"main",inputs:{target_sha:next.sha,requested_by:String((req as any).user?.id||"management-panel")}})
+    body:JSON.stringify({ref:"main",inputs:{target_sha:targetSha,requested_by:String((req as any).user?.id||"management-panel")}})
   },githubToken);
-  res.status(202).json({accepted:true,targetSha:next.sha,message:"نسخه بعدی با انتخاب مدیر برای انتشار ارسال شد."});
+  res.status(202).json({accepted:true,targetSha,message:"ساخت آخرین نسخه main در مسیر واحد شروع شد؛ انتشار روی سرور تا تأیید مدیر متوقف می‌ماند."});
 }));
 
 platformUpdatesRouter.post("/api/platform/deploy-reviewed",requireAuth,requirePermission("platform:update"),asyncHandler(async(req,res)=>{
