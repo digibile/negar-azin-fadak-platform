@@ -2,9 +2,6 @@ name: Deploy Sookar Main Safely
 run-name: Build and reviewed release ${{ inputs.target_sha || github.sha }}
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       target_sha:
@@ -22,8 +19,8 @@ on:
         type: string
 
 concurrency:
-  group: ${{ (inputs.deploy_to_server) && 'sookar-production-direct' || 'sookar-build-main-v3' }}
-  cancel-in-progress: ${{ !(inputs.deploy_to_server) }}
+  group: sookar-single-release-pipeline
+  cancel-in-progress: false
 
 permissions:
   contents: read
