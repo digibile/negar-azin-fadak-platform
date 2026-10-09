@@ -34,6 +34,7 @@ export default function ProductsPage() {
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingId, setSavingId] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingSource, setLoadingSource] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -73,6 +74,38 @@ export default function ProductsPage() {
       setError(reason instanceof Error ? reason.message : "دریافت فهرست مرجع ناموفق بود.");
     } finally {
       setLoadingSource(false);
+    }
+  }
+
+  async function uploadImage(file?: File) {
+    if (!file) return;
+    setError(""); setNotice("");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("فقط تصویر JPG، PNG یا WebP پذیرفته می‌شود.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("حجم تصویر باید حداکثر ۵ مگابایت باشد.");
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("خواندن تصویر ناموفق بود."));
+        reader.onerror = () => reject(new Error("خواندن تصویر ناموفق بود."));
+        reader.readAsDataURL(file);
+      });
+      const result = await api<{imageUrl:string}>("/api/marketplace/media", {
+        method: "POST",
+        body: JSON.stringify({ dataUrl })
+      });
+      setImageUrl(result.imageUrl);
+      setNotice("تصویر با موفقیت در رسانهٔ داخلی سوکار ذخیره شد.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "ذخیره تصویر ناموفق بود.");
+    } finally {
+      setUploadingImage(false);
     }
   }
 
@@ -176,8 +209,8 @@ export default function ProductsPage() {
         <label>دسته‌بندی<select value={category} onChange={event => setCategory(event.target.value)}><option value="">انتخاب دسته‌بندی</option>{categories.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}</select></label>
         <label>قیمت به ریال<input value={price} onChange={event => setPrice(event.target.value)} type="number" min="0" inputMode="numeric" placeholder="قیمت تأییدشده" /></label>
         <label className="mp-field-wide">توضیحات محصول<textarea value={description} onChange={event => setDescription(event.target.value)} rows={3} placeholder="ویژگی‌ها، مشخصات و نکات مهم کالا" /></label>
-        <label className="mp-field-wide">مسیر تصویر داخلی (اختیاری)<input value={imageUrl} onChange={event => setImageUrl(event.target.value)} placeholder="/api/public/media/catalog/..." dir="ltr" /><small>تصویر باید قبلاً در رسانهٔ داخلی سوکار ذخیره شده باشد؛ لینک تصویر فروشگاه دیگر پذیرفته نمی‌شود.</small></label>
-        <div className="mp-form-actions"><button type="button" onClick={create} disabled={saving || !sellerId || !sku.trim() || !title.trim() || price === ""}>{saving ? "در حال ثبت…" : "ثبت پیش‌نویس محصول"} <span>←</span></button><small>انتشار عمومی مرحله‌ای جداگانه است.</small></div>
+        <label className="mp-field-wide">تصویر محصول (اختیاری، حداکثر ۵ مگابایت)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => void uploadImage(event.target.files?.[0])} disabled={uploadingImage} /><small>{uploadingImage ? "در حال بررسی و ذخیره تصویر در رسانهٔ داخلی…" : "تصویر در رسانهٔ داخلی سوکار ذخیره می‌شود؛ لینک خارجی تصویر پذیرفته نمی‌شود."}</small>{imageUrl && <span className="mp-uploaded-image"><img src={imageUrl} alt="پیش‌نمایش تصویر ثبت‌شده" /><code dir="ltr">{imageUrl}</code><button type="button" onClick={() => setImageUrl("")}>حذف تصویر از پیش‌نویس</button></span>}</label>
+        <div className="mp-form-actions"><button type="button" onClick={create} disabled={saving || uploadingImage || !sellerId || !sku.trim() || !title.trim() || price === ""}>{saving ? "در حال ثبت…" : "ثبت پیش‌نویس محصول"} <span>←</span></button><small>انتشار عمومی مرحله‌ای جداگانه است.</small></div>
       </div> : <div className="mp-import-panel">
         <div className="mp-import-head"><div><h3>انتخاب کالا برای ورود به کاتالوگ داخلی</h3><p>محصول انتخابی در پایگاه دادهٔ خودمان ثبت می‌شود، تصویرش در رسانهٔ داخلی کپی می‌شود و برای بررسی قیمت و مشخصات در حالت پیش‌نویس می‌ماند.</p></div><button type="button" className="mp-refresh" onClick={loadSourceCatalog} disabled={loadingSource}>{loadingSource ? "در حال دریافت…" : "به‌روزرسانی فهرست"}</button></div>
         {sourceStatus === "unavailable" && <p className="mp-inline-warning">منبع مرجع فعلاً پاسخ نمی‌دهد. محصولات ثبت‌شدهٔ داخلی تغییری نمی‌کنند.</p>}
