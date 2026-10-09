@@ -22,9 +22,11 @@ const PANEL_02_SECTIONS:Record<string,{tab:string;label:string}[]>={
 };
 const WORKSPACE_LABELS:Record<string,string>={employees:"پرونده کارکنان",payroll:"حقوق و دستمزد",attendance:"حضور و غیاب",projects:"مدیریت پروژه",production:"برنامه‌ریزی تولید",maintenance:"نگهداری و تعمیرات",record:"رکوردهای عملیاتی"};
 
+const DEFAULT_PANEL_02_TABS:Record<string,string>={"39-human-resources":"employees","30-projects-cost-centers":"projects","24-production":"production"};
+
 export default function OperationalModuleWorkspace({code}:{code:string}){
  const searchParams=useSearchParams();
- const tab=searchParams.get("tab")||"";
+ const tab=searchParams.get("tab")||DEFAULT_PANEL_02_TABS[code]||"";
  const activeRecordType=tab||"record";
  const schemaType=tab||"default";
  const sectionLinks=PANEL_02_SECTIONS[code]||[];
