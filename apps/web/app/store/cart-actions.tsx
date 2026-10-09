@@ -26,7 +26,7 @@ function readCart(): StoreCartItem[] {
       Boolean(item && typeof item.id === "string" && typeof item.title === "string" &&
       Number.isFinite(Number(item.price)) && Number(item.price) >= 0 &&
       Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0
-    );
+    ));
   } catch {
     return [];
   }
