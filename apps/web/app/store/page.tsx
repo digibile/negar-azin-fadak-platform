@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import "./storefront.css";
 import { useEffect, useMemo, useState } from "react";
 
@@ -17,7 +18,7 @@ type Product = {
   image_url?: string | null;
 };
 type Store = { id: string; name: string; slug: string; seller_name: string };
-type Catalog = { tenant?: { name?: string }; products: Product[]; stores?: Store[] };
+type Catalog = { tenant?: { name?: string }; products: Product[]; stores?: Store[]; categories?: string[]; total?: number };
 
 const money = (value: string, currency: string) => {
   const amount = Number(value);
@@ -49,6 +50,8 @@ const categoryGlyph = (category: string | null, title: string) => {
 };
 
 export default function StorePage() {
+  const pathname = usePathname();
+  const showAllProducts = pathname === "/store/shop";
   const [data, setData] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -163,21 +166,22 @@ export default function StorePage() {
 
           <div className="sk-category-row" aria-label="فیلتر دسته‌بندی">
             <button type="button" className={!category ? "sk-category-chip is-active" : "sk-category-chip"} onClick={() => setCategory("")}>همه کالاها</button>
-            {categories.map((item, index) => <button type="button" key={item} className={category === item ? "sk-category-chip is-active" : "sk-category-chip"} onClick={() => setCategory(category === item ? "" : item)}><span>{["◈", "▯", "◇", "⌂", "✳", "▤"][index % 6]}</span>{item}</button>)}
+            {categories.map((item, index) => <button type="button" key={item} className={category === item ? "sk-category-chip is-active" : "sk-category-chip"} onClick={() => setCategory(category === item ? "" : item)}><span>{["◈", "▯", "◇", "⌂", "✳", "▤"][index % 6]}</span>{item} <small>({(data?.products || []).filter(product => product.category === item).length.toLocaleString("fa-IR")})</small></button>)}
           </div>
 
           <div className="sk-catalog-meta"><span>{loading ? "در حال دریافت کاتالوگ…" : <><b>{products.length.toLocaleString("fa-IR")}</b> نتیجه</>}</span>{(query || category) && <button type="button" onClick={() => { setQuery(""); setCategory(""); }}>پاک‌کردن فیلترها ×</button>}</div>
 
           {loading ? <div className="sk-state"><span className="sk-loader" />در حال دریافت اطلاعات واقعی محصولات…</div>
           : error ? <div className="sk-state sk-state-error"><b>دریافت محصولات انجام نشد</b><p>{error}</p><button type="button" onClick={() => window.location.reload()}>تلاش دوباره</button></div>
-          : products.length ? <div className="sk-product-grid">{products.slice(0, 12).map(product => <article className="sk-product-card" key={product.id}>
+          : products.length ? <div className="sk-product-grid">{products.slice(0, showAllProducts ? products.length : 12).map(product => <article className="sk-product-card" key={product.id}>
             <Link href={"/store/product/" + encodeURIComponent(product.id)} className="sk-product-visual" aria-label={"مشاهده " + product.title}>
               <span className="sk-product-category">{product.category || "محصول"}</span>{safeImageUrl(product.image_url) ? <img src={safeImageUrl(product.image_url)!} alt={product.title} loading="lazy" decoding="async" /> : <span className="sk-product-glyph">{categoryGlyph(product.category, product.title)}</span>}<span className="sk-visual-brand">SOOKAR</span>
             </Link>
             <div className="sk-product-info"><span className="sk-seller-name"><i />{product.seller_name || "فروشنده ثبت‌شده"}</span><Link href={"/store/product/" + encodeURIComponent(product.id)} className="sk-product-title">{product.title}</Link><p>{product.description || "توضیحات تکمیلی از سوی فروشنده ثبت نشده است."}</p><div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>قیمت ثبت‌شده</small></div><Link href={"/store/product/" + encodeURIComponent(product.id)} className="sk-product-cta">مشاهده و بررسی کالا <span>←</span></Link></div>
           </article>)}</div>
           : <div className="sk-state"><b>{data?.products?.length ? "محصولی با این فیلتر پیدا نشد." : "هنوز محصول فعالی برای نمایش عمومی ثبت نشده است."}</b><p>{data?.products?.length ? "فیلتر دسته‌بندی یا عبارت جستجو را تغییر بده." : "پس از ثبت و فعال‌سازی محصولات واقعی، کالاها در این بخش نمایش داده می‌شوند."}</p>{(query || category) && <button type="button" onClick={() => { setQuery(""); setCategory(""); }}>نمایش همه کالاها</button>}</div>}
-          {products.length > 12 && <div className="sk-more"><Link href="/store/shop">مشاهده همه نتایج <span>←</span></Link></div>}
+          {products.length > 12 && !showAllProducts && <div className="sk-more"><Link href="/store/shop">مشاهده همه {products.length.toLocaleString("fa-IR")} نتیجه <span>←</span></Link></div>}
+          {showAllProducts && products.length > 12 && <div className="sk-catalog-meta"><span>نمایش همه نتایج دریافت‌شده از کاتالوگ</span><Link href="/">بازگشت به صفحه اصلی</Link></div>}
         </section>
 
         <section className="sk-market-banner">
