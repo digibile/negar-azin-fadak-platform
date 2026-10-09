@@ -159,7 +159,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const pathname = usePathname();
   const identity = brandIdentity[variant];
   const isTechnolife = variant === "technolife";
-  const activeStoreNavigation = variant === "digikala" ? DIGIKALA_NAVIGATION : isTechnolife ? TECHNOLIFE_NAVIGATION : variant === "digibile" ? DIGIBILE_NAVIGATION : isAva ? AVA_NAVIGATION : isKipa ? KIPA_NAVIGATION : STORE_CATEGORY_NAVIGATION;
+  const activeStoreNavigation = variant === "digikala" ? DIGIKALA_NAVIGATION : variant === "technolife" ? TECHNOLIFE_NAVIGATION : variant === "digibile" ? DIGIBILE_NAVIGATION : variant === "ava" ? AVA_NAVIGATION : variant === "kipa" ? KIPA_NAVIGATION : STORE_CATEGORY_NAVIGATION;
   const isDigikala = variant === "digikala";
   const isAva = variant === "ava";
   const isKipa = variant === "kipa";
