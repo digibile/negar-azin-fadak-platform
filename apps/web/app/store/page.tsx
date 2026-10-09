@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import "./storefront.css";
 import { STORE_CATEGORY_NAVIGATION } from "./category-navigation";
 import { AddToCartButton, CartCount } from "./cart-actions";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 type Product = {
   id: string;
@@ -23,6 +23,7 @@ type Product = {
 };
 type Store = { id: string; name: string; slug: string; seller_name: string };
 type Catalog = { tenant?: { name?: string }; products: Product[]; stores?: Store[]; categories?: string[]; total?: number };
+type StoreTheme = {primaryColor:string;accentColor:string;canvasColor:string;surfaceColor:string;productColumns:number;productCard:"rounded"|"bordered"|"flat"|"elevated";productImageRatio:"square"|"portrait"|"landscape";showHero:boolean;showCategories:boolean;headerMode:string;footerMode:string};
 
 const money = (value: string, currency: string) => {
   const amount = Number(value);
@@ -165,6 +166,16 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const [activeNavCategory, setActiveNavCategory] = useState(activeStoreNavigation[0]?.name || "موبایل");
   const [sortBy, setSortBy] = useState<"newest" | "price-asc" | "price-desc" | "title">("newest");
   const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState<StoreTheme | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/public/storefront-theme", { headers: { accept: "application/json" }, cache: "no-store", signal: controller.signal })
+      .then(async response => { if (!response.ok) throw new Error("تنظیمات قالب دریافت نشد"); return response.json(); })
+      .then(body => { if (!controller.signal.aborted && body?.theme) setTheme(body.theme as StoreTheme); })
+      .catch(() => { /* Use the safe built-in brand defaults when no public theme is published. */ });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -244,7 +255,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
 
 
   return (
-    <main className={`sk-store sk-store--${variant}${isTechnolife ? " sk-store--technolife" : isDigikala ? " sk-store--digikala" : isAva ? " sk-store--ava" : isKipa ? " sk-store--kipa" : isDigibile ? " sk-store--digibile" : ""}`} dir="rtl">
+    <main className={`sk-store sk-store--${variant}${isTechnolife ? " sk-store--technolife" : isDigikala ? " sk-store--digikala" : isAva ? " sk-store--ava" : isKipa ? " sk-store--kipa" : isDigibile ? " sk-store--digibile" : ""}${theme?.headerMode === "بدون هدر" ? " sk-hide-header" : ""}${theme?.footerMode === "بدون فوتر" ? " sk-hide-footer" : ""}`} data-product-card={theme?.productCard||"rounded"} data-product-image-ratio={theme?.productImageRatio||"square"} dir="rtl" style={{"--sk-primary":theme?.primaryColor,"--sk-primary-dark":theme?.primaryColor,"--sk-canvas":theme?.canvasColor,"--sk-surface":theme?.surfaceColor,"--sk-product-columns":String(theme?.productColumns||4),"--sk-product-radius":theme?.productCard==="flat"?"4px":theme?.productCard==="bordered"?"7px":theme?.productCard==="elevated"?"18px":"14px"} as CSSProperties}>
       <div className="sk-service-strip">
         <div className="sk-wrap sk-service-inner">
           <span>{identity.strip}</span>
@@ -293,7 +304,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
       </header>
 
       <div className="sk-wrap">
-        <section className="sk-hero sk-retail-hero" aria-labelledby="sk-hero-title">
+        <section className="sk-hero sk-retail-hero" aria-labelledby="sk-hero-title" style={{display:theme?.showHero===false?"none":undefined}}>
           <div className="sk-hero-copy">
             <span className="sk-hero-kicker"><i /> {identity.heroKicker}</span>
             <h1 id="sk-hero-title">{identity.heroTitle}</h1>
@@ -319,7 +330,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
           <article><span className="sk-benefit-icon">◷</span><div><b>پیگیری سفارش</b><small>دسترسی به مسیر سفارش‌های شما</small></div></article>
         </section>
 
-        <section className="sk-featured-categories" aria-labelledby="sk-featured-categories-title">
+        <section className="sk-featured-categories" aria-labelledby="sk-featured-categories-title" style={{display:theme?.showCategories===false?"none":undefined}}>
           <div className="sk-section-heading"><div><span className="sk-eyebrow">دسته‌بندی‌های بازارگاه</span><h2 id="sk-featured-categories-title">از کجا شروع کنیم؟</h2><p>دستهٔ موردنظرت را انتخاب کن تا کالاهای مرتبط از کاتالوگ نمایش داده شوند.</p></div><Link href="/store/shop" className="sk-section-link">همه کالاها <span>←</span></Link></div>
           {categories.length ? <div className="sk-featured-grid">
             {categories.map(([key, name]) => {
