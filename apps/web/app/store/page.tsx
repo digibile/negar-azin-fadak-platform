@@ -26,6 +26,17 @@ const money = (value: string, currency: string) => {
 };
 
 const safeImageUrl = (value: string | null | undefined) => value && (value.startsWith("https://") || value.startsWith("http://") || (value.startsWith("/") && !value.startsWith("//"))) ? value : null;
+const featuredCategories = [
+  { title: "موبایل و تبلت", subtitle: "گوشی، تبلت و ابزار دیجیتال", icon: "▯", image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=700&q=85", keywords: ["موبایل", "گوشی", "تبلت", "phone", "mobile"] },
+  { title: "خانه و آشپزخانه", subtitle: "لوازم خانه و وسایل کاربردی", icon: "⌂", image: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=700&q=85", keywords: ["خانه", "آشپزخانه", "لوازم خانگی", "ظرف", "home", "kitchen"] },
+  { title: "لوازم جانبی", subtitle: "هدفون، ساعت و لوازم دیجیتال", icon: "◇", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=700&q=85", keywords: ["جانبی", "هدفون", "هندزفری", "شارژر", "ساعت", "accessory", "headphone"] },
+  { title: "طلا و زیورآلات", subtitle: "زیورآلات و اکسسوری", icon: "✧", image: "https://images.unsplash.com/photo-1617038220319-276d3cfab638?auto=format&fit=crop&w=700&q=85", keywords: ["طلا", "زیور", "جواهر", "گردنبند", "انگشتر", "gold", "jewelry"] },
+  { title: "سوپرمارکت و خوراکی", subtitle: "مواد غذایی و کالاهای روزمره", icon: "✳", image: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=700&q=85", keywords: ["خوراکی", "سوپرمارکت", "غذا", "نوشیدنی", "مواد غذایی", "grocery", "food"] },
+  { title: "مد و پوشاک", subtitle: "لباس، کفش و استایل روزانه", icon: "◇", image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=700&q=85", keywords: ["پوشاک", "لباس", "کفش", "کیف", "مد", "fashion", "clothing"] },
+  { title: "زیبایی و سلامت", subtitle: "مراقبت شخصی و بهداشت", icon: "✳", image: "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&w=700&q=85", keywords: ["زیبایی", "آرایش", "بهداشت", "سلامت", "پوست", "beauty", "health"] },
+  { title: "کتاب و نوشت‌افزار", subtitle: "کتاب، دفتر و ابزار مطالعه", icon: "▤", image: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=700&q=85", keywords: ["کتاب", "نوشت", "لوازم التحریر", "دفتر", "book", "stationery"] },
+];
+
 const categoryGlyph = (category: string | null, title: string) => {
   const value = `${category || ""} ${title}`.toLocaleLowerCase("fa");
   if (/موبایل|گوشی|تلفن|تبلت/.test(value)) return "▯";
@@ -67,8 +78,12 @@ export default function StorePage() {
 
   const products = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("fa");
+    const selectedFeatured = featuredCategories.find(item => item.title === category);
     return (data?.products || []).filter(product => {
-      const matchesCategory = !category || product.category === category;
+      const categoryText = `${product.category || ""} ${product.title}`.toLocaleLowerCase("fa");
+      const matchesCategory = !category || (selectedFeatured
+        ? selectedFeatured.keywords.some(keyword => categoryText.includes(keyword.toLocaleLowerCase("fa")))
+        : product.category === category);
       const searchable = [product.title, product.sku, product.category || "", product.seller_name, product.description || ""]
         .join(" ").toLocaleLowerCase("fa");
       return matchesCategory && (!needle || searchable.includes(needle));
@@ -135,8 +150,18 @@ export default function StorePage() {
           <article><span className="sk-benefit-icon">◷</span><div><b>پیگیری سفارش</b><small>دسترسی به مسیر سفارش‌های شما</small></div></article>
         </section>
 
+        <section className="sk-featured-categories" aria-labelledby="sk-featured-categories-title">
+          <div className="sk-section-heading"><div><span className="sk-eyebrow">دسته‌بندی‌های بازارگاه</span><h2 id="sk-featured-categories-title">از کجا شروع کنیم؟</h2><p>دستهٔ موردنظرت را انتخاب کن تا کالاهای مرتبط از کاتالوگ نمایش داده شوند.</p></div><Link href="/store/shop" className="sk-section-link">همه کالاها <span>←</span></Link></div>
+          <div className="sk-featured-grid">
+            {featuredCategories.map(item => <button type="button" key={item.title} className={category === item.title ? "sk-featured-category is-active" : "sk-featured-category"} onClick={() => { setCategory(category === item.title ? "" : item.title); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
+              <span className="sk-featured-image" style={{ backgroundImage: `linear-gradient(0deg,rgba(18,25,35,.64),rgba(18,25,35,.02)),url("${item.image}")` }}><i>{item.icon}</i></span>
+              <span className="sk-featured-copy"><b>{item.title}</b><small>{item.subtitle}</small></span><span className="sk-featured-arrow">←</span>
+            </button>)}
+          </div>
+        </section>
+
         <section className="sk-catalog" id="sk-products" aria-labelledby="sk-products-title">
-          <div className="sk-section-heading"><div><span className="sk-eyebrow">کاتالوگ بازارگاه</span><h2 id="sk-products-title">محصولات برای انتخاب تو</h2><p>کالاهای نمایش‌داده‌شده از کاتالوگ واقعی سوکار دریافت می‌شوند.</p></div><Link href="/marketplace" className="sk-section-link">رفتن به بازارگاه <span>←</span></Link></div>
+          <div className="sk-section-heading"><div><span className="sk-eyebrow">کاتالوگ بازارگاه</span><h2 id="sk-products-title">محصولات برای انتخاب تو</h2><p>محصولات فعال با اطلاعات ثبت‌شدهٔ فروشندگان نمایش داده می‌شوند.</p></div><Link href="/marketplace" className="sk-section-link">رفتن به بازارگاه <span>←</span></Link></div>
 
           <div className="sk-category-row" aria-label="فیلتر دسته‌بندی">
             <button type="button" className={!category ? "sk-category-chip is-active" : "sk-category-chip"} onClick={() => setCategory("")}>همه کالاها</button>
