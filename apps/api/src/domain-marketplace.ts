@@ -360,16 +360,21 @@ domainMarketplaceRouter.post("/api/marketplace/products/sync-reference",requireA
   const run=await query("insert into catalog_source_sync_runs(tenant_id,source_name,status,requested_count,created_by) values($1,'دیجی‌کالا','running',$2,$3) returning id",[ctx.id,requested.length,user.id||null]);
   const runId=run.rows[0].id as string;
   const catalog=await getDigikalaCatalog(true);
-  if(catalog.sourceStatus!=="live"){
-    await query("update catalog_source_sync_runs set status='failed',failed_count=$1,finished_at=now(),summary=$2::jsonb where id=$3 and tenant_id=$4",[requested.length,JSON.stringify({reason:"reference_source_unavailable"}),runId,ctx.id]);
-    return res.status(503).json({error:"منبع مرجع فعلاً در دسترس نیست؛ قیمت فروش و موجودی داخلی بدون تغییر باقی ماند",runId});
-  }
   const sourceMap=new Map<string,DigikalaCatalogProduct>(catalog.products.map((product):[string,DigikalaCatalogProduct]=>[product.id,product]));
   let matched=0,updated=0,skipped=0,failed=0;
   const details:Array<{sourceProductId:string;status:string;message?:string}>=[];
   for(const sourceId of requested){
-    const source=sourceMap.get(sourceId);
-    if(!source){skipped++;details.push({sourceProductId:sourceId,status:"skipped",message:"در فهرست تازه‌شده منبع یافت نشد"});continue;}
+    let source=sourceMap.get(sourceId);
+    if(!source){
+      try{
+        source=await getDigikalaProductById(sourceId.replace(/^digikala-/,""));
+        sourceMap.set(source.id,source);
+      }catch(error){
+        skipped++;
+        details.push({sourceProductId:sourceId,status:"skipped",message:error instanceof Error?error.message:"دریافت محصول مرجع ناموفق بود"});
+        continue;
+      }
+    }
     try{
       const link=await query(
         "select l.id,l.product_id,l.price_policy,l.markup_percent from catalog_source_links l where l.tenant_id=$1 and l.source_name=$2 and l.source_product_id=$3",
