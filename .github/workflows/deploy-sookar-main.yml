@@ -22,7 +22,7 @@ on:
 
 concurrency:
   group: ${{ inputs.deploy_to_server && 'sookar-production-direct' || 'sookar-build-main-v2' }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ !inputs.deploy_to_server }}
 
 permissions:
   contents: read
