@@ -108,7 +108,7 @@ function ModulesContent(){
    const item=searchParams.get("item")||"";
    const panelParam=searchParams.get("panel")||"";
    setCode(c);setActiveMenu(menu);setActiveSection(tab);setActiveItem(item);setPanel(panelParam);
-   if(tab)setRecordType(tab);
+   setRecordType(tab||"record");
  },[searchParams]);
  const load=async()=>{
    if(!code)return;
