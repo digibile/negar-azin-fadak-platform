@@ -120,7 +120,7 @@ app.use(commerceIntelligenceRouter);
 
 app.get("/api/auth/human-check",(_req,res)=>res.json(issueHumanCheck()));
 app.post("/api/auth/login",asyncHandler(async(req,res)=>{
- const method=req.body?.method==="mobile"?"mobile":"email";
+ const method=req.body?.method==="mobile"?"mobile":req.body?.method==="nationalId"?"nationalId":"email";
  const rawIdentifier=String(req.body?.identifier??req.body?.email??"").trim();
  const normalizeDigits=(value:string)=>value.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
  const identifier=method==="mobile"?normalizeDigits(rawIdentifier).replace(/[\s()+-]/g,""):rawIdentifier.toLowerCase();
