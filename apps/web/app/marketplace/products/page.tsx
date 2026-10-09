@@ -101,7 +101,8 @@ export default function ProductsPage() {
     if (/^https?:\/\//i.test(raw)) {
       try {
         const url = new URL(raw);
-        const match = url.hostname.toLowerCase().endsWith("digikala.com") ? url.pathname.match(/\/product\/(?:dkp-)?(\d{1,16})/i) : null;
+        const host = url.hostname.toLowerCase();
+        const match = (host === "digikala.com" || host === "www.digikala.com") ? url.pathname.match(/\/product\/(?:dkp-)?(\d{1,16})/i) : null;
         id = match?.[1] || "";
       } catch {
         id = "";
