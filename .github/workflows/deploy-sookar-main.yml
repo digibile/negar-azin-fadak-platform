@@ -3,6 +3,8 @@ name: Deploy Sookar Main Safely
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '.github/workflows/**'
   workflow_dispatch:
     inputs:
       target_sha:
@@ -173,8 +175,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          HOST='\${{ secrets.DEPLOY_USER }}@\${{ secrets.DEPLOY_HOST }}'
-          PORT='\${{ secrets.DEPLOY_PORT }}'
+          HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
+          PORT='${{ secrets.DEPLOY_PORT }}'
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" 'bash -s' <<'REMOTE'
           set -euo pipefail
           DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf
