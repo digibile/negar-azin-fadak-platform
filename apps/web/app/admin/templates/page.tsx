@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 const storefrontTemplates = [
+  { key: "ava", title: "قالب فروشگاهی آوا", version: "نسخه ۱.۰", status: "پیش‌نمایش آماده", description: "قالب مستقل و اختصاصی با هویت آرام و پریمیوم، بنفش نیلی و سبزآبی ملایم، کارت‌های مینیمال، جستجو و کاتالوگ متصل به محصولات واقعی. بدون داده ساختگی و بدون تغییر قالب اصلی.", preview: "/store/ava", tone: "ava" },
   {
     key: "classic",
     title: "قالب کلاسیک سوکار",
@@ -80,7 +81,7 @@ export default function Templates() {
       .template-preview-actions a{font-weight:850}
       .template-preview-actions span{font-size:10px;color:#687585}
       .template-preview--red{border-top:4px solid #e5322b}
-      .template-preview--tech{border-top:4px solid #f28c00}
+      .template-preview--tech{border-top:4px solid #f28c00}\n      .template-preview--ava{border-top:4px solid #635bdb}
       .template-preview--classic{border-top:4px solid #176d70}
       .template-preview--current{border-top:4px solid #344256}
       .template-page-types .plan-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
