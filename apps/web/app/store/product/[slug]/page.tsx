@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AddToCartButton } from "../../cart-actions";
 
-type Product={id:string;sku:string;title:string;description:string|null;category:string|null;price:string;currency:string;seller_name:string;store_id:string|null};
+type Product={id:string;sku:string;title:string;description:string|null;category:string|null;price:string;currency:string;seller_name:string;store_id:string|null;image_url?:string|null};
 type BuyingOptions={cash:{amount:number;currency:string;source:string;marketLowest:number|null};financingPrograms:Array<{id:string;title:string;rate_percent:string;fixed_fee:string;approval_business_days_min:number;approval_business_days_max:number;min_term_months:number|null;max_term_months:number|null;brand_title:string|null;supplier_name:string}>;deliveryMethods:Array<{id:string;title:string;carrier_type:string;business_days_min:number;business_days_max:number;cost:number}>};
 
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || process.env.PUBLIC_ORIGIN || "https://sookar.ir").replace(/\/$/, "");
@@ -59,7 +60,10 @@ export default async function Product({params}:{params:Promise<{slug:string}>}){
  return <main className="sookar-store" dir="rtl">
    <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd)}} />
    <header className="store-header"><Link href="/store" className="store-logo"><b>سوکار</b><span>محصول</span></Link><Link href="/store/shop" className="store-search">بازگشت به فروشگاه</Link><nav><Link href="/store/cart">سبد خرید</Link><Link href="/pay">خرید اعتباری</Link></nav></header>
-   <section className="store-hero"><div><span>{product.category||"محصول"} / {product.sku}</span><h1>{product.title}</h1><p>{product.description||"توضیحات محصول توسط فروشنده ثبت نشده است."}</p><div className="store-actions"><Link href={"/store/product/"+encodeURIComponent(product.id)}>افزودن به سبد</Link><Link href="/pay" className="secondary">خرید اعتباری</Link></div></div><div className="hero-card"><b>قیمت نقدی</b><strong>{cashPrice.toLocaleString("fa-IR")} {product.currency}</strong>{options&&options.cash.marketLowest!==null&&<small>کمترین قیمت تأییدشده بازار: {Number(options.cash.marketLowest).toLocaleString("fa-IR")} {product.currency}</small>}<small>فروشنده: {product.seller_name||"ثبت‌شده در کاتالوگ"}</small></div></section>
+   <section className="sk-product-detail">
+     <div className="sk-product-detail-media">{product.image_url ? <img src={product.image_url} alt={product.title} /> : <div className="sk-product-detail-no-image">تصویر محصول ثبت نشده</div>}</div>
+     <div className="sk-product-detail-copy"><span className="sk-product-breadcrumb"><Link href="/">خانه</Link> / <Link href="/store/shop">فروشگاه</Link> / {product.category||"محصول"}</span><h1>{product.title}</h1><p>{product.description||"توضیحات تکمیلی این محصول هنوز توسط فروشنده ثبت نشده است."}</p><div className="sk-product-seller-line"><span>فروشنده</span><strong>{product.seller_name||"فروشنده ثبت‌شده"}</strong></div><div className="sk-product-detail-price"><small>قیمت ثبت‌شده</small><strong>{cashPrice.toLocaleString("fa-IR")} {product.currency}</strong>{options&&options.cash.marketLowest!==null&&<span>کمترین قیمت تأییدشده بازار: {Number(options.cash.marketLowest).toLocaleString("fa-IR")} {product.currency}</span>}</div><div className="sk-product-detail-actions"><AddToCartButton product={{id:product.id,sku:product.sku,title:product.title,price:String(cashPrice),currency:product.currency,seller_name:product.seller_name,store_id:product.store_id,image_url:product.image_url}}/><Link href="/pay" className="sk-product-credit-link">بررسی خرید اعتباری</Link></div><small className="sk-product-truth-note">ثبت در سبد خرید، سفارش یا پرداخت را ایجاد نمی‌کند. موجودی و امکان سفارش در مرحله نهایی بررسی می‌شود.</small></div>
+   </section>
    <section className="store-section feature-row"><article><b>کد کالا</b><span>{product.sku}</span></article><article><b>دسته‌بندی</b><span>{product.category||"ثبت نشده"}</span></article><article><b>فروشنده</b><span>{product.seller_name||"ثبت نشده"}</span></article><article><b>اعتبار خرید</b><span>از مسیر Sookar Pay</span></article></section>
  </main>;
 }
