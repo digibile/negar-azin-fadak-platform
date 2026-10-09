@@ -62,10 +62,10 @@ if(panelRoutes.some(x=>!x[4].startsWith("/")))throw new Error("Canonical panel r
 const panelNumbers=panelEntries.map(x=>x[2]);
 if(new Set(panelNumbers).size!==20||panelNumbers.some((x,i)=>x!==String(i+1).padStart(2,"0")))throw new Error("Canonical panel numbers must be unique and ordered 01-20");
 if(new Set(panelEntries.map(x=>x[1])).size!==20)throw new Error("Canonical panel codes must be unique");
-const panelObjects=[...masterMenu.matchAll(/\\{code:"([^"]+)",number:"([0-9]{2})",title:"([^"]+)"[^\\n]*children:\\[([^\\]]*)\\]\\},?/g)];
+const panelObjects=[...masterMenu.matchAll(/\{code:"([^"]+)",number:"([0-9]{2})",title:"([^"]+)"[^\n]*children:\[([^\]]*)\]\},?/g)];
 if(panelObjects.length!==20)throw new Error("All 20 canonical panels must have a readable child list");
 for(const panel of panelObjects){
- const children=[...panel[4].matchAll(/child\\("([^"]+)"(?:,\\s*"([^"]*)")?(?:,\\s*"([^"]*)")?\\)/g)];
+ const children=[...panel[4].matchAll(/child\("([^"]+)"(?:,\s*"([^"]*)")?(?:,\s*"([^"]*)")?\)/g)];
  if(children.length===0)throw new Error("Canonical panel has no children: "+panel[1]);
  for(const child of children){
   if(!child[1].trim())throw new Error("Canonical child title is empty in panel "+panel[1]);
@@ -94,7 +94,7 @@ const declaredCodes=new Set([
   ...[...modulePage.matchAll(/if\(code===["']([^"']+)["']\)/g)].map(match=>match[1])
 ]);
 for(const panel of panelObjects){
- const children=[...panel[4].matchAll(/child\\("([^"]+)"(?:,\\s*"([^"]*)")?(?:,\\s*"([^"]*)")?\\)/g)];
+ const children=[...panel[4].matchAll(/child\("([^"]+)"(?:,\s*"([^"]*)")?(?:,\s*"([^"]*)")?\)/g)];
  for(const child of children){
   if(child[2]&&!declaredCodes.has(child[2]))throw new Error("Canonical child legacy route is not registered: "+panel[1]+" / "+child[1]+" -> "+child[2]);
   if(child[3]&&!declaredCodes.has(child[3]))throw new Error("Canonical child module is not routed: "+panel[1]+" / "+child[1]+" -> "+child[3]);
