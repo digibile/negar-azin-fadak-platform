@@ -49,7 +49,8 @@ const BROWSE_CATEGORIES = [
   "کودک و نوزاد",
   "خودرو و ابزار",
   "سوپرمارکت",
-  "لوازم اداری"
+  "لوازم اداری",
+  "سایر کالاها"
 ];
 
 const categoryGlyph = (category: string | null, title: string) => {
@@ -117,7 +118,7 @@ export default function StorePage() {
       [/سوپرمارکت|خوراک|مواد غذایی|grocery|supermarket/, "سوپرمارکت"],
       [/اداری|لوازم دفتر|office/, "لوازم اداری"]
     ];
-    return aliases.find(([pattern]) => pattern.test(key))?.[1] || BROWSE_CATEGORIES.find(name => normalizeText(name) === key) || "";
+    return aliases.find(([pattern]) => pattern.test(key))?.[1] || BROWSE_CATEGORIES.find(name => normalizeText(name) === key) || "سایر کالاها";
   };
 
   const categories = useMemo(() => {
