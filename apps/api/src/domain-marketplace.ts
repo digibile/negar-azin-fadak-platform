@@ -4,7 +4,7 @@ import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
 import {emitBusinessEvent} from "./business-events.js";
-import {getDigikalaCatalog, getDigikalaProductById, type DigikalaCatalogProduct} from "./digikala-catalog.js";
+import {getDigikalaCatalog, getDigikalaCategoryProducts, getDigikalaProductById, type DigikalaCatalogProduct} from "./digikala-catalog.js";
 import {randomUUID} from "node:crypto";
 import {mkdir,writeFile} from "node:fs/promises";
 import path from "node:path";
@@ -468,6 +468,15 @@ domainMarketplaceRouter.post("/api/marketplace/media",requireAuth,requirePermiss
   await mkdir(directory,{recursive:true});
   await writeFile(path.join(directory,filename),bytes,{flag:"wx"});
   res.status(201).json({imageUrl:"/api/public/media/catalog/"+ctx.id+"/"+filename,contentType:"image/"+match[1],size:bytes.length});
+}));
+
+domainMarketplaceRouter.post("/api/marketplace/digikala-category",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+  const categoryUrl=bodyString(req.body?.categoryUrl,2000);
+  if(!categoryUrl)return res.status(400).json({error:"لینک دسته‌بندی دیجی‌کالا را وارد کنید"});
+  const result=await getDigikalaCategoryProducts(categoryUrl,50);
+  if(!result.products.length)return res.status(404).json({error:"در این دسته‌بندی محصول قابل ورود پیدا نشد؛ لینک یا دسترسی منبع را بررسی کنید",category:result.category,products:[],total:0});
+  res.setHeader("Cache-Control","private, no-store");
+  res.json({category:result.category,products:result.products,total:result.products.length,fetchedAt:result.fetchedAt,sourceStatus:"live",notice:"فهرست فقط برای ورود به کاتالوگ داخلی است؛ محصول‌ها پس از ورود پیش‌نویس می‌مانند و قیمت فروش مستقل است."});
 }));
 
 domainMarketplaceRouter.get("/api/marketplace/digikala-catalog",requireAuth,requirePermission("product:manage"),asyncHandler(async(_req,res)=>{
