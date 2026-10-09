@@ -127,7 +127,7 @@ export default function MarketplacePage(){
 
         {loading?<div className={styles.loading} role="status" aria-live="polite">در حال دریافت اطلاعات واقعی بازارگاه…</div>
         :error?<div className={styles.error} role="alert"><b>دریافت کاتالوگ انجام نشد</b><p>{error}</p><button type="button" className={styles.clearButton} onClick={()=>void load()}>تلاش دوباره</button></div>
-        :products.length>0?<div className={styles.productGrid}>{products.map((p,index)=><article className={styles.productCard} key={p.id}>
+        :products.length>0?<div className={styles.productGrid}>{products.map(p=><article className={styles.productCard} key={p.id}>
           <div className={styles.productArt}><span className={styles.productTag}>{p.category||"کالا"}</span><span className={styles.artGlyph}>{(p.category||p.title||"س").trim().slice(0,1)}</span></div>
           <div className={styles.productBody}>
             <div className={styles.productMeta}><span className={styles.sellerLabel}><i/>{p.seller_name||"فروشنده ثبت‌شده"}</span><span>{p.category||"بدون دسته"}</span></div>
