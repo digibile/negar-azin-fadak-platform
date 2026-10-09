@@ -100,6 +100,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+
       - name: Upload release
         if: ${{ inputs.deploy_to_server }}
         shell: bash
