@@ -141,6 +141,8 @@ for(const step of ["Prepare SSH","Upload release","Deploy with rollback","Produc
 }
 if(!deployWorkflow.includes("Upload reviewable build artifact")||deployWorkflow.indexOf("Package exact SHA")>deployWorkflow.indexOf("Upload reviewable build artifact"))throw new Error("Build artifact must be packaged before review upload");
 if(!deployWorkflow.includes("--exclude='.env.*'"))throw new Error("Release package must exclude environment files");
+if(deployWorkflow.includes("letsencrypt.sh request"))throw new Error("Production deployment must not request SSL certificates automatically; prevent rate-limit loops");
+if(!deployWorkflow.includes("-checkend 86400")||!deployWorkflow.includes('-checkhost "$DOMAIN"'))throw new Error("Production deployment must validate the existing SSL certificate expiry and hostname");
 
 
 const identityApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"utf8");
