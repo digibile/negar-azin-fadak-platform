@@ -4,6 +4,7 @@ import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
 import {emitBusinessEvent} from "./business-events.js";
+import {getDigikalaCatalog} from "./digikala-catalog.js";
 
 export const domainMarketplaceRouter=Router();
 
@@ -208,6 +209,19 @@ domainMarketplaceRouter.get("/api/marketplace/categories",requireAuth,requirePer
     [ctx.id]
   );
   res.json({tenant:ctx,items:result.rows,total:result.rowCount});
+}));
+
+domainMarketplaceRouter.get("/api/public/digikala-catalog",asyncHandler(async(_req,res)=>{
+  const catalog=await getDigikalaCatalog();
+  res.setHeader("Cache-Control","public, max-age=120, stale-while-revalidate=600");
+  res.json({
+    source:"digikala",
+    sourceLabel:"دیجی‌کالا",
+    sourceStatus:catalog.sourceStatus,
+    fetchedAt:catalog.fetchedAt,
+    products:catalog.products,
+    total:catalog.products.length
+  });
 }));
 
 domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res)=>{
