@@ -73,13 +73,13 @@ const expectedLegacyCodes=[
 ];
 const missingLegacy=expectedLegacyCodes.filter(code=>!masterMenu.includes('"'+code+'"'));
 if(missingLegacy.length)throw new Error("Legacy menu codes missing from canonical panels: "+missingLegacy.join(", "));
-const workspaceBlock=modulePage.match(/const CANONICAL_WORKSPACES\\s*:\\s*Record<string,\\s*React\\.ReactNode>\\s*=\\s*\\{([\\s\\S]*?)\\n\\};/);
-const genericBlock=modulePage.match(/const GENERIC_OPERATIONAL_WORKSPACES\\s*=\\s*new Set\\(\\[([\\s\\S]*?)\\]\\);/);
-const landingBlock=modulePage.match(/const canonicalCodes\\s*=\\s*new Set\\(\\[([\\s\\S]*?)\\]\\);/);
+const workspaceBlock=modulePage.match(/const CANONICAL_WORKSPACES\s*:\s*Record<string,\s*React\.ReactNode>\s*=\s*\{([\s\S]*?)\n\};/);
+const genericBlock=modulePage.match(/const GENERIC_OPERATIONAL_WORKSPACES\s*=\s*new Set\(\[([\s\S]*?)\]\);/);
+const landingBlock=modulePage.match(/const canonicalCodes\s*=\s*new Set\(\[([\s\S]*?)\]\);/);
 if(!workspaceBlock||!genericBlock||!landingBlock)throw new Error("Module dispatcher registries could not be parsed");
 const declaredCodes=new Set([
   ...[workspaceBlock[1],genericBlock[1],landingBlock[1]].flatMap(block=>[...block.matchAll(/"([^"]+)"/g)].map(match=>match[1])),
-  ...[...modulePage.matchAll(/if\\(code===["']([^"']+)["']\\)/g)].map(match=>match[1])
+  ...[...modulePage.matchAll(/if\(code===["']([^"']+)["']\)/g)].map(match=>match[1])
 ]);
 const unroutedLegacy=expectedLegacyCodes.filter(code=>!declaredCodes.has(code));
 if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered in a real dispatcher branch/workspace: "+unroutedLegacy.join(", "));
