@@ -1,5 +1,5 @@
 name: Deploy Sookar Main Safely
-run-name: Build and reviewed release ${{ inputs.target_sha || github.sha }}
+run-name: Build and review exact release ${{ inputs.target_sha || github.sha }}
 
 on:
   push:
