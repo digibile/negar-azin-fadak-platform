@@ -86,3 +86,34 @@
 .nafFooter{background:#102f46;color:#d3e5f0}.nafFooter b{font-size:14px;color:white}
 @media(max-width:680px){.digibileHeader,.vamcityHeader,.nafHeader{flex-wrap:wrap}.digibileHeader>div,.vamcityHeader>div,.nafHeader>div{order:3;width:100%;overflow:auto;padding-top:6px}.digibileHero,.vamcityHero{grid-template-columns:1fr}.digibileHeroArt{min-height:155px}.digibileDepartments>div{grid-template-columns:1fr 1fr}.nafPillars{grid-template-columns:1fr}.digibileFooter,.vamcityFooter,.nafFooter{flex-direction:column;align-items:flex-start}.vamcityDisclosure{flex-direction:column}}
 @media(max-width:400px){.digibileSearch{font-size:9px}.digibileSearch b{padding:8px}.digibileDepartments>div{grid-template-columns:1fr 1fr}.digibileHeader button,.vamcityHeader button,.nafHeader button{font-size:10px;padding:8px}}
+
+/* Distinct site previews for Technolife and KIPA, not generic wireframes. */
+.technolifeSite,.kipaSite{font-family:inherit;min-height:560px;background:#fff;color:#1c2937}
+.technolifeHeader{display:flex;align-items:center;gap:12px;padding:15px clamp(14px,3vw,30px);border-bottom:1px solid #e8edf1}
+.technolifeHeader>b{font-size:21px;color:#e11d48;white-space:nowrap}
+.technolifeSearch{flex:1;min-width:80px;border:1px solid #e1e7ec;background:#f7f9fb;border-radius:9px;padding:12px;color:#7b8794;font-size:11px}
+.technolifeHeader button{border:1px solid #e1e7ec;border-radius:8px;background:#fff;padding:9px 11px;font:inherit;font-size:10px;white-space:nowrap}
+.technolifeCategories{display:flex;gap:clamp(10px,2vw,24px);padding:12px clamp(14px,3vw,30px);font-size:11px;color:#596878;border-bottom:1px solid #edf0f3;overflow:auto;white-space:nowrap}
+.technolifeHero{display:grid;grid-template-columns:1fr .8fr;gap:22px;align-items:center;padding:clamp(24px,5vw,50px);background:linear-gradient(120deg,#fff1f2,#fff 58%,#f8fafc)}
+.technolifeHero small{color:#e11d48;font-size:11px;font-weight:900}.technolifeHero h3{font-size:clamp(25px,4vw,39px);line-height:1.55;color:#202c3a;margin:12px 0}.technolifeHero p{font-size:12px;line-height:2;color:#687789}
+.technolifeHero button{background:#e11d48;color:#fff;border:0;border-radius:8px;padding:11px 14px;font:inherit;font-size:11px;font-weight:800;margin-top:8px}
+.technolifeDevice{min-height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(circle at 50% 40%,#fecdd3,#fff1f2 58%,#ffe4e6);border-radius:18px;color:#be123c}
+.technolifeDevice div{display:grid;place-items:center;width:90px;height:125px;border:5px solid #334155;border-radius:15px;background:linear-gradient(160deg,#f8fafc,#cbd5e1);font-size:40px;box-shadow:0 16px 28px #33415522}
+.technolifeDevice span{font-size:10px}
+.technolifeProducts{padding:24px clamp(14px,3vw,30px)}.technolifeProducts h4{margin:0 0 14px;font-size:18px}
+.technolifeProducts>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.technolifeProducts article{display:flex;flex-direction:column;gap:9px;border:1px solid #e6ebef;border-radius:12px;padding:14px}
+.technolifeProducts article i{display:grid;place-items:center;height:45px;background:#f8fafc;border-radius:8px;color:#e11d48;font-size:23px;font-style:normal}
+.technolifeProducts article b{font-size:11px}.technolifeProducts article span,.technolifeProducts p{font-size:10px;color:#7b8794;line-height:1.8}
+.technolifeFooter{display:flex;justify-content:space-between;gap:12px;padding:17px clamp(14px,3vw,30px);background:#202c3a;color:#e2e8f0;font-size:10px}.technolifeFooter b{font-size:15px;color:#fff}
+.kipaHeader{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px clamp(15px,4vw,36px);border-bottom:1px solid #e3ece9}
+.kipaHeader>b{font-size:20px;letter-spacing:1px;color:#0f766e;white-space:nowrap}.kipaHeader>b span{color:#d97706}
+.kipaHeader>div{display:flex;gap:clamp(8px,2vw,20px);font-size:11px;color:#5f7774}
+.kipaHeader button{border:0;border-radius:8px;background:#0f766e;color:#fff;padding:10px 12px;font:inherit;font-size:10px;white-space:nowrap}
+.kipaHero{display:grid;grid-template-columns:1fr .9fr;gap:20px;align-items:center;padding:clamp(25px,5vw,52px);background:linear-gradient(125deg,#ecfdf5,#fff 60%,#fffbeb)}
+.kipaHero small{font-size:11px;color:#0f766e;font-weight:900}.kipaHero h3{font-size:clamp(25px,4vw,39px);line-height:1.55;color:#164e4a;margin:12px 0}.kipaHero p{font-size:12px;line-height:2;color:#647b77}
+.kipaHero button{border:0;border-radius:8px;background:#0f766e;color:#fff;padding:11px 15px;font:inherit;font-size:11px;font-weight:800;margin-top:8px}
+.kipaTiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}.kipaTiles article{display:flex;flex-direction:column;justify-content:center;gap:14px;min-height:90px;padding:16px;border:1px solid #d6eee5;border-radius:12px;background:#ffffffd9;color:#0f766e;font-size:24px}.kipaTiles article b{font-size:11px;color:#264d49}
+.kipaBenefits{padding:24px clamp(15px,4vw,36px)}.kipaBenefits h4{font-size:18px;margin:0 0 14px}.kipaBenefits>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.kipaBenefits article{display:grid;grid-template-columns:30px 1fr;gap:5px 10px;padding:14px;border:1px solid #e0eee8;border-radius:12px}.kipaBenefits i{grid-row:span 2;font-size:11px;font-style:normal;font-weight:900;color:#0f766e}.kipaBenefits b{font-size:11px}.kipaBenefits span{font-size:10px;color:#758984;line-height:1.8}
+.kipaFooter{display:flex;justify-content:space-between;gap:12px;padding:17px clamp(15px,4vw,36px);background:#123d3b;color:#d5f5e8;font-size:10px}.kipaFooter b{font-size:15px;color:white}
+@media(max-width:680px){.technolifeHeader{flex-wrap:wrap}.technolifeSearch{order:3;flex-basis:100%}.technolifeHero,.kipaHero{grid-template-columns:1fr}.technolifeDevice{min-height:140px}.technolifeProducts>div{grid-template-columns:1fr 1fr}.kipaHeader{flex-wrap:wrap}.kipaHeader>div{order:3;width:100%;overflow:auto;padding-top:6px}.kipaBenefits>div{grid-template-columns:1fr}.technolifeFooter,.kipaFooter{flex-direction:column;align-items:flex-start}}
