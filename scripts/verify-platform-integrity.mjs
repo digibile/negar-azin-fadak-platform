@@ -139,13 +139,21 @@ if(!deployWorkflow.includes("workflow_dispatch:")||!deployWorkflow.includes("dep
 if(deployWorkflow.includes("[deploy-sookar]")||deployWorkflow.includes("Ensure DirectAdmin SSL is enabled"))throw new Error("Legacy commit-marker deployment or automatic SSL enablement must be removed");
 for(const step of ["Prepare SSH","Upload release","Deploy with rollback","Production health and release check","Reload DirectAdmin Nginx configuration","Configure DirectAdmin Nginx routes","Verify public HTTPS endpoint"]){
  const gatedStepStart=deployWorkflow.indexOf("- name: "+step);
- if(gatedStepStart<0||!deployWorkflow.slice(gatedStepStart,gatedStepStart+300).includes("if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}"))throw new Error("Production step is not gated by the canonical main-push or explicit manual approval path: "+step);
+ if(gatedStepStart<0||!deployWorkflow.slice(gatedStepStart,gatedStepStart+300).includes("if: ${{ inputs.deploy_to_server }}"))throw new Error("Production step must require explicit manual deployment approval: "+step);
 }
 if(!deployWorkflow.includes("Upload reviewable build artifact")||deployWorkflow.indexOf("Package exact SHA")>deployWorkflow.indexOf("Upload reviewable build artifact"))throw new Error("Build artifact must be packaged before review upload");
 if(!deployWorkflow.includes("--exclude='.env.*'"))throw new Error("Release package must exclude environment files");
 if(deployWorkflow.includes("letsencrypt.sh request"))throw new Error("Production deployment must not request SSL certificates automatically; prevent rate-limit loops");
-if(!deployWorkflow.includes("-checkend 86400")||!deployWorkflow.includes('-checkhost sookar.ir'))throw new Error("Production deployment must validate the existing SSL certificate expiry and hostname");
+if(!deployWorkflow.includes("-checkend 86400")||!deployWorkflow.includes('-checkhost sookar.com'))throw new Error("Production deployment must validate the existing Sookar.com SSL certificate expiry and hostname");
+if(deployWorkflow.includes("sookar.ir")||!deployWorkflow.includes("/home/sookar/domains/sookar.com/negar-platform")||!deployWorkflow.includes("Preflight Sookar.com production target"))throw new Error("Deployment must target and preflight only the canonical Sookar.com domain");
 
+
+const rootPage=fs.readFileSync(path.join(root,"apps/web/app/page.tsx"),"utf8");
+const marketplacePage=fs.readFileSync(path.join(root,"apps/web/app/marketplace/MarketplacePage.tsx"),"utf8");
+const marketplaceRoute=fs.readFileSync(path.join(root,"apps/web/app/marketplace/page.tsx"),"utf8");
+const rootLayout=fs.readFileSync(path.join(root,"apps/web/app/layout.tsx"),"utf8");
+if(!rootPage.includes('from "./marketplace/MarketplacePage"')||!marketplaceRoute.includes('from "./MarketplacePage"')||!marketplacePage.includes("بازارگاه چندفروشنده سوکار"))throw new Error("Sookar.com root and /marketplace must share the canonical storefront component");
+if(!rootLayout.includes('process.env.NEXT_PUBLIC_SITE_URL || "https://sookar.com"')||!rootLayout.includes('"@type": "OnlineStore"'))throw new Error("Root storefront SEO metadata must use Sookar.com and OnlineStore schema");
 
 const identityApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"utf8");
 if(!identityApi.includes("const guardRead=")||!identityApi.includes("const guardWrite="))throw new Error("Identity API must separate read and write authorization");
