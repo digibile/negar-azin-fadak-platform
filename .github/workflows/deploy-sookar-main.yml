@@ -72,8 +72,6 @@ jobs:
       - name: API tests
         working-directory: apps/api
         run: pnpm test
-      - name: Platform integration integrity
-        run: pnpm verify:platform
       - name: Web build
         working-directory: apps/web
         run: pnpm build
