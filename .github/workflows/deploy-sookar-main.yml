@@ -120,7 +120,7 @@ jobs:
           chmod 700 ~/.ssh
           ssh-keyscan -T 15 -p '${{ secrets.DEPLOY_PORT }}' '${{ secrets.DEPLOY_HOST }}' >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
-      - name: Preflight Sookar.com production target
+      - name: Preflight Sookar.ir production target
         if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
@@ -129,15 +129,15 @@ jobs:
           PORT='${{ secrets.DEPLOY_PORT }}'
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" 'bash -s' <<'REMOTE'
           set -euo pipefail
-          BASE=/home/sookar/domains/sookar.com/negar-platform
-          DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.com.conf
-          test -f "$DOMAIN_CONF" || { echo "Sookar.com DirectAdmin domain configuration is missing; deployment stopped."; exit 20; }
-          test -d /home/sookar/domains/sookar.com || { echo "Sookar.com home directory is missing; deployment stopped."; exit 21; }
-          test -f "$BASE/.env" || { echo "Sookar.com production environment file is missing; no other domain environment will be copied."; exit 22; }
-          test "$(stat -c %a "$BASE/.env")" = "600" || { echo "Sookar.com environment permissions must be 600."; exit 23; }
-          grep -Eq 'server_name[^;]*sookar\.com' /usr/local/directadmin/data/users/sookar/nginx.conf || { echo "Sookar.com has no generated Nginx server block; deployment stopped."; exit 24; }
-          printf '' | openssl s_client -connect sookar.com:443 -servername sookar.com 2>/dev/null | openssl x509 -noout -checkend 86400 -checkhost sookar.com
-          echo SOOKAR_COM_PREFLIGHT_OK
+          BASE=/home/sookar/domains/sookar.ir/negar-platform
+          DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf
+          test -f "$DOMAIN_CONF" || { echo "Sookar.ir DirectAdmin domain configuration is missing; deployment stopped."; exit 20; }
+          test -d /home/sookar/domains/sookar.ir || { echo "Sookar.ir home directory is missing; deployment stopped."; exit 21; }
+          test -f "$BASE/.env" || { echo "Sookar.ir production environment file is missing; no other domain environment will be copied."; exit 22; }
+          test "$(stat -c %a "$BASE/.env")" = "600" || { echo "Sookar.ir environment permissions must be 600."; exit 23; }
+          grep -Eq 'server_name[^;]*sookar\.com' /usr/local/directadmin/data/users/sookar/nginx.conf || { echo "Sookar.ir has no generated Nginx server block; deployment stopped."; exit 24; }
+          printf '' | openssl s_client -connect sookar.ir:443 -servername sookar.ir 2>/dev/null | openssl x509 -noout -checkend 86400 -checkhost sookar.ir
+          echo SOOKAR_IR_PREFLIGHT_OK
           REMOTE
 
       - name: Upload release
@@ -147,7 +147,7 @@ jobs:
           set -euo pipefail
           HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
           PORT='${{ secrets.DEPLOY_PORT }}'
-          BASE=/home/sookar/domains/sookar.com/negar-platform
+          BASE=/home/sookar/domains/sookar.ir/negar-platform
           scp -i ~/.deploy_key -P "$PORT" -o BatchMode=yes /tmp/negar-platform.tar.gz "$HOST:$BASE/negar-platform.tar.gz"
       - name: Deploy with rollback
         if: ${{ inputs.deploy_to_server }}
@@ -160,7 +160,7 @@ jobs:
           PORT='${{ secrets.DEPLOY_PORT }}'
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "RELEASE_SHA='$RELEASE_SHA' bash -s" <<'REMOTE'
           set -euo pipefail
-          BASE=/home/sookar/domains/sookar.com/negar-platform
+          BASE=/home/sookar/domains/sookar.ir/negar-platform
           SHA="$RELEASE_SHA"
           RELEASE="$BASE/releases/$SHA"
           CURRENT="$BASE/current"
@@ -215,7 +215,7 @@ jobs:
           PORT='${{ secrets.DEPLOY_PORT }}'
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes "$HOST" "RELEASE_SHA='$RELEASE_SHA' bash -s" <<'REMOTE'
           set -euo pipefail
-          BASE=/home/sookar/domains/sookar.com/negar-platform
+          BASE=/home/sookar/domains/sookar.ir/negar-platform
           curl -fsS http://127.0.0.1:3100/ >/dev/null
           curl -fsS http://127.0.0.1:4000/health >/dev/null
           test "$(readlink -f "$BASE/current")" = "$BASE/releases/$RELEASE_SHA"
@@ -240,7 +240,7 @@ jobs:
           PORT='${{ secrets.DEPLOY_PORT }}'
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" 'bash -s' <<'REMOTE'
           set -euo pipefail
-          DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.com.conf
+          DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf
           USER_NGINX=/usr/local/directadmin/data/users/sookar/nginx.conf
           test -f "$DOMAIN_CONF"
           cp -a "$DOMAIN_CONF" "$DOMAIN_CONF.before-platform"
@@ -251,7 +251,7 @@ jobs:
           import re, subprocess
 
           files = [
-              Path("/usr/local/directadmin/data/users/sookar/domains/sookar.com.conf"),
+              Path("/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf"),
               Path("/usr/local/directadmin/data/users/sookar/nginx.conf"),
           ]
 
@@ -352,9 +352,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          printf '' | openssl s_client -connect sookar.com:443 -servername sookar.com 2>/dev/null | openssl x509 -noout -checkend 86400 -checkhost sookar.com
+          printf '' | openssl s_client -connect sookar.ir:443 -servername sookar.ir 2>/dev/null | openssl x509 -noout -checkend 86400 -checkhost sookar.ir
           for i in $(seq 1 10); do
-            code=$(curl -L --connect-timeout 5 --max-time 10 -sS -o /tmp/sookar-com-health.html -w '%{http_code}' https://sookar.com/ || true)
+            code=$(curl -L --connect-timeout 5 --max-time 10 -sS -o /tmp/sookar-ir-health.html -w '%{http_code}' https://sookar.ir/ || true)
             echo "PUBLIC_HTTP=$code attempt=$i"
             if [ "$code" = "200" ]; then
               echo PUBLIC_HTTPS_HEALTH_OK
@@ -362,5 +362,5 @@ jobs:
             fi
             sleep 2
           done
-          head -c 1000 /tmp/sookar-com-health.html || true
+          head -c 1000 /tmp/sookar-ir-health.html || true
           exit 1

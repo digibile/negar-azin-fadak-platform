@@ -24,7 +24,7 @@ const money = (value: string, currency: string) => {
   return `${amount.toLocaleString("fa-IR")} ${currency === "IRR" ? "ریال" : currency}`;
 };
 
-const safeImageUrl = (value: string | null | undefined) => value && (/^https?:\\/\\//i.test(value) || (value.startsWith("/") && !value.startsWith("//"))) ? value : null;\n\nconst categoryGlyph = (category: string | null, title: string) => {
+const safeImageUrl = (value: string | null | undefined) => value && (value.startsWith("https://") || value.startsWith("http://") || (value.startsWith("/") && !value.startsWith("//"))) ? value : null;
   const value = `${category || ""} ${title}`.toLocaleLowerCase("fa");
   if (/موبایل|گوشی|تلفن|تبلت/.test(value)) return "▯";
   if (/لپ.?تاپ|کامپیوتر|مانیتور|الکترونیک/.test(value)) return "▰";

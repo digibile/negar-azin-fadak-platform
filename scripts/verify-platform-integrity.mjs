@@ -152,8 +152,8 @@ const rootPage=fs.readFileSync(path.join(root,"apps/web/app/page.tsx"),"utf8");
 const marketplacePage=fs.readFileSync(path.join(root,"apps/web/app/marketplace/MarketplacePage.tsx"),"utf8");
 const marketplaceRoute=fs.readFileSync(path.join(root,"apps/web/app/marketplace/page.tsx"),"utf8");
 const rootLayout=fs.readFileSync(path.join(root,"apps/web/app/layout.tsx"),"utf8");
-if(!rootPage.includes('from "./marketplace/MarketplacePage"')||!marketplaceRoute.includes('from "./MarketplacePage"')||!marketplacePage.includes("بازارگاه چندفروشنده سوکار"))throw new Error("Sookar.com root and /marketplace must share the canonical storefront component");
-if(!rootLayout.includes('process.env.NEXT_PUBLIC_SITE_URL || "https://sookar.com"')||!rootLayout.includes('"@type": "OnlineStore"'))throw new Error("Root storefront SEO metadata must use Sookar.com and OnlineStore schema");
+if(!rootPage.includes('from "./store/page"')||!marketplaceRoute.includes('from "./MarketplacePage"')||!marketplacePage.includes("بازارگاه چندفروشنده سوکار"))throw new Error("Sookar.ir root must render the storefront while /marketplace remains a separate marketplace route");
+if(!rootLayout.includes('const siteUrl = "https://sookar.ir"')||!rootLayout.includes('"@type": "OnlineStore"'))throw new Error("Root storefront SEO metadata must use sookar.ir and OnlineStore schema");
 
 const identityApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"utf8");
 if(!identityApi.includes("const guardRead=")||!identityApi.includes("const guardWrite="))throw new Error("Identity API must separate read and write authorization");
