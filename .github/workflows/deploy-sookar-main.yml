@@ -84,6 +84,17 @@ jobs:
           retention-days: 7
 
 
+      - name: Prepare SSH
+        if: ${{ inputs.deploy_to_server }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' '${{ secrets.DEPLOY_SSH_KEY }}' > ~/.deploy_key
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -T 15 -p '${{ secrets.DEPLOY_PORT }}' '${{ secrets.DEPLOY_HOST }}' >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
       - name: Upload release
         if: ${{ inputs.deploy_to_server }}
         shell: bash
