@@ -160,3 +160,18 @@ jobs:
           docker ps --format '{{.Names}}' | grep -Fx 'naf-sookar-api-1' >/dev/null
           echo PRODUCTION_DEPLOYMENT_OK
           REMOTE
+      - name: Verify public HTTPS endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 20); do
+            code=$(curl --connect-timeout 10 --max-time 20 -sS -o /tmp/sookar-health.html -w '%{http_code}' https://sookar.ir/ || true)
+            echo "PUBLIC_HTTP=$code attempt=$i"
+            if [ "$code" = "200" ]; then
+              echo "PUBLIC_HTTPS_HEALTH_OK"
+              exit 0
+            fi
+            sleep 3
+          done
+          head -c 1000 /tmp/sookar-health.html || true
+          exit 1
