@@ -331,3 +331,15 @@
 .sk-store .sk-reference-status p,.sk-store .sk-reference-status small{display:block;margin-top:8px;color:#7c8793;font-size:11px;line-height:1.9}
 @media(max-width:1000px){.sk-store .sk-reference-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.sk-store .sk-reference-catalog{padding:20px}}
 @media(max-width:720px){.sk-store .sk-reference-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.sk-store .sk-reference-image{height:140px}.sk-store .sk-reference-copy{padding:10px}.sk-store .sk-reference-copy h3{font-size:11px}.sk-store .sk-reference-catalog{padding:14px;margin:22px 0}.sk-store .sk-reference-catalog .sk-section-heading{display:block}.sk-store .sk-reference-updated{display:block;margin-top:10px}}
+
+.sk-category-nav-menu{position:relative;flex:0 0 auto}
+.sk-category-nav-menu .sk-all-cats{display:inline-flex;align-items:center;gap:9px;min-height:38px;padding:0 12px;border:0;border-radius:9px;background:#f3f6fa;color:#243349;font:inherit;font-size:12px;font-weight:850;white-space:nowrap;cursor:pointer}
+.sk-category-nav-menu .sk-all-cats>span:first-child{font-size:17px;color:#255fd3}
+.sk-category-nav-chevron{margin-inline-start:3px;color:#738196;font-size:15px}
+.sk-category-nav-dropdown{position:absolute;z-index:30;top:calc(100% + 10px);right:0;width:min(310px,calc(100vw - 28px));max-height:min(70vh,580px);overflow:auto;padding:7px;border:1px solid #e0e7f0;border-radius:14px;background:#fff;box-shadow:0 16px 44px #172b4520}
+.sk-category-nav-dropdown button{display:grid;grid-template-columns:26px minmax(0,1fr) 18px;align-items:center;gap:9px;width:100%;min-height:42px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:#27374b;text-align:right;font:inherit;cursor:pointer}
+.sk-category-nav-dropdown button:hover,.sk-category-nav-dropdown button:focus-visible{background:#f1f6ff;outline:none}
+.sk-category-nav-dropdown button>span{display:grid;place-items:center;width:25px;height:25px;border-radius:7px;background:#f1f5fb;color:#245fd3}
+.sk-category-nav-dropdown button>b{font-size:12px;font-weight:750}
+.sk-category-nav-dropdown button>i{color:#8c9aab;font-style:normal}
+@media(max-width:560px){.sk-category-nav-dropdown{position:fixed;top:auto;right:14px;left:14px;width:auto;max-height:65vh}}
