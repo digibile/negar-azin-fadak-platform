@@ -61,10 +61,13 @@ export default function Templates() {
       </div>
     </section>
     <section className="store-section template-page-types">
-      <header><div><span>ساختار صفحه‌ها</span><h2>قالب‌های صفحه‌ای</h2></div><Link href="/admin/editors">رفتن به ویرایشگر ←</Link></header>
-      <div className="plan-grid">{pageTemplates.map(title => <article key={title}>
-        <h3>{title}</h3><p>تنظیمات این صفحه از مسیر مدیریت قالب‌ها و ویرایشگر پیگیری می‌شود.</p><Link href="/admin/editors">ویرایش ساختار ←</Link>
-      </article>)}</div>
+      <header><div><span>قالب‌های قابل مدیریت</span><h2>ابزارهای ساخت و مدیریت</h2></div><Link href="/admin/editors">ویرایشگر عمومی ←</Link></header>
+      <div className="plan-grid">
+        <article><h3>قالب‌های فرم</h3><p>ساخت و نسخه‌بندی فرم‌ها، تنظیم اعتبارسنجی و سطح دسترسی، انتشار و بررسی ارسال‌های ثبت‌شده.</p><Link href="/modules/?code=14-form-builder">ورود به فرم‌ساز سازمانی ←</Link></article>
+        <article><h3>قالب‌های صفحه</h3><p>ساخت صفحات و مدیریت بلوک‌های محتوایی از طریق صفحه‌ساز متصل به سامانه.</p><Link href="/modules/?code=16-page-builder">ورود به صفحه‌ساز ←</Link></article>
+        <article><h3>قالب‌های منو</h3><p>مدیریت ساختار منو، زیرمنوها، مسیرها، ترتیب نمایش و دسترسی‌ها.</p><Link href="/modules/?code=15-menu-builder">ورود به منوساز ←</Link></article>
+        <article><h3>بخش‌های فرانت‌اند</h3><p>مدیریت بخش‌های نمایشی و محتوای فرانت‌اند از پنل مرکزی.</p><Link href="/modules/?code=17-frontend-management">مدیریت بخش‌ها ←</Link></article>
+      </div>
     </section>
     <style>{`
       .template-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
