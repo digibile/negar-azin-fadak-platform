@@ -16,6 +16,24 @@ type TenantContext={id:string;name:string;code:string};
 
 async function tenantContext(req:any,user:User):Promise<TenantContext|null>{return resolveTenant(req,user);}
 function bodyString(value:unknown,max=500){return typeof value==="string"?value.trim().slice(0,max):""}
+function canonicalMarketplaceCategory(value:unknown):string{
+ const key=typeof value==="string"?value.normalize("NFKC").replace(/[يى]/g,"ی").replace(/ك/g,"ک").trim().toLocaleLowerCase("fa"):"";
+ const aliases:Array<[RegExp,string]>=[
+  [/موبایل|گوشی|تبلت|mobile|phone|tablet/,"موبایل و تبلت"],
+  [/لپ.?تاپ|کامپیوتر|مانیتور|computer|laptop/,"لپ‌تاپ و کامپیوتر"],
+  [/خانه|آشپزخانه|لوازم خانگی|home|kitchen/,"خانه و آشپزخانه"],
+  [/پوشاک|لباس|کفش|مد|fashion|apparel|clothing/,"مد و پوشاک"],
+  [/زیبایی|آرایش|بهداشت|سلامت|beauty|health/,"زیبایی و سلامت"],
+  [/صوتی|تصویری|هدفون|اسپیکر|audio|video/,"صوتی و تصویری"],
+  [/ورزش|سفر|sport|travel/,"ورزش و سفر"],
+  [/کتاب|لوازم.?التحریر|stationery|book/,"کتاب و لوازم‌التحریر"],
+  [/کودک|نوزاد|baby|kid/,"کودک و نوزاد"],
+  [/خودرو|ابزار|car|auto|tool/,"خودرو و ابزار"],
+  [/سوپرمارکت|خوراک|مواد غذایی|grocery|supermarket/,"سوپرمارکت"],
+  [/اداری|لوازم دفتر|office/,"لوازم اداری"]
+ ];
+ return aliases.find(([pattern])=>pattern.test(key))?.[1]||"سایر کالاها";
+}
 function bodyNumber(value:unknown){const n=Number(value);return Number.isFinite(n)?n:null}
 
 domainMarketplaceRouter.get("/api/tenancy/context",requireAuth,asyncHandler(async(req,res)=>{
@@ -277,7 +295,7 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requir
     };
     const result=await query(
       "insert into products(tenant_id,seller_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,'draft',$9::jsonb) on conflict(tenant_id,sku) do nothing returning id,sku,title,status",
-      [ctx.id,sellerId,product.sku,product.title,product.description,product.category,Number(product.price),product.currency,JSON.stringify(attributes)]
+      [ctx.id,sellerId,product.sku,product.title,product.description,canonicalMarketplaceCategory(product.category),Number(product.price),product.currency,JSON.stringify(attributes)]
     );
     if(result.rowCount)imported.push(product.sku);
     else skipped.push(product.sku+": شناسه کالا از قبل در کاتالوگ ثبت شده است");
