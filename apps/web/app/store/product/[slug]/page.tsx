@@ -4,11 +4,12 @@ import Link from "next/link";
 type Product={id:string;sku:string;title:string;description:string|null;category:string|null;price:string;currency:string;seller_name:string;store_id:string|null};
 type BuyingOptions={cash:{amount:number;currency:string;source:string;marketLowest:number|null};financingPrograms:Array<{id:string;title:string;rate_percent:string;fixed_fee:string;approval_business_days_min:number;approval_business_days_max:number;min_term_months:number|null;max_term_months:number|null;brand_title:string|null;supplier_name:string}>;deliveryMethods:Array<{id:string;title:string;carrier_type:string;business_days_min:number;business_days_max:number;cost:number}>};
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://negarzinfadak.ir";
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || process.env.PUBLIC_ORIGIN || "https://sookar.ir").replace(/\/$/, "");
+const publicHost = new URL(siteUrl).host;
 
 async function getProduct(slug:string):Promise<Product|null>{
   try{
-    const r=await fetch(`${process.env.API_INTERNAL_URL||"http://api:4000"}/api/public/marketplace`,{cache:"no-store"});
+    const r=await fetch(`${process.env.API_INTERNAL_URL||"http://api:4000"}/api/public/marketplace`,{cache:"no-store",headers:{host:publicHost,"x-forwarded-host":publicHost,"x-forwarded-proto":"https"}});
     const b=await r.json();
     if(!r.ok)return null;
     return (b.products||[]).find((p:Product)=>p.id===slug||p.sku===slug)||null;
@@ -52,8 +53,7 @@ export default async function Product({params}:{params:Promise<{slug:string}>}){
      "@type":"Offer",
      url:`${siteUrl}/store/product/${encodeURIComponent(product.sku||product.id)}`,
      priceCurrency:product.currency,
-     price:String(cashPrice),
-     availability:"https://schema.org/InStock"
+     price:String(cashPrice)
    }
  };
  return <main className="sookar-store" dir="rtl">
