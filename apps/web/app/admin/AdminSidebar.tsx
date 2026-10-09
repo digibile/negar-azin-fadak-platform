@@ -30,6 +30,7 @@ function HomeIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="
 function CloseIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>}
 
 function normalize(nodes:MenuNode[]):MenuNode[]{return [...nodes].sort((a,b)=>a.sort_order-b.sort_order||String(a.id).localeCompare(String(b.id)))}
+function flattenTitles(nodes:MenuNode[]):string[]{return nodes.flatMap(node=>[node.title,...flattenTitles(node.child_items||[])])}
 function menuHref(path:string|undefined,parent:string,title:string){
  if(path&&path!=="#")return path;
  const joiner=parent.includes("?")?"&":"?";
@@ -86,7 +87,7 @@ export default function AdminSidebar(){
  },[]);
 
  const moduleSet=useMemo(()=>new Set(modules.filter(x=>x.is_active!==false).map(x=>x.code)),[modules]);
- const dbByLegacy=useMemo(()=>new Map(menuItems.map(x=>[x.menu_key||"",x])),[menuItems]);
+ const dbByLegacy=useMemo(()=>{const map=new Map<string,MenuNode>();const visit=(nodes:MenuNode[])=>{for(const node of nodes){if(node.menu_key)map.set(node.menu_key,node);visit(node.child_items||[])}};visit(menuItems);return map},[menuItems]);
 
  const canonical=useMemo(()=>MASTER_MENU.map(item=>{
   const route=item.route||(
@@ -111,7 +112,7 @@ export default function AdminSidebar(){
   const q=query.trim().toLocaleLowerCase("fa-IR");
   if(!q)return canonical;
   return canonical.filter(item=>{
-   const hay=[item.number,item.title,...item.children.map(x=>x.title),...item.children.flatMap(x=>x.dbChildren.map((d:MenuNode)=>d.title))].join(" ").toLocaleLowerCase("fa-IR");
+   const hay=[item.number,item.title,...item.children.flatMap(x=>[x.title,...flattenTitles(x.dbChildren)])].join(" ").toLocaleLowerCase("fa-IR");
    return hay.includes(q);
   });
  },[canonical,query]);
