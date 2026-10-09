@@ -28,7 +28,7 @@ router.get("/api/identity/overview",requireAuth,guardRead,async(_req,res)=>{
   query("select id,user_id,ip_address,user_agent,started_at,last_seen_at,expires_at,revoked_at from security_sessions order by last_seen_at desc limit 100"),
   query("select id,email,success,failure_reason,ip_address,occurred_at from security_login_events order by occurred_at desc limit 100")
  ]);
- res.json({users:users.rows,roles:roles.rows,groups:groups.rows,permissions:permissions.rows,grants:grants.rows,sessions:sessions.rows,logins:logins.rows,access:{canManageRoles:req.user?.role==="admin",canWriteUsers:req.user?.role==="admin"||true}});
+ res.json({users:users.rows,roles:roles.rows,groups:groups.rows,permissions:permissions.rows,grants:grants.rows,sessions:sessions.rows,logins:logins.rows,access:{canManageRoles:req.user?.role==="admin"}});
 });
 router.post("/api/identity/users",requireAuth,guardWrite,requireCsrf,async(req,res)=>{
  const {email,fullName,role="viewer",status="active"}=req.body||{};
