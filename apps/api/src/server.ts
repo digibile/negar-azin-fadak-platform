@@ -74,6 +74,30 @@ app.use("/api/public/media",express.static(process.env.MEDIA_ROOT||"/app/media",
 app.use((req,res,next)=>{if(["GET","HEAD","OPTIONS"].includes(req.method)||req.path==="/api/auth/login"||(req.method==="POST"&&/^\/api\/payment-gateways\/[^/]+\/webhook$/.test(req.path)))return next();return requireCsrf(req,res,next);});
 
 app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.json({status:"ok",database:"ok"});}));
+
+app.get("/api/public/storefront-theme",asyncHandler(async(req,res)=>{
+ const tenant=await resolvePublicTenant(req,typeof req.query.tenant==="string"?req.query.tenant:"");
+ res.setHeader("Cache-Control","no-store, max-age=0");
+ if(!tenant)return res.json({tenant:null,theme:null});
+ const r=await query("select data from module_records mr join platform_modules m on m.id=mr.module_id where mr.tenant_id=$1 and m.code='36-page-templates' and mr.record_type='page-template' and mr.status='فعال' and mr.data->>'template-type' in ('فروشگاهی','بازارگاه') order by mr.updated_at desc limit 1",[tenant.id]);
+ const d=(r.rows[0]?.data||{}) as Record<string,any>;
+ const color=(value:unknown,fallback:string)=>typeof value==="string"&&/^#[0-9a-fA-F]{6}$/.test(value)?value:fallback;
+ const columns=Number(d.productColumns);
+ res.json({tenant:{name:tenant.name,code:tenant.code},theme:r.rowCount?{
+  key:String(d["template-key"]||""),
+  primaryColor:color(d.primaryColor,"#0f766e"),
+  accentColor:color(d.accentColor,"#14b8a6"),
+  canvasColor:color(d.canvasColor,"#f7f8fa"),
+  surfaceColor:color(d.surfaceColor,"#ffffff"),
+  productColumns:Number.isInteger(columns)&&columns>=2&&columns<=6?columns:4,
+  productCard:["rounded","bordered","flat","elevated"].includes(d.productCard)?d.productCard:"rounded",
+  productImageRatio:["square","portrait","landscape"].includes(d.productImageRatio)?d.productImageRatio:"square",
+  showHero:d.showHero!==false,
+  showCategories:d.showCategories!==false,
+  headerMode:["استاندارد","فشرده","بدون هدر"].includes(d["header-mode"])?d["header-mode"]:"استاندارد",
+  footerMode:["استاندارد","فشرده","بدون فوتر"].includes(d["footer-mode"])?d["footer-mode"]:"استاندارد"
+ }:null});
+}));
 app.use(dynamicMenuRouter);
 app.use(accountingRouter);
 app.use(dashboardOverviewRouter);
