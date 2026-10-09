@@ -321,30 +321,15 @@ jobs:
           SAN_CONFIG="/usr/local/directadmin/data/users/$USER/domains/$DOMAIN.san_config"
           CERT="/usr/local/directadmin/data/users/$USER/domains/$DOMAIN.cert"
           test -f "$DOMAIN_CONF"
-          if grep -q '^ssl=OFF        if: ${{ github.event_name == 'push' || inputs.deploy_to_server }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          for i in $(seq 1 10); do
-            code=$(curl -L --connect-timeout 5 --max-time 10 -sS -o /tmp/sookar-health.html -w '%{http_code}' https://sookar.ir/ || true)
-            echo "PUBLIC_HTTP=$code attempt=$i"
-            if [ "$code" = "200" ]; then
-              echo "PUBLIC_HTTPS_HEALTH_OK"
-              exit 0
-            fi
-            sleep 2
-          done
-          head -c 1000 /tmp/sookar-health.html || true
-          exit 1
- "$DOMAIN_CONF"; then
+          if grep -q '^ssl=OFF$' "$DOMAIN_CONF"; then
             sed -i 's/^ssl=OFF$/ssl=ON/' "$DOMAIN_CONF"
-            echo "DIRECTADMIN_SSL_FLAG_ENABLED"
+            echo DIRECTADMIN_SSL_FLAG_ENABLED
           fi
           /usr/local/directadmin/custombuild/build rewrite_confs >/dev/null
           if [ -s "$CERT" ] && openssl x509 -in "$CERT" -noout -checkend 86400 >/dev/null 2>&1 && openssl x509 -in "$CERT" -noout -checkhost "$DOMAIN" >/dev/null 2>&1; then
-            echo "EXISTING_DOMAIN_CERTIFICATE_VALID"
+            echo EXISTING_DOMAIN_CERTIFICATE_VALID
           else
-            echo "DOMAIN_CERTIFICATE_MISSING_OR_INVALID_REQUESTING_ONCE"
+            echo DOMAIN_CERTIFICATE_MISSING_OR_INVALID_REQUESTING_ONCE
             if [ -s "$SAN_CONFIG" ]; then
               /usr/local/directadmin/scripts/letsencrypt.sh request "$DOMAIN" 4096 "$SAN_CONFIG" /var/www/html
             else
@@ -365,7 +350,7 @@ jobs:
             code=$(curl -L --connect-timeout 5 --max-time 10 -sS -o /tmp/sookar-health.html -w '%{http_code}' https://sookar.ir/ || true)
             echo "PUBLIC_HTTP=$code attempt=$i"
             if [ "$code" = "200" ]; then
-              echo "PUBLIC_HTTPS_HEALTH_OK"
+              echo PUBLIC_HTTPS_HEALTH_OK
               exit 0
             fi
             sleep 2
