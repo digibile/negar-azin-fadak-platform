@@ -1,15 +1,17 @@
 name: Deploy Sookar Main Safely
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       target_sha:
-        description: "Commit SHA selected by management"
+        description: "Exact commit SHA to build and review"
         required: true
         type: string
+      deploy_to_server:
+        description: "Deploy to Sookar only after the reviewed build is approved"
+        required: true
+        default: false
+        type: boolean
       requested_by:
         description: "Management panel requester"
         required: false
@@ -67,7 +69,16 @@ jobs:
       - name: Web build
         working-directory: apps/web
         run: pnpm build
+      - name: Upload reviewable build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: negar-platform-${{ inputs.target_sha }}
+          path: /tmp/negar-platform.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Prepare SSH
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -81,8 +92,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tar --exclude='.git' --exclude='node_modules' --exclude='.next' --exclude='.cache' --exclude='*.log' --exclude='tmp' --exclude='temp' --exclude='backups' -czf /tmp/negar-platform.tar.gz .
+          tar --exclude='.git' --exclude='node_modules' --exclude='.next' --exclude='.cache' --exclude='*.log' --exclude='.env' --exclude='.env.*' --exclude='tmp' --exclude='temp' --exclude='backups' -czf /tmp/negar-platform.tar.gz .
       - name: Upload release
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -91,6 +103,7 @@ jobs:
           BASE=/home/sookar/domains/sookar.ir/negar-platform
           scp -i ~/.deploy_key -P "$PORT" -o BatchMode=yes /tmp/negar-platform.tar.gz "$HOST:$BASE/negar-platform.tar.gz"
       - name: Deploy with rollback
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         env:
           RELEASE_SHA: ${{ inputs.target_sha || github.sha }}
@@ -146,6 +159,7 @@ jobs:
           echo "DEPLOYED_SHA=$SHA"
           REMOTE
       - name: Production health and release check
+        if: ${{ inputs.deploy_to_server }}
         env:
           RELEASE_SHA: ${{ inputs.target_sha || github.sha }}
         run: |
@@ -162,6 +176,7 @@ jobs:
           echo PRODUCTION_DEPLOYMENT_OK
           REMOTE
       - name: Reload DirectAdmin Nginx configuration
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -170,6 +185,7 @@ jobs:
           ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" '/usr/local/directadmin/custombuild/build rewrite_confs >/dev/null && nginx -t && systemctl reload nginx'
 
       - name: Configure DirectAdmin Nginx routes
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
@@ -285,6 +301,7 @@ jobs:
           REMOTE
 
       - name: Verify public HTTPS endpoint
+        if: ${{ inputs.deploy_to_server }}
         shell: bash
         run: |
           set -euo pipefail
