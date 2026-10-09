@@ -123,14 +123,16 @@ app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  const method=req.body?.method==="mobile"?"mobile":req.body?.method==="nationalId"?"nationalId":"email";
  const rawIdentifier=String(req.body?.identifier??req.body?.email??"").trim();
  const normalizeDigits=(value:string)=>value.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
- const identifier=method==="mobile"?normalizeDigits(rawIdentifier).replace(/[\s()+-]/g,""):rawIdentifier.toLowerCase();
+ const identifier=method==="mobile"?normalizeDigits(rawIdentifier).replace(/[\\s()+-]/g,""):method==="nationalId"?normalizeDigits(rawIdentifier).replace(/[\\s]/g,""):rawIdentifier.toLowerCase();
  const input=loginIdentifierSchema.parse({email:identifier,password:req.body?.password});
  if(method==="email"&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier))return res.status(400).json({error:"آدرس ایمیل معتبر نیست"});
  if(method==="mobile"&&!/^[0-9]{8,15}$/.test(identifier.replace(/^\+/,"")))return res.status(400).json({error:"شماره موبایل معتبر نیست"});
  if(!verifyHumanCheck(String(req.body?.humanCheck||""),String(req.body?.humanAnswer||"")))return res.status(400).json({error:"تأیید انسانی نامعتبر یا منقضی شده است"});
  const r=method==="mobile"
   ?await query("select id,email,password_hash,full_name,role from users where status='active' and exists (select 1 from user_contact_methods c where c.user_id=users.id and c.channel='sms' and c.status='active' and c.verified_at is not null and regexp_replace(translate(c.value,'۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩','01234567890123456789'),'[^0-9]','','g')=$1) limit 2",[identifier])
-  :await query("select id,email,password_hash,full_name,role from users where lower(email)=$1 and status='active'",[identifier]);
+  :method==="nationalId"
+   ?await query("select id,email,password_hash,full_name,role from users where national_id=$1 and status='active'",[identifier])
+   :await query("select id,email,password_hash,full_name,role from users where lower(email)=$1 and status='active'",[identifier]);
  if(!r.rowCount||r.rowCount!==1||!(await verifyPassword(input.password,r.rows[0].password_hash))){
   await query("insert into security_login_events(user_id,email,ip_address,user_agent,success,failure_reason) values($1,$2,$3::inet,$4,false,$5)",[r.rows[0]?.id||null,method==="email"?identifier:(r.rows[0]?.email||identifier),req.ip||null,String(req.headers["user-agent"]||"").slice(0,1000)||null,"invalid_credentials_or_inactive_account"]);
   return res.status(401).json({error:"اطلاعات ورود نادرست است"});
