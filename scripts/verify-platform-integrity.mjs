@@ -61,6 +61,19 @@ if(new Set(panelRoutes.map(x=>x[1])).size!==20)throw new Error("Canonical panel 
 if(panelRoutes.some(x=>!x[4].startsWith("/")))throw new Error("Canonical panel route must be an internal application path");
 const panelNumbers=panelEntries.map(x=>x[2]);
 if(new Set(panelNumbers).size!==20||panelNumbers.some((x,i)=>x!==String(i+1).padStart(2,"0")))throw new Error("Canonical panel numbers must be unique and ordered 01-20");
+if(new Set(panelEntries.map(x=>x[1])).size!==20)throw new Error("Canonical panel codes must be unique");
+const panelObjects=[...masterMenu.matchAll(/\\{code:"([^"]+)",number:"([0-9]{2})",title:"([^"]+)"[^\\n]*children:\\[([^\\]]*)\\]\\},?/g)];
+if(panelObjects.length!==20)throw new Error("All 20 canonical panels must have a readable child list");
+for(const panel of panelObjects){
+ const children=[...panel[4].matchAll(/child\\("([^"]+)"(?:,\\s*"([^"]*)")?(?:,\\s*"([^"]*)")?\\)/g)];
+ if(children.length===0)throw new Error("Canonical panel has no children: "+panel[1]);
+ for(const child of children){
+  if(!child[1].trim())throw new Error("Canonical child title is empty in panel "+panel[1]);
+  if(!child[2]&&!child[3])throw new Error("Canonical child has no destination mapping: "+panel[1]+" / "+child[1]);
+  if(child[3]&&!declaredCodes.has(child[3]))throw new Error("Canonical child module is not routed: "+panel[1]+" / "+child[1]+" -> "+child[3]);
+ }
+}
+
 const expectedLegacyCodes=[
 "02-organizations","02-identity","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla",
 "08-accounting-finance","08-check-documents","09-commerce-stores","10-wallet-ledger","12-logistics-supply",
