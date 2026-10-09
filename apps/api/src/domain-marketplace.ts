@@ -384,15 +384,13 @@ domainMarketplaceRouter.post("/api/marketplace/products/:productId/source-policy
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const policy=bodyString(req.body?.pricePolicy,20);
-  const markup=bodyNumber(req.body?.markupPercent);
-  if(!["manual","mirror","markup"].includes(policy))return res.status(400).json({error:"سیاست قیمت باید manual، mirror یا markup باشد"});
-  if(policy==="markup"&&(markup===null||markup < -100||markup > 10000))return res.status(400).json({error:"درصد تعدیل قیمت باید بین منفی ۱۰۰ تا ۱۰۰۰۰ باشد"});
+  if(policy!=="manual")return res.status(400).json({error:"قیمت فروش کاتالوگ داخلی مستقل است و همگام‌سازی منبع اجازه تغییر خودکار آن را ندارد"});
   const result=await query(
-    "update catalog_source_links set price_policy=$1,markup_percent=$2,updated_at=now() where tenant_id=$3 and product_id=$4 returning id,product_id,source_name,source_product_id,price_policy,markup_percent",
-    [policy,policy==="markup"?markup:0,ctx.id,req.params.productId]
+    "update catalog_source_links set price_policy='manual',markup_percent=0,updated_at=now() where tenant_id=$1 and product_id=$2 returning id,product_id,source_name,source_product_id,price_policy,markup_percent",
+    [ctx.id,req.params.productId]
   );
   if(!result.rowCount)return res.status(404).json({error:"پیوند منبع برای این محصول پیدا نشد"});
-  res.json({item:result.rows[0],message:"سیاست ثبت شد؛ قیمت فروش فقط در همگام‌سازی بعدی و مطابق سیاست انتخاب‌شده تغییر می‌کند"});
+  res.json({item:result.rows[0],message:"قیمت‌گذاری مستقل فعال است؛ همگام‌سازی فقط اطلاعات مرجع را تازه می‌کند و قیمت فروش تغییر نمی‌کند"});
 }));
 
 domainMarketplaceRouter.post("/api/marketplace/products/sync-reference",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
@@ -423,7 +421,7 @@ domainMarketplaceRouter.post("/api/marketplace/products/sync-reference",requireA
     }
     try{
       const link=await query(
-        "select l.id,l.product_id,l.price_policy,l.markup_percent from catalog_source_links l where l.tenant_id=$1 and l.source_name=$2 and l.source_product_id=$3",
+        "select l.id,l.product_id from catalog_source_links l where l.tenant_id=$1 and l.source_name=$2 and l.source_product_id=$3",
         [ctx.id,source.source_name,source.id]
       );
       if(!link.rowCount){skipped++;details.push({sourceProductId:sourceId,status:"skipped",message:"این محصول هنوز به کاتالوگ داخلی وارد نشده است"});continue;}
@@ -433,13 +431,6 @@ domainMarketplaceRouter.post("/api/marketplace/products/sync-reference",requireA
         "update catalog_source_links set source_price=$1,source_currency=$2,source_available=$3,source_url=$4,source_sku=$5,last_checked_at=now(),last_success_at=now(),last_error=null,updated_at=now() where id=$6 and tenant_id=$7",
         [Number(source.price),source.currency,source.source_available,source.source_url,source.sku,entry.id,ctx.id]
       );
-      if(entry.price_policy==="mirror"){
-        await query("update products set price=$1,updated_at=now() where id=$2 and tenant_id=$3",[Number(source.price),entry.product_id,ctx.id]);
-      }else if(entry.price_policy==="markup"){
-        const margin=Number(entry.markup_percent||0);
-        const computed=Math.max(0,Math.round(Number(source.price)*(1+margin/100)));
-        await query("update products set price=$1,updated_at=now() where id=$2 and tenant_id=$3",[computed,entry.product_id,ctx.id]);
-      }
       updated++;details.push({sourceProductId:sourceId,status:"updated"});
     }catch(error){
       failed++;
@@ -453,7 +444,7 @@ domainMarketplaceRouter.post("/api/marketplace/products/sync-reference",requireA
     "update catalog_source_sync_runs set status=$1,matched_count=$2,updated_count=$3,skipped_count=$4,failed_count=$5,finished_at=now(),summary=$6::jsonb where id=$7 and tenant_id=$8",
     [status,matched,updated,skipped,failed,JSON.stringify({sourceFetchedAt:catalog.fetchedAt,details}),runId,ctx.id]
   );
-  res.json({runId,status,sourceFetchedAt:catalog.fetchedAt,requestedCount:requested.length,matchedCount:matched,updatedCount:updated,skippedCount:skipped,failedCount:failed,details,message:"قیمت مرجع جداگانه ثبت شد؛ موجودی داخلی تغییر نکرد. قیمت فروش فقط برای سیاست mirror یا markup تغییر می‌کند."});
+  res.json({runId,status,sourceFetchedAt:catalog.fetchedAt,requestedCount:requested.length,matchedCount:matched,updatedCount:updated,skippedCount:skipped,failedCount:failed,details,message:"فقط قیمت و وضعیت مرجع به‌روز شد؛ قیمت فروش و موجودی داخلی شما هرگز به‌صورت خودکار تغییر نمی‌کند."});
 }));
 
 domainMarketplaceRouter.post("/api/marketplace/media",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
