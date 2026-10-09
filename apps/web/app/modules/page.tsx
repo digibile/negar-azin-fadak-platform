@@ -48,6 +48,7 @@ import MenuBuilderWorkspace from "./MenuBuilderWorkspace";
 import PageBuilderWorkspace from "./PageBuilderWorkspace";
 import PageBlockEditorWorkspace from "./PageBlockEditorWorkspace";
 import PageTemplatesWorkspace from "./PageTemplatesWorkspace";
+import SiteLaunchWorkspace from "./SiteLaunchWorkspace";
 import FrontendSectionsWorkspace from "./FrontendSectionsWorkspace";
 import FrontendManagementWorkspace from "./FrontendManagementWorkspace";
 import NavigationRulesWorkspace from "./NavigationRulesWorkspace";
@@ -193,6 +194,7 @@ const MODULE_ROUTE_REGISTRY: Record<string, (context: ModuleRouteContext) => Rea
   "panel:form": () => <FormBuilderWorkspace />,
   "panel:menu": () => <MenuBuilderWorkspace />,
   "panel:frontend": () => <FrontendManagementWorkspace />,
+  "panel:site-launch": () => <SiteLaunchWorkspace />,
   "panel:domains": () => <CommercePanelWorkspace mode="domains" />,
   "panel:acceptors": () => <MerchantManagementWorkspace />,
   "panel:sellers": () => <CommercePanelWorkspace mode="sellers" />,
