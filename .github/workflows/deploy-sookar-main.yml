@@ -160,18 +160,27 @@ jobs:
           docker ps --format '{{.Names}}' | grep -Fx 'naf-sookar-api-1' >/dev/null
           echo PRODUCTION_DEPLOYMENT_OK
           REMOTE
+      - name: Renew DirectAdmin SSL certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
+          PORT='${{ secrets.DEPLOY_PORT }}'
+          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" '/usr/local/directadmin/scripts/letsencrypt.sh request sookar.ir 4096'
+          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" '/usr/local/directadmin/custombuild/build rewrite_confs >/dev/null && nginx -t && systemctl reload nginx'
+
       - name: Verify public HTTPS endpoint
         shell: bash
         run: |
           set -euo pipefail
-          for i in $(seq 1 20); do
-            code=$(curl --connect-timeout 10 --max-time 20 -sS -o /tmp/sookar-health.html -w '%{http_code}' https://sookar.ir/ || true)
+          for i in $(seq 1 10); do
+            code=$(curl -L --connect-timeout 5 --max-time 10 -sS -o /tmp/sookar-health.html -w '%{http_code}' https://sookar.ir/ || true)
             echo "PUBLIC_HTTP=$code attempt=$i"
             if [ "$code" = "200" ]; then
               echo "PUBLIC_HTTPS_HEALTH_OK"
               exit 0
             fi
-            sleep 3
+            sleep 2
           done
           head -c 1000 /tmp/sookar-health.html || true
           exit 1
