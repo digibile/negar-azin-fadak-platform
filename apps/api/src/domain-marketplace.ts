@@ -4,7 +4,7 @@ import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
 import {emitBusinessEvent} from "./business-events.js";
-import {getDigikalaCatalog} from "./digikala-catalog.js";
+import {getDigikalaCatalog, type DigikalaCatalogProduct} from "./digikala-catalog.js";
 import {randomUUID} from "node:crypto";
 import {mkdir,writeFile} from "node:fs/promises";
 import path from "node:path";
@@ -357,7 +357,7 @@ domainMarketplaceRouter.post("/api/marketplace/products/sync-reference",requireA
     await query("update catalog_source_sync_runs set status='failed',failed_count=$1,finished_at=now(),summary=$2::jsonb where id=$3 and tenant_id=$4",[requested.length,JSON.stringify({reason:"reference_source_unavailable"}),runId,ctx.id]);
     return res.status(503).json({error:"منبع مرجع فعلاً در دسترس نیست؛ قیمت فروش و موجودی داخلی بدون تغییر باقی ماند",runId});
   }
-  const sourceMap=new Map(catalog.products.map(product=>[product.id,product] as const));
+  const sourceMap=new Map<string,DigikalaCatalogProduct>(catalog.products.map((product):[string,DigikalaCatalogProduct]=>[product.id,product]));
   let matched=0,updated=0,skipped=0,failed=0;
   const details:Array<{sourceProductId:string;status:string;message?:string}>=[];
   for(const sourceId of requested){
