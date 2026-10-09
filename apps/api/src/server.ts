@@ -187,14 +187,16 @@ app.get("/api/platform/modules/:code/schema",requireAuth,asyncHandler(async(req,
  const m=await query("select id,code,title from platform_modules where code=$1 and is_active=true",[req.params.code]);
  if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
  if(!(await requireModulePermission(user,m.rows[0].id,"read")))return res.status(403).json({error:"دسترسی مشاهده مجاز نیست"});
- const r=await query("select field_key,title,field_type,required,sort_order,options from module_field_definitions where module_id=$1 order by sort_order,id",[m.rows[0].id]);res.json({module:m.rows[0],fields:r.rows});
+ const recordType=typeof req.query.recordType==="string"&&req.query.recordType.trim()?req.query.recordType.trim():"default";
+ const r=await query("select field_key,title,field_type,required,sort_order,options from module_field_definitions where module_id=$1 and record_type=$2 order by sort_order,id",[m.rows[0].id,recordType]);res.json({module:m.rows[0],fields:r.rows,recordType});
 }));
 app.get("/api/platform/modules/:code/records",requireAuth,asyncHandler(async(req,res)=>{
  const user=(req as any).user,t=await resolveRequestTenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const m=await query("select id,code,title from platform_modules where code=$1 and is_active=true",[req.params.code]);if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
  if(!(await requireModulePermission(user,m.rows[0].id,"read")))return res.status(403).json({error:"دسترسی مشاهده مجاز نیست"});
- const page=Math.max(1,Number(req.query.page)||1),pageSize=Math.min(100,Math.max(1,Number(req.query.pageSize)||20)),q=typeof req.query.q==="string"?req.query.q.trim():"",status=typeof req.query.status==="string"?req.query.status.trim():"";
+ const page=Math.max(1,Number(req.query.page)||1),pageSize=Math.min(100,Math.max(1,Number(req.query.pageSize)||20)),q=typeof req.query.q==="string"?req.query.q.trim():"",status=typeof req.query.status==="string"?req.query.status.trim():"",recordType=typeof req.query.recordType==="string"?req.query.recordType.trim():"";
  const where=["tenant_id=$1","module_id=$2"],params:any[]=[t.id,m.rows[0].id];
+ if(recordType){params.push(recordType);where.push("record_type=$"+params.length)}
  if(q){params.push("%"+q+"%");where.push("(title ilike $"+params.length+" or record_type ilike $"+params.length+" or data::text ilike $"+params.length+")")}if(status){params.push(status);where.push("status=$"+params.length)}
  const count=await query("select count(*)::int total from module_records where "+where.join(" and "),params),total=count.rows[0].total,offset=(page-1)*pageSize;params.push(pageSize,offset);
  const r=await query("select id,record_type,title,status,data,created_by,created_at,updated_at from module_records where "+where.join(" and ")+" order by updated_at desc limit $"+(params.length-1)+" offset $"+params.length,params);
