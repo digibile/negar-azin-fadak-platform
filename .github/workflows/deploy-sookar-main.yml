@@ -509,8 +509,8 @@ jobs:
           DOMAIN_CONF=/usr/local/directadmin/data/users/sookar/domains/sookar.ir.conf
           USER_NGINX=/usr/local/directadmin/data/users/sookar/nginx.conf
           test -f "$DOMAIN_CONF"
-          cp -a "$DOMAIN_CONF" "$DOMAIN_CONF.before-platform-$(date +%Y%m%d-%H%M%S)"
-          if [ -f "$USER_NGINX" ]; then cp -a "$USER_NGINX" "$USER_NGINX.before-platform-$(date +%Y%m%d-%H%M%S)"; fi
+          cp -a "$DOMAIN_CONF" "$DOMAIN_CONF.before-platform"
+          if [ -f "$USER_NGINX" ]; then cp -a "$USER_NGINX" "$USER_NGINX.before-platform"; fi
           /usr/local/directadmin/custombuild/build rewrite_confs >/dev/null
           python3 - <<'PY'
           from pathlib import Path
