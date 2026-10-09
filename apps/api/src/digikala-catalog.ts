@@ -85,7 +85,11 @@ export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: st
     ? data.products
     : Array.isArray(at(data, "products", "items"))
       ? at(data, "products", "items") as unknown[]
-      : [];
+      : record(data.product).id !== undefined
+        ? [data.product]
+        : record(data).id !== undefined
+          ? [data]
+          : [];
   const normalized: DigikalaCatalogProduct[] = [];
   for (const raw of rawProducts) {
     const product = record(raw);
@@ -143,6 +147,27 @@ export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: st
     });
   }
   return normalized;
+}
+
+export async function getDigikalaProductById(input: string): Promise<DigikalaCatalogProduct> {
+  const id = input.trim().replace(/^dkp-/i, "");
+  if (!/^\d{1,16}$/.test(id)) throw new Error("شناسه محصول دیجی‌کالا باید عددی باشد.");
+  const response = await fetch(new URL("/v2/product/" + encodeURIComponent(id) + "/", "https://api.digikala.com"), {
+    headers: {
+      accept: "application/json, text/plain, */*",
+      referer: "https://www.digikala.com/",
+      "x-web-client-id": "web",
+      "x-web-client": "desktop",
+      "x-web-optimize-response": "1",
+      "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+    },
+    signal: AbortSignal.timeout(8000)
+  });
+  if (!response.ok) throw new Error("دریافت محصول از دیجی‌کالا با خطای HTTP " + response.status + " روبه‌رو شد.");
+  const payload = await response.json();
+  const product = normalizeDigikalaProducts(payload, "سایر کالاها").find(item => item.id === "digikala-" + id);
+  if (!product) throw new Error("برای این شناسه، محصول دارای عنوان، تصویر و قیمت معتبر پیدا نشد.");
+  return product;
 }
 
 let cachedProducts: DigikalaCatalogProduct[] = [];
