@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { api } from "../../../lib/api";
 
 type Seller = { id: string; display_name: string; status: string };
+type Category = { id: string; code: string; name: string; status: string; sort_order: number };
 type Product = { id: string; sku: string; title: string; price: string | number; currency: string; status: string; seller_id: string; image_url?: string | null };
 const statusLabel:Record<string,string>={draft:"پیش‌نویس",active:"فعال و قابل نمایش",archived:"بایگانی‌شده"};
 
 export default function ProductsPage() {
   const [items, setItems] = useState<Product[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [sellerId, setSellerId] = useState("");
   const [sku, setSku] = useState("");
   const [title, setTitle] = useState("");
@@ -23,12 +25,14 @@ export default function ProductsPage() {
   async function load() {
     setError("");
     try {
-      const [productResult, sellerResult] = await Promise.all([
+      const [productResult, sellerResult, categoryResult] = await Promise.all([
         api<{items:Product[]}>("/api/marketplace/products"),
-        api<{items:Seller[]}>("/api/marketplace/sellers")
+        api<{items:Seller[]}>("/api/marketplace/sellers"),
+        api<{items:Category[]}>("/api/marketplace/categories")
       ]);
       setItems(productResult.items || []);
       setSellers(sellerResult.items || []);
+      setCategories((categoryResult.items || []).filter(item => item.status === "active"));
       if (!sellerId && sellerResult.items?.length) {
         setSellerId((sellerResult.items.find(x => x.status === "active") || sellerResult.items[0]).id);
       }
@@ -78,7 +82,7 @@ export default function ProductsPage() {
   const selectedSeller=sellers.find(x=>x.id===sellerId);
   const sellerFor=(id:string)=>sellers.find(x=>x.id===id);
   return <main className="enterprise-main" dir="rtl">
-    <header className="platform-header"><div><span className="section-kicker">کاتالوگ واقعی</span><h1>محصولات و تصاویر کالا</h1><p>اطلاعات محصول در PostgreSQL ثبت می‌شود. برای نمایش عمومی، محصول و فروشنده باید فعال باشند.</p></div><a href="/platform">مرکز عملیات</a></header>
+    <header className="platform-header"><div><span className="section-kicker">کاتالوگ واقعی</span><h1>محصولات و تصاویر کالا</h1><p>اطلاعات محصول در PostgreSQL ثبت می‌شود. دسته‌بندی از فهرست مرکزی انتخاب می‌شود؛ برای نمایش عمومی، محصول و فروشنده باید فعال باشند.</p></div><a href="/platform">مرکز عملیات</a></header>
     <section className="platform-panel">
       <div className="platform-form">
         <select value={sellerId} onChange={event=>setSellerId(event.target.value)} aria-label="فروشنده">
@@ -87,7 +91,10 @@ export default function ProductsPage() {
         </select>
         <input value={sku} onChange={event => setSku(event.target.value)} placeholder="شناسه کالا (SKU)" aria-label="شناسه کالا" />
         <input value={title} onChange={event => setTitle(event.target.value)} placeholder="عنوان محصول" aria-label="عنوان محصول" />
-        <input value={category} onChange={event => setCategory(event.target.value)} placeholder="دسته‌بندی کالا" aria-label="دسته‌بندی کالا" />
+        <select value={category} onChange={event => setCategory(event.target.value)} aria-label="دسته‌بندی کالا">
+          <option value="">انتخاب دسته‌بندی</option>
+          {categories.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
+        </select>
         <input value={price} onChange={event => setPrice(event.target.value)} type="number" min="0" placeholder="قیمت" aria-label="قیمت" />
         <input value={imageUrl} onChange={event => setImageUrl(event.target.value)} type="url" placeholder="نشانی تصویر کالا (HTTPS)" aria-label="نشانی تصویر کالا" />
         <button onClick={create} disabled={saving || !sellerId || !sku.trim() || !title.trim() || price === ""}>{saving ? "در حال ثبت…" : "ثبت پیش‌نویس محصول"}</button>
