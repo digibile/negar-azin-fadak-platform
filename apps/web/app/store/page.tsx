@@ -72,6 +72,24 @@ const categoryGlyph = (category: string | null, title: string) => {
 };
 
 type StoreVariant = "default" | "digikala" | "technolife" | "ava" | "kipa" | "digibile";
+
+const TECHNOLIFE_NAVIGATION = [
+  { name: "موبایل و تبلت", children: ["گوشی موبایل", "گوشی سامسونگ", "گوشی اپل", "گوشی شیائومی", "تبلت", "ساعت هوشمند", "لوازم جانبی موبایل"] },
+  { name: "لپ‌تاپ و کامپیوتر", children: ["لپ‌تاپ", "لپ‌تاپ گیمینگ", "لپ‌تاپ دانشجویی", "کامپیوتر و آل‌این‌وان", "مانیتور", "قطعات کامپیوتر", "ماوس و کیبورد"] },
+  { name: "صوتی و تصویری", children: ["هدفون و هندزفری", "اسپیکر", "تلویزیون", "سینمای خانگی", "دوربین"] },
+  { name: "گجت و پوشیدنی", children: ["ساعت هوشمند", "مچ‌بند هوشمند", "ردیاب و گجت", "لوازم جانبی"] },
+  { name: "شبکه و ذخیره‌سازی", children: ["مودم و روتر", "تجهیزات شبکه", "هارد اکسترنال", "SSD", "فلش و کارت حافظه"] },
+  { name: "کنسول و گیمینگ", children: ["کنسول بازی", "دسته بازی", "لوازم گیمینگ", "بازی"] }
+] as const;
+
+const DIGIBILE_NAVIGATION = [
+  { name: "کالای دیجیتال", children: ["موبایل و تبلت", "لپ‌تاپ و کامپیوتر", "صوتی و تصویری", "لوازم جانبی", "گجت هوشمند"] },
+  { name: "خانه و زندگی", children: ["خانه و آشپزخانه", "لوازم خانگی برقی", "دکوراسیون", "ابزار و تجهیزات"] },
+  { name: "مد و سبک زندگی", children: ["پوشاک", "کفش و کیف", "زیبایی و سلامت", "ورزش و سفر"] },
+  { name: "سوپرمارکت", children: ["مواد غذایی", "نوشیدنی و تنقلات", "بهداشت و نظافت"] },
+  { name: "کتاب و سرگرمی", children: ["کتاب و لوازم‌التحریر", "اسباب‌بازی", "بازی و سرگرمی"] },
+  { name: "بازارگاه و فروشندگان", children: ["همه فروشندگان", "فروشگاه‌های منتخب", "پیگیری سفارش", "خرید اعتباری"] }
+] as const;
 const brandIdentity:Record<StoreVariant,{name:string;mark:string;tagline:string;strip:string;heroKicker:string;heroTitle:React.ReactNode;heroDescription:string;loginBrand:string;footerDescription:string;domain:string}> = {
   default:{name:"سوکار",mark:"س",tagline:"خرید هوشمند، انتخاب مطمئن",strip:"سوکار، بازارگاه یکپارچه خرید و فروش",heroKicker:"بازارگاه سوکار",heroTitle:<>هرچی لازم داری،<br /><em>یک‌جا پیدا کن.</em></>,heroDescription:"کالاهای فروشگاه‌های فعال را ببین، مشخصات و قیمت ثبت‌شده را بررسی کن و محصولات موردنظرت را به سبد خرید اضافه کن.",loginBrand:"naf",footerDescription:"یک مسیر یکپارچه برای کشف کالا، مقایسه انتخاب‌ها و خرید از فروشگاه‌های ثبت‌شده.",domain:"sookar.ir"},
   digikala:{name:"بازار قرمز",mark:"ب",tagline:"انتخاب بیشتر، خرید آسان‌تر",strip:"پیش‌نمایش قالب فروشگاهی با هویت قرمز مستقل",heroKicker:"تجربه فروشگاهی سریع و آشنا",heroTitle:<>از میان انتخاب‌ها،<br /><em>بهترین را پیدا کن.</em></>,heroDescription:"محصولات فعال را مقایسه کن و مشخصات و قیمت ثبت‌شده را پیش از خرید بررسی کن.",loginBrand:"digibile",footerDescription:"پیش‌نمایش قالب فروشگاهی مستقل با کاتالوگ متصل به محصولات ثبت‌شده.",domain:"پیش‌نمایش قالب"},
@@ -84,6 +102,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const pathname = usePathname();
   const identity = brandIdentity[variant];
   const isTechnolife = variant === "technolife";
+  const activeStoreNavigation = isTechnolife ? TECHNOLIFE_NAVIGATION : variant === "digibile" ? DIGIBILE_NAVIGATION : STORE_CATEGORY_NAVIGATION;
   const isDigikala = variant === "digikala";
   const isAva = variant === "ava";
   const isKipa = variant === "kipa";
@@ -156,7 +175,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
 
   const technologyPattern = /موبایل|گوشی|تبلت|لپ.?تاپ|کامپیوتر|مانیتور|کالای دیجیتال|صوتی|تصویری|هدفون|اسپیکر|دوربین|گیمینگ|کنسول|الکترونیک|mobile|phone|tablet|laptop|computer|monitor|digital|audio|video|headphone|speaker|camera|gaming|console|electronics/i;
   const sourceProducts = isTechnolife ? (data?.products || []).filter(product => technologyPattern.test(normalizeText([product.title, product.category || "", product.description || "", product.brand || ""].join(" ")))) : (data?.products || []);
-  const categoryNames = [...new Set([...STORE_CATEGORY_NAVIGATION.map(item => item.name), ...BROWSE_CATEGORIES, ...(Array.isArray(data?.categories) ? data.categories : [])])].filter(name => !isTechnolife || technologyPattern.test(normalizeText(name)));
+  const categoryNames = [...new Set([...activeStoreNavigation.map(item => item.name), ...BROWSE_CATEGORIES, ...(Array.isArray(data?.categories) ? data.categories : [])])].filter(name => !isTechnolife || technologyPattern.test(normalizeText(name)));
   const categories = [...new Set(categoryNames.map(name => canonicalCategory(name.trim())).filter(Boolean))]
     .filter((name, index, all) => all.findIndex(item => normalizeText(item) === normalizeText(name)) === index)
     .map(name => [normalizeText(name), name] as [string, string]);
@@ -208,12 +227,12 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
               <button type="button" className="sk-all-cats" aria-expanded={showCategoryMenu} aria-haspopup="menu" onClick={() => setShowCategoryMenu(open => !open)}><span>☰</span> دسته‌بندی کالاها <span className="sk-category-nav-chevron">{showCategoryMenu ? "⌃" : "⌄"}</span></button>
               {showCategoryMenu && <div className="sk-category-nav-dropdown sk-category-nav-mega" role="menu" aria-label="دسته‌بندی کالاها">
                 <div className="sk-category-mega-list">
-                  {STORE_CATEGORY_NAVIGATION.map(item => <button type="button" role="menuitem" key={item.name} className={activeNavCategory===item.name?"is-active":""} onMouseEnter={() => setActiveNavCategory(item.name)} onFocus={() => setActiveNavCategory(item.name)} onClick={() => { setCategory(item.name); setShowCategoryMenu(false); document.getElementById("sk-products")?.scrollIntoView({behavior:"smooth",block:"start"}); }}><span>{categoryGlyph(item.name,item.name)}</span><b>{item.name}</b><i>←</i></button>)}
+                  {activeStoreNavigation.map(item => <button type="button" role="menuitem" key={item.name} className={activeNavCategory===item.name?"is-active":""} onMouseEnter={() => setActiveNavCategory(item.name)} onFocus={() => setActiveNavCategory(item.name)} onClick={() => { setCategory(item.name); setShowCategoryMenu(false); document.getElementById("sk-products")?.scrollIntoView({behavior:"smooth",block:"start"}); }}><span>{categoryGlyph(item.name,item.name)}</span><b>{item.name}</b><i>←</i></button>)}
                 </div>
                 <section className="sk-category-mega-content" aria-label={"زیر دسته‌های "+activeNavCategory}>
                   <header><b>{activeNavCategory}</b><button type="button" onClick={() => {setCategory(activeNavCategory);setShowCategoryMenu(false);document.getElementById("sk-products")?.scrollIntoView({behavior:"smooth",block:"start"});}}>مشاهده همه کالاهای این دسته ←</button></header>
                   <div className="sk-category-mega-children">
-                    {(STORE_CATEGORY_NAVIGATION.find(item=>item.name===activeNavCategory)?.children||[]).map(child=><button type="button" key={child} onClick={() => {setCategory(activeNavCategory);setQuery(child==="همه محصولات "+activeNavCategory?"":child.startsWith("همه ")?"":child);setShowCategoryMenu(false);document.getElementById("sk-products")?.scrollIntoView({behavior:"smooth",block:"start"});}}>{child}<span>←</span></button>)}
+                    {(activeStoreNavigation.find(item=>item.name===activeNavCategory)?.children||[]).map(child=><button type="button" key={child} onClick={() => {setCategory(activeNavCategory);setQuery(child==="همه محصولات "+activeNavCategory?"":child.startsWith("همه ")?"":child);setShowCategoryMenu(false);document.getElementById("sk-products")?.scrollIntoView({behavior:"smooth",block:"start"});}}>{child}<span>←</span></button>)}
                   </div>
                 </section>
               </div>}
