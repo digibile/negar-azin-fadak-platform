@@ -70,8 +70,10 @@ const categoryGlyph = (category: string | null, title: string) => {
   return "◈";
 };
 
-export default function StorePage() {
+export default function StorePage({ variant = "default" }: { variant?: "default" | "digikala" | "technolife" }) {
   const pathname = usePathname();
+  const isTechnolife = variant === "technolife";
+  const isDigikala = variant === "digikala";
   const showAllProducts = pathname === "/store/shop";
   const [data, setData] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
@@ -136,7 +138,9 @@ export default function StorePage() {
     return aliases.find(([pattern]) => pattern.test(key))?.[1] || BROWSE_CATEGORIES.find(name => normalizeText(name) === key) || key;
   };
 
-  const categoryNames = [...new Set([...(data ? (Array.isArray(data.categories) ? data.categories : BROWSE_CATEGORIES) : BROWSE_CATEGORIES), ])];
+  const technologyPattern = /موبایل|گوشی|تبلت|لپ.?تاپ|کامپیوتر|مانیتور|کالای دیجیتال|صوتی|تصویری|هدفون|اسپیکر|دوربین|گیمینگ|کنسول|الکترونیک|mobile|phone|tablet|laptop|computer|monitor|digital|audio|video|headphone|speaker|camera|gaming|console|electronics/i;
+  const sourceProducts = isTechnolife ? (data?.products || []).filter(product => technologyPattern.test(normalizeText([product.title, product.category || "", product.description || "", product.brand || ""].join(" ")))) : (data?.products || []);
+  const categoryNames = [...new Set([...(data ? (Array.isArray(data.categories) ? data.categories : BROWSE_CATEGORIES) : BROWSE_CATEGORIES), ])].filter(name => !isTechnolife || technologyPattern.test(normalizeText(name)));
   const categories = [...new Set(categoryNames.map(name => canonicalCategory(name.trim())).filter(Boolean))]
     .filter((name, index, all) => all.findIndex(item => normalizeText(item) === normalizeText(name)) === index)
     .map(name => [normalizeText(name), name] as [string, string]);
@@ -144,7 +148,7 @@ export default function StorePage() {
   const products = useMemo(() => {
     const needle = normalizeText(query);
     const selectedCategory = canonicalCategory(category);
-    const filtered = (data?.products || []).filter(product => {
+    const filtered = sourceProducts.filter(product => {
       const matchesCategory = !selectedCategory || canonicalCategory(product.category) === selectedCategory;
       const searchable = normalizeText([product.title, product.sku, product.category || "", product.seller_name, product.description || "", product.brand || ""].join(" "));
       return matchesCategory && (!needle || searchable.includes(needle));
@@ -153,14 +157,14 @@ export default function StorePage() {
     else if (sortBy === "price-desc") filtered.sort((a, b) => Number(b.price) - Number(a.price));
     else if (sortBy === "title") filtered.sort((a, b) => a.title.localeCompare(b.title, "fa"));
     return filtered;
-  }, [data, query, category, sortBy]);
+  }, [sourceProducts, data, query, category, sortBy]);
 
 
   return (
-    <main className="sk-store" dir="rtl">
+    <main className={`sk-store${isTechnolife ? " sk-store--technolife" : isDigikala ? " sk-store--digikala" : ""}`} dir="rtl">
       <div className="sk-service-strip">
         <div className="sk-wrap sk-service-inner">
-          <span>سوکار، بازارگاه یکپارچه خرید و فروش</span>
+          <span>{isTechnolife ? "سوکار تک، فروشگاه تخصصی کالای دیجیتال" : isDigikala ? "قالب فروشگاهی الهام‌گرفته از تجربه دیجی‌کالا" : "سوکار، بازارگاه یکپارچه خرید و فروش"}</span>
           <div><Link href="/marketplace/directory">فروشندگان</Link><Link href="/pay">خدمات اعتباری</Link><Link href="/store/orders">پیگیری سفارش</Link></div>
         </div>
       </div>
@@ -169,7 +173,7 @@ export default function StorePage() {
         <div className="sk-wrap sk-header-main">
           <Link href="/" className="sk-logo" aria-label="سوکار، صفحه اصلی">
             <span className="sk-logo-mark">س</span>
-            <span><b>سوکار</b><small>خرید هوشمند، انتخاب مطمئن</small></span>
+            <span><b>{isTechnolife ? "سوکار تک" : "سوکار"}</b><small>{isTechnolife ? "دنیای فناوری، یک‌جا" : isDigikala ? "قالب فروشگاهی قرمز · پیش‌نمایش" : "خرید هوشمند، انتخاب مطمئن"}</small></span>
           </Link>
           <form className="sk-search" role="search" onSubmit={event => { event.preventDefault(); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth" }); }}>
             <span aria-hidden="true">⌕</span>
@@ -200,20 +204,20 @@ export default function StorePage() {
       <div className="sk-wrap">
         <section className="sk-hero sk-retail-hero" aria-labelledby="sk-hero-title">
           <div className="sk-hero-copy">
-            <span className="sk-hero-kicker"><i /> بازارگاه سوکار</span>
-            <h1 id="sk-hero-title">هرچی لازم داری،<br /><em>یک‌جا پیدا کن.</em></h1>
-            <p>کالاهای فروشگاه‌های فعال را ببین، مشخصات و قیمت ثبت‌شده را بررسی کن و محصولات موردنظرت را به سبد خرید اضافه کن.</p>
+            <span className="sk-hero-kicker"><i /> {isTechnolife ? "فروشگاه کالای دیجیتال سوکار" : isDigikala ? "پیش‌نمایش قالب فروشگاهی دیجی‌کالا" : "بازارگاه سوکار"}</span>
+            <h1 id="sk-hero-title">{isTechnolife ? <>تکنولوژی روز،<br /><em>انتخابی آگاهانه.</em></> : isDigikala ? <>از میان انتخاب‌ها،<br /><em>بهترین را پیدا کن.</em></> : <>هرچی لازم داری،<br /><em>یک‌جا پیدا کن.</em></>}</h1>
+            <p>{isTechnolife ? "محصولات دیجیتال ثبت‌شده را جستجو کن، مشخصات و قیمت واقعی را بررسی کن و با آگاهی انتخاب کن." : "کالاهای فروشگاه‌های فعال را ببین، مشخصات و قیمت ثبت‌شده را بررسی کن و محصولات موردنظرت را به سبد خرید اضافه کن."}</p>
             <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">خرید از همه دسته‌ها <span>←</span></Link><Link href="/marketplace/directory" className="sk-quiet-btn">فروشگاه‌های بازارگاه</Link></div>
             <div className="sk-hero-note"><span>✓</span> فقط اطلاعات کاتالوگ واقعی؛ بدون محصول و قیمت ساختگی</div>
           </div>
           <div className="sk-hero-products" aria-label="محصولات منتخب از کاتالوگ">
-            {(data?.products || []).filter(product => safeImageUrl(product.image_url)).slice(0, 3).map((product, index) => (
+            {sourceProducts.filter(product => safeImageUrl(product.image_url)).slice(0, 3).map((product, index) => (
               <Link href={"/store/product/" + encodeURIComponent(product.sku || product.id)} className={"sk-hero-product sk-hero-product-" + index} key={product.id}>
                 <img src={safeImageUrl(product.image_url) || ""} alt={product.title} />
                 <span>{product.title}</span><b>{money(product.price, product.currency)}</b>
               </Link>
             ))}
-            {(!data?.products?.length) && <div className="sk-hero-empty"><span>س</span><b>خرید ساده‌تر، انتخاب آگاهانه‌تر</b><small>محصولات فعال فروشگاه در اینجا نمایش داده می‌شوند</small></div>}
+            {(!sourceProducts.length) && <div className="sk-hero-empty"><span>س</span><b>{isTechnolife ? "فناوری مناسب، خرید مطمئن" : "خرید ساده‌تر، انتخاب آگاهانه‌تر"}</b><small>محصولات فعال فروشگاه در اینجا نمایش داده می‌شوند</small></div>}
           </div>
         </section>
 
@@ -228,10 +232,10 @@ export default function StorePage() {
           <div className="sk-section-heading"><div><span className="sk-eyebrow">دسته‌بندی‌های بازارگاه</span><h2 id="sk-featured-categories-title">از کجا شروع کنیم؟</h2><p>دستهٔ موردنظرت را انتخاب کن تا کالاهای مرتبط از کاتالوگ نمایش داده شوند.</p></div><Link href="/store/shop" className="sk-section-link">همه کالاها <span>←</span></Link></div>
           {categories.length ? <div className="sk-featured-grid">
             {categories.slice(0, 8).map(([key, name]) => {
-              const count = (data?.products || []).filter(product => normalizeText(canonicalCategory(product.category)) === key).length;
+              const count = sourceProducts.filter(product => normalizeText(canonicalCategory(product.category)) === key).length;
               const active = normalizeText(canonicalCategory(category)) === key;
               return <button type="button" key={key} className={active ? "sk-featured-category is-active" : "sk-featured-category"} aria-pressed={active} onClick={() => { setCategory(active ? "" : name); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
-                <span className="sk-featured-image sk-category-art" style={(() => { const image = safeImageUrl((data?.products || []).find(product => normalizeText(product.category || "") === key && safeImageUrl(product.image_url))?.image_url); return image ? { backgroundImage: `linear-gradient(0deg,rgba(20,32,45,.12),rgba(20,32,45,.02)),url("${image}")` } : undefined; })()}><i>{categoryGlyph(name, name)}</i></span>
+                <span className="sk-featured-image sk-category-art" style={(() => { const image = safeImageUrl(sourceProducts.find(product => normalizeText(canonicalCategory(product.category)) === key && safeImageUrl(product.image_url))?.image_url); return image ? { backgroundImage: `linear-gradient(0deg,rgba(20,32,45,.12),rgba(20,32,45,.02)),url("${image}")` } : undefined; })()}><i>{categoryGlyph(name, name)}</i></span>
                 <span className="sk-featured-copy"><b>{name}</b><small>{count.toLocaleString("fa-IR")} محصول ثبت‌شده</small></span><span className="sk-featured-arrow">←</span>
               </button>;
             })}
@@ -273,7 +277,7 @@ export default function StorePage() {
               </div>
             </article>;
           })}</div>
-          : <div className="sk-state"><b>{data?.products?.length ? "محصولی با این فیلتر پیدا نشد." : "هنوز محصول فعالی برای نمایش عمومی ثبت نشده است."}</b><p>{data?.products?.length ? "فیلتر دسته‌بندی یا عبارت جستجو را تغییر بده." : "پس از ثبت و فعال‌سازی محصولات واقعی، کالاها در این بخش نمایش داده می‌شوند."}</p>{(query || category) && <button type="button" onClick={() => { setQuery(""); setCategory(""); }}>نمایش همه کالاها</button>}</div>}
+          : <div className="sk-state"><b>{sourceProducts.length ? "محصولی با این فیلتر پیدا نشد." : isTechnolife ? "هنوز کالای دیجیتال فعالی در کاتالوگ ثبت نشده است." : "هنوز محصول فعالی برای نمایش عمومی ثبت نشده است."}</b><p>{sourceProducts.length ? "فیلتر دسته‌بندی یا عبارت جستجو را تغییر بده." : "پس از ثبت و فعال‌سازی محصولات واقعی، کالاها در این بخش نمایش داده می‌شوند."}</p>{(query || category) && <button type="button" onClick={() => { setQuery(""); setCategory(""); }}>نمایش همه کالاها</button>}</div>}
           {products.length > 12 && !showAllProducts && <div className="sk-more"><Link href="/store/shop">مشاهده همه {products.length.toLocaleString("fa-IR")} نتیجه <span>←</span></Link></div>}
           {showAllProducts && products.length > 12 && <div className="sk-catalog-meta"><span>نمایش همه نتایج دریافت‌شده از کاتالوگ</span><Link href="/">بازگشت به صفحه اصلی</Link></div>}
         </section>
@@ -290,7 +294,7 @@ export default function StorePage() {
       <footer className="sk-footer">
         <div className="sk-wrap sk-footer-main">
           <div className="sk-footer-brand">
-            <Link href="/" className="sk-logo"><span className="sk-logo-mark">س</span><span><b>سوکار</b><small>فروشگاه و بازارگاه</small></span></Link>
+            <Link href="/" className="sk-logo"><span className="sk-logo-mark">س</span><span><b>{isTechnolife ? "سوکار تک" : "سوکار"}</b><small>فروشگاه و بازارگاه</small></span></Link>
             <p>یک مسیر یکپارچه برای کشف کالا، مقایسه انتخاب‌ها و خرید از فروشگاه‌های ثبت‌شده.</p>
             <div className="sk-footer-domain"><span aria-hidden="true">↗</span><span><small>نشانی رسمی</small><b>sookar.ir</b></span></div>
           </div>
