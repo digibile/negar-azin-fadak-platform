@@ -69,7 +69,7 @@ router.patch("/api/identity/users/:id",requireAuth,guardWrite,requireCsrf,async(
  const {fullName,role,status}=req.body||{};
  const nationalIdRaw=req.body?.nationalId;
  const nationalId=nationalIdRaw===undefined?undefined:(typeof nationalIdRaw==="string"&&nationalIdRaw.trim()?nationalIdRaw.trim().replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))):null);
- if(nationalId!==undefined&&nationalId!==null&&!/^\\d{10}$/.test(nationalId))return res.status(400).json({error:"کد ملی باید ۱۰ رقم باشد"});
+ if(nationalId!==undefined&&nationalId!==null&&!/^\d{10}$/.test(nationalId))return res.status(400).json({error:"کد ملی باید ۱۰ رقم باشد"});
  if(fullName!==undefined&&(typeof fullName!=="string"||!fullName.trim()))return res.status(400).json({error:"نام کاربر معتبر نیست"});
  if(!isAdmin(req)&&(role!==undefined||status!==undefined))return res.status(403).json({error:"تغییر نقش یا وضعیت حساب فقط برای مدیر سامانه مجاز است"});
  if(role!==undefined){if(typeof role!=="string")return res.status(400).json({error:"نقش معتبر نیست"});const x=await query("select 1 from identity_roles where role_key=$1 and is_active=true",[role]);if(!x.rowCount)return res.status(400).json({error:"نقش معتبر نیست"});}
