@@ -533,3 +533,28 @@ html,body{font-family:"IRANSansX","Vazirmatn","Segoe UI",Tahoma,sans-serif;backg
 .public-home-footer{max-width:1360px;margin:auto;padding:19px 7.5%;border-top:1px solid #e0e7ed;display:flex;align-items:center;justify-content:space-between;gap:14px;color:#8997a7;font-size:9px}.public-home-footer>span:first-child{font-weight:800;color:#506278}.public-home-footer a{color:#07877f;font-weight:700}
 @media(max-width:900px){.public-home-hero{padding-top:45px;grid-template-columns:1fr .75fr}.public-home-visual{transform:scale(.83)}.public-home-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.public-home-header nav{gap:13px}}
 @media(max-width:650px){.public-home-header{height:auto;min-height:75px;padding:14px 18px;flex-wrap:wrap}.public-home-header nav{width:100%;justify-content:space-between;gap:8px;font-size:9px}.public-home-header nav .public-home-login{padding:9px 10px}.public-home-hero{display:flex;flex-direction:column;align-items:stretch;padding:43px 22px 15px;gap:10px}.public-home-copy h1{font-size:35px;line-height:1.55}.public-home-copy>p{font-size:12px}.public-home-proof{gap:18px;margin-top:27px}.public-home-visual{min-height:280px;transform:scale(.78);margin:-4px 0}.public-home-sections{padding:25px 18px 38px}.public-home-section-title h2{font-size:22px}.public-home-grid{grid-template-columns:1fr;gap:10px}.public-home-card{min-height:160px}.public-home-footer{padding:17px 18px;flex-wrap:wrap;line-height:1.8}.public-home-footer>span:nth-child(2){display:none}}
+
+
+/* Canonical 20-panel management dashboard */
+.canonical-panel-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.canonical-panel-card{min-width:0;overflow:hidden;background:#fff;border:1px solid #dfe6ed;border-radius:15px;box-shadow:0 7px 24px rgba(20,35,55,.035)}
+.canonical-panel-head{display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:start;gap:11px;padding:17px 16px 14px;border-bottom:1px solid #edf1f5}
+.canonical-panel-number{width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:#eaf5f3;color:#087d78;font-size:12px;font-weight:850;direction:ltr}
+.canonical-panel-heading{min-width:0}
+.canonical-panel-heading h3{margin:0;color:#203448;font-size:13px;line-height:1.8;font-weight:800}
+.canonical-panel-heading p{margin:4px 0 0;color:#8491a1;font-size:9px;line-height:1.9}
+.canonical-panel-status{white-space:nowrap;padding:4px 7px;border-radius:999px;background:#f1f4f7;color:#778596;font-size:8px}
+.canonical-panel-status.is-active{background:#e8f7f1;color:#187c62}
+.canonical-panel-status.is-idle{background:#fff4e4;color:#966522}
+.canonical-panel-links{padding:7px 12px}
+.canonical-panel-links a{display:grid;grid-template-columns:24px minmax(0,1fr) 20px;align-items:center;gap:9px;min-height:38px;padding:5px 7px;border-radius:8px;color:#42566a;text-decoration:none}
+.canonical-panel-links a:hover{background:#f3f8f8;color:#087d78}
+.canonical-panel-links a>span{color:#a1adba;font-size:8px;direction:ltr;text-align:center}
+.canonical-panel-links a>b{font-size:10px;font-weight:650;line-height:1.8}
+.canonical-panel-links a>i{font-style:normal;color:#9aa8b6;font-size:13px;text-align:center}
+.canonical-panel-more{margin:4px 7px 7px;padding:8px 9px;border-right:2px solid #d5e8e5;color:#8291a0;font-size:8px}
+.canonical-panel-card>footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-top:1px solid #edf1f5;background:#fafcfd;color:#8996a5;font-size:8px}
+.canonical-panel-card>footer a{display:flex;align-items:center;gap:8px;color:#087d78;font-weight:800;text-decoration:none;font-size:9px}
+.canonical-panel-card>footer a b{font-size:15px}
+@media(max-width:1050px){.canonical-panel-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.canonical-panel-head{grid-template-columns:32px minmax(0,1fr);gap:9px;padding:14px 12px}.canonical-panel-number{width:31px;height:31px}.canonical-panel-status{grid-column:2;justify-self:start}.canonical-panel-heading h3{font-size:12px}.canonical-panel-card>footer{padding:11px 12px}.dashboard-toolbar{align-items:stretch;flex-direction:column}.dashboard-search{width:100%;box-sizing:border-box}.executive-kpis{gap:8px}.executive-kpis article{padding:13px}.executive-kpis b{font-size:23px}}
