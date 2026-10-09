@@ -15,7 +15,6 @@ import LogisticsWorkspace from "./LogisticsWorkspace";
 import WalletLedgerWorkspace from "./WalletLedgerWorkspace";
 import DashboardWorkspace from "./DashboardWorkspace";
 import OrganizationWorkspace from "./OrganizationWorkspace";
-import SecurityWorkspace from "./SecurityWorkspace";
 import IdentityWorkspace from "./IdentityWorkspace";
 import MasterDataWorkspace from "./MasterDataWorkspace";
 import Customer360Workspace from "./Customer360Workspace";
@@ -180,7 +179,7 @@ function ModulesContent(){
 const CANONICAL_WORKSPACES: Record<string, React.ReactNode> = {
   "01-dashboard": <DashboardWorkspace />,
   "02-organizations": <OrganizationWorkspace />,
-  "03-users-access": <SecurityWorkspace />,
+  "03-users-access": <IdentityWorkspace />,
   "04-customers-360": <Customer360Workspace />,
   "05-smart-calendar": <SmartCalendarWorkspace />,
   "06-business-rules": <BusinessRulesWorkspace />,
@@ -285,7 +284,7 @@ function CanonicalModuleLanding({ code, module, menuChildren, error, activeMenu,
  if(code==="09-treasury-bank")return <TreasuryBankWorkspace/>
 if(code==="10-wallet-ledger")return <WalletLedgerWorkspace/>;
  if(code==="01-governance"||code==="dashboard"||code==="governance")return <DashboardWorkspace/>;
- if(code==="security")return <SecurityWorkspace/>;
+ if(code==="security")return <IdentityWorkspace/>;
  if(code==="02-identity")return <IdentityWorkspace/>;
  if(code==="03-master-data")return <MasterDataWorkspace/>;
  if(code==="04-customer-360")return <Customer360Workspace/>;
