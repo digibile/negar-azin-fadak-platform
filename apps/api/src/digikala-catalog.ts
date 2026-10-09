@@ -15,6 +15,8 @@ export type DigikalaCatalogProduct = {
   brand: string | null;
   rating: number | null;
   source_available: boolean | null;
+  specifications: Array<{ group: string; items: Array<{ name: string; values: string[] }> }>;
+  gallery_images: string[];
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -77,6 +79,50 @@ function productUrl(product: UnknownRecord, id: string): string {
   if (value && /^https:\/\//i.test(value)) return value;
   if (value && value.startsWith("/")) return "https://www.digikala.com" + value;
   return "https://www.digikala.com/product/dkp-" + encodeURIComponent(id) + "/";
+}
+
+function normalizedSpecifications(product: UnknownRecord): Array<{ group: string; items: Array<{ name: string; values: string[] }> }> {
+  const raw = product.specifications ?? product.specs ?? product.product_specifications;
+  if (!Array.isArray(raw)) return [];
+  return raw.map((entry, index) => {
+    const groupRecord = record(entry);
+    const group = textValue(groupRecord.title) || textValue(groupRecord.name) || textValue(groupRecord.title_fa) || "مشخصات";
+    const rawItems = groupRecord.attributes ?? groupRecord.items ?? groupRecord.specifications;
+    if (!Array.isArray(rawItems)) return null;
+    const items = rawItems.map((rawItem) => {
+      const item = record(rawItem);
+      const name = textValue(item.title) || textValue(item.name) || textValue(item.title_fa) || textValue(item.label);
+      const rawValues = item.values ?? item.value ?? item.values_fa;
+      const values = (Array.isArray(rawValues) ? rawValues : [rawValues])
+        .map((value) => typeof value === "string" || typeof value === "number" ? String(value).trim() : textValue(record(value).title) || textValue(record(value).value) || "")
+        .filter(Boolean)
+        .slice(0, 20);
+      return name && values.length ? { name, values } : null;
+    }).filter((item): item is { name: string; values: string[] } => item !== null);
+    return items.length ? { group, items } : null;
+  }).filter((group): group is { group: string; items: Array<{ name: string; values: string[] }> } => group !== null).slice(0, 30);
+}
+
+function galleryImages(product: UnknownRecord, primary: string): string[] {
+  const images = record(product.images);
+  const candidates: unknown[] = [
+    images.gallery,
+    images.list,
+    images.items,
+    product.gallery_images,
+    product.images_list
+  ];
+  const urls = [primary];
+  for (const candidate of candidates) {
+    if (!Array.isArray(candidate)) continue;
+    for (const value of candidate) {
+      const item = record(value);
+      const possible = typeof value === "string" ? value : textValue(item.url) || textValue(item.src) || textValue(item.image_url);
+      if (possible && /^https:\/\//i.test(possible) && !urls.includes(possible)) urls.push(possible);
+      if (urls.length >= 12) return urls;
+    }
+  }
+  return urls;
 }
 
 export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: string): DigikalaCatalogProduct[] {
@@ -144,7 +190,9 @@ export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: st
       source_type: "external-reference",
       brand,
       rating: Number.isFinite(ratingNumber) && ratingNumber > 0 && ratingNumber <= 5 ? ratingNumber : null,
-      source_available: sourceAvailable
+      source_available: sourceAvailable,
+      specifications: normalizedSpecifications(product),
+      gallery_images: galleryImages(product, image)
     });
   }
   return normalized;
