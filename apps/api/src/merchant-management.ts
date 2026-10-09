@@ -55,12 +55,12 @@ merchantRouter.post("/api/merchants",requireAuth,requirePermission("merchant:man
 merchantRouter.patch("/api/merchants/:id",requireAuth,requirePermission("merchant:manage"),asyncHandler(async(req,res)=>{
   const t=await tenant(req);
   if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
-  const businessType=str(req.body?.businessType,30)||"company";
-  const commissionRate=num(req.body?.commissionRate??0);
-  if(!["individual","company","organization"].includes(businessType))return res.status(400).json({error:"نوع پذیرنده نامعتبر است"});
-  if(commissionRate===null||commissionRate<0||commissionRate>100)return res.status(400).json({error:"نرخ کارمزد نامعتبر است"});
+  const businessType=req.body?.businessType===undefined?null:str(req.body?.businessType,30);
+  const commissionRate=req.body?.commissionRate===undefined?null:num(req.body?.commissionRate);
+  if(businessType!==null&&!["individual","company","organization"].includes(businessType))return res.status(400).json({error:"نوع پذیرنده نامعتبر است"});
+  if(commissionRate!==null&&(commissionRate<0||commissionRate>100))return res.status(400).json({error:"نرخ کارمزد نامعتبر است"});
   const r=await query(
-    "update payment_merchants set legal_name=coalesce($1,legal_name),display_name=coalesce($2,display_name),business_type=$3,national_id=coalesce($4,national_id),tax_id=coalesce($5,tax_id),iban=coalesce($6,iban),settlement_account_ref=coalesce($7,settlement_account_ref),contract_ref=coalesce($8,contract_ref),commission_rate=$9,updated_at=now() where id=$10 and tenant_id=$11 returning *",
+    "update payment_merchants set legal_name=coalesce($1,legal_name),display_name=coalesce($2,display_name),business_type=coalesce($3,business_type),national_id=coalesce($4,national_id),tax_id=coalesce($5,tax_id),iban=coalesce($6,iban),settlement_account_ref=coalesce($7,settlement_account_ref),contract_ref=coalesce($8,contract_ref),commission_rate=coalesce($9,commission_rate),updated_at=now() where id=$10 and tenant_id=$11 returning *",
     [str(req.body?.legalName,250)||null,str(req.body?.displayName,250)||null,businessType,str(req.body?.nationalId,80)||null,str(req.body?.taxId,80)||null,str(req.body?.iban,50)||null,str(req.body?.settlementAccountRef,120)||null,str(req.body?.contractRef,120)||null,commissionRate,req.params.id,t.id]
   );
   if(!r.rowCount)return res.status(404).json({error:"پذیرنده پیدا نشد"});
