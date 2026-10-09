@@ -620,3 +620,11 @@ html,body{font-family:"IRANSansX","Vazirmatn","Segoe UI",Tahoma,sans-serif;backg
 .dashboard-quick-action>i{font-style:normal;color:#d92f45;font-size:16px}
 .dashboard-quick-action-primary{background:linear-gradient(135deg,#fff,#fff9f9);border-color:#f2d9dc}
 @media(max-width:900px){.dashboard-quick-actions{grid-template-columns:1fr;max-width:none}.dashboard-quick-action{padding:11px 12px}}
+
+/* Per-brand login palette. */
+.naf-login{--naf-accent:#c9a227;--naf-accent-dark:#8a6c17}
+.naf-brand-mark{background:linear-gradient(145deg,var(--naf-accent),var(--naf-accent-dark));box-shadow:0 10px 25px color-mix(in srgb,var(--naf-accent) 18%,transparent)}
+.naf-login-form input[type=email]:focus,.naf-login-form input[type=password]:focus{border-color:var(--naf-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--naf-accent) 14%,transparent)}
+.naf-primary{background:linear-gradient(135deg,var(--naf-accent),var(--naf-accent-dark));box-shadow:0 10px 24px color-mix(in srgb,var(--naf-accent) 25%,transparent)}
+.naf-primary:hover{box-shadow:0 16px 28px -10px color-mix(in srgb,var(--naf-accent) 55%,transparent)}
+.naf-core{color:var(--naf-accent)}
