@@ -82,7 +82,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          HTTP_CODE="$(curl --silent --show-error --max-time 12 -H 'accept: application/json' -H 'user-agent: SookarCatalogReference/1.0 (+https://sookar.ir)' -o /tmp/digikala-source.json -w '%{http_code}' 'https://api.digikala.com/v1/search/?q=%DA%AF%D9%88%D8%B4%DB%8C%20%D9%85%D9%88%D8%A8%D8%A7%DB%8C%D9%84&page=1' 2>/tmp/digikala-source.err)"
+          HTTP_CODE="$(curl --location --silent --show-error --max-time 12 -H 'accept: application/json' -H 'user-agent: SookarCatalogReference/1.0 (+https://sookar.ir)' -o /tmp/digikala-source.json -w '%{http_code}' 'https://api.digikala.com/v1/search/?q=%DA%AF%D9%88%D8%B4%DB%8C%20%D9%85%D9%88%D8%A8%D8%A7%DB%8C%D9%84&page=1' 2>/tmp/digikala-source.err)"
           CURL_STATUS=$?
           set -e
           if [ "$CURL_STATUS" -ne 0 ] || [ "$HTTP_CODE" != "200" ]; then
