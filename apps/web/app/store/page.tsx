@@ -23,7 +23,7 @@ type Product = {
   rating?: number | null;
 };
 type Store = { id: string; name: string; slug: string; seller_name: string };
-type Catalog = { tenant?: { name?: string }; products: Product[]; stores?: Store[]; categories?: string[]; total?: number };
+type Catalog = { tenant?: { name?: string }; products: Product[]; stores?: Store[]; categories?: string[]; total?: number; referenceCatalogStatus?: "live" | "unavailable" };
 
 const money = (value: string, currency: string) => {
   const amount = Number(value);
@@ -108,7 +108,8 @@ export default function StorePage() {
         ...(marketplace || { products: [], stores: [], categories: [] }),
         products: combined,
         categories: [...new Set(categoryNames)],
-        total: combined.length
+        total: combined.length,
+        referenceCatalogStatus: referenceResult.status === "fulfilled" ? referenceResult.value.sourceStatus : "unavailable"
       });
       setError("");
     }).catch(reason => {
@@ -218,7 +219,7 @@ export default function StorePage() {
         </section>
 
         <section className="sk-catalog" id="sk-products" aria-labelledby="sk-products-title">
-          <div className="sk-section-heading"><div><span className="sk-eyebrow">کاتالوگ بازارگاه</span><h2 id="sk-products-title">محصولات برای انتخاب تو</h2><p>محصولات فعال با اطلاعات ثبت‌شدهٔ فروشندگان نمایش داده می‌شوند.</p></div><Link href="/marketplace" className="sk-section-link">رفتن به بازارگاه <span>←</span></Link></div>
+          <div className="sk-section-heading"><div><span className="sk-eyebrow">کاتالوگ بازارگاه</span><h2 id="sk-products-title">محصولات برای انتخاب تو</h2><p>کالاهای فعال بازارگاه و محصولات مرجع با پیوند به منبع اصلی نمایش داده می‌شوند.</p>{data?.referenceCatalogStatus === "unavailable" && <small className="sk-source-status-note">منبع زندهٔ دیجی‌کالا در دسترس نیست؛ فقط کالاهای داخلی نمایش داده می‌شوند.</small>}</div><Link href="/marketplace" className="sk-section-link">رفتن به بازارگاه <span>←</span></Link></div>
 
           <div className="sk-category-row" aria-label="فیلتر دسته‌بندی">
             <button type="button" className={!category ? "sk-category-chip is-active" : "sk-category-chip"} onClick={() => setCategory("")}>همه کالاها</button>
