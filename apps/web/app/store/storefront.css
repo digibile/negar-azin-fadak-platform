@@ -385,3 +385,28 @@
 .sk-store--technolife .sk-benefit-icon{background:#fff4e2}
 .sk-store--technolife .sk-featured-category:hover,.sk-store--technolife .sk-featured-category.is-active{border-color:#f3c47f}
 .sk-store--technolife .sk-featured-category.is-active{background:#fffaf1}
+
+
+/* Ava: original premium, calm storefront identity. */
+.sk-store--ava{--sk-primary:#635bdb;--sk-primary-dark:#4841b5;--sk-canvas:#f7f7fc;color:#22243a}
+.sk-store--ava .sk-header{background:#fff;border-bottom:1px solid #ecebfa}
+.sk-store--ava .sk-logo-mark{background:linear-gradient(145deg,#8b83ff,#554bc4);color:#fff;box-shadow:0 8px 20px #635bdb26}
+.sk-store--ava .sk-hero{background:radial-gradient(ellipse at 82% 12%,#dcd9ff 0,transparent 36%),linear-gradient(120deg,#f1efff 0%,#fbfaff 58%,#e9f7f4 100%);border:1px solid #e4e1ff}
+.sk-store--ava .sk-hero-kicker{color:#554bc4}
+.sk-store--ava .sk-hero h1 em{color:#635bdb}
+.sk-store--ava .sk-art-core{background:linear-gradient(145deg,#8d85ff,#4c43b8);box-shadow:0 18px 38px #635bdb2b}
+.sk-store--ava .sk-benefit-icon{background:#eeecff;color:#554bc4}
+.sk-store--ava .sk-featured-category:hover,.sk-store--ava .sk-featured-category.is-active{border-color:#c8c3ff}
+.sk-store--ava .sk-featured-category.is-active{background:#f6f4ff}
+.sk-store--ava .sk-category-chip.is-active,.sk-store--ava .sk-product-cta,.sk-store--ava .sk-more a{background:#635bdb;color:#fff}
+.sk-store--ava .sk-product-card{border-color:#eeedf7;border-radius:16px;box-shadow:0 5px 20px #25234a08}
+.sk-store--ava .sk-product-card:hover{border-color:#c8c3ff;box-shadow:0 14px 32px #635bdb12}
+.sk-store--ava .sk-product-visual{background:linear-gradient(180deg,#fbfaff,#f5f4ff)}
+.sk-store--ava .sk-product-price strong{color:#554bc4}
+.sk-store--ava .sk-market-banner{background:linear-gradient(115deg,#29254e,#5148b7);border-radius:20px}
+.sk-store--ava .sk-market-banner h2,.sk-store--ava .sk-market-banner p{color:#fff}
+.sk-store--ava .sk-market-banner a{background:#fff;color:#4f46b8}
+.sk-store--ava .sk-banner-symbol>span{background:linear-gradient(145deg,#9d96ff,#5b51cb);color:#fff}
+.sk-store--ava .sk-footer{background:#211f3b}
+.sk-store--ava .sk-footer-brand p,.sk-store--ava .sk-footer-column a,.sk-store--ava .sk-footer-bottom{color:#c5c3df}
+.sk-store--ava .sk-footer-brand .sk-logo b,.sk-store--ava .sk-footer-column>b{color:#fff}
