@@ -487,3 +487,55 @@
 .sk-store--digikala .sk-service-strip{background:#292e36}
 .sk-store--technolife .sk-header{border-bottom:2px solid #f28c00}
 .sk-store--technolife .sk-footer{background:#10283a}
+
+
+/* Brand-specific storefront behavior: distinct navigation rhythm and catalog treatment. */
+.sk-store--digikala .sk-service-strip{background:#30343b;color:#f8fafc}
+.sk-store--digikala .sk-logo-mark{border-radius:50%;background:#e5322b;box-shadow:none}
+.sk-store--digikala .sk-search{border-radius:8px;background:#f0f0f1;border-color:#f0f0f1}
+.sk-store--digikala .sk-main-nav{border-top:1px solid #eceef0;border-bottom:1px solid #e3e5e8;background:#fff}
+.sk-store--digikala .sk-nav-inner{min-height:44px;gap:24px}
+.sk-store--digikala .sk-nav-inner .sk-all-cats{background:transparent;color:#343a40;border-radius:0;border-bottom:2px solid #e5322b}
+.sk-store--digikala .sk-hero{border-radius:14px}
+.sk-store--digikala .sk-product-card{border-radius:4px;box-shadow:none}
+.sk-store--digikala .sk-product-card:hover{box-shadow:0 5px 18px #202a3514;border-color:#e1e5e9}
+
+.sk-store--technolife .sk-service-strip{background:#092b43;color:#eaf5fc}
+.sk-store--technolife .sk-header{box-shadow:0 3px 14px #102a4310}
+.sk-store--technolife .sk-logo-mark{border-radius:9px;background:#f28c00;color:#142d43;box-shadow:none}
+.sk-store--technolife .sk-search{border:1px solid #dfe7ee;border-radius:7px;background:#f7f9fb}
+.sk-store--technolife .sk-main-nav{background:#123b59;border-top:0;border-bottom:3px solid #f28c00}
+.sk-store--technolife .sk-nav-inner{min-height:46px;gap:25px}
+.sk-store--technolife .sk-nav-inner>a{color:#f1f6fa}
+.sk-store--technolife .sk-nav-inner>a:hover{color:#ffb84f}
+.sk-store--technolife .sk-nav-inner .sk-all-cats{background:transparent;color:#fff;border-radius:0}
+.sk-store--technolife .sk-category-nav-menu .sk-all-cats>span:first-child{color:#ffb84f}
+.sk-store--technolife .sk-category-nav-mega .sk-category-mega-list button:hover,
+.sk-store--technolife .sk-category-nav-mega .sk-category-mega-list button.is-active{background:#fff5e5;color:#b96500}
+.sk-store--technolife .sk-category-mega-children>button:hover,
+.sk-store--technolife .sk-category-mega-content>header>button{color:#d97800}
+.sk-store--technolife .sk-hero{border-radius:10px}
+.sk-store--technolife .sk-product-card{border-radius:8px}
+.sk-store--technolife .sk-product-cta{border-radius:6px}
+
+.sk-store--digibile .sk-service-strip{font-size:12px}
+.sk-store--digibile .sk-header-main{min-height:88px}
+.sk-store--digibile .sk-logo-mark{border-radius:12px}
+.sk-store--digibile .sk-search{border-radius:16px;background:#f0f7f9;border-color:#e0eef2}
+.sk-store--digibile .sk-main-nav{background:#f9fcfd;border-top:1px solid #e4f0f3;border-bottom:1px solid #d7e8ee}
+.sk-store--digibile .sk-nav-inner{min-height:52px;gap:22px}
+.sk-store--digibile .sk-nav-inner .sk-all-cats{padding:9px 13px;background:#e4f5f8;border-radius:10px;color:#0b5265}
+.sk-store--digibile .sk-category-nav-mega .sk-category-mega-list button:hover,
+.sk-store--digibile .sk-category-nav-mega .sk-category-mega-list button.is-active{background:#e5f7fa;color:#0e7490}
+.sk-store--digibile .sk-category-nav-mega .sk-category-mega-list button.is-active>span{background:#cceff4;color:#0e7490}
+.sk-store--digibile .sk-category-mega-children>button:hover,
+.sk-store--digibile .sk-category-mega-content>header>button{color:#0e7490}
+.sk-store--digibile .sk-hero{border-radius:24px}
+.sk-store--digibile .sk-product-card{border-radius:16px;box-shadow:0 6px 22px #0e526a0b}
+.sk-store--digibile .sk-product-card:hover{border-color:#9bd8e2;box-shadow:0 14px 30px #0e526a16}
+@media(max-width:760px){
+  .sk-store--technolife .sk-main-nav{background:#123b59}
+  .sk-store--technolife .sk-nav-inner{min-height:42px}
+  .sk-store--digikala .sk-nav-inner{min-height:42px}
+  .sk-store--digibile .sk-nav-inner{min-height:46px}
+}
