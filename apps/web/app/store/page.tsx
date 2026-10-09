@@ -123,15 +123,11 @@ export default function StorePage() {
     return aliases.find(([pattern]) => pattern.test(key))?.[1] || BROWSE_CATEGORIES.find(name => normalizeText(name) === key) || "سایر کالاها";
   };
 
-  const categories = useMemo(() => {
-    const available = new Set([
-      ...(data?.categories || []).map(name => canonicalCategory(name)),
-      ...(data?.products || []).map(product => canonicalCategory(product.category))
-    ].filter(Boolean));
-    return BROWSE_CATEGORIES
-      .filter(name => available.has(name))
-      .map(name => [normalizeText(name), name] as [string, string]);
-  }, [data]);
+  const categories = useMemo(() =>
+    BROWSE_CATEGORIES
+      .filter(name => name !== "سایر کالاها")
+      .map(name => [normalizeText(name), name] as [string, string]),
+  []);
 
   const products = useMemo(() => {
     const needle = normalizeText(query);
