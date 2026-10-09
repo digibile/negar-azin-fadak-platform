@@ -69,6 +69,7 @@ app.disable("x-powered-by");
 app.use(cors({origin:(origin,callback)=>{if(!origin||allowedOrigins.includes(origin))return callback(null,true);callback(new Error("مبدأ درخواست مجاز نیست"))},credentials:true}));
 app.use(express.json({limit:"12mb",verify:(req,_,buf)=>{(req as any).rawBody=Buffer.from(buf)}}));
 app.use(express.urlencoded({extended:false,limit:"2mb"}));
+app.use("/api/public/media",express.static(process.env.MEDIA_ROOT||"/app/media",{dotfiles:"deny",index:false,immutable:true,maxAge:"365d",setHeaders:(res)=>res.setHeader("X-Content-Type-Options","nosniff")}));
 app.use((req,res,next)=>{if(["GET","HEAD","OPTIONS"].includes(req.method)||req.path==="/api/auth/login"||(req.method==="POST"&&/^\/api\/payment-gateways\/[^/]+\/webhook$/.test(req.path)))return next();return requireCsrf(req,res,next);});
 
 app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.json({status:"ok",database:"ok"});}));
