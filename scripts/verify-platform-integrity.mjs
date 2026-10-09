@@ -118,7 +118,7 @@ for(const panel of panelRoutes){
   if(!declaredCodes.has(decodeURIComponent(match[1])))throw new Error("Canonical panel route has no registered module destination: "+panel[1]+" -> "+route);
   continue;
  }
- const pathname=route.split("?")[0].replace(/^\\/+|\\/+$/g,"");
+  const pathname=route.split("?")[0].split("/").filter(Boolean).join("/");
  const routeFile=path.join(root,"apps/web/app",pathname,"page.tsx");
  if(!fs.existsSync(routeFile))throw new Error("Canonical panel direct route has no page implementation: "+panel[1]+" -> "+route);
 }
