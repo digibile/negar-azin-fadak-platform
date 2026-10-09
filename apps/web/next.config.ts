@@ -4,7 +4,8 @@ const apiInternalUrl = process.env.API_INTERNAL_URL || "http://api:4000";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: "standalone",
+  // Vercel manages its own build output; standalone is only for the Docker deployment.
+  ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
   images: { unoptimized: true },
   trailingSlash: false,
   async rewrites() {

@@ -1,5 +1,4 @@
 {
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @naf/web build",
-  "outputDirectory": "apps/web/out"
+  "buildCommand": "pnpm --filter @naf/web build"
 }
