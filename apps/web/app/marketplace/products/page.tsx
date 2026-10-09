@@ -421,7 +421,7 @@ export default function ProductsPage() {
       : <div className="mp-source-sync-list">{sourceLinks.map(link => <article className="mp-source-sync-row" key={link.id}>
         <div className="mp-product-name"><b>{link.title}</b><small>{link.sku} · {link.source_name} · {link.source_sku || link.source_product_id}</small></div>
         <div><small>قیمت منبع</small><strong>{link.source_price == null ? "ثبت نشده" : money(link.source_price,link.source_currency)}</strong></div>
-        <div><small>قیمت فروش خودت</small><strong>{money(link.sale_price,link.source_currency)}</strong></div>
+        <div><small>قیمت فروش خودت</small><strong>{Number(link.sale_price)>0?money(link.sale_price,link.source_currency):"نیازمند قیمت‌گذاری"}</strong></div>
         <div><small>وضعیت منبع</small><strong>{link.source_available === true ? "موجود اعلام شده" : link.source_available === false ? "ناموجود اعلام شده" : "نامشخص"}</strong></div>
         <div className="mp-source-policy"><small>سیاست قیمت فروش</small><strong>مستقل و تحت کنترل شما</strong><span>به‌روزرسانی مرجع هیچ‌گاه قیمت فروش داخلی را تغییر نمی‌دهد.</span></div>
         <small className="mp-source-sync-meta">{link.last_success_at ? "آخرین همگام‌سازی: "+new Date(link.last_success_at).toLocaleString("fa-IR") : "هنوز همگام‌سازی موفقی ثبت نشده"}{link.last_error ? " · خطا: "+link.last_error : ""}</small>
