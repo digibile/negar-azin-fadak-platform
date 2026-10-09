@@ -166,10 +166,15 @@ const storefront=fs.readFileSync(path.join(root,"apps/web/app/store/page.tsx"),"
 const productDetail=fs.readFileSync(path.join(root,"apps/web/app/store/product/[slug]/page.tsx"),"utf8");
 if(!productDetail.includes('|| "https://sookar.ir"')||!productDetail.includes('"x-forwarded-host":publicHost')||productDetail.includes("negarzinfadak.ir")||productDetail.includes("schema.org/InStock"))throw new Error("Product detail must resolve the Sookar catalog host and avoid unverified stock claims");
 const publicCatalogApi=fs.readFileSync(path.join(root,"apps/api/src/domain-marketplace.ts"),"utf8");
+const categoryMigration=fs.readFileSync(path.join(root,"database/migrations/126_storefront_category_taxonomy.sql"),"utf8");
 const productManagement=fs.readFileSync(path.join(root,"apps/web/app/marketplace/products/page.tsx"),"utf8");
 const sellerManagement=fs.readFileSync(path.join(root,"apps/web/app/marketplace/sellers/page.tsx"),"utf8");
 const storeDirectory=path.join(root,"apps/web/app/marketplace/directory/page.tsx");
 if(!publicCatalogApi.includes('domainMarketplaceRouter.get("/api/public/marketplace"')||!publicCatalogApi.includes("p.status='active'")||!publicCatalogApi.includes("sl.status='active'"))throw new Error("Public catalog must expose only published products from active sellers");
+if(!categoryMigration.includes("create table if not exists marketplace_categories")||!categoryMigration.includes("unique(tenant_id,code)")||!categoryMigration.includes("where t.status='active'"))throw new Error("Persistent tenant-scoped category taxonomy migration is incomplete");
+if(!publicCatalogApi.includes('domainMarketplaceRouter.get("/api/marketplace/categories"')||!publicCatalogApi.includes("from marketplace_categories where tenant_id=$1 and status='active'"))throw new Error("Authenticated category API must read the tenant-scoped taxonomy");
+if(!productManagement.includes('api<{items:Category[]}>("/api/marketplace/categories")')||!productManagement.includes("categories.map(item => <option"))throw new Error("Product entry must select categories from the central database taxonomy");
+
 if(!storefront.includes("showAllProducts ? products.length : 12")||!storefront.includes("normalizeText(product.category || \"\") === selectedCategory")||!storefront.includes("categories.slice(0, 8)")||!storefront.includes("BROWSE_CATEGORIES")||!storefront.includes("دسته‌بندی‌های اصلی بازارگاه")||!storefront.includes("Counts and product cards remain driven exclusively by the live catalog API"))throw new Error("Storefront must expose the full shop catalog, visible browse taxonomy, normalized filters, and live-only product data");
 if(!productManagement.includes("/status")||!productManagement.includes("انتشار محصول")||!productManagement.includes("فعال‌سازی فروشنده لازم است"))throw new Error("Product management must support publishing and explain seller activation requirements");
 if(!sellerManagement.includes("/status")||!sellerManagement.includes("فعال‌سازی فروشنده"))throw new Error("Seller management must provide explicit activation controls");
