@@ -51,7 +51,7 @@ if(!commandPage.includes("/api/domain/monitoring-events")||!commandPage.includes
 if(!operationsPage.includes('const target=[')||!operationsPage.includes('مرکز عملیات ۱۹ تا ۲۷'))throw new Error("Stage 19-27 operations page missing");
 const forbidden=new RegExp("(^|[^A-Za-z])"+String.fromCharCode(69,82,80)+"([^A-Za-z]|$)","i");
 for(const file of [migration,storage,runtime,stage1927,stage2835,stage3645,server,command,commerce,communication,organization,operationsPage,commandPage])if(forbidden.test(file))throw new Error("Forbidden terminology detected");
-const panelEntries=[...masterMenu.matchAll(/\\{code:"([^"]+)",number:"(\\d{2})",title:/g)];
+const panelEntries=[...masterMenu.matchAll(/code:"([^"]+)",number:"([0-9]{2})",title:/g)];
 if(panelEntries.length!==20)throw new Error("Master menu must contain exactly 20 canonical panels; found "+panelEntries.length);
 const panelNumbers=panelEntries.map(x=>x[2]);
 if(new Set(panelNumbers).size!==20||panelNumbers.some((x,i)=>x!==String(i+1).padStart(2,"0")))throw new Error("Canonical panel numbers must be unique and ordered 01-20");
