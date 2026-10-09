@@ -142,7 +142,7 @@ const workflowDir=path.join(root,".github/workflows");
 const workflowFiles=fs.readdirSync(workflowDir).filter(name=>/\.ya?ml$/i.test(name));
 if(workflowFiles.length!==1||workflowFiles[0]!=="deploy-sookar-main.yml")throw new Error("Deployment workflow must have exactly one canonical entry point; found: "+workflowFiles.join(", "));
 const deployWorkflow=fs.readFileSync(path.join(workflowDir,"deploy-sookar-main.yml"),"utf8");
-if(/^\s*push\s*:/m.test(deployWorkflow)&&!deployWorkflow.includes("if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}"))throw new Error("Main pushes and manual reviewed releases must run the unified build job");
+if(/^\s*push\s*:/m.test(deployWorkflow)&&!deployWorkflow.includes("if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}")&&!deployWorkflow.includes("if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}"))throw new Error("Main pushes and manual reviewed releases must run the unified build job");
 if(!/^on:\s*\n(?:[\s\S]*?\n)?\s+workflow_dispatch:/m.test(deployWorkflow))throw new Error("Unified workflow must expose one explicit manual build/deploy entry point");
 if(!dynamicMenu.includes('router.get("/api/dashboard/menu-tree"')||!server.includes("app.use(dynamicMenuRouter)"))throw new Error("Canonical dashboard menu-tree API is missing or not mounted");
 if(!deployWorkflow.includes("workflow_dispatch:")||!deployWorkflow.includes("deploy_to_server:")||!deployWorkflow.includes("default: false"))throw new Error("Manual deployment must require an explicit approval input");
