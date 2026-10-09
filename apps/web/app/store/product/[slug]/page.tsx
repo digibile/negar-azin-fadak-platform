@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AddToCartButton } from "../../cart-actions";
 
-type Product={id:string;sku:string;title:string;description:string|null;category:string|null;price:string;currency:string;seller_name:string;store_id:string|null;image_url?:string|null};
+type Product={id:string;sku:string;title:string;description:string|null;category:string|null;price:string;currency:string;seller_name:string;store_id:string|null;image_url?:string|null;attributes?:Record<string,unknown>|null};
 type BuyingOptions={cash:{amount:number;currency:string;source:string;marketLowest:number|null};financingPrograms:Array<{id:string;title:string;rate_percent:string;fixed_fee:string;approval_business_days_min:number;approval_business_days_max:number;min_term_months:number|null;max_term_months:number|null;brand_title:string|null;supplier_name:string}>;deliveryMethods:Array<{id:string;title:string;carrier_type:string;business_days_min:number;business_days_max:number;cost:number}>};
 
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || process.env.PUBLIC_ORIGIN || "https://sookar.ir").replace(/\/$/, "");
@@ -42,6 +42,10 @@ export default async function Product({params}:{params:Promise<{slug:string}>}){
  if(!product)return <main className="sookar-store" dir="rtl"><section className="store-section"><div className="product-card"><h2>محصول پیدا نشد</h2><p>این محصول در کاتالوگ عمومی سامانه فعال نیست.</p><Link href="/store/shop">بازگشت به کاتالوگ</Link></div></section></main>;
  const options=await getBuyingOptions(product.id);
  const cashPrice=options?.cash.amount??Number(product.price);
+ const attributes=product.attributes||{};
+ const gallery=Array.isArray(attributes.galleryImages)?attributes.galleryImages.filter((url):url is string=>typeof url==="string"&&(url.startsWith("https://")||(url.startsWith("/")&&!url.startsWith("//")))).slice(0,8):[];
+ const images=[...new Set([product.image_url,...gallery].filter((url):url is string=>typeof url==="string"&&(url.startsWith("https://")||(url.startsWith("/")&&!url.startsWith("//")))) )].slice(0,9);
+ const specifications=Array.isArray(attributes.specifications)?attributes.specifications as Array<{group?:string;items?:Array<{name?:string;values?:string[]}>}>:[];
  const jsonLd={
    "@context":"https://schema.org",
    "@type":"Product",
@@ -61,9 +65,10 @@ export default async function Product({params}:{params:Promise<{slug:string}>}){
    <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd)}} />
    <header className="store-header"><Link href="/store" className="store-logo"><b>سوکار</b><span>محصول</span></Link><Link href="/store/shop" className="store-search">بازگشت به فروشگاه</Link><nav><Link href="/store/cart">سبد خرید</Link><Link href="/pay">خرید اعتباری</Link></nav></header>
    <section className="sk-product-detail">
-     <div className="sk-product-detail-media">{product.image_url ? <img src={product.image_url} alt={product.title} /> : <div className="sk-product-detail-no-image">تصویر محصول ثبت نشده</div>}</div>
+     <div className="sk-product-detail-media">{images.length ? <><img className="sk-product-main-image" src={images[0]} alt={product.title} />{images.length>1&&<div className="sk-product-gallery-thumbs">{images.slice(1).map((image,index)=><a href={image} target="_blank" rel="noreferrer" key={image} aria-label={"نمایش تصویر "+(index+2)}><img src={image} alt={product.title+" - تصویر "+(index+2)} loading="lazy" /></a>)}</div>}</> : <div className="sk-product-detail-no-image">تصویر محصول ثبت نشده</div>}</div>
      <div className="sk-product-detail-copy"><span className="sk-product-breadcrumb"><Link href="/">خانه</Link> / <Link href="/store/shop">فروشگاه</Link> / {product.category||"محصول"}</span><h1>{product.title}</h1><p>{product.description||"توضیحات تکمیلی این محصول هنوز توسط فروشنده ثبت نشده است."}</p><div className="sk-product-seller-line"><span>فروشنده</span><strong>{product.seller_name||"فروشنده ثبت‌شده"}</strong></div><div className="sk-product-detail-price"><small>قیمت ثبت‌شده</small><strong>{cashPrice.toLocaleString("fa-IR")} {product.currency}</strong>{options&&options.cash.marketLowest!==null&&<span>کمترین قیمت تأییدشده بازار: {Number(options.cash.marketLowest).toLocaleString("fa-IR")} {product.currency}</span>}</div><div className="sk-product-detail-actions"><AddToCartButton product={{id:product.id,sku:product.sku,title:product.title,price:String(cashPrice),currency:product.currency,seller_name:product.seller_name,store_id:product.store_id,image_url:product.image_url}}/><Link href="/pay" className="sk-product-credit-link">بررسی خرید اعتباری</Link></div><small className="sk-product-truth-note">ثبت در سبد خرید، سفارش یا پرداخت را ایجاد نمی‌کند. موجودی و امکان سفارش در مرحله نهایی بررسی می‌شود.</small></div>
    </section>
+   <section className="store-section sk-product-specs"><div className="sk-product-specs-head"><span>اطلاعات ثبت‌شده</span><h2>مشخصات محصول</h2><p>مشخصات از اطلاعات موجود در کاتالوگ داخلی نمایش داده می‌شود؛ مورد ثبت‌نشده به‌صورت ساختگی تکمیل نمی‌شود.</p></div>{specifications.length ? specifications.map((group,index)=><article className="sk-product-spec-group" key={(group.group||"مشخصات")+"-"+index}><h3>{group.group||"مشخصات"}</h3><dl>{(group.items||[]).map((item,itemIndex)=><div key={(item.name||"ویژگی")+"-"+itemIndex}><dt>{item.name||"ویژگی"}</dt><dd>{Array.isArray(item.values)?item.values.join("، "):"ثبت نشده"}</dd></div>)}</dl></article>) : <div className="sk-product-spec-empty">مشخصات فنی تفصیلی برای این محصول هنوز در کاتالوگ ثبت نشده است.</div>}</section>
    <section className="store-section feature-row"><article><b>کد کالا</b><span>{product.sku}</span></article><article><b>دسته‌بندی</b><span>{product.category||"ثبت نشده"}</span></article><article><b>فروشنده</b><span>{product.seller_name||"ثبت نشده"}</span></article><article><b>اعتبار خرید</b><span>از مسیر Sookar Pay</span></article></section>
  </main>;
 }
