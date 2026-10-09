@@ -69,6 +69,7 @@ export default function Login(){
      <button className="naf-primary" type="submit" disabled={loading}>{loading?"در حال ورود...":"ورود امن"}</button>
     </form>
     <p className="naf-foot">پس از ورود، بر اساس نقش کاربری به داشبورد اختصاصی هدایت می‌شوید · نسخه ۲۰۲۶</p>
+    <p className="naf-foot">حساب کاربری ندارید؟ <a href={"/register?brand="+brandKey}>ایجاد حساب یا ثبت درخواست</a></p>
    </div>
   </section>
   <aside className="naf-visual" aria-label="نمای هسته مرکزی"><div className="naf-orbit"><div className="naf-ring"/><div className="naf-ring naf-r2"/><div className="naf-ring naf-r3"/><div className="naf-core"><span>پروفایل</span><b>کاربر</b></div><p className="naf-caption">ورود امن به فضای اختصاصی {brand.name}</p></div></aside>
