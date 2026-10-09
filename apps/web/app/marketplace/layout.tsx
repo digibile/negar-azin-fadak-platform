@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "بازارگاه سوکار",
-  description: "بازارگاه سوکار برای کشف فروشگاه‌ها، فروشندگان و محصولات فعال.",
+  title: "فروشگاه سوکار",
+  description: "فروشگاه سوکار برای کشف فروشگاه‌ها، فروشندگان و محصولات فعال.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "بازارگاه سوکار",
-    description: "کشف فروشگاه‌ها، فروشندگان و محصولات فعال در بازارگاه سوکار.",
+    title: "فروشگاه سوکار",
+    description: "کشف فروشگاه‌ها، فروشندگان و محصولات فعال در فروشگاه سوکار.",
     type: "website"
   }
 };
