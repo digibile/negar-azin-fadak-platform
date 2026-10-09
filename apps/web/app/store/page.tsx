@@ -16,14 +16,11 @@ type Product = {
   seller_name: string;
   store_id: string | null;
   image_url?: string | null;
-  source_url?: string | null;
-  source_name?: string | null;
-  source_type?: string | null;
   brand?: string | null;
   rating?: number | null;
 };
 type Store = { id: string; name: string; slug: string; seller_name: string };
-type Catalog = { tenant?: { name?: string }; products: Product[]; stores?: Store[]; categories?: string[]; total?: number; referenceCatalogStatus?: "live" | "unavailable" };
+type Catalog = { tenant?: { name?: string }; products: Product[]; stores?: Store[]; categories?: string[]; total?: number };
 
 const money = (value: string, currency: string) => {
   const amount = Number(value);
@@ -77,70 +74,68 @@ export default function StorePage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    const readJson = async (url: string) => {
-      const response = await fetch(url, { headers: { accept: "application/json" }, cache: "no-store", signal: controller.signal });
+    fetch("/api/public/marketplace", {
+      headers: { accept: "application/json" },
+      cache: "no-store",
+      signal: controller.signal
+    }).then(async response => {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "دریافت کاتالوگ ناموفق بود.");
-      return body;
-    };
-    Promise.allSettled([
-      readJson("/api/public/marketplace"),
-      readJson("/api/public/digikala-catalog")
-    ]).then(([marketplaceResult, referenceResult]) => {
-      if (controller.signal.aborted) return;
-      const marketplace = marketplaceResult.status === "fulfilled" && Array.isArray(marketplaceResult.value.products)
-        ? marketplaceResult.value as Catalog
-        : null;
-      const reference = referenceResult.status === "fulfilled" && Array.isArray(referenceResult.value.products)
-        ? referenceResult.value.products as Product[]
-        : [];
-      if (!marketplace && !reference.length) {
-        const reason = marketplaceResult.status === "rejected" ? marketplaceResult.reason : referenceResult.status === "rejected" ? referenceResult.reason : null;
-        throw reason instanceof Error ? reason : new Error("کاتالوگ در دسترس نیست.");
+      if (!Array.isArray(body.products)) throw new Error("ساختار کاتالوگ معتبر نیست.");
+      if (!controller.signal.aborted) {
+        setData({
+          ...body,
+          products: body.products,
+          categories: Array.isArray(body.categories) ? body.categories : [],
+          total: Number(body.total || body.products.length)
+        } as Catalog);
+        setError("");
       }
-      const ownProducts = marketplace?.products || [];
-      const combined = [...ownProducts, ...reference.filter(item => !ownProducts.some(own => own.id === item.id))];
-      const categoryNames = [
-        ...(marketplace?.categories || []),
-        ...combined.map(product => product.category || "")
-      ].filter((name): name is string => Boolean(name.trim()));
-      setData({
-        ...(marketplace || { products: [], stores: [], categories: [] }),
-        products: combined,
-        categories: [...new Set(categoryNames)],
-        total: combined.length,
-        referenceCatalogStatus: referenceResult.status === "fulfilled" ? referenceResult.value.sourceStatus : "unavailable"
-      });
-      setError("");
     }).catch(reason => {
-      if (reason instanceof Error && reason.name === "AbortError") return;
+      if (controller.signal.aborted || (reason instanceof Error && reason.name === "AbortError")) return;
       setError(reason instanceof Error ? reason.message : "اتصال به کاتالوگ برقرار نشد.");
-    }).finally(() => setLoading(false));
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
+    });
     return () => controller.abort();
   }, []);
 
+  const canonicalCategory = (value: string | null | undefined) => {
+    const key = normalizeText(value || "");
+    if (!key) return "";
+    const aliases: Array<[RegExp, string]> = [
+      [/موبایل|گوشی|تبلت|mobile|phone|tablet/, "موبایل و تبلت"],
+      [/لپ.?تاپ|کامپیوتر|مانیتور|computer|laptop/, "لپ‌تاپ و کامپیوتر"],
+      [/خانه|آشپزخانه|لوازم خانگی|home|kitchen/, "خانه و آشپزخانه"],
+      [/پوشاک|لباس|کفش|مد|fashion|apparel|clothing/, "مد و پوشاک"],
+      [/زیبایی|آرایش|بهداشت|سلامت|beauty|health/, "زیبایی و سلامت"],
+      [/صوتی|تصویری|هدفون|اسپیکر|audio|video/, "صوتی و تصویری"],
+      [/ورزش|سفر|sport|travel/, "ورزش و سفر"],
+      [/کتاب|لوازم.?التحریر|stationery|book/, "کتاب و لوازم‌التحریر"],
+      [/کودک|نوزاد|baby|kid/, "کودک و نوزاد"],
+      [/خودرو|ابزار|car|auto|tool/, "خودرو و ابزار"],
+      [/سوپرمارکت|خوراک|مواد غذایی|grocery|supermarket/, "سوپرمارکت"],
+      [/اداری|لوازم دفتر|office/, "لوازم اداری"]
+    ];
+    return aliases.find(([pattern]) => pattern.test(key))?.[1] || BROWSE_CATEGORIES.find(name => normalizeText(name) === key) || "";
+  };
+
   const categories = useMemo(() => {
-    const names = [
-      ...(data?.categories || []),
-      ...(data?.products || []).map(product => product.category?.trim() || "")
-    ].filter((value): value is string => typeof value === "string" && Boolean(value.trim()));
-    const unique = new Map<string, string>();
-    for (const name of names) {
-      const key = normalizeText(name);
-      if (key && !unique.has(key)) unique.set(key, name.trim());
-    }
-    const registered = [...unique.entries()].sort((a, b) => a[1].localeCompare(b[1], "fa"));
-    // Keep the browse taxonomy visible even before the first real product is published.
-    // Counts and product cards remain driven exclusively by the live catalog API.
-    return registered.length ? registered : BROWSE_CATEGORIES.map(name => [normalizeText(name), name] as [string, string]);
+    const available = new Set([
+      ...(data?.categories || []).map(name => canonicalCategory(name)),
+      ...(data?.products || []).map(product => canonicalCategory(product.category))
+    ].filter(Boolean));
+    return BROWSE_CATEGORIES
+      .filter(name => available.has(name))
+      .map(name => [normalizeText(name), name] as [string, string]);
   }, [data]);
 
   const products = useMemo(() => {
     const needle = normalizeText(query);
-    const selectedCategory = normalizeText(category);
+    const selectedCategory = canonicalCategory(category);
     return (data?.products || []).filter(product => {
-      const matchesCategory = !selectedCategory || normalizeText(product.category || "") === selectedCategory;
-      const searchable = normalizeText([product.title, product.sku, product.category || "", product.seller_name, product.description || ""].join(" "));
+      const matchesCategory = !selectedCategory || canonicalCategory(product.category) === selectedCategory;
+      const searchable = normalizeText([product.title, product.sku, product.category || "", product.seller_name, product.description || "", product.brand || ""].join(" "));
       return matchesCategory && (!needle || searchable.includes(needle));
     });
   }, [data, query, category]);
@@ -208,7 +203,7 @@ export default function StorePage() {
           <div className="sk-section-heading"><div><span className="sk-eyebrow">دسته‌بندی‌های بازارگاه</span><h2 id="sk-featured-categories-title">از کجا شروع کنیم؟</h2><p>دستهٔ موردنظرت را انتخاب کن تا کالاهای مرتبط از کاتالوگ نمایش داده شوند.</p></div><Link href="/store/shop" className="sk-section-link">همه کالاها <span>←</span></Link></div>
           {categories.length ? <div className="sk-featured-grid">
             {categories.slice(0, 8).map(([key, name]) => {
-              const count = (data?.products || []).filter(product => normalizeText(product.category || "") === key).length;
+              const count = (data?.products || []).filter(product => normalizeText(canonicalCategory(product.category)) === key).length;
               const active = normalizeText(category) === key;
               return <button type="button" key={key} className={active ? "sk-featured-category is-active" : "sk-featured-category"} aria-pressed={active} onClick={() => { setCategory(active ? "" : name); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
                 <span className="sk-featured-image sk-category-art" style={(() => { const image = safeImageUrl((data?.products || []).find(product => normalizeText(product.category || "") === key && safeImageUrl(product.image_url))?.image_url); return image ? { backgroundImage: `linear-gradient(0deg,rgba(20,32,45,.12),rgba(20,32,45,.02)),url("${image}")` } : undefined; })()}><i>{categoryGlyph(name, name)}</i></span>
@@ -219,7 +214,7 @@ export default function StorePage() {
         </section>
 
         <section className="sk-catalog" id="sk-products" aria-labelledby="sk-products-title">
-          <div className="sk-section-heading"><div><span className="sk-eyebrow">کاتالوگ بازارگاه</span><h2 id="sk-products-title">محصولات برای انتخاب تو</h2><p>کالاهای فعال بازارگاه و محصولات مرجع با پیوند به منبع اصلی نمایش داده می‌شوند.</p>{data?.referenceCatalogStatus === "unavailable" && <small className="sk-source-status-note">منبع زندهٔ دیجی‌کالا در دسترس نیست؛ فقط کالاهای داخلی نمایش داده می‌شوند.</small>}</div><Link href="/marketplace" className="sk-section-link">رفتن به بازارگاه <span>←</span></Link></div>
+          <div className="sk-section-heading"><div><span className="sk-eyebrow">کاتالوگ بازارگاه</span><h2 id="sk-products-title">محصولات برای انتخاب تو</h2><p>فقط محصولاتی نمایش داده می‌شوند که در کاتالوگ خود سوکار ثبت و برای فروش فعال شده‌اند.</p></div><Link href="/marketplace" className="sk-section-link">رفتن به بازارگاه <span>←</span></Link></div>
 
           <div className="sk-category-row" aria-label="فیلتر دسته‌بندی">
             <button type="button" className={!category ? "sk-category-chip is-active" : "sk-category-chip"} onClick={() => setCategory("")}>همه کالاها</button>
@@ -234,12 +229,24 @@ export default function StorePage() {
 
           {loading ? <div className="sk-state"><span className="sk-loader" />در حال دریافت اطلاعات واقعی محصولات…</div>
           : error ? <div className="sk-state sk-state-error"><b>دریافت محصولات انجام نشد</b><p>{error}</p><button type="button" onClick={() => window.location.reload()}>تلاش دوباره</button></div>
-          : products.length ? <div className="sk-product-grid">{products.slice(0, showAllProducts ? products.length : 20).map(product => <article className="sk-product-card" key={product.id}>
-            <Link href={product.source_url || ("/store/product/" + encodeURIComponent(product.id))} target={product.source_url ? "_blank" : undefined} rel={product.source_url ? "noopener noreferrer" : undefined} className="sk-product-visual" aria-label={"مشاهده " + product.title}>
-              <span className="sk-product-category">{product.category || "محصول"}</span>{product.source_name && <span className="sk-product-source">مرجع: {product.source_name}</span>}{safeImageUrl(product.image_url) ? <img src={safeImageUrl(product.image_url)!} alt={product.title} loading="lazy" decoding="async" /> : <span className="sk-product-glyph"><span aria-hidden="true">{categoryGlyph(product.category, product.title)}</span><small>تصویر توسط فروشنده ثبت نشده</small></span>}<span className="sk-visual-brand">SOOKAR</span>
-            </Link>
-            <div className="sk-product-info"><span className="sk-seller-name"><i />{product.seller_name || "فروشنده ثبت‌شده"}</span><Link href={product.source_url || ("/store/product/" + encodeURIComponent(product.id))} target={product.source_url ? "_blank" : undefined} rel={product.source_url ? "noopener noreferrer" : undefined} className="sk-product-title">{product.title}</Link><p>{product.description || (product.source_url ? "برای مشخصات کامل، قیمت روز و وضعیت موجودی، صفحه اصلی دیجی‌کالا را ببینید." : "توضیحات تکمیلی از سوی فروشنده ثبت نشده است.")}</p><div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>{product.source_url ? "قیمت ثبت‌شده در منبع · پیش از خرید بررسی شود" : "قیمت ثبت‌شده"}</small></div><Link href={product.source_url || ("/store/product/" + encodeURIComponent(product.id))} target={product.source_url ? "_blank" : undefined} rel={product.source_url ? "noopener noreferrer" : undefined} className="sk-product-cta">{product.source_url ? "مشاهده در دیجی‌کالا" : "مشاهده و بررسی کالا"} <span>←</span></Link></div>
-          </article>)}</div>
+          : products.length ? <div className="sk-product-grid">{products.slice(0, showAllProducts ? products.length : 20).map(product => {
+            const productHref = "/store/product/" + encodeURIComponent(product.sku || product.id);
+            const image = safeImageUrl(product.image_url);
+            return <article className="sk-product-card" key={product.id}>
+              <Link href={productHref} className="sk-product-visual" aria-label={"مشاهده " + product.title}>
+                <span className="sk-product-category">{canonicalCategory(product.category) || "سایر کالاها"}</span>
+                {image ? <img src={image} alt={product.title} loading="lazy" decoding="async" /> : <span className="sk-product-glyph"><span aria-hidden="true">{categoryGlyph(product.category, product.title)}</span><small>تصویر کالا هنوز ثبت نشده</small></span>}
+                <span className="sk-visual-brand">SOOKAR</span>
+              </Link>
+              <div className="sk-product-info">
+                <span className="sk-seller-name"><i />{product.seller_name || "فروشنده ثبت‌شده"}</span>
+                <Link href={productHref} className="sk-product-title">{product.title}</Link>
+                <p>{product.description || "مشخصات تکمیلی این کالا هنوز توسط فروشنده ثبت نشده است."}</p>
+                <div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>قیمت ثبت‌شده در کاتالوگ سوکار</small></div>
+                <Link href={productHref} className="sk-product-cta">مشاهده جزئیات و خرید <span>←</span></Link>
+              </div>
+            </article>;
+          })}</div>
           : <div className="sk-state"><b>{data?.products?.length ? "محصولی با این فیلتر پیدا نشد." : "هنوز محصول فعالی برای نمایش عمومی ثبت نشده است."}</b><p>{data?.products?.length ? "فیلتر دسته‌بندی یا عبارت جستجو را تغییر بده." : "پس از ثبت و فعال‌سازی محصولات واقعی، کالاها در این بخش نمایش داده می‌شوند."}</p>{(query || category) && <button type="button" onClick={() => { setQuery(""); setCategory(""); }}>نمایش همه کالاها</button>}</div>}
           {products.length > 12 && !showAllProducts && <div className="sk-more"><Link href="/store/shop">مشاهده همه {products.length.toLocaleString("fa-IR")} نتیجه <span>←</span></Link></div>}
           {showAllProducts && products.length > 12 && <div className="sk-catalog-meta"><span>نمایش همه نتایج دریافت‌شده از کاتالوگ</span><Link href="/">بازگشت به صفحه اصلی</Link></div>}
