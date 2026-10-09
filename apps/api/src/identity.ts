@@ -14,6 +14,10 @@ const guardWrite=async(req:any,res:any,next:any)=>{
  if(!r.rowCount)return res.status(403).json({error:"مجوز تغییر هویت و دسترسی وجود ندارد"});
  next();
 };
+const guardAdmin=async(req:any,res:any,next:any)=>{
+ if(req.user?.role==="admin")return next();
+ return res.status(403).json({error:"تغییر نقش‌ها و انتساب مجوزها فقط برای مدیر سامانه مجاز است"});
+};
 router.get("/api/identity/overview",requireAuth,guardRead,async(_req,res)=>{
  const [users,roles,groups,permissions,grants,sessions,logins]=await Promise.all([
   query("select id,email,full_name,role,status,created_at from users order by created_at desc"),
@@ -41,7 +45,7 @@ router.patch("/api/identity/users/:id",requireAuth,guardWrite,requireCsrf,async(
  const r=await query("update users set full_name=coalesce($1,full_name),role=coalesce($2,role),status=coalesce($3,status) where id=$4 returning id,email,full_name,role,status,created_at",[fullName||null,role||null,status||null,req.params.id]);
  if(!r.rowCount)return res.status(404).json({error:"کاربر پیدا نشد"});res.json(r.rows[0]);
 });
-router.post("/api/identity/roles",requireAuth,guardWrite,requireCsrf,async(req,res)=>{
+router.post("/api/identity/roles",requireAuth,guardAdmin,requireCsrf,async(req,res)=>{
  const {roleKey,title,description=""}=req.body||{};
  if(!String(roleKey).match(/^[a-z][a-z0-9_-]{1,40}$/)||!String(title).trim())return res.status(400).json({error:"شناسه نقش یا عنوان نامعتبر است"});
  const r=await query("insert into identity_roles(role_key,title,description) values($1,$2,$3) returning *",[roleKey,String(title).trim(),description]);res.status(201).json(r.rows[0]);
@@ -55,7 +59,7 @@ router.post("/api/identity/groups/:id/members",requireAuth,guardWrite,requireCsr
  const userId=String(req.body?.userId||""); if(!userId)return res.status(400).json({error:"کاربر مشخص نشده است"});
  const r=await query("insert into identity_group_members(group_id,user_id) values($1,$2) on conflict do nothing returning *",[req.params.id,userId]);res.status(201).json(r.rows[0]||{group_id:req.params.id,user_id:userId});
 });
-router.put("/api/identity/roles/:roleKey/permissions",requireAuth,guardWrite,requireCsrf,async(req,res)=>{
+router.put("/api/identity/roles/:roleKey/permissions",requireAuth,guardAdmin,requireCsrf,async(req,res)=>{
  const permissionKeys=Array.isArray(req.body?.permissionKeys)?req.body.permissionKeys.map(String):[];
  await query("delete from identity_role_permissions where role_key=$1",[req.params.roleKey]);
  if(permissionKeys.length)await query("insert into identity_role_permissions(role_key,permission_key) select $1,permission_key from identity_permissions where permission_key=any($2::text[])",[req.params.roleKey,permissionKeys]);
