@@ -178,3 +178,44 @@
  .tree-child-head{grid-template-columns:22px minmax(0,1fr) 22px;padding:3px 7px}
  .tree-child-head>a,.tree-child-head>span{font-size:11px}
 }
+
+
+/* Mobile admin navigation: constrain the shell and make the menu the scroll region. */
+.enterprise-sidebar{
+  display:flex;
+  flex-direction:column;
+  height:100dvh;
+  min-height:0;
+  overflow:hidden;
+  align-self:start;
+  position:sticky;
+  top:0;
+}
+.enterprise-brand,
+.sidebar-command,
+.sidebar-caption,
+.sidebar-menu-error,
+.sidebar-footer{flex:0 0 auto}
+.master-nav{
+  flex:1 1 auto;
+  min-height:0;
+  max-height:none;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior-y:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  scrollbar-gutter:stable;
+}
+@media(max-width:900px){
+  .enterprise-sidebar{
+    position:fixed;
+    top:0;
+    right:0;
+    left:auto;
+    height:100dvh;
+    min-height:0;
+    max-height:100dvh;
+  }
+  .master-nav{flex:1 1 0%;min-height:0;overflow-y:auto;touch-action:pan-y}
+}
