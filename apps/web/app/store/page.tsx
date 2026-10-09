@@ -25,6 +25,7 @@ const money = (value: string, currency: string) => {
 };
 
 const safeImageUrl = (value: string | null | undefined) => value && (value.startsWith("https://") || value.startsWith("http://") || (value.startsWith("/") && !value.startsWith("//"))) ? value : null;
+const categoryGlyph = (category: string | null, title: string) => {
   const value = `${category || ""} ${title}`.toLocaleLowerCase("fa");
   if (/موبایل|گوشی|تلفن|تبلت/.test(value)) return "▯";
   if (/لپ.?تاپ|کامپیوتر|مانیتور|الکترونیک/.test(value)) return "▰";
