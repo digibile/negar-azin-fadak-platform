@@ -79,6 +79,11 @@ export default function Admin(){
     <h1>مرکز مدیریت سازمان</h1>
     <p>یک داشبورد واحد برای ۲۰ پنل اصلی سازمان. هر پنل از همان منوی مرکزی استفاده می‌کند تا ساختار قدیمی و مسیرهای موازی دوباره‌کاری نسازند.</p>
     <div className="dashboard-identity"><span className="identity-dot"/><b>{me?.fullName||me?.email||"کاربر مدیریتی"}</b><span>فضای مدیریت</span></div>
+    <nav className="dashboard-quick-actions" aria-label="دسترسی سریع">
+     <Link href="/admin" className="dashboard-quick-action dashboard-quick-action-primary"><span aria-hidden="true">▦</span><span><b>پیشخوان مدیریت</b><small>بازگشت به داشبورد مرکزی</small></span><i aria-hidden="true">←</i></Link>
+     <Link href="/" target="_blank" rel="noopener noreferrer" className="dashboard-quick-action"><span aria-hidden="true">↗</span><span><b>مشاهده سایت اصلی</b><small>sookar.ir · باز شدن در زبانه جدید</small></span><i aria-hidden="true">↗</i></Link>
+     <Link href="/store" target="_blank" rel="noopener noreferrer" className="dashboard-quick-action"><span aria-hidden="true">▣</span><span><b>مشاهده فروشگاه</b><small>صفحه اصلی کالاها و دسته‌بندی‌ها</small></span><i aria-hidden="true">↗</i></Link>
+    </nav>
    </div>
    <div className="dashboard-hero-side">
     <div className="hero-status"><i className={health.database==="ok"?"online":""}/><span>پایگاه داده</span><b>{health.database==="ok"?"متصل":"در حال بررسی"}</b></div>
