@@ -109,7 +109,8 @@ export default function ProductsPage() {
         body: JSON.stringify({ categoryUrl })
       });
       setSourceProducts(current => {
-        const byId = new Map<string, SourceProduct>(result.products.map(item => [item.id, item]));
+        const byId = new Map<string, SourceProduct>();
+        for (const item of result.products) byId.set(item.id, item);
         for (const item of current) if (!byId.has(item.id)) byId.set(item.id, item);
         return [...byId.values()];
       });
