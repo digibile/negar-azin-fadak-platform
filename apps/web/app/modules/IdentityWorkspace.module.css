@@ -1,1 +1,34 @@
-.wrap{padding:24px;max-width:1440px;margin:auto;color:#17202a}.wrap header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:20px}.wrap h1{margin:6px 0;font-size:32px}.wrap header span,.wrap p,.wrap small{color:#667085}.wrap button,.wrap select,.wrap input{border:1px solid #d9dee8;border-radius:12px;background:#fff;padding:10px 13px}.wrap button{cursor:pointer}.wrap nav{display:flex;gap:8px;overflow:auto;margin-bottom:16px;padding-bottom:4px}.wrap nav a{white-space:nowrap;padding:11px 16px;border-radius:12px;color:#475467;text-decoration:none}.wrap nav a.active{background:#111827;color:#fff}.panel{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:20px;box-shadow:0 8px 30px rgba(16,24,40,.05)}.panel article{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 4px;border-bottom:1px solid #eef1f5}.panel article:last-child{border-bottom:0}.panel article div{display:grid;gap:5px}.form{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;margin-bottom:15px}.error{background:#fff1f2;color:#b42318;padding:12px;border-radius:12px;margin-bottom:15px}@media(max-width:700px){.wrap{padding:14px}.form{grid-template-columns:1fr}.wrap header{flex-direction:column}.panel article{align-items:flex-start;flex-wrap:wrap}}
+.wrap{padding:clamp(14px,2.5vw,30px);max-width:1480px;margin:auto;color:#17202a;min-width:0}
+.wrap header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:22px}
+.wrap h1{margin:6px 0;font-size:clamp(24px,3vw,32px);letter-spacing:-.03em}
+.wrap header span,.wrap p,.wrap small{color:#667085}
+.wrap button,.wrap select,.wrap input{font:inherit;border:1px solid #d9dee8;border-radius:12px;background:#fff;padding:10px 12px;max-width:100%;color:#17202a}
+.wrap button{cursor:pointer;transition:background .15s,border-color .15s}
+.wrap button:disabled{opacity:.55;cursor:wait}
+.wrap nav{display:flex;gap:8px;overflow:auto;margin:0 0 16px;padding:3px 2px 8px}
+.wrap nav button{white-space:nowrap;flex:0 0 auto}
+.wrap nav button.active{background:#17202a;color:#fff;border-color:#17202a}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.metrics article,.panel{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:18px;min-width:0}
+.metrics article span{display:block;color:#667085}
+.metrics article strong{display:block;font-size:28px;line-height:1.5}
+.panel{box-shadow:0 8px 30px rgba(16,24,40,.04)}
+.panel h2{margin:0 0 12px;font-size:20px}
+.panel article{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 4px;border-bottom:1px solid #eef1f5;min-width:0}
+.panel article:last-child{border-bottom:0}
+.panel article>div{display:grid;gap:5px;min-width:0}
+.panel article small{overflow-wrap:anywhere}
+.panel article>span{flex:0 0 auto}
+.form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:10px;margin-bottom:16px}
+.memberForm,.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0 16px}
+.toolbar{justify-content:space-between}
+.toolbar label,.panel article>label{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.permission{display:flex;align-items:center;gap:12px;min-width:0}
+.permission span{display:grid;gap:4px}
+.permission input{width:18px;height:18px}
+.enabled{color:#067647!important;background:#ecfdf3!important;border-color:#abefc6!important}
+.disabled{color:#b42318!important;background:#fff1f2!important;border-color:#fecdca!important}
+.error{background:#fff1f2;color:#b42318;padding:12px;border-radius:12px;margin-bottom:15px}
+.notice{padding:12px;border-radius:12px;background:#f8fafc;color:#475467!important}
+@media(max-width:760px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.form{grid-template-columns:1fr}.wrap header{flex-direction:column}.panel article{align-items:flex-start;flex-wrap:wrap}.toolbar{align-items:stretch}.toolbar label{width:100%}}
+@media(max-width:420px){.metrics{grid-template-columns:1fr 1fr}.metrics article{padding:12px}.metrics article strong{font-size:23px}.panel{padding:14px}}
