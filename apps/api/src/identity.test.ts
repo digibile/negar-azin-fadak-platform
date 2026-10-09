@@ -15,7 +15,7 @@ test("identity role permission replacement is transactional",()=>{
  assert.match(source,/await client\.query\("delete from identity_role_permissions/);
  assert.match(source,/await client\.query\("commit"\)/);
  assert.match(source,/await client\.query\("rollback"\)/);
- assert.match(source,/finally\{client\.release\(\)\}/);
+ assert.match(source,/finally\s*\{\s*client\.release\(\);\s*\}/);
 });
 
 test("identity group membership verifies both group and real user",()=>{
