@@ -39,19 +39,24 @@ const normalizeText = (value: string) => value
   .toLocaleLowerCase("fa");
 
 const BROWSE_CATEGORIES = [
-  "موبایل و تبلت",
-  "لپ‌تاپ و کامپیوتر",
+  "موبایل",
+  "ابزارآلات",
+  "لپ تاپ",
+  "پزشکی و سلامت",
+  "کالای دیجیتال",
+  "شهر کتاب و هنر",
   "خانه و آشپزخانه",
-  "مد و پوشاک",
-  "زیبایی و سلامت",
-  "صوتی و تصویری",
   "ورزش و سفر",
-  "کتاب و لوازم‌التحریر",
-  "کودک و نوزاد",
-  "خودرو و ابزار",
-  "سوپرمارکت",
-  "لوازم اداری",
-  "سایر کالاها"
+  "لوازم خانگی برقی",
+  "کارت هدیه",
+  "آرایشی بهداشتی",
+  "سوپرمارکتی",
+  "مد و پوشاک",
+  "اسباب‌بازی و کودک",
+  "طلا و نقره",
+  "بومی و محلی",
+  "خودرو و موتور",
+  "پت شاپ"
 ];
 
 const categoryGlyph = (category: string | null, title: string) => {
@@ -107,18 +112,24 @@ export default function StorePage() {
     const key = normalizeText(value || "");
     if (!key) return "";
     const aliases: Array<[RegExp, string]> = [
-      [/موبایل|گوشی|تبلت|mobile|phone|tablet/, "موبایل و تبلت"],
-      [/لپ.?تاپ|کامپیوتر|مانیتور|computer|laptop/, "لپ‌تاپ و کامپیوتر"],
+      [/موبایل|گوشی|تبلت|mobile|phone|tablet/, "موبایل"],
+      [/ابزارآلات|ابزار|tool|hardware/, "ابزارآلات"],
+      [/لپ.?تاپ|کامپیوتر|مانیتور|computer|laptop/, "لپ تاپ"],
+      [/پزشکی|سلامت|دارو|medical|health/, "پزشکی و سلامت"],
+      [/کالای دیجیتال|صوتی|تصویری|هدفون|اسپیکر|دوربین|digital|audio|video/, "کالای دیجیتال"],
+      [/کتاب|هنر|فرهنگ|لوازم.?التحریر|stationery|book|art/, "شهر کتاب و هنر"],
       [/خانه|آشپزخانه|لوازم خانگی|home|kitchen/, "خانه و آشپزخانه"],
-      [/پوشاک|لباس|کفش|مد|fashion|apparel|clothing/, "مد و پوشاک"],
-      [/زیبایی|آرایش|بهداشت|سلامت|beauty|health/, "زیبایی و سلامت"],
-      [/صوتی|تصویری|هدفون|اسپیکر|audio|video/, "صوتی و تصویری"],
       [/ورزش|سفر|sport|travel/, "ورزش و سفر"],
-      [/کتاب|لوازم.?التحریر|stationery|book/, "کتاب و لوازم‌التحریر"],
-      [/کودک|نوزاد|baby|kid/, "کودک و نوزاد"],
-      [/خودرو|ابزار|car|auto|tool/, "خودرو و ابزار"],
-      [/سوپرمارکت|خوراک|مواد غذایی|grocery|supermarket/, "سوپرمارکت"],
-      [/اداری|لوازم دفتر|office/, "لوازم اداری"]
+      [/لوازم خانگی برقی|جاروبرقی|یخچال|ماشین لباسشویی|appliance/, "لوازم خانگی برقی"],
+      [/کارت هدیه|gift.?card/, "کارت هدیه"],
+      [/آرایشی|زیبایی|مراقبت پوست|cosmetic|beauty/, "آرایشی بهداشتی"],
+      [/سوپرمارکت|سوپرمارکتی|خوراک|مواد غذایی|grocery|supermarket/, "سوپرمارکتی"],
+      [/پوشاک|لباس|کفش|مد|fashion|apparel|clothing/, "مد و پوشاک"],
+      [/اسباب.?بازی|کودک|نوزاد|baby|toy|kid/, "اسباب‌بازی و کودک"],
+      [/طلا|نقره|gold|silver/, "طلا و نقره"],
+      [/بومی|محلی|صنایع دستی|local/, "بومی و محلی"],
+      [/خودرو|موتور|car|auto|motor/, "خودرو و موتور"],
+      [/پت.?شاپ|حیوان خانگی|pet|animal/, "پت شاپ"]
     ];
     return aliases.find(([pattern]) => pattern.test(key))?.[1] || BROWSE_CATEGORIES.find(name => normalizeText(name) === key) || key;
   };
@@ -126,7 +137,7 @@ export default function StorePage() {
   const categories = [...new Set([
     ...(data?.categories || []),
     ...(data?.products || []).map(product => product.category || ""),
-    ...BROWSE_CATEGORIES.filter(name => name !== "سایر کالاها")
+    ...BROWSE_CATEGORIES
   ].map(name => name.trim()).filter(Boolean))]
     .map(name => canonicalCategory(name))
     .filter((name, index, all) => all.findIndex(item => normalizeText(item) === normalizeText(name)) === index)
