@@ -16,6 +16,11 @@ type Product = {
   seller_name: string;
   store_id: string | null;
   image_url?: string | null;
+  source_url?: string | null;
+  source_name?: string | null;
+  source_type?: string | null;
+  brand?: string | null;
+  rating?: number | null;
 };
 type Store = { id: string; name: string; slug: string; seller_name: string };
 type Catalog = { tenant?: { name?: string }; products: Product[]; stores?: Store[]; categories?: string[]; total?: number };
@@ -72,18 +77,44 @@ export default function StorePage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/public/marketplace", { headers: { accept: "application/json" }, cache: "no-store", signal: controller.signal })
-      .then(async response => {
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error || "دریافت کاتالوگ ناموفق بود.");
-        if (!body || !Array.isArray(body.products)) throw new Error("ساختار کاتالوگ معتبر نیست.");
-        setData(body as Catalog);
-      })
-      .catch(reason => {
-        if (reason instanceof Error && reason.name === "AbortError") return;
-        setError(reason instanceof Error ? reason.message : "اتصال به کاتالوگ برقرار نشد.");
-      })
-      .finally(() => setLoading(false));
+    const readJson = async (url: string) => {
+      const response = await fetch(url, { headers: { accept: "application/json" }, cache: "no-store", signal: controller.signal });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "دریافت کاتالوگ ناموفق بود.");
+      return body;
+    };
+    Promise.allSettled([
+      readJson("/api/public/marketplace"),
+      readJson("/api/public/digikala-catalog")
+    ]).then(([marketplaceResult, referenceResult]) => {
+      if (controller.signal.aborted) return;
+      const marketplace = marketplaceResult.status === "fulfilled" && Array.isArray(marketplaceResult.value.products)
+        ? marketplaceResult.value as Catalog
+        : null;
+      const reference = referenceResult.status === "fulfilled" && Array.isArray(referenceResult.value.products)
+        ? referenceResult.value.products as Product[]
+        : [];
+      if (!marketplace && !reference.length) {
+        const reason = marketplaceResult.status === "rejected" ? marketplaceResult.reason : referenceResult.status === "rejected" ? referenceResult.reason : null;
+        throw reason instanceof Error ? reason : new Error("کاتالوگ در دسترس نیست.");
+      }
+      const ownProducts = marketplace?.products || [];
+      const combined = [...ownProducts, ...reference.filter(item => !ownProducts.some(own => own.id === item.id))];
+      const categoryNames = [
+        ...(marketplace?.categories || []),
+        ...combined.map(product => product.category || "")
+      ].filter((name): name is string => Boolean(name.trim()));
+      setData({
+        ...(marketplace || { products: [], stores: [], categories: [] }),
+        products: combined,
+        categories: [...new Set(categoryNames)],
+        total: combined.length
+      });
+      setError("");
+    }).catch(reason => {
+      if (reason instanceof Error && reason.name === "AbortError") return;
+      setError(reason instanceof Error ? reason.message : "اتصال به کاتالوگ برقرار نشد.");
+    }).finally(() => setLoading(false));
     return () => controller.abort();
   }, []);
 
