@@ -15,6 +15,8 @@ const stage2835=fs.readFileSync(path.join(root,"database/migrations/013_stage_28
 const stage3645=fs.readFileSync(path.join(root,"database/migrations/014_stage_36_45_operational.sql"),"utf8");
 const organization=fs.readFileSync(path.join(root,"apps/api/src/domain-organization.ts"),"utf8");
 const commandPage=fs.readFileSync(path.join(root,"apps/web/app/command-center/page.tsx"),"utf8");
+const masterMenu=fs.readFileSync(path.join(root,"apps/web/app/admin/master-menu.ts"),"utf8");
+const sidebar=fs.readFileSync(path.join(root,"apps/web/app/admin/AdminSidebar.tsx"),"utf8");
 
 const expected=[
 "governance","identity","master-data","customer-360","smart-calendar","business-rules","sla",
@@ -49,4 +51,10 @@ if(!commandPage.includes("/api/domain/monitoring-events")||!commandPage.includes
 if(!operationsPage.includes('const target=[')||!operationsPage.includes('مرکز عملیات ۱۹ تا ۲۷'))throw new Error("Stage 19-27 operations page missing");
 const forbidden=new RegExp("(^|[^A-Za-z])"+String.fromCharCode(69,82,80)+"([^A-Za-z]|$)","i");
 for(const file of [migration,storage,runtime,stage1927,stage2835,stage3645,server,command,commerce,communication,organization,operationsPage,commandPage])if(forbidden.test(file))throw new Error("Forbidden terminology detected");
-console.log("Platform integrity OK: 45 modules, stages 19-45 operational layers, 8 command-platform domains, mounted routers, storage, pagination, and activation verified.");
+const panelEntries=[...masterMenu.matchAll(/\\{code:"([^"]+)",number:"(\\d{2})",title:/g)];
+if(panelEntries.length!==20)throw new Error("Master menu must contain exactly 20 canonical panels; found "+panelEntries.length);
+const panelNumbers=panelEntries.map(x=>x[2]);
+if(new Set(panelNumbers).size!==20||panelNumbers.some((x,i)=>x!==String(i+1).padStart(2,"0")))throw new Error("Canonical panel numbers must be unique and ordered 01-20");
+if(!sidebar.includes("const visit=(nodes:MenuNode[])")||!sidebar.includes("visit(node.child_items||[])"))throw new Error("Legacy menu merge must index every nested level");
+if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.includes("...flattenTitles(x.dbChildren)"))throw new Error("Menu search must include all nested legacy levels");
+console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, stages 19-45 operational layers, 8 command-platform domains, mounted routers, storage, pagination, and activation verified.");
