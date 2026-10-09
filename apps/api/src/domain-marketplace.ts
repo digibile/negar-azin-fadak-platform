@@ -284,26 +284,22 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requir
   if(!sellerId||!selectedIds.length)return res.status(400).json({error:"فروشنده و حداقل یک محصول برای ورود انتخاب کنید"});
   const seller=await query("select id,display_name,status from sellers where id=$1 and tenant_id=$2",[sellerId,ctx.id]);
   if(!seller.rowCount)return res.status(404).json({error:"فروشنده در این محدوده سازمانی پیدا نشد"});
-  const catalog=await getDigikalaCatalog();
-  const selectedMap=new Map(catalog.products.filter(product=>selectedIds.includes(product.id)).map(product=>[product.id,product]));
+  const selected:DigikalaCatalogProduct[]=[];
+  const skipped:string[]=[];
   for(const selectedId of selectedIds){
-    if(selectedMap.has(selectedId))continue;
-    const sourceId=selectedId.replace(/^digikala-/,"");
-    if(!/^\d{1,16}$/.test(sourceId))continue;
+    const sourceId=selectedId.replace(/^digikala-/,"").replace(/^dkp-/i,"");
+    if(!/^\d{1,16}$/.test(sourceId)){skipped.push(selectedId+": شناسه عددی معتبر نیست");continue;}
     try{
-      const product=await getDigikalaProductById(sourceId);
-      selectedMap.set(product.id,product);
-    }catch{
-      // Invalid or unavailable source IDs are reported as skipped below.
+      selected.push(await getDigikalaProductById(sourceId));
+    }catch(error){
+      skipped.push(selectedId+": "+(error instanceof Error?error.message:"دریافت از منبع ناموفق بود"));
     }
   }
-  const selected=[...selectedMap.values()];
-  if(!selected.length)return res.status(404).json({error:"محصولی با این شناسه در منبع پیدا نشد؛ شناسه را بررسی کنید"});
+  if(!selected.length)return res.status(404).json({error:"محصولی با شناسه‌های واردشده در منبع پیدا نشد؛ شناسه را بررسی کنید",skipped,totalSkipped:skipped.length});
   const mediaRoot=process.env.MEDIA_ROOT||"/app/media";
   const mediaDir=path.join(mediaRoot,"catalog",ctx.id);
   await mkdir(mediaDir,{recursive:true});
   const imported:string[]=[];
-  const skipped:string[]=[];
   for(const product of selected){
     let localImage:string|null=null;
     try{
