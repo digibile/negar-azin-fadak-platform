@@ -52,7 +52,7 @@ export default function Login(){
   }finally{setLoading(false);}
  }
 
- return <main className="naf-login" style={{"--naf-accent":brand.accent,"--naf-accent-dark":brand.dark} as CSSProperties}>
+ return <main className="naf-login" style={{"--naf-accent":brand.accent,"--naf-accent-dark":brand.dark} as CSSProperties & {"--naf-accent":string;"--naf-accent-dark":string}}>
   <button className="naf-theme" type="button" aria-label="تغییر پوسته" title="تغییر پوسته">◐</button>
   <section className="naf-login-panel">
    <div className="naf-login-box">
