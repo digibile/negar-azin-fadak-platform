@@ -1,6 +1,4 @@
-"use client";
-
-import MarketplacePage from "./marketplace/page";
+import MarketplacePage from "./marketplace/MarketplacePage";
 
 export default function HomePage() {
   return <MarketplacePage />;
