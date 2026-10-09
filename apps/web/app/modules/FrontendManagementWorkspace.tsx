@@ -23,6 +23,14 @@ export default function FrontendManagementWorkspace() {
         <button type="button" aria-pressed={tab==="sections"} onClick={()=>setTab("sections")} style={{border:tab==="sections"?"1px solid #2563eb":"1px solid #cbd5e1",background:tab==="sections"?"#2563eb":"transparent",color:tab==="sections"?"#fff":"inherit",borderRadius:12,padding:"10px 16px",fontWeight:650,cursor:"pointer"}}>بخش‌های فرانت‌اند</button>
       </nav>
     </header>
+    <section aria-label="پیش‌نمایش زنده برندها" style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",margin:"0 0 20px",padding:"14px",border:"1px solid #dbe3ef",borderRadius:16,background:"var(--card, #fff)"}}>
+      <strong style={{fontSize:13,marginInlineEnd:6}}>پیش‌نمایش زنده سایت‌ها:</strong>
+      <Link href="/store/digipay" style={{padding:"8px 12px",borderRadius:10,background:"#155eef",color:"#fff",fontSize:12,fontWeight:700}}>دیجی‌پی ↗</Link>
+      <Link href="/store/digibile" style={{padding:"8px 12px",borderRadius:10,background:"#0f766e",color:"#fff",fontSize:12,fontWeight:700}}>دیجی‌بایل ↗</Link>
+      <Link href="/store/technolife" style={{padding:"8px 12px",borderRadius:10,background:"#374151",color:"#fff",fontSize:12,fontWeight:700}}>تکنولایف ↗</Link>
+      <Link href="/store/kipa" style={{padding:"8px 12px",borderRadius:10,background:"#166534",color:"#fff",fontSize:12,fontWeight:700}}>کیپا ↗</Link>
+      <Link href="/store" style={{padding:"8px 12px",borderRadius:10,border:"1px solid #cbd5e1",color:"inherit",fontSize:12,fontWeight:700}}>سوکار ↗</Link>
+    </section>
     {tab==="templates" ? <PageTemplatesWorkspace/> : <FrontendSectionsWorkspace/>}
   </main>;
 }
