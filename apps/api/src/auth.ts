@@ -60,8 +60,13 @@ export function requirePermission(permission:string){
 }
 export const requireAdmin=requirePermission("users:manage");
 export async function ensureAdmin(email:string,password:string){
- const found=await query("select id from users where email=$1",[email.toLowerCase()]);
- if(found.rowCount)return;
+ const normalizedEmail=email.trim().toLowerCase();
+ if(!normalizedEmail||!password)throw new Error("ADMIN_EMAIL and ADMIN_PASSWORD are required for admin bootstrap");
  const hash=await hashPassword(password);
- await query("insert into users(email,password_hash,full_name,role) values($1,$2,$3,'admin')",[email.toLowerCase(),hash,"مدیر سامانه"]);
+ const found=await query("select id from users where lower(email)=$1 order by created_at asc limit 1",[normalizedEmail]);
+ if(found.rowCount){
+  await query("update users set email=$1,password_hash=$2,full_name=$3,role='admin',status='active' where id=$4",[normalizedEmail,hash,"مدیر سامانه",found.rows[0].id]);
+  return;
+ }
+ await query("insert into users(email,password_hash,full_name,role,status) values($1,$2,$3,'admin','active')",[normalizedEmail,hash,"مدیر سامانه"]);
 }
