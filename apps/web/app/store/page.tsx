@@ -197,7 +197,7 @@ export default function StorePage() {
             ))}
             {(!data?.products?.length) && <div className="sk-hero-empty"><span>س</span><b>خرید ساده‌تر، انتخاب آگاهانه‌تر</b><small>محصولات فعال فروشگاه در اینجا نمایش داده می‌شوند</small></div>}
           </div>
-        </section>section>
+        </section>
 
         <section className="sk-benefits" aria-label="ویژگی‌های تجربه خرید">
           <article><span className="sk-benefit-icon">⌕</span><div><b>جستجوی آسان</b><small>کالا و فروشنده را سریع‌تر پیدا کن</small></div></article>
