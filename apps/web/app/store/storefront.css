@@ -113,3 +113,5 @@
 
 .sk-product-source{position:absolute;z-index:2;top:12px;left:12px;max-width:55%;overflow:hidden;padding:6px 8px;border:1px solid #dce7f4;border-radius:7px;background:rgba(255,255,255,.94);color:#375b84;font-size:8px;font-weight:900;text-overflow:ellipsis;white-space:nowrap;backdrop-filter:blur(6px)}
 .sk-product-visual:has(.sk-product-source) .sk-product-category{right:10px;max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.sk-source-status-note{display:block;margin-top:8px;color:#936a37;font-size:10px;line-height:1.9}
