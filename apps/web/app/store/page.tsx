@@ -118,9 +118,7 @@ export default function StorePage() {
         <nav className="sk-main-nav" aria-label="ناوبری اصلی">
           <div className="sk-wrap sk-nav-inner">
             <Link className="sk-all-cats" href="/store/shop"><span>☰</span> دسته‌بندی کالاها</Link>
-            <Link href="/store/shop">فروشگاه</Link>
-            <Link href="/marketplace">بازارگاه</Link>
-            <Link href="/marketplace/stores">فروشگاه‌های فروشندگان</Link>
+            <Link href="/store/shop">فروشگاه و فروشندگان</Link>
             <Link href="/pay">خرید اعتباری</Link>
             <Link href="/store/orders">پیگیری سفارش</Link>
           </div>
