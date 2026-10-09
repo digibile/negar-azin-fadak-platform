@@ -1,1 +1,5 @@
-import Link from "next/link"; export default function Cart(){return <main className="sookar-store" dir="rtl"><header className="store-header"><Link href="/store" className="store-logo"><b>سوکار</b><span>سبد خرید</span></Link><nav><Link href="/store">فروشگاه</Link><Link href="/pay">Sookar Pay</Link></nav></header><section className="store-section"><header><div><span>Cart</span><h2>سبد خرید</h2></div><Link href="/store">ادامه خرید</Link></header><div className="plan-grid"><article><h3>سبد خرید شما</h3><p>در نسخه عملیاتی، اقلام، فروشنده، موجودی، تخفیف، ارسال و اعتبار از سرویس‌های واقعی خوانده می‌شوند.</p><strong>جمع سفارش: محاسبه در Checkout</strong><Link href="/pay/apply">پرداخت با اعتبار ←</Link></article><article><h3>Checkout</h3><p>آدرس، ارسال، کوپن، پرداخت نقدی، اعتبار، اقساط و پذیرش قوانین در این مرحله کنترل می‌شود.</p><Link href="/store/checkout">ادامه به پرداخت ←</Link></article></div></section></main>}
+import { CartView } from "../cart-actions";
+
+export default function CartPage() {
+  return <CartView />;
+}
