@@ -23,8 +23,8 @@ from (values
 ('employees','work_email','ایمیل سازمانی','text',false,80,'{}','employees'),
 
 ('payroll','payroll_period','دوره حقوق','text',true,10,'{}','payroll'),
-('payroll','personnel_no','کد پرسنلی','text',true,20,'{}','payroll'),
-('payroll','employee_name','نام کارمند','text',true,30,'{}','payroll'),
+('payroll','payroll_personnel_no','کد پرسنلی','text',true,20,'{}','payroll'),
+('payroll','payroll_employee_name','نام کارمند','text',true,30,'{}','payroll'),
 ('payroll','base_salary','حقوق پایه','number',true,40,'{}','payroll'),
 ('payroll','allowances','مزایا','number',false,50,'{}','payroll'),
 ('payroll','deductions','کسورات','number',false,60,'{}','payroll'),
@@ -32,8 +32,8 @@ from (values
 ('payroll','payment_date','تاریخ پرداخت','date',false,80,'{}','payroll'),
 ('payroll','payroll_status','وضعیت پرداخت','select',true,90,'{"options":["پیش‌نویس","در انتظار تأیید","تأییدشده","پرداخت‌شده","متوقف"]}','payroll'),
 
-('attendance','personnel_no','کد پرسنلی','text',true,10,'{}','attendance'),
-('attendance','employee_name','نام کارمند','text',true,20,'{}','attendance'),
+('attendance','attendance_personnel_no','کد پرسنلی','text',true,10,'{}','attendance'),
+('attendance','attendance_employee_name','نام کارمند','text',true,20,'{}','attendance'),
 ('attendance','attendance_date','تاریخ حضور','date',true,30,'{}','attendance'),
 ('attendance','shift_name','شیفت کاری','select',true,40,'{"options":["صبح","عصر","شب","شناور"]}','attendance'),
 ('attendance','check_in','ساعت ورود','text',false,50,'{}','attendance'),
