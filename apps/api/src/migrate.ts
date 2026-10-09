@@ -12,7 +12,12 @@ async function main(){
   const exists=await query("select 1 from schema_migrations where version=$1",[file]);
   if(exists.rowCount)continue;
   console.log(`[migration] applying ${file}`);
-  const sql=await fs.readFile(path.join(dir,file),"utf8");
+  const rawSql=await fs.readFile(path.join(dir,file),"utf8");
+  // Keep each migration and its ledger entry in one transaction, even when older files
+  // include their own top-level BEGIN/COMMIT wrappers.
+  const sql=rawSql
+   .replace(/^\s*begin\s*;\s*$/gim,"")
+   .replace(/^\s*commit\s*;\s*$/gim,"");
   const client=await pool.connect();
   try{await client.query("begin");await client.query(sql);await client.query("insert into schema_migrations(version) values($1)",[file]);await client.query("commit");console.log("applied",file);}
   catch(error){await client.query("rollback");throw error}

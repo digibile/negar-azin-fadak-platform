@@ -1,5 +1,8 @@
 import {Router} from "express";
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
+import {fileURLToPath} from "node:url";
 import {query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
@@ -32,7 +35,13 @@ async function resolveDeployedSha(githubToken:string){
     const successful=(data.workflow_runs||[])
       .filter((run:any)=>run?.conclusion==="success"&&typeof run?.head_sha==="string"&&run.head_sha.trim())
       .sort((a:any,b:any)=>Date.parse(String(b.updated_at||b.created_at||0))-Date.parse(String(a.updated_at||a.created_at||0)));
-    return successful[0]?.head_sha||null;
+    for(const run of successful){
+      const jobData=await github("/repos/"+ownerRepo+"/actions/runs/"+run.id+"/jobs?per_page=100",{},githubToken);
+      const steps=(jobData.jobs||[]).flatMap((job:any)=>job.steps||[]);
+      const required=["Deploy with rollback","Production health and release check","Verify public HTTPS endpoint"];
+      if(required.every(name=>steps.some((step:any)=>step.name===name&&step.conclusion==="success")))return run.head_sha;
+    }
+    return null;
   }catch{
     return null;
   }
@@ -62,6 +71,24 @@ function stageStatus(status:string|null|undefined,conclusion:string|null|undefin
   if(activeStatuses.includes(status||""))return status==="in_progress"?"running":"pending";
   return "pending";
 }
+
+platformUpdatesRouter.get("/api/platform/database-status",requireAuth,requirePermission("platform:update"),asyncHandler(async(_req,res)=>{
+  const applied=await query("select version,applied_at from schema_migrations order by applied_at desc");
+  const here=path.dirname(fileURLToPath(import.meta.url));
+  const dir=path.resolve(here,"../../../database/migrations");
+  const files=(await fs.readdir(dir)).filter(file=>file.endsWith(".sql")).sort();
+  const appliedSet=new Set(applied.rows.map((row:any)=>row.version));
+  const pending=files.filter(file=>!appliedSet.has(file));
+  res.json({
+    engine:"PostgreSQL",
+    totalMigrations:files.length,
+    appliedCount:appliedSet.size,
+    pendingCount:pending.length,
+    latestApplied:applied.rows[0]||null,
+    recentApplied:applied.rows.slice(0,8),
+    pendingMigrations:pending.slice(0,12)
+  });
+}));
 
 platformUpdatesRouter.get("/api/platform/github-connection",requireAuth,requirePermission("platform:update"),asyncHandler(async(_req,res)=>{
   const db=await dbToken(); const current=db||envToken();
@@ -174,4 +201,38 @@ platformUpdatesRouter.post("/api/platform/update",requireAuth,requirePermission(
     body:JSON.stringify({ref:"main",inputs:{target_sha:next.sha,requested_by:String((req as any).user?.id||"management-panel")}})
   },githubToken);
   res.status(202).json({accepted:true,targetSha:next.sha,message:"نسخه بعدی با انتخاب مدیر برای انتشار ارسال شد."});
+}));
+
+platformUpdatesRouter.post("/api/platform/deploy-reviewed",requireAuth,requirePermission("platform:update"),asyncHandler(async(req,res)=>{
+  const githubToken=await token();
+  if(!githubToken)return res.status(503).json({error:"اتصال امن GitHub برای استقرار تأییدشده تنظیم نشده است"});
+  const targetSha=typeof req.body?.targetSha==="string"?req.body.targetSha.trim():"";
+  if(!/^[0-9a-f]{40}$/i.test(targetSha))return res.status(400).json({error:"شناسه نسخه بررسی‌شده معتبر نیست"});
+  const deployed=await resolveDeployedSha(githubToken);
+  if(!deployed)return res.status(503).json({error:"نسخه واقعاً نصب‌شده و تأییدشده قابل شناسایی نیست"});
+  if(deployed===targetSha)return res.status(409).json({error:"این نسخه قبلاً روی سرور تأیید شده است"});
+  const comparison=await github("/repos/"+ownerRepo+"/compare/"+encodeURIComponent(deployed)+"..."+encodeURIComponent(targetSha),{},githubToken);
+  if(Number(comparison.ahead_by||0)<1||Number(comparison.behind_by||0)>0)return res.status(409).json({error:"نسخه انتخابی جلوتر از نسخه نصب‌شده نیست یا تاریخچه آن معتبر نیست"});
+  const runs=await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?branch=main&head_sha="+encodeURIComponent(targetSha)+"&per_page=20",{},githubToken);
+  const candidates=(runs.workflow_runs||[]).filter((run:any)=>run?.head_sha===targetSha&&run?.conclusion==="success");
+  let reviewedRun:any=null;
+  for(const run of candidates){
+    const jobData=await github("/repos/"+ownerRepo+"/actions/runs/"+run.id+"/jobs?per_page=100",{},githubToken);
+    const steps=(jobData.jobs||[]).flatMap((job:any)=>job.steps||[]);
+    const required=["Verify platform integrity","API build","Database migrations","API tests","Web build","Package exact SHA","Upload reviewable build artifact"];
+    if(required.every(name=>steps.some((step:any)=>step.name===name&&step.conclusion==="success"))){
+      const deploymentSteps=["Deploy with rollback","Production health and release check","Verify public HTTPS endpoint"];
+      if(deploymentSteps.some(name=>steps.some((step:any)=>step.name===name&&step.conclusion==="success")))return res.status(409).json({error:"این نسخه قبلاً استقرار یافته است"});
+      reviewedRun=run;break;
+    }
+  }
+  if(!reviewedRun)return res.status(409).json({error:"برای همین SHA، Build، Migration، تست API و Build وب موفق و قابل بررسی پیدا نشد"});
+  const activeRuns=await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?branch=main&per_page=20",{},githubToken);
+  const activeRun=(activeRuns.workflow_runs||[]).find((run:any)=>activeStatuses.includes(run.status));
+  if(activeRun)return res.status(409).json({error:"یک اجرای دیگر در حال انجام است؛ پس از پایان آن دوباره اقدام کنید"});
+  await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/dispatches",{
+    method:"POST",
+    body:JSON.stringify({ref:"main",inputs:{target_sha:targetSha,deploy_to_server:true,requested_by:String((req as any).user?.id||"management-panel")}})
+  },githubToken);
+  res.status(202).json({accepted:true,targetSha,message:"نسخه تأییدشده برای استقرار کنترل‌شده و بررسی HTTPS ارسال شد."});
 }));
