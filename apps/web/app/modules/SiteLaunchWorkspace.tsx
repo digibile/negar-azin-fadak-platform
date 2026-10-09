@@ -57,7 +57,7 @@ export default function SiteLaunchWorkspace(){
    const r=await fetch(api+"/api/platform/modules/36-page-templates/records?page=1&pageSize=100&recordType=site-configuration&q=",{credentials:"include",cache:"no-store"});
    const b=await r.json().catch(()=>null);
    if(!r.ok)throw new Error(b?.error||"دریافت سایت‌ها ناموفق بود");
-   setItems((b.items||[]).filter((x:SiteRecord)=>x.record_type==="site-configuration"));
+   setItems(Array.isArray(b.items)?b.items:[]);
   }catch(e){setError(e instanceof Error?e.message:"خطا در دریافت اطلاعات")}
   finally{setLoading(false)}
  };
