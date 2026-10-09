@@ -123,7 +123,7 @@ export function CartView() {
       </section>
       <aside className="sk-cart-summary"><h2>خلاصه سفارش</h2><div><span>تعداد کالا</span><b>{count.toLocaleString("fa-IR")} قلم</b></div><div><span>جمع کالاها</span><b>{money(total, items[0]?.currency || "IRR")}</b></div><div><span>هزینه ارسال</span><small>پس از تعیین فروشگاه و نشانی مشخص می‌شود</small></div><hr/><div className="sk-cart-total"><span>جمع فعلی</span><strong>{money(total, items[0]?.currency || "IRR")}</strong></div>
         <p className="sk-cart-notice">این سبد در همین مرورگر ذخیره شده است. ثبت سفارش نهایی فقط پس از اتصال سبد به فروشگاه فعال، بررسی موجودی و ورود به حساب انجام می‌شود؛ هیچ سفارش یا پرداختی هنوز ثبت نشده است.</p>
-        <Link href="/login?next=%2Fstore%2Fcheckout" className={items.length ? "sk-cart-checkout" : "sk-cart-checkout is-disabled"} aria-disabled={!items.length}>ورود برای ادامه خرید</Link>
+        <Link href="/login" className={items.length ? "sk-cart-checkout" : "sk-cart-checkout is-disabled"} aria-disabled={!items.length}>ورود به حساب کاربری</Link>
         <Link href="/store/shop" className="sk-cart-continue">بازگشت به فروشگاه</Link>
       </aside>
     </div>
