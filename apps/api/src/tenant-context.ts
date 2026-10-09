@@ -37,6 +37,7 @@ export async function resolvePublicTenant(req:any,requestedCode?:string):Promise
     if(byDomain.rowCount) return byDomain.rows[0];
   }
   const code=(requestedCode||"").trim();
+  if(currentHost && !code) return null;
   const r=code
     ?await query("select id,name,code from tenants where code=$1 and status='active'",[code])
     :await query("select id,name,code from tenants where status='active' order by created_at limit 1");
