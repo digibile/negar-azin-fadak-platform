@@ -39,10 +39,10 @@ export default function Login(){
   setLoading(true);
   try{
    const normalized=identifier.trim();
-  if(method==="email"&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalized)){setError("آدرس ایمیل را به‌درستی وارد کنید");setLoading(false);return;}
-  if(method==="mobile"&&!/^\\+?[0-9۰-۹٠-٩\\s()-]{8,20}$/.test(normalized)){setError("شماره موبایل را به‌درستی وارد کنید");setLoading(false);return;}
+  if(method==="email"&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)){setError("آدرس ایمیل را به‌درستی وارد کنید");setLoading(false);return;}
+  if(method==="mobile"&&!/^\+?[0-9۰-۹٠-٩\s()-]{8,20}$/.test(normalized)){setError("شماره موبایل را به‌درستی وارد کنید");setLoading(false);return;}
   const normalizedDigits=normalized.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
-  if(method==="nationalId"&&!/^\\d{10}$/.test(normalizedDigits)){setError("کد ملی باید ۱۰ رقم باشد");setLoading(false);return;}
+  if(method==="nationalId"&&!/^\d{10}$/.test(normalizedDigits)){setError("کد ملی باید ۱۰ رقم باشد");setLoading(false);return;}
   const res=await fetch("/api/auth/login",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
