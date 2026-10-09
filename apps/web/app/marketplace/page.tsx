@@ -37,7 +37,7 @@ export default function MarketplacePage(){
     }
   },[]);
 
-  useEffect(()=>{void load()},[load]);
+  useEffect(()=>{const params=new URLSearchParams(window.location.search);setStore(params.get("store")||"");void load()},[load]);
 
   const categories=useMemo(()=>{
     const values=(catalog?.products||[]).map(p=>p.category?.trim()).filter((x):x is string=>Boolean(x));
@@ -119,8 +119,8 @@ export default function MarketplacePage(){
 
         <div className={styles.searchPanel}>
           <label className={styles.searchField}><span className={styles.searchIcon} aria-hidden="true">⌕</span><input value={q} onChange={e=>setQ(e.target.value)} placeholder="نام کالا، برند، دسته یا فروشنده را جستجو کن" aria-label="جستجو در کاتالوگ"/></label>
-          <label><span className="sr-only">فیلتر فروشگاه</span><select className={styles.select} value={store} onChange={e=>setStore(e.target.value)} aria-label="فیلتر فروشگاه"><option value="">همه فروشگاه‌ها</option>{(catalog?.stores||[]).map(s=><option key={s.id} value={s.id}>{s.name} · {s.seller_name}</option>)}</select></label>
-          <label><span className="sr-only">فیلتر دسته‌بندی</span><select className={styles.select} value={category} onChange={e=>setCategory(e.target.value)} aria-label="فیلتر دسته‌بندی"><option value="">همه دسته‌بندی‌ها</option>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select></label>
+          <label><select className={styles.select} value={store} onChange={e=>setStore(e.target.value)} aria-label="فیلتر فروشگاه"><option value="">همه فروشگاه‌ها</option>{(catalog?.stores||[]).map(s=><option key={s.id} value={s.id}>{s.name} · {s.seller_name}</option>)}</select></label>
+          <label><select className={styles.select} value={category} onChange={e=>setCategory(e.target.value)} aria-label="فیلتر دسته‌بندی"><option value="">همه دسته‌بندی‌ها</option>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select></label>
         </div>
 
         <div className={styles.resultsMeta}><span>{loading?"در حال دریافت کاتالوگ…":<><b>{products.length.toLocaleString("fa-IR")}</b> کالا مطابق فیلتر</>}</span>{(q||store||category)&&<button type="button" className={styles.clearButton} onClick={resetFilters}>پاک‌کردن فیلترها</button>}</div>
