@@ -143,6 +143,12 @@ if(!deployWorkflow.includes("Upload reviewable build artifact")||deployWorkflow.
 if(!deployWorkflow.includes("--exclude='.env.*'"))throw new Error("Release package must exclude environment files");
 
 
+const identityApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"utf8");
+if(!identityApi.includes("const guardRead=")||!identityApi.includes("const guardWrite="))throw new Error("Identity API must separate read and write authorization");
+if(identityApi.includes("requireAuth,guard,"))throw new Error("Identity API contains a route using the unsafe combined authorization guard");
+if(!identityApi.includes('router.get("/api/identity/overview",requireAuth,guardRead,'))throw new Error("Identity overview must use read authorization");
+if(!identityApi.includes('router.post("/api/identity/roles",requireAuth,guardWrite,'))throw new Error("Role creation must use write authorization");
+if(!identityApi.includes('router.put("/api/identity/roles/:roleKey/permissions",requireAuth,guardWrite,'))throw new Error("Permission updates must use write authorization");
 const identityWorkspace=fs.readFileSync(path.join(root,"apps/web/app/modules/IdentityWorkspace.tsx"),"utf8");
 if(!modulePage.includes('"03-users-access": <IdentityWorkspace />'))throw new Error("Canonical Panel 03 must use the unified identity workspace");
 for(const tab of ["users","profiles","roles","groups","permissions","policies","auth","twofa","sessions","audit"])if(!identityWorkspace.includes('["'+tab+'"'))throw new Error("Panel 03 workspace tab missing: "+tab);
