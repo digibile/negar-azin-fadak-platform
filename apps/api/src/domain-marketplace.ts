@@ -81,7 +81,7 @@ domainMarketplaceRouter.get("/api/marketplace/products",requireAuth,requirePermi
   const params:any[]=[ctx.id];
   let where="p.tenant_id=$1";
   if(q){params.push("%"+q+"%");where+=" and (p.title ilike $2 or p.sku ilike $2)";}
-  const r=await query("select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.status,p.seller_id,p.store_id,sl.display_name as seller_name from products p join sellers sl on sl.id=p.seller_id where "+where+" order by p.updated_at desc",params);
+  const r=await query("select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.status,p.seller_id,p.store_id,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name from products p join sellers sl on sl.id=p.seller_id where "+where+" order by p.updated_at desc",params);
   res.json({tenant:ctx,items:r.rows,total:r.rowCount});
 }));
 
