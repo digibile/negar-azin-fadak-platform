@@ -133,6 +133,7 @@ const workflowDir=path.join(root,".github/workflows");
 const workflowFiles=fs.readdirSync(workflowDir).filter(name=>/\.ya?ml$/i.test(name));
 if(workflowFiles.length!==1||workflowFiles[0]!=="deploy-sookar-main.yml")throw new Error("Deployment workflow must have exactly one canonical entry point; found: "+workflowFiles.join(", "));
 const deployWorkflow=fs.readFileSync(path.join(workflowDir,"deploy-sookar-main.yml"),"utf8");
+if(/^\s*push\s*:/m.test(deployWorkflow.split(/^\s*workflow_dispatch\s*:/m)[0]))throw new Error("Automatic push-triggered production workflow is forbidden; build and deployment must be manually approved");
 if(!dynamicMenu.includes('router.get("/api/dashboard/menu-tree"')||!server.includes("app.use(dynamicMenuRouter)"))throw new Error("Canonical dashboard menu-tree API is missing or not mounted");
 if(!deployWorkflow.includes("workflow_dispatch:")||!deployWorkflow.includes("deploy_to_server:")||!deployWorkflow.includes("default: false"))throw new Error("Production deployment must require explicit approval input");
 for(const step of ["Prepare SSH","Upload release","Deploy with rollback","Production health and release check","Reload DirectAdmin Nginx configuration","Configure DirectAdmin Nginx routes","Ensure DirectAdmin SSL is enabled","Verify public HTTPS endpoint"]){
