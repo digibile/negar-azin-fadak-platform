@@ -127,4 +127,20 @@ if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered i
 
 if(!sidebar.includes("const visit=(nodes:MenuNode[])")||!sidebar.includes("visit(node.child_items||[])"))throw new Error("Legacy menu merge must index every nested level");
 if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.includes("...flattenTitles(x.dbChildren)"))throw new Error("Menu search must include all nested legacy levels");
-console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes registered in actual dispatcher registries, stages 19-45 operational layers, 8 command-platform domains, mounted routers, storage, pagination, and activation verified.");
+
+const dynamicMenu=fs.readFileSync(path.join(root,"apps/api/src/dynamic-menu.ts"),"utf8");
+const workflowDir=path.join(root,".github/workflows");
+const workflowFiles=fs.readdirSync(workflowDir).filter(name=>/\.ya?ml$/i.test(name));
+if(workflowFiles.length!==1||workflowFiles[0]!=="deploy-sookar-main.yml")throw new Error("Deployment workflow must have exactly one canonical entry point; found: "+workflowFiles.join(", "));
+const deployWorkflow=fs.readFileSync(path.join(workflowDir,"deploy-sookar-main.yml"),"utf8");
+if(!dynamicMenu.includes('router.get("/api/dashboard/menu-tree"')||!server.includes("app.use(dynamicMenuRouter)"))throw new Error("Canonical dashboard menu-tree API is missing or not mounted");
+if(!deployWorkflow.includes("workflow_dispatch:")||!deployWorkflow.includes("deploy_to_server:")||!deployWorkflow.includes("default: false"))throw new Error("Production deployment must require explicit approval input");
+for(const step of ["Prepare SSH","Upload release","Deploy with rollback","Production health and release check","Reload DirectAdmin Nginx configuration","Configure DirectAdmin Nginx routes","Ensure DirectAdmin SSL is enabled","Verify public HTTPS endpoint"]){
+ const escaped=step.replace(/[.*+?^${}()|[\]\\]/g,"\\console.log("Platform integrity OK:");
+ const gate=new RegExp("- name: "+escaped+"\\s+if: \\$\\{\\{\\s*inputs\\.deploy_to_server\\s*\\}\\}");
+ if(!gate.test(deployWorkflow))throw new Error("Production step is not gated by explicit approval: "+step);
+}
+if(!deployWorkflow.includes("Upload reviewable build artifact")||deployWorkflow.indexOf("Package exact SHA")>deployWorkflow.indexOf("Upload reviewable build artifact"))throw new Error("Build artifact must be packaged before review upload");
+if(!deployWorkflow.includes("--exclude='.env.*'"))throw new Error("Release package must exclude environment files");
+
+console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
