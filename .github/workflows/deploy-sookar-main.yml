@@ -77,6 +77,33 @@ jobs:
       - name: Web build
         working-directory: apps/web
         run: pnpm build
+      - name: Inspect currently published storefront catalog
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          HTTP_CODE="$(curl --silent --show-error --max-time 20 -o /tmp/live-catalog.json -w '%{http_code}' https://sookar.ir/api/public/marketplace 2>/tmp/live-catalog-curl.err)"
+          CURL_STATUS=$?
+          set -e
+          if [ "$CURL_STATUS" -ne 0 ] || [ "$HTTP_CODE" != "200" ]; then
+            echo "LIVE_CATALOG_CHECK_UNAVAILABLE http=$HTTP_CODE curl_status=$CURL_STATUS"
+            cat /tmp/live-catalog-curl.err 2>/dev/null || true
+            exit 0
+          fi
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          payload=json.loads(Path("/tmp/live-catalog.json").read_text())
+          products=payload.get("products")
+          stores=payload.get("stores")
+          if not isinstance(products,list):
+              print("LIVE_CATALOG_CHECK_INVALID_RESPONSE")
+          else:
+              categories=sorted({str(p.get("category") or "").strip() for p in products if str(p.get("category") or "").strip()})
+              print("LIVE_CATALOG tenant="+str((payload.get("tenant") or {}).get("name") or "unknown"))
+              print("LIVE_CATALOG products="+str(len(products))+" stores="+str(len(stores) if isinstance(stores,list) else 0)+" categories="+str(len(categories)))
+              print("LIVE_CATALOG categories="+(" | ".join(categories) if categories else "(none)"))
+          PY
       - name: Package exact SHA
         shell: bash
         run: |
