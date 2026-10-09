@@ -1,25 +1,24 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://negarzinfadak.ir";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://sookar.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "پلتفرم بیزینس نگار آذین فدک ایران",
-    template: "%s | نگار آذین فدک"
+    default: "فروشگاه اینترنتی سوکار و بازارگاه چندفروشنده",
+    template: "%s | سوکار"
   },
-  description: "سامانه یکپارچه مدیریت کسب‌وکار نگار آذین فدک ایران؛ مدیریت سازمان، مالی و حسابداری، تجارت، اعتبار، اسناد و عملیات در یک مرکز مدیریت.",
-  applicationName: "مرکز مدیریت نگار آذین فدک",
+  description: "فروشگاه اینترنتی و بازارگاه چندفروشنده سوکار؛ جستجو و خرید کالا از فروشندگان و فروشگاه‌های ثبت‌شده در یک مسیر یکپارچه.",
+  applicationName: "سوکار | فروشگاه و بازارگاه",
   keywords: [
-    "نگار آذین فدک",
-    "سامانه مدیریت کسب‌وکار",
-    "مرکز مدیریت سازمان",
-    "حسابداری و مالی",
-    "مدیریت فروشگاه",
-    "اعتبار و تسهیلات",
-    "مدیریت اسناد",
-    "مدیریت سازمان"
+    "سوکار",
+    "فروشگاه اینترنتی سوکار",
+    "بازارگاه چندفروشنده",
+    "خرید اینترنتی",
+    "فروشگاه‌های آنلاین",
+    "محصولات و فروشندگان",
+    "خرید اعتباری"
   ],
   alternates: { canonical: "/" },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
@@ -27,23 +26,23 @@ export const metadata: Metadata = {
     type: "website",
     locale: "fa_IR",
     url: siteUrl,
-    siteName: "نگار آذین فدک",
-    title: "پلتفرم بیزینس نگار آذین فدک ایران",
-    description: "سامانه یکپارچه مدیریت کسب‌وکار نگار آذین فدک ایران."
+    siteName: "سوکار",
+    title: "فروشگاه اینترنتی سوکار و بازارگاه چندفروشنده",
+    description: "خرید اینترنتی از فروشگاه‌ها و فروشندگان ثبت‌شده در بازارگاه سوکار."
   },
   twitter: {
     card: "summary_large_image",
-    title: "پلتفرم بیزینس نگار آذین فدک ایران",
-    description: "سامانه یکپارچه مدیریت کسب‌وکار نگار آذین فدک ایران."
+    title: "فروشگاه اینترنتی سوکار و بازارگاه چندفروشنده",
+    description: "خرید اینترنتی از فروشگاه‌ها و فروشندگان ثبت‌شده در بازارگاه سوکار."
   }
 };
 
 const organizationJsonLd = {
   "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "نگار آذین فدک ایران",
+  "@type": "OnlineStore",
+  name: "سوکار",
   url: siteUrl,
-  description: "پلتفرم یکپارچه مدیریت کسب‌وکار نگار آذین فدک ایران"
+  description: "فروشگاه اینترنتی و بازارگاه چندفروشنده سوکار"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
