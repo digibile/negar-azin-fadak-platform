@@ -22,8 +22,8 @@ on:
         type: string
 
 concurrency:
-  group: sookar-${{ inputs.deploy_to_server && 'production' || 'build' }}
-  cancel-in-progress: ${{ !inputs.deploy_to_server }}
+  group: sookar-${{ (github.event_name == 'push' || inputs.deploy_to_server) && 'production' || 'build' }}
+  cancel-in-progress: ${{ github.event_name != 'push' && !inputs.deploy_to_server }}
 
 permissions:
   contents: read
@@ -123,7 +123,7 @@ jobs:
           ssh-keyscan -T 15 -p '${{ secrets.DEPLOY_PORT }}' '${{ secrets.DEPLOY_HOST }}' >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
       - name: Preflight Sookar.ir production target
-        if: ${{ inputs.deploy_to_server }}
+        if: ${{ inputs.deploy_to_server || github.event_name == 'push' }}
         shell: bash
         run: |
           set -euo pipefail
