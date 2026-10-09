@@ -23,6 +23,12 @@ async function token(){return (await dbToken())||envToken();}
 const deployedSha=()=>process.env.DEPLOYED_SHA||"";
 const apiBase="https://api.github.com";
 
+function runTargetSha(run:any):string|null{
+  const label=String(run?.display_title||run?.name||"");
+  const match=label.match(/(?:Release\\s+)?([0-9a-f]{40})/i);
+  return match?.[1]|| (typeof run?.head_sha==="string"?run.head_sha:null);
+}
+
 async function resolveDeployedSha(githubToken:string){
   const configured=deployedSha().trim();
   if(configured)return configured;
@@ -33,13 +39,13 @@ async function resolveDeployedSha(githubToken:string){
       githubToken
     );
     const successful=(data.workflow_runs||[])
-      .filter((run:any)=>run?.conclusion==="success"&&typeof run?.head_sha==="string"&&run.head_sha.trim())
+      .filter((run:any)=>run?.conclusion==="success"&&runTargetSha(run))
       .sort((a:any,b:any)=>Date.parse(String(b.updated_at||b.created_at||0))-Date.parse(String(a.updated_at||a.created_at||0)));
     for(const run of successful){
       const jobData=await github("/repos/"+ownerRepo+"/actions/runs/"+run.id+"/jobs?per_page=100",{},githubToken);
       const steps=(jobData.jobs||[]).flatMap((job:any)=>job.steps||[]);
       const required=["Deploy with rollback","Production health and release check","Verify public HTTPS endpoint"];
-      if(required.every(name=>steps.some((step:any)=>step.name===name&&step.conclusion==="success")))return run.head_sha;
+      if(required.every(name=>steps.some((step:any)=>step.name===name&&step.conclusion==="success")))return runTargetSha(run);
     }
     return null;
   }catch{
@@ -162,13 +168,13 @@ platformUpdatesRouter.get("/api/platform/update-status",requireAuth,requirePermi
     repository:ownerRepo,workflow,workflowState:workflowInfo.state,
     deployedSha:deployed,mainSha,
     updateAvailable:Boolean(mainSha&&deployed&&mainSha!==deployed),
-    targetSha:latest?.head_sha||pendingUpdates[0]?.sha||mainSha||null,
+    targetSha:latest?runTargetSha(latest):pendingUpdates[0]?.sha||mainSha||null,
     pendingUpdates,
     nextUpdate:pendingUpdates[0]||null,
-    run:latest?{id:latest.id,status:latest.status,conclusion:latest.conclusion,sha:latest.head_sha,createdAt:latest.created_at,updatedAt:latest.updated_at,url:latest.html_url}:null,
+    run:latest?{id:latest.id,status:latest.status,conclusion:latest.conclusion,sha:runTargetSha(latest)||latest.head_sha,createdAt:latest.created_at,updatedAt:latest.updated_at,url:latest.html_url}:null,
     progress,failed,running,
     stages:jobs.map((j:any)=>({...j,status:stageStatus(j.status,j.conclusion),steps:j.steps.map((s:any)=>({...s,status:stageStatus(s.status,s.conclusion)}))})),
-    runs:list.map((x:any)=>({id:x.id,status:x.status,conclusion:x.conclusion,sha:x.head_sha,createdAt:x.created_at,updatedAt:x.updated_at,url:x.html_url}))
+    runs:list.map((x:any)=>({id:x.id,status:x.status,conclusion:x.conclusion,sha:runTargetSha(x)||x.head_sha,createdAt:x.created_at,updatedAt:x.updated_at,url:x.html_url}))
   });
 }));
 
@@ -193,8 +199,8 @@ platformUpdatesRouter.post("/api/platform/update",requireAuth,requirePermission(
   const pending=(compare.commits||[]).map((x:any,index:number)=>({order:index+1,sha:x.sha,message:String(x.commit?.message||"").split("\n")[0],ready:index===0}));
   const next=pending[0];
   if(!next)return res.status(409).json({error:"نسخه منتشرنشده‌ای برای انتشار وجود ندارد"});
-  const runs=await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?branch=main&head_sha="+encodeURIComponent(next.sha)+"&per_page=10",{},githubToken);
-  const existing=(runs.workflow_runs||[]).find((x:any)=>activeStatuses.includes(x.status));
+  const runs=await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?branch=main&per_page=20",{},githubToken);
+  const existing=(runs.workflow_runs||[]).find((x:any)=>runTargetSha(x)===next.sha&&activeStatuses.includes(x.status));
   if(existing)return res.status(202).json({accepted:true,targetSha:next.sha,runId:existing.id,message:"یک انتشار دیگر در حال اجراست؛ تا پایان آن نسخه بعدی قابل انتشار نیست."});
   await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/dispatches",{
     method:"POST",
@@ -213,8 +219,8 @@ platformUpdatesRouter.post("/api/platform/deploy-reviewed",requireAuth,requirePe
   if(deployed===targetSha)return res.status(409).json({error:"این نسخه قبلاً روی سرور تأیید شده است"});
   const comparison=await github("/repos/"+ownerRepo+"/compare/"+encodeURIComponent(deployed)+"..."+encodeURIComponent(targetSha),{},githubToken);
   if(Number(comparison.ahead_by||0)<1||Number(comparison.behind_by||0)>0)return res.status(409).json({error:"نسخه انتخابی جلوتر از نسخه نصب‌شده نیست یا تاریخچه آن معتبر نیست"});
-  const runs=await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?branch=main&head_sha="+encodeURIComponent(targetSha)+"&per_page=20",{},githubToken);
-  const candidates=(runs.workflow_runs||[]).filter((run:any)=>run?.head_sha===targetSha&&run?.conclusion==="success");
+  const runs=await github("/repos/"+ownerRepo+"/actions/workflows/"+encodeURIComponent(workflow)+"/runs?branch=main&per_page=50",{},githubToken);
+  const candidates=(runs.workflow_runs||[]).filter((run:any)=>runTargetSha(run)===targetSha&&run?.conclusion==="success");
   let reviewedRun:any=null;
   for(const run of candidates){
     const jobData=await github("/repos/"+ownerRepo+"/actions/runs/"+run.id+"/jobs?per_page=100",{},githubToken);
