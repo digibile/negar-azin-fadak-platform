@@ -27,6 +27,7 @@ services:
       PGUSER: ${POSTGRES_USER:-platform}
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       PGDATABASE: ${POSTGRES_DB:-negara_fadak}
+      MEDIA_ROOT: /app/media
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL is required}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
@@ -38,6 +39,8 @@ services:
       PLATFORM_UPDATE_WORKFLOW: ${PLATFORM_UPDATE_WORKFLOW:-deploy-sookar-main.yml}
     ports:
       - "127.0.0.1:4000:4000"
+    volumes:
+      - catalog_media:/app/media
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,3 +78,4 @@ services:
 
 volumes:
   postgres_data:
+  catalog_media:
