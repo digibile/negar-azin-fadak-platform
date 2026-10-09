@@ -82,13 +82,70 @@ const TECHNOLIFE_NAVIGATION = [
   { name: "کنسول و گیمینگ", children: ["کنسول بازی", "دسته بازی", "لوازم گیمینگ", "بازی"] }
 ] as const;
 
+const DIGIKALA_NAVIGATION = [
+  { name: "موبایل و تبلت", children: ["همه موبایل‌ها", "گوشی سامسونگ", "گوشی اپل", "گوشی شیائومی", "گوشی اقتصادی", "تبلت", "ساعت هوشمند", "لوازم جانبی موبایل", "شارژر و پاوربانک"] },
+  { name: "کالای دیجیتال", children: ["هدفون و هندزفری", "اسپیکر", "تلویزیون", "دوربین", "کنسول بازی", "لوازم گیمینگ", "هارد و SSD", "مودم و شبکه"] },
+  { name: "لپ‌تاپ و کامپیوتر", children: ["لپ‌تاپ دانشجویی", "لپ‌تاپ گیمینگ", "لپ‌تاپ حرفه‌ای", "کامپیوتر رومیزی", "مانیتور", "قطعات کامپیوتر", "ماوس و کیبورد"] },
+  { name: "مد و پوشاک", children: ["پوشاک زنانه", "پوشاک مردانه", "پوشاک کودک", "کفش", "کیف و کوله", "ساعت و زیورآلات", "لباس ورزشی"] },
+  { name: "زیبایی و سلامت", children: ["آرایش صورت", "مراقبت پوست", "مراقبت مو", "عطر و ادکلن", "بهداشت فردی", "لوازم شخصی برقی"] },
+  { name: "خانه و آشپزخانه", children: ["دکوراسیون", "مبلمان", "ظروف آشپزخانه", "خواب و حمام", "فرش و روشنایی", "ابزار خانه"] },
+  { name: "لوازم خانگی برقی", children: ["یخچال و فریزر", "ماشین لباسشویی", "جاروبرقی", "تهویه و سرمایش", "قهوه‌ساز", "لوازم نظافت"] },
+  { name: "سوپرمارکت", children: ["مواد غذایی", "تنقلات", "نوشیدنی", "صبحانه", "شوینده و نظافت", "بهداشت خانه"] },
+  { name: "کتاب و لوازم‌التحریر", children: ["کتاب عمومی", "کتاب کودک", "کتاب دانشگاهی", "دفتر و نوشت‌افزار", "هنر و طراحی", "لوازم اداری"] },
+  { name: "اسباب‌بازی و کودک", children: ["بازی فکری", "عروسک و فیگور", "ساختنی", "لوازم نوزاد", "بهداشت کودک", "اتاق کودک"] },
+  { name: "ورزش و سفر", children: ["پوشاک ورزشی", "تجهیزات ورزشی", "کمپینگ", "چمدان و کوله", "لوازم سفر"] },
+  { name: "ابزار و تجهیزات", children: ["ابزار دستی", "ابزار برقی", "تجهیزات ایمنی", "باغبانی", "یراق و اتصالات"] },
+  { name: "خودرو و موتورسیکلت", children: ["لوازم جانبی خودرو", "نگهداری خودرو", "لوازم موتورسیکلت", "تجهیزات سفر خودرو"] },
+  { name: "طلا، نقره و زیورآلات", children: ["زیورآلات", "ساعت", "اکسسوری", "هدیه‌های ویژه"] },
+  { name: "کالاهای بومی و محلی", children: ["صنایع دستی", "خوراکی محلی", "محصولات هنری", "هدیه محلی"] },
+  { name: "پت‌شاپ", children: ["غذای حیوانات", "بهداشت حیوانات", "اسباب‌بازی حیوانات", "لوازم نگهداری"] },
+  { name: "کارت هدیه", children: ["کارت هدیه خرید", "هدیه مناسبتی", "هدیه دیجیتال"] }
+] as const;
+
+const TECHNOLIFE_NAVIGATION = [
+  { name: "موبایل و تبلت", children: ["همه گوشی‌ها", "گوشی سامسونگ", "گوشی اپل", "گوشی شیائومی", "گوشی اقتصادی", "گوشی پرچم‌دار", "تبلت", "ساعت هوشمند", "لوازم جانبی موبایل"] },
+  { name: "لپ‌تاپ و کامپیوتر", children: ["همه لپ‌تاپ‌ها", "لپ‌تاپ گیمینگ", "لپ‌تاپ دانشجویی", "لپ‌تاپ حرفه‌ای", "کامپیوتر و آل‌این‌وان", "مانیتور", "قطعات کامپیوتر", "ماوس و کیبورد"] },
+  { name: "صوتی و تصویری", children: ["هدفون و هندزفری", "اسپیکر", "تلویزیون", "سینمای خانگی", "دوربین عکاسی", "میکروفون"] },
+  { name: "گجت و پوشیدنی", children: ["ساعت هوشمند", "مچ‌بند هوشمند", "ردیاب و گجت", "عینک هوشمند", "لوازم جانبی پوشیدنی"] },
+  { name: "شبکه و ذخیره‌سازی", children: ["مودم و روتر", "تجهیزات شبکه", "هارد اکسترنال", "SSD", "فلش و کارت حافظه", "ذخیره‌ساز تحت شبکه"] },
+  { name: "کنسول و گیمینگ", children: ["کنسول بازی", "دسته بازی", "هدست گیمینگ", "صندلی گیمینگ", "لوازم جانبی بازی", "بازی"] },
+  { name: "قطعات و لوازم جانبی", children: ["پردازنده", "کارت گرافیک", "مادربرد", "رم و حافظه", "پاور و کیس", "کابل و مبدل"] },
+  { name: "لوازم اداری و هوشمند", children: ["پرینتر و اسکنر", "ویدئو پروژکتور", "خانه هوشمند", "تجهیزات کنفرانس", "لوازم جانبی کامپیوتر"] }
+] as const;
+
 const DIGIBILE_NAVIGATION = [
-  { name: "کالای دیجیتال", children: ["موبایل و تبلت", "لپ‌تاپ و کامپیوتر", "صوتی و تصویری", "لوازم جانبی", "گجت هوشمند"] },
-  { name: "خانه و زندگی", children: ["خانه و آشپزخانه", "لوازم خانگی برقی", "دکوراسیون", "ابزار و تجهیزات"] },
-  { name: "مد و سبک زندگی", children: ["پوشاک", "کفش و کیف", "زیبایی و سلامت", "ورزش و سفر"] },
-  { name: "سوپرمارکت", children: ["مواد غذایی", "نوشیدنی و تنقلات", "بهداشت و نظافت"] },
-  { name: "کتاب و سرگرمی", children: ["کتاب و لوازم‌التحریر", "اسباب‌بازی", "بازی و سرگرمی"] },
-  { name: "بازارگاه و فروشندگان", children: ["همه فروشندگان", "فروشگاه‌های منتخب", "پیگیری سفارش", "خرید اعتباری"] }
+  { name: "کالای دیجیتال", children: ["موبایل و تبلت", "لپ‌تاپ و کامپیوتر", "صوتی و تصویری", "گجت هوشمند", "قطعات و لوازم جانبی"] },
+  { name: "خانه و زندگی", children: ["خانه و آشپزخانه", "لوازم خانگی برقی", "دکوراسیون", "ابزار و تجهیزات", "نور و روشنایی"] },
+  { name: "مد و سبک زندگی", children: ["پوشاک زنانه", "پوشاک مردانه", "کفش و کیف", "زیبایی و سلامت", "ساعت و زیورآلات", "ورزش و سفر"] },
+  { name: "سوپرمارکت و روزمره", children: ["مواد غذایی", "نوشیدنی و تنقلات", "بهداشت و نظافت", "کالاهای مصرفی خانه"] },
+  { name: "کتاب و سرگرمی", children: ["کتاب و لوازم‌التحریر", "اسباب‌بازی", "بازی و سرگرمی", "هنر و صنایع دستی"] },
+  { name: "خودرو و ابزار", children: ["لوازم خودرو", "موتورسیکلت", "ابزار دستی", "ابزار برقی", "تجهیزات ایمنی"] },
+  { name: "زیبایی، سلامت و ورزش", children: ["مراقبت پوست و مو", "بهداشت فردی", "تجهیزات ورزشی", "سفر و کمپینگ"] },
+  { name: "بازارگاه و فروشندگان", children: ["همه فروشندگان", "فروشگاه‌های منتخب", "ثبت‌نام فروشنده", "پیگیری سفارش", "مرکز پشتیبانی"] },
+  { name: "خدمات خرید", children: ["خرید اعتباری", "کارت هدیه", "پیشنهادهای ویژه", "کالاهای تخفیف‌دار"] }
+] as const;
+
+const AVA_NAVIGATION = [
+  { name: "خانه آوا", children: ["تازه‌های آوا", "پرفروش‌های منتخب", "پیشنهادهای امروز", "هدیه برای عزیزان"] },
+  { name: "خانه و دکور", children: ["دکوراسیون مینیمال", "روشنایی", "ظروف و پذیرایی", "خواب و حمام", "نظم‌دهنده‌ها"] },
+  { name: "زیبایی و مراقبت", children: ["مراقبت پوست", "مراقبت مو", "عطر و رایحه", "بهداشت فردی", "لوازم آرایش"] },
+  { name: "مد و اکسسوری", children: ["پوشاک زنانه", "پوشاک مردانه", "کیف و کفش", "ساعت و زیورآلات", "اکسسوری روزمره"] },
+  { name: "دیجیتال روزمره", children: ["هدفون و هندزفری", "لوازم جانبی موبایل", "گجت‌های کاربردی", "لوازم اداری"] },
+  { name: "سلامت و سبک زندگی", children: ["ورزش و تندرستی", "سفر و کمپینگ", "مراقبت شخصی", "کالاهای کاربردی"] },
+  { name: "کتاب و هدیه", children: ["کتاب و نوشت‌افزار", "هدیه مناسبتی", "صنایع دستی", "کارت هدیه"] },
+  { name: "خوراک و روزمره", children: ["خوراکی‌های بسته‌بندی", "نوشیدنی", "محصولات مصرفی خانه", "بهداشت و نظافت"] }
+] as const;
+
+const KIPA_NAVIGATION = [
+  { name: "کالای دیجیتال", children: ["موبایل و تبلت", "لپ‌تاپ و کامپیوتر", "صوتی و تصویری", "لوازم جانبی", "خانه هوشمند"] },
+  { name: "خانه و خانواده", children: ["خانه و آشپزخانه", "لوازم خانگی", "کودک و نوزاد", "نظم‌دهنده و دکور"] },
+  { name: "مد و زیبایی", children: ["پوشاک", "کیف و کفش", "آرایشی و بهداشتی", "عطر و مراقبت شخصی"] },
+  { name: "سوپرمارکت", children: ["مواد غذایی", "تنقلات و نوشیدنی", "شوینده و نظافت", "کالاهای مصرفی"] },
+  { name: "کتاب و سرگرمی", children: ["کتاب و لوازم‌التحریر", "اسباب‌بازی", "بازی فکری", "لوازم هنری"] },
+  { name: "ورزش و سفر", children: ["تجهیزات ورزشی", "پوشاک ورزشی", "سفر و کمپینگ", "چمدان و کوله"] },
+  { name: "ابزار و خودرو", children: ["ابزارآلات", "لوازم خودرو", "موتورسیکلت", "تجهیزات ایمنی"] },
+  { name: "فروشندگان کیپا", children: ["فروشگاه‌های منتخب", "همه فروشندگان", "راهنمای خرید", "پیگیری سفارش"] },
+  { name: "باشگاه مشتریان", children: ["پیشنهادهای ویژه", "کارت هدیه", "تخفیف‌های دوره‌ای", "پشتیبانی مشتریان"] }
 ] as const;
 const brandIdentity:Record<StoreVariant,{name:string;mark:string;tagline:string;strip:string;heroKicker:string;heroTitle:React.ReactNode;heroDescription:string;loginBrand:string;footerDescription:string;domain:string}> = {
   default:{name:"سوکار",mark:"س",tagline:"خرید هوشمند، انتخاب مطمئن",strip:"سوکار، بازارگاه یکپارچه خرید و فروش",heroKicker:"بازارگاه سوکار",heroTitle:<>هرچی لازم داری،<br /><em>یک‌جا پیدا کن.</em></>,heroDescription:"کالاهای فروشگاه‌های فعال را ببین، مشخصات و قیمت ثبت‌شده را بررسی کن و محصولات موردنظرت را به سبد خرید اضافه کن.",loginBrand:"naf",footerDescription:"یک مسیر یکپارچه برای کشف کالا، مقایسه انتخاب‌ها و خرید از فروشگاه‌های ثبت‌شده.",domain:"sookar.ir"},
@@ -102,7 +159,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const pathname = usePathname();
   const identity = brandIdentity[variant];
   const isTechnolife = variant === "technolife";
-  const activeStoreNavigation = isTechnolife ? TECHNOLIFE_NAVIGATION : variant === "digibile" ? DIGIBILE_NAVIGATION : STORE_CATEGORY_NAVIGATION;
+  const activeStoreNavigation = variant === "digikala" ? DIGIKALA_NAVIGATION : isTechnolife ? TECHNOLIFE_NAVIGATION : variant === "digibile" ? DIGIBILE_NAVIGATION : isAva ? AVA_NAVIGATION : isKipa ? KIPA_NAVIGATION : STORE_CATEGORY_NAVIGATION;
   const isDigikala = variant === "digikala";
   const isAva = variant === "ava";
   const isKipa = variant === "kipa";
@@ -114,7 +171,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
-  const [activeNavCategory, setActiveNavCategory] = useState("موبایل");
+  const [activeNavCategory, setActiveNavCategory] = useState(activeStoreNavigation[0]?.name || "موبایل");
   const [sortBy, setSortBy] = useState<"newest" | "price-asc" | "price-desc" | "title">("newest");
   const [loading, setLoading] = useState(true);
 
@@ -175,7 +232,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
 
   const technologyPattern = /موبایل|گوشی|تبلت|لپ.?تاپ|کامپیوتر|مانیتور|کالای دیجیتال|صوتی|تصویری|هدفون|اسپیکر|دوربین|گیمینگ|کنسول|الکترونیک|mobile|phone|tablet|laptop|computer|monitor|digital|audio|video|headphone|speaker|camera|gaming|console|electronics/i;
   const sourceProducts = isTechnolife ? (data?.products || []).filter(product => technologyPattern.test(normalizeText([product.title, product.category || "", product.description || "", product.brand || ""].join(" ")))) : (data?.products || []);
-  const categoryNames = [...new Set([...activeStoreNavigation.map(item => item.name), ...BROWSE_CATEGORIES, ...(Array.isArray(data?.categories) ? data.categories : [])])].filter(name => !isTechnolife || technologyPattern.test(normalizeText(name)));
+  const categoryNames = [...new Set([...activeStoreNavigation.map(item => item.name), ...(variant === "default" ? BROWSE_CATEGORIES : []), ...(Array.isArray(data?.categories) ? data.categories : [])])].filter(name => !isTechnolife || technologyPattern.test(normalizeText(name)));
   const categories = [...new Set(categoryNames.map(name => canonicalCategory(name.trim())).filter(Boolean))]
     .filter((name, index, all) => all.findIndex(item => normalizeText(item) === normalizeText(name)) === index)
     .map(name => [normalizeText(name), name] as [string, string]);
