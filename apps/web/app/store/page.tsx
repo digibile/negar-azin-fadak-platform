@@ -77,6 +77,7 @@ export default function StorePage() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [sortBy, setSortBy] = useState<"newest" | "price-asc" | "price-desc" | "title">("newest");
   const [loading, setLoading] = useState(true);
 
@@ -185,7 +186,12 @@ export default function StorePage() {
         </div>
         <nav className="sk-main-nav" aria-label="ناوبری اصلی">
           <div className="sk-wrap sk-nav-inner">
-            <Link className="sk-all-cats" href="/store/shop"><span>☰</span> دسته‌بندی کالاها</Link>
+            <div className="sk-category-nav-menu">
+              <button type="button" className="sk-all-cats" aria-expanded={showCategoryMenu} aria-haspopup="menu" onClick={() => setShowCategoryMenu(open => !open)}><span>☰</span> دسته‌بندی کالاها <span className="sk-category-nav-chevron">{showCategoryMenu ? "⌃" : "⌄"}</span></button>
+              {showCategoryMenu && <div className="sk-category-nav-dropdown" role="menu" aria-label="دسته‌بندی کالاها">
+                {categories.map(([key,name]) => <button type="button" role="menuitem" key={key} onClick={() => { setCategory(name); setShowCategoryMenu(false); document.getElementById("sk-products")?.scrollIntoView({behavior:"smooth",block:"start"}); }}><span>{categoryGlyph(name,name)}</span><b>{name}</b><i>←</i></button>)}
+              </div>}
+            </div>
             <Link href="/store/shop">فروشگاه و فروشندگان</Link>
             <Link href="/pay">خرید اعتباری</Link>
             <Link href="/store/orders">پیگیری سفارش</Link>
