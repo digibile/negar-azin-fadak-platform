@@ -346,9 +346,9 @@ domainMarketplaceRouter.post("/api/marketplace/products/sync-reference",requireA
   const user=(req as any).user as User;
   const ctx=await tenantContext(req,user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
-  const requested=Array.isArray(req.body?.sourceProductIds)
-    ?[...new Set(req.body.sourceProductIds.filter((value:unknown):value is string=>typeof value==="string").map((value:string)=>value.trim()).filter(Boolean))].slice(0,50)
-    :[];
+  const requested: string[] = Array.isArray(req.body?.sourceProductIds)
+    ? [...new Set<string>(req.body.sourceProductIds.filter((value: unknown): value is string => typeof value === "string").map((value: string) => value.trim()).filter(Boolean))].slice(0, 50)
+    : [];
   if(!requested.length)return res.status(400).json({error:"حداقل یک شناسه محصول منبع انتخاب کنید؛ حداکثر ۵۰ مورد در هر نوبت"});
   const run=await query("insert into catalog_source_sync_runs(tenant_id,source_name,status,requested_count,created_by) values($1,'دیجی‌کالا','running',$2,$3) returning id",[ctx.id,requested.length,user.id||null]);
   const runId=run.rows[0].id as string;
