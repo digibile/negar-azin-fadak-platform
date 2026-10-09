@@ -327,6 +327,8 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-reference",requir
       sourceProductId:product.id,
       brand:product.brand,
       rating:product.rating,
+      specifications:product.specifications,
+      galleryImages:product.gallery_images,
       importedAt:new Date().toISOString(),
       priceReviewRequired:true
     };
