@@ -173,7 +173,7 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
         <div className="sk-wrap sk-header-main">
           <Link href="/" className="sk-logo" aria-label="سوکار، صفحه اصلی">
             <span className="sk-logo-mark">س</span>
-            <span><b>{isTechnolife ? "سوکار تک" : "سوکار"}</b><small>{isTechnolife ? "دنیای فناوری، یک‌جا" : isDigikala ? "قالب فروشگاهی قرمز · پیش‌نمایش" : "خرید هوشمند، انتخاب مطمئن"}</small></span>
+            <span><b>{isTechnolife ? "سوکار تک" : "سوکار"}</b><small>{isTechnolife ? "دنیای فناوری، یک‌جا" : isDigikala ? "خرید هوشمند، انتخاب مطمئن" : "خرید هوشمند، انتخاب مطمئن"}</small></span>
           </Link>
           <form className="sk-search" role="search" onSubmit={event => { event.preventDefault(); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth" }); }}>
             <span aria-hidden="true">⌕</span>
@@ -204,7 +204,7 @@ export default function StorePage({ variant = "default" }: { variant?: "default"
       <div className="sk-wrap">
         <section className="sk-hero sk-retail-hero" aria-labelledby="sk-hero-title">
           <div className="sk-hero-copy">
-            <span className="sk-hero-kicker"><i /> {isTechnolife ? "فروشگاه کالای دیجیتال سوکار" : isDigikala ? "پیش‌نمایش قالب فروشگاهی دیجی‌کالا" : "بازارگاه سوکار"}</span>
+            <span className="sk-hero-kicker"><i /> {isTechnolife ? "فروشگاه کالای دیجیتال سوکار" : isDigikala ? "تجربه فروشگاهی سریع و آشنا" : "بازارگاه سوکار"}</span>
             <h1 id="sk-hero-title">{isTechnolife ? <>تکنولوژی روز،<br /><em>انتخابی آگاهانه.</em></> : isDigikala ? <>از میان انتخاب‌ها،<br /><em>بهترین را پیدا کن.</em></> : <>هرچی لازم داری،<br /><em>یک‌جا پیدا کن.</em></>}</h1>
             <p>{isTechnolife ? "محصولات دیجیتال ثبت‌شده را جستجو کن، مشخصات و قیمت واقعی را بررسی کن و با آگاهی انتخاب کن." : "کالاهای فروشگاه‌های فعال را ببین، مشخصات و قیمت ثبت‌شده را بررسی کن و محصولات موردنظرت را به سبد خرید اضافه کن."}</p>
             <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">خرید از همه دسته‌ها <span>←</span></Link><Link href="/marketplace/directory" className="sk-quiet-btn">فروشگاه‌های بازارگاه</Link></div>
