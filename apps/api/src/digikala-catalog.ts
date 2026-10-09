@@ -151,23 +151,18 @@ async function fetchSearch(query: string, category: string): Promise<DigikalaCat
 }
 
 async function loadCatalog(): Promise<DigikalaCatalogProduct[]> {
+  const results = await Promise.allSettled(
+    SEARCHES.map(item => fetchSearch(item.query, item.category))
+  );
   const unique = new Map<string, DigikalaCatalogProduct>();
-  let nextIndex = 0;
-  const worker = async () => {
-    while (nextIndex < SEARCHES.length && unique.size < 250) {
-      const current = SEARCHES[nextIndex++];
-      try {
-        const products = await fetchSearch(current.query, current.category);
-        for (const product of products) {
-          if (!unique.has(product.id)) unique.set(product.id, product);
-          if (unique.size >= 250) break;
-        }
-      } catch {
-        // A source outage must not break the first-party marketplace catalog.
-      }
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const product of result.value) {
+      if (!unique.has(product.id)) unique.set(product.id, product);
+      if (unique.size >= 250) break;
     }
-  };
-  await Promise.all([worker(), worker(), worker()]);
+    if (unique.size >= 250) break;
+  }
   return [...unique.values()].slice(0, 250);
 }
 
