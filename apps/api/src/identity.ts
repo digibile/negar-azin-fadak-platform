@@ -28,7 +28,7 @@ router.get("/api/identity/overview",requireAuth,guardRead,async(_req,res)=>{
   query("select id,user_id,ip_address,user_agent,started_at,last_seen_at,expires_at,revoked_at from security_sessions order by last_seen_at desc limit 100"),
   query("select id,email,success,failure_reason,ip_address,occurred_at from security_login_events order by occurred_at desc limit 100")
  ]);
- res.json({users:users.rows,roles:roles.rows,groups:groups.rows,permissions:permissions.rows,grants:grants.rows,sessions:sessions.rows,logins:logins.rows});
+ res.json({users:users.rows,roles:roles.rows,groups:groups.rows,permissions:permissions.rows,grants:grants.rows,sessions:sessions.rows,logins:logins.rows,access:{canManageRoles:req.user?.role==="admin",canWriteUsers:req.user?.role==="admin"||true}});
 });
 router.post("/api/identity/users",requireAuth,guardWrite,requireCsrf,async(req,res)=>{
  const {email,fullName,role="viewer",status="active"}=req.body||{};
@@ -41,7 +41,8 @@ router.post("/api/identity/users",requireAuth,guardWrite,requireCsrf,async(req,r
 });
 router.patch("/api/identity/users/:id",requireAuth,guardWrite,requireCsrf,async(req,res)=>{
  const {fullName,role,status}=req.body||{};
- if(role){const x=await query("select 1 from identity_roles where role_key=$1 and is_active=true",[role]);if(!x.rowCount)return res.status(400).json({error:"نقش معتبر نیست"});}
+ if(req.user?.role!=="admin"&&(role!==undefined||status!==undefined))return res.status(403).json({error:"تغییر نقش یا وضعیت حساب فقط برای مدیر سامانه مجاز است"});
+ if(role!==undefined){const x=await query("select 1 from identity_roles where role_key=$1 and is_active=true",[role]);if(!x.rowCount)return res.status(400).json({error:"نقش معتبر نیست"});}
  const r=await query("update users set full_name=coalesce($1,full_name),role=coalesce($2,role),status=coalesce($3,status) where id=$4 returning id,email,full_name,role,status,created_at",[fullName||null,role||null,status||null,req.params.id]);
  if(!r.rowCount)return res.status(404).json({error:"کاربر پیدا نشد"});res.json(r.rows[0]);
 });
@@ -60,7 +61,10 @@ router.post("/api/identity/groups/:id/members",requireAuth,guardWrite,requireCsr
  const r=await query("insert into identity_group_members(group_id,user_id) values($1,$2) on conflict do nothing returning *",[req.params.id,userId]);res.status(201).json(r.rows[0]||{group_id:req.params.id,user_id:userId});
 });
 router.put("/api/identity/roles/:roleKey/permissions",requireAuth,guardAdmin,requireCsrf,async(req,res)=>{
- const permissionKeys=Array.isArray(req.body?.permissionKeys)?req.body.permissionKeys.map(String):[];
+ const permissionKeys=Array.isArray(req.body?.permissionKeys)?[...new Set(req.body.permissionKeys.map(String))]:[];
+ const role=await query("select 1 from identity_roles where role_key=$1 and is_active=true",[req.params.roleKey]);
+ if(!role.rowCount)return res.status(404).json({error:"نقش فعال پیدا نشد"});
+ if(permissionKeys.length){const known=await query("select permission_key from identity_permissions where permission_key=any($1::text[]) and is_active=true",[permissionKeys]);if(known.rowCount!==permissionKeys.length)return res.status(400).json({error:"یک یا چند مجوز معتبر نیست یا غیرفعال است"});}
  await query("delete from identity_role_permissions where role_key=$1",[req.params.roleKey]);
  if(permissionKeys.length)await query("insert into identity_role_permissions(role_key,permission_key) select $1,permission_key from identity_permissions where permission_key=any($2::text[])",[req.params.roleKey,permissionKeys]);
  res.json({roleKey:req.params.roleKey,permissionKeys});
