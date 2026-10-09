@@ -1,6 +1,9 @@
 name: Deploy Sookar Main Safely
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       target_sha:
