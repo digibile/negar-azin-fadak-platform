@@ -37,7 +37,7 @@ export default function UpdatesPage(){
  const buildSuccess=status?.run?.conclusion==="success";
  const deployedHttpsSuccess=Boolean(status?.stages.some(stage=>stage.steps.some(step=>step.name==="Verify public HTTPS endpoint"&&step.conclusion==="success")));
  const success=Boolean(buildSuccess&&deployedHttpsSuccess&&status?.deployedSha&&status.deployedSha===status.run?.sha);
- const reviewReady=Boolean(buildSuccess&&!success&&status?.nextUpdate?.sha===status?.run?.sha);
+ const reviewReady=Boolean(buildSuccess&&!success&&status?.mainSha===status?.run?.sha);
  const failed=status?.failed||status?.run?.conclusion==="failure";
  const current=useMemo(()=>status?.stages.find(x=>x.status==="running")||status?.stages.find(x=>x.status==="pending"),[status]);
  async function saveGithubToken(){
@@ -86,7 +86,7 @@ export default function UpdatesPage(){
   try{setLog(await api<string>("/api/platform/update-log/"+jobId))}catch(e){setLog(e instanceof Error?e.message:"لاگ مرحله دریافت نشد")}finally{setLogLoading(false)}
  }
  return <main className="platform-update-page">
-  <div className="platform-update-head"><div><span className="section-kicker">PLATFORM RELEASE LIFECYCLE · 2026</span><h2>مرکز انتشار و بروزرسانی سامانه</h2><p>منبع حقیقت این صفحه GitHub Actions است. Build می‌تواند نسخه‌های جدید را آماده کند، اما هیچ نسخه‌ای روی Production خودکار منتشر نمی‌شود. انتخاب و اجرای بروزرسانی فقط با مدیر انجام می‌شود.</p></div><div className="platform-update-actions"><button className="admin-link release-trigger-button" onClick={triggerUpdate} disabled={triggering||status?.running}>{triggering||status?.running?"ساخت نسخه در حال اجرا...":"ساخت نسخه برای بررسی"}</button>{reviewReady&&<button className="admin-link release-trigger-button" onClick={deployReviewed} disabled={deploying||status?.running}>{deploying?"در حال ارسال استقرار...":"تأیید و استقرار نسخه بررسی‌شده"}</button>}<Link className="admin-link" href="/admin">بازگشت به مرکز مدیریت</Link></div></div>
+  <div className="platform-update-head"><div><span className="section-kicker">PLATFORM RELEASE LIFECYCLE · 2026</span><h2>مرکز انتشار و بروزرسانی سامانه</h2><p>منبع حقیقت این صفحه GitHub Actions است. Build می‌تواند نسخه‌های جدید را آماده کند، اما هیچ نسخه‌ای روی Production خودکار منتشر نمی‌شود. انتخاب و اجرای بروزرسانی فقط با مدیر انجام می‌شود.</p></div><div className="platform-update-actions"><button className="admin-link release-trigger-button" onClick={triggerUpdate} disabled={triggering||status?.running||reviewReady}>{triggering||status?.running?"ساخت نسخه در حال اجرا...":reviewReady?"نسخه آماده تأیید است":"ساخت آخرین نسخه برای بررسی"}</button>{reviewReady&&<button className="admin-link release-trigger-button" onClick={deployReviewed} disabled={deploying||status?.running}>{deploying?"در حال ارسال استقرار...":"تأیید و استقرار نسخه بررسی‌شده"}</button>}<Link className="admin-link" href="/admin">بازگشت به مرکز مدیریت</Link></div></div>
   {error&&<div className="error">{error}</div>}
   {triggerMessage&&<div className="update-success">{triggerMessage}</div>}
   {submittedRelease&&<section className="update-card submitted-release-card">
