@@ -49,6 +49,13 @@ formBuilderRouter.post("/api/form-builder/forms/:id/disable",requireAuth,require
  res.json(r.rows[0]);
 }));
 
+formBuilderRouter.post("/api/form-builder/forms/:id/archive",requireAuth,requirePermission("form:manage"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query("update form_definitions set status='archived',updated_at=now() where id=$1 and tenant_id=$2 and status<>'archived' returning *",[req.params.id,t.id]);
+ if(!r.rowCount)return res.status(409).json({error:"فرم پیدا نشد یا قبلاً آرشیو شده است"});
+ res.json(r.rows[0]);
+}));
+
 formBuilderRouter.delete("/api/form-builder/forms/:id",requireAuth,requirePermission("form:manage"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const r=await query("delete from form_definitions f where f.id=$1 and f.tenant_id=$2 and not exists (select 1 from form_submissions fs where fs.form_id=f.id and fs.tenant_id=f.tenant_id) returning f.id",[req.params.id,t.id]);
