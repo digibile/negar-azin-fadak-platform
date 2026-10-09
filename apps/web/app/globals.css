@@ -656,3 +656,14 @@ html,body{font-family:"IRANSansX","Vazirmatn","Segoe UI",Tahoma,sans-serif;backg
 .sk-product-site--ava .sk-product-footer{background:#211f3b}
 .sk-product-site--digikala .store-header{border-bottom:2px solid #e5322b}
 @media(max-width:700px){.sk-product-footer{grid-template-columns:1fr;padding:24px 18px}.sk-product-footer nav{gap:12px 16px}.sk-product-footer>small{grid-column:1}}
+
+/* Accessible login method and password visibility controls */
+.naf-login-method{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:2px}
+.naf-login-method button{height:42px;border:1px solid #243250;border-radius:10px;background:#121b2e;color:#9aa4bd;font:inherit;font-size:12px;font-weight:700}
+.naf-login-method button.active{border-color:var(--naf-accent);background:color-mix(in srgb,var(--naf-accent) 12%,#121b2e);color:#f4e7b4}
+.naf-password-wrap{position:relative;display:flex;align-items:center}
+.naf-login-form .naf-password-wrap input{width:100%;height:46px;padding:0 46px 0 14px;border-radius:10px;border:1px solid #243250;background:#182238;color:#edefF3;outline:none;font-family:inherit;font-size:14px}
+.naf-login-form .naf-password-wrap input:focus{border-color:var(--naf-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--naf-accent) 15%,transparent)}
+.naf-password-toggle{position:absolute;right:7px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:32px;height:32px;padding:6px;border:0;border-radius:7px;background:transparent;color:#c9a227;font-size:20px}
+.naf-password-toggle:focus-visible{outline:2px solid var(--naf-accent);outline-offset:1px}
+.naf-login-form input[type=tel]{direction:ltr;text-align:left}
