@@ -1,7 +1,7 @@
 import {NextResponse} from "next/server";
 
 export async function POST(request:Request){
- let input:{email?:unknown;password?:unknown;humanCheck?:unknown;humanAnswer?:unknown};
+ let input:{method?:unknown;identifier?:unknown;email?:unknown;password?:unknown;humanCheck?:unknown;humanAnswer?:unknown};
  try{
   input=await request.json();
  }catch{
@@ -14,7 +14,9 @@ export async function POST(request:Request){
    method:"POST",
    headers:{"content-type":"application/json"},
    body:JSON.stringify({
-    email:String(input.email||""),
+    method:input.method==="mobile"?"mobile":"email",
+    identifier:String(input.identifier??input.email??""),
+    email:String(input.identifier??input.email??""),
     password:String(input.password||""),
     humanCheck:String(input.humanCheck||""),
     humanAnswer:String(input.humanAnswer||"")
