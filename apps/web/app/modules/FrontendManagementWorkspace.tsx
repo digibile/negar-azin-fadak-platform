@@ -30,6 +30,9 @@ export default function FrontendManagementWorkspace() {
       <Link href="/store/digibile" style={{padding:"8px 12px",borderRadius:10,background:"#0f766e",color:"#fff",fontSize:12,fontWeight:700}}>دیجی‌بایل ↗</Link>
       <Link href="/store/technolife" style={{padding:"8px 12px",borderRadius:10,background:"#374151",color:"#fff",fontSize:12,fontWeight:700}}>تکنولایف ↗</Link>
       <Link href="/store/kipa" style={{padding:"8px 12px",borderRadius:10,background:"#166534",color:"#fff",fontSize:12,fontWeight:700}}>کیپا ↗</Link>
+      <Link href="/store/vamcity" style={{padding:"8px 12px",borderRadius:10,background:"#115e59",color:"#fff",fontSize:12,fontWeight:700}}>وام‌سیتی ↗</Link>
+      <Link href="/store/naf" style={{padding:"8px 12px",borderRadius:10,background:"#1e3a8a",color:"#fff",fontSize:12,fontWeight:700}}>نگار آذین فدک ↗</Link>
+      <Link href="/store/digikala" style={{padding:"8px 12px",borderRadius:10,background:"#b91c1c",color:"#fff",fontSize:12,fontWeight:700}}>قالب فروشگاهی قرمز ↗</Link>
       <Link href="/store" style={{padding:"8px 12px",borderRadius:10,border:"1px solid #cbd5e1",color:"inherit",fontSize:12,fontWeight:700}}>سوکار ↗</Link>
     </section>
     {tab==="templates" ? <PageTemplatesWorkspace/> : <FrontendSectionsWorkspace/>}
