@@ -126,11 +126,7 @@ jobs:
             exit 1
           fi
           echo EXISTING_DOMAIN_CERTIFICATE_VALID
-          if grep -q '^ssl=OFF
-          systemctl reload nginx
-          REMOTE
-
- "$DOMAIN_CONF"; then
+          if grep -q '^ssl=OFF$' "$DOMAIN_CONF"; then
             sed -i 's/^ssl=OFF$/ssl=ON/' "$DOMAIN_CONF"
             echo DIRECTADMIN_SSL_FLAG_ENABLED
           fi
