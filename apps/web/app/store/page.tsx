@@ -240,9 +240,9 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
     return aliases.find(([pattern]) => pattern.test(key))?.[1] || BROWSE_CATEGORIES.find(name => normalizeText(name) === key) || key;
   };
 
-  const technologyPattern = /موبایل|گوشی|تبلت|لپ.?تاپ|کامپیوتر|مانیتور|کالای دیجیتال|صوتی|تصویری|هدفون|اسپیکر|دوربین|گیمینگ|کنسول|الکترونیک|ابزارآلات|ابزار|لوازم خانگی|خانه و آشپزخانه|آشپزخانه|شبکه|مودم|پرینتر|اداری|کالای برق|زیبایی|سلامت|ورزش|سفر|فرهنگ|کتاب|نوشت.?افزار|خودرو|موتورسیکلت|طلا|سکه|پوشیدنی|mobile|phone|tablet|laptop|computer|monitor|digital|audio|video|headphone|speaker|camera|gaming|console|electronics|tool|appliance|home|kitchen|network|router|printer|office|beauty|health|travel|book|auto|motor|gold|jewelry|wearable/i;
-  const sourceProducts = isTechnolife ? (data?.products || []).filter(product => technologyPattern.test(normalizeText([product.title, product.category || "", product.description || "", product.brand || ""].join(" ")))) : (data?.products || []);
-  const categoryNames = [...new Set([...activeStoreNavigation.map(item => item.name), ...(templateVariant === "default" ? BROWSE_CATEGORIES : []), ...(Array.isArray(data?.categories) ? data.categories : [])])].filter(name => !isTechnolife || technologyPattern.test(normalizeText(name)));
+  const sourceProducts = data?.products || [];
+  const hasDemoProducts = sourceProducts.some(product => product.is_demo_product);
+  const categoryNames = [...new Set([...activeStoreNavigation.map(item => item.name), ...(templateVariant === "default" ? BROWSE_CATEGORIES : []), ...(Array.isArray(data?.categories) ? data.categories : [])])];
   const categories = [...new Set(categoryNames.map(name => canonicalCategory(name.trim())).filter(Boolean))]
     .filter((name, index, all) => all.findIndex(item => normalizeText(item) === normalizeText(name)) === index)
     .map(name => [normalizeText(name), name] as [string, string]);
@@ -336,7 +336,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
             <h1 id="sk-hero-title">{identity.heroTitle}</h1>
             <p>{identity.heroDescription}</p>
             <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">خرید از همه دسته‌ها <span>←</span></Link><Link href="/marketplace/directory" className="sk-quiet-btn">فروشگاه‌های بازارگاه</Link></div>
-            <div className="sk-hero-note"><span>✓</span> فقط اطلاعات کاتالوگ واقعی؛ بدون محصول و قیمت ساختگی</div>
+            <div className="sk-hero-note"><span>✓</span> {hasDemoProducts ? "کاتالوگ آزمایشی سوکار؛ قیمت‌ها مرجع‌اند و پرداخت واقعی غیرفعال است" : "اطلاعات محصولات از کاتالوگ ثبت‌شدهٔ سوکار نمایش داده می‌شود"}</div>
           </div>
           <div className="sk-hero-products" aria-label="محصولات منتخب از کاتالوگ">
             {sourceProducts.filter(product => safeImageUrl(product.image_url)).slice(0, 3).map((product, index) => (
@@ -386,7 +386,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
         </section>
 
         <section className="sk-catalog" id="sk-products" aria-labelledby="sk-products-title" style={{order:orderOf("products")}}>
-          <div className="sk-section-heading"><div><span className="sk-eyebrow">کاتالوگ بازارگاه</span><h2 id="sk-products-title">محصولات برای انتخاب تو</h2><p>فقط محصولاتی نمایش داده می‌شوند که در کاتالوگ خود سوکار ثبت و برای فروش فعال شده‌اند.</p></div><Link href="/marketplace" className="sk-section-link">رفتن به بازارگاه <span>←</span></Link></div>
+          <div className="sk-section-heading"><div><span className="sk-eyebrow">کاتالوگ بازارگاه</span><h2 id="sk-products-title">محصولات برای انتخاب تو</h2><p>{hasDemoProducts ? "بیش از ۱۲۰ کالای نمونه در پایگاه دادهٔ سوکار ذخیره شده‌اند؛ برای آزمایش جستجو، صفحه محصول و سبد خرید. قیمت‌ها مرجع‌اند و سفارش یا پرداخت واقعی ایجاد نمی‌شود." : "محصولات منتشرشدهٔ کاتالوگ سوکار را ببین، دسته‌بندی کن و مشخصات ثبت‌شده را مقایسه کن."}</p></div><Link href="/marketplace" className="sk-section-link">رفتن به بازارگاه <span>←</span></Link></div>
 
           <div className="sk-category-row" aria-label="فیلتر دسته‌بندی">
             <button type="button" className={!category ? "sk-category-chip is-active" : "sk-category-chip"} onClick={() => setCategory("")}>همه کالاها</button>
@@ -397,7 +397,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
             })}
           </div>
 
-          <div className="sk-catalog-meta"><span>{loading ? "در حال دریافت کاتالوگ…" : <><b>{products.length.toLocaleString("fa-IR")}</b> نتیجه</>}</span><label className="sk-sort-control">مرتب‌سازی <select value={sortBy} onChange={event => setSortBy(event.target.value as typeof sortBy)}><option value="newest">جدیدترین ثبت‌شده</option><option value="price-asc">ارزان‌ترین</option><option value="price-desc">گران‌ترین</option><option value="title">نام کالا</option></select></label>{(query || category) && <button type="button" onClick={() => { setQuery(""); setCategory(""); }}>پاک‌کردن فیلترها ×</button>}</div>
+          <div className="sk-catalog-meta"><span>{loading ? "در حال دریافت کاتالوگ…" : <><b>{products.length.toLocaleString("fa-IR")}</b> کالا</>}</span><label className="sk-sort-control">مرتب‌سازی <select value={sortBy} onChange={event => setSortBy(event.target.value as typeof sortBy)}><option value="newest">جدیدترین ثبت‌شده</option><option value="price-asc">ارزان‌ترین</option><option value="price-desc">گران‌ترین</option><option value="title">نام کالا</option></select></label>{(query || category) && <button type="button" onClick={() => { setQuery(""); setCategory(""); }}>پاک‌کردن فیلترها ×</button>}</div>
 
           {loading ? <div className="sk-state"><span className="sk-loader" />در حال دریافت اطلاعات واقعی محصولات…</div>
           : error ? <div className="sk-state sk-state-error"><b>دریافت محصولات انجام نشد</b><p>{error}</p><button type="button" onClick={() => window.location.reload()}>تلاش دوباره</button></div>
