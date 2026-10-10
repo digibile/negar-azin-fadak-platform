@@ -37,7 +37,10 @@ export async function resolvePublicTenant(req:any,requestedCode?:string):Promise
     if(byDomain.rowCount) return byDomain.rows[0];
   }
   const code=(requestedCode||"").trim();
-  if(currentHost && !code) return null;
+  // The canonical Sookar storefront is the platform home, not a seller custom domain.
+  // Resolve its default active tenant when no verified seller-domain mapping exists.
+  const isSookarPlatformHost=currentHost==="sookar.ir"||currentHost==="www.sookar.ir";
+  if(currentHost && !code && !isSookarPlatformHost) return null;
   const r=code
     ?await query("select id,name,code from tenants where code=$1 and status='active'",[code])
     :await query("select id,name,code from tenants where status='active' order by created_at limit 1");
