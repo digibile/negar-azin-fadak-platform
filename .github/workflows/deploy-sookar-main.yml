@@ -420,7 +420,21 @@ jobs:
           test "$product_code" = "200"
           test "$cart_code" = "200"
           test "$checkout_code" = "200"
-          grep -q "افزودن به سبد خرید" /tmp/sookar-product-page.html
+          if grep -q "محصول پیدا نشد" /tmp/sookar-product-page.html; then
+            echo "::error::Product detail route returned the not-found state."
+            head -c 1800 /tmp/sookar-product-page.html
+            exit 1
+          fi
+          if ! grep -q "$sku" /tmp/sookar-product-page.html; then
+            echo "::error::Product detail page did not render the requested product SKU."
+            head -c 1800 /tmp/sookar-product-page.html
+            exit 1
+          fi
+          if ! grep -q "sk-add-cart" /tmp/sookar-product-page.html; then
+            echo "::error::Product detail page did not render the add-to-cart control."
+            head -c 1800 /tmp/sookar-product-page.html
+            exit 1
+          fi
           grep -q "سبد خرید" /tmp/sookar-cart-page.html
           grep -q "خرید آزمایشی" /tmp/sookar-demo-checkout.html
           echo "SOOKAR_SHOPPING_FLOW_ROUTES_OK"
