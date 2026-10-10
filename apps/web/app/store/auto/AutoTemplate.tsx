@@ -43,6 +43,40 @@ const css = `
 .auto-disclaimer{border:1px solid #eadfc8;background:#fff9eb;border-radius:14px;padding:15px 17px;font-size:11px;line-height:2;color:#755b31;margin-top:18px}.auto-footer{background:#142a3d;color:#d8e3e9;padding:30px 0;margin-top:28px}.auto-footer-inner{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}.auto-footer p{font-size:11px;color:#b9c8d2;line-height:2}.auto-footer-links{display:flex;gap:16px;flex-wrap:wrap}.auto-footer a{font-size:11px;color:#e5edf1}
 @media(max-width:900px){.auto-nav{gap:12px}.auto-hero{grid-template-columns:1fr}.auto-visual{min-height:245px}.auto-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.auto-search{grid-template-columns:repeat(2,minmax(0,1fr))}.auto-search .auto-btn{width:100%}.auto-steps{grid-template-columns:1fr}.auto-head{padding:12px 0;flex-wrap:wrap}.auto-nav{order:3;width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:8px}.auto-feature{grid-template-columns:1fr}}
 @media(max-width:520px){.auto-wrap{width:calc(100% - 24px)}.auto-strip .auto-wrap{font-size:9px}.auto-head{gap:10px}.auto-logo b{font-size:17px}.auto-head>.auto-btn{min-height:39px;padding:0 11px;font-size:10px}.auto-nav a{white-space:nowrap}.auto-hero{margin-top:14px;gap:12px}.auto-hero-copy{padding:25px 21px;border-radius:20px}.auto-hero h1{font-size:32px;letter-spacing:-.7px}.auto-hero p{font-size:12px}.auto-visual{min-height:205px;border-radius:20px}.auto-car{transform:scale(.78) translateY(20px)}.auto-search{padding:13px;gap:8px}.auto-search input,.auto-search select{font-size:11px}.auto-section{padding:36px 0}.auto-section-head{align-items:flex-start;flex-direction:column;gap:7px}.auto-grid{gap:9px}.auto-card{padding:14px;border-radius:15px}.auto-card h3{font-size:14px}.auto-card p{font-size:11px}.auto-feature{gap:10px}.auto-footer-inner{align-items:flex-start;flex-direction:column}}
+
+/* Reference design: full-width cinematic automotive hero, premium header/footer, mobile-first. */
+.auto-page{background:#fff}
+.auto-wrap{width:min(1240px,calc(100% - 40px))}
+.auto-strip{background:#0c1c2a}
+.auto-head{min-height:82px}
+.auto-hero{display:block;margin-top:0;width:100%;position:relative;min-height:450px;overflow:hidden;border-radius:0;background:#0c1c2a}
+.auto-hero-copy{min-height:450px;border-radius:0;padding:clamp(32px,7vw,86px) max(24px,calc((100vw - 1160px)/2));background:linear-gradient(90deg,rgba(8,22,34,.15) 0%,rgba(8,22,34,.55) 35%,rgba(8,22,34,.96) 74%,#0c1c2a 100%),url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=2000&q=85') center/cover no-repeat;display:flex;flex-direction:column;align-items:flex-start;justify-content:center}
+.auto-hero-copy h1{max-width:620px;font-size:clamp(34px,4.5vw,58px)}
+.auto-hero-copy>p{max-width:550px}
+.auto-visual{display:none}
+.auto-search{margin-top:-1px;border-radius:0 0 20px 20px;box-shadow:0 12px 32px #142a3d0b;position:relative;z-index:2}
+.auto-section{padding-block:58px}
+.auto-card{transition:transform .2s,box-shadow .2s}
+.auto-card:hover{transform:translateY(-4px);box-shadow:0 16px 30px #142a3d12}
+.auto-footer{margin-top:0}
+@media(max-width:900px){
+ .auto-wrap{width:calc(100% - 28px)}
+ .auto-hero{width:100%;border-radius:0;min-height:390px}
+ .auto-hero-copy{min-height:390px;padding:42px 28px;background-image:linear-gradient(90deg,rgba(8,22,34,.35),rgba(8,22,34,.94)),url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1400&q=80');background-position:center;background-size:cover}
+ .auto-hero h1{font-size:clamp(32px,6vw,46px)}
+ .auto-search{margin-top:0;border-radius:0 0 18px 18px}
+}
+@media(max-width:520px){
+ .auto-wrap{width:calc(100% - 24px)}
+ .auto-hero{min-height:420px}
+ .auto-hero-copy{min-height:420px;padding:30px 22px;background-image:linear-gradient(180deg,rgba(8,22,34,.38),rgba(8,22,34,.96)),url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=900&q=80');background-position:center;background-size:cover}
+ .auto-hero h1{font-size:32px}
+ .auto-search{grid-template-columns:1fr 1fr;padding:12px}
+ .auto-search label{font-size:10px}
+ .auto-search .auto-btn{grid-column:1/-1}
+ .auto-section{padding-block:38px}
+ .auto-footer{padding:26px 0}
+}
 `;
 function Header(){return <><div className="auto-strip"><div className="auto-wrap"><span>بازار خودرو · انتخاب شفاف، تصمیم مطمئن</span><span>خرید نقدی · اقساط · تعویض · خدمات</span></div></div><header className="auto-header"><div className="auto-wrap auto-head"><Link href="/store/auto" className="auto-logo"><span className="auto-mark">ر</span><span><b>سوکار خودرو</b><small>بازار خودرو و خدمات</small></span></Link><nav className="auto-nav">{nav.map(([href,label])=><Link href={href} key={href}>{label}</Link>)}</nav><Link className="auto-btn gold" href="/store/auto/trade-in">تعویض خودروی من</Link></div></header></>}
 function Footer(){return <footer className="auto-footer"><div className="auto-wrap auto-footer-inner"><div><b>سوکار خودرو</b><p>قالب نمایشی بازار خودرو برای توسعه در سامانه سوکار خودرو</p></div><div className="auto-footer-links">{nav.map(([href,label])=><Link href={href} key={href}>{label}</Link>)}</div></div></footer>}
