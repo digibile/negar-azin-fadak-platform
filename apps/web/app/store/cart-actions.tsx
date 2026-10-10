@@ -70,8 +70,8 @@ export function AddToCartButton({ product, compact = false }: { product: StoreCa
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1600);
   }
-  return <button type="button" className={compact ? "sk-add-cart sk-add-cart-compact" : "sk-add-cart"} onClick={add}>
-    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4h2l2.1 10.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>{added ? "به سبد اضافه شد" : compact ? "افزودن" : "افزودن به سبد خرید"}
+  return <button type="button" className={compact ? "sk-add-cart sk-add-cart-compact" : "sk-add-cart"} onClick={add} aria-live="polite">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4h2l2.1 10.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg><span>{added ? "به سبد اضافه شد" : compact ? "افزودن به سبد" : "افزودن به سبد خرید"}</span>
   </button>;
 }
 
@@ -109,28 +109,28 @@ export function CartView() {
     <div className="sk-service-strip"><div className="sk-wrap sk-service-inner"><span>سبد خرید سوکار</span><div><Link href="/store">ادامه خرید</Link><Link href="/store/faq">راهنمای خرید</Link></div></div></div>
     <header className="sk-header"><div className="sk-wrap sk-header-main">
       <Link href="/" className="sk-logo"><span className="sk-logo-mark">س</span><span><b>سوکار</b><small>سبد خرید شما</small></span></Link>
-      <div className="sk-cart-page-title"><span>مرحله ۱ از خرید</span><h1>سبد خرید</h1></div>
+      <div className="sk-cart-page-title"><span className="sk-cart-step-kicker"><i aria-hidden="true">01</i> مسیر خرید سوکار</span><h1>سبد خرید</h1><p>کالاها را بررسی کن، تعداد را تغییر بده و بعد ادامه بده.</p></div>
       <Link className="sk-primary-btn" href="/store/shop">ادامه خرید ←</Link>
     </div></header>
     <div className="sk-wrap sk-cart-layout">
       <section className="sk-cart-items">
-        <div className="sk-cart-heading"><div><h2>محصولات انتخاب‌شده</h2><p>{count.toLocaleString("fa-IR")} قلم در سبد</p></div>{items.length > 0 && <button type="button" onClick={clear} className="sk-cart-clear">خالی کردن سبد</button>}</div>
-        {items.length === 0 ? <div className="sk-cart-empty"><span>🛒</span><h2>سبد خریدت هنوز خالی است</h2><p>محصولات موردنظرت را از کاتالوگ انتخاب کن و به اینجا برگرد.</p><Link href="/store/shop" className="sk-primary-btn">مشاهده کالاها ←</Link></div> :
+        <div className="sk-cart-heading"><div className="sk-cart-heading-title"><span className="sk-cart-heading-icon" aria-hidden="true">▣</span><div><h2>محصولات انتخاب‌شده</h2><p>{count.toLocaleString("fa-IR")} قلم در سبد</p></div></div>{items.length > 0 && <button type="button" onClick={clear} className="sk-cart-clear">حذف همه کالاها</button>}</div>
+        {items.length === 0 ? <div className="sk-cart-empty"><span>🛒</span><h2>سبد خریدت هنوز خالی است</h2><p>محصولات موردنظرت را از کاتالوگ انتخاب کن و به اینجا برگرد.</p><Link href="/store/shop" className="sk-primary-btn"><span aria-hidden="true">⌕</span> مشاهده کالاها</Link></div> :
           <div className="sk-cart-list">{items.map(item => <article className="sk-cart-item" key={item.id}>
             <div className="sk-cart-thumb">{item.image_url ? <img src={item.image_url} alt={item.title} /> : <span>▧</span>}</div>
             <div className="sk-cart-item-main"><Link href={"/store/product/" + encodeURIComponent(item.sku || item.id) + "?site=" + encodeURIComponent(item.site || "default")} className="sk-cart-item-title">{item.title}</Link><small>فروشنده: {item.seller_name || "فروشنده ثبت‌شده"}</small>{item.is_demo_product && <small className="sk-demo-cart-note">نمونهٔ آزمایشی سوکار · قیمت مرجع، نه قیمت فروش</small>}<strong>{money(Number(item.price), item.currency)}</strong>
-              <div className="sk-cart-controls"><div className="sk-quantity"><button type="button" onClick={() => update(item.id, -1)} aria-label="کاهش تعداد">−</button><span>{item.quantity.toLocaleString("fa-IR")}</span><button type="button" onClick={() => update(item.id, 1)} aria-label="افزایش تعداد">＋</button></div><button type="button" onClick={() => remove(item.id)} className="sk-cart-remove">حذف</button></div>
+              <div className="sk-cart-controls"><div className="sk-quantity" aria-label={"تعداد "+item.title}><button type="button" onClick={() => update(item.id, -1)} aria-label={"کاهش تعداد "+item.title}>−</button><span aria-live="polite">{item.quantity.toLocaleString("fa-IR")}</span><button type="button" onClick={() => update(item.id, 1)} aria-label={"افزایش تعداد "+item.title}>＋</button></div><button type="button" onClick={() => remove(item.id)} className="sk-cart-remove"><span aria-hidden="true">×</span> حذف کالا</button></div>
             </div>
             <strong className="sk-cart-line-total">{money(Number(item.price) * item.quantity, item.currency)}</strong>
           </article>)}</div>}
       </section>
-      <aside className="sk-cart-summary"><h2>خلاصه سفارش</h2><div><span>تعداد کالا</span><b>{count.toLocaleString("fa-IR")} قلم</b></div><div><span>جمع کالاها</span><b>{money(total, items[0]?.currency || "IRR")}</b></div><div><span>هزینه ارسال</span><small>پس از تعیین فروشگاه و نشانی مشخص می‌شود</small></div><hr/><div className="sk-cart-total"><span>جمع فعلی</span><strong>{money(total, items[0]?.currency || "IRR")}</strong></div>
-        <p className="sk-cart-notice">{items.some(item => item.is_demo_product) ? "سبد شامل کالای آزمایشی سوکار است. قیمت‌ها snapshot مرجع‌اند؛ این مرحله فقط شبیه‌سازی داخلی است و سفارش یا پرداخت واقعی ایجاد نمی‌کند." : "این سبد در همین مرورگر ذخیره شده است. برای سفارش واقعی باید به حساب کاربری وارد شوید و موجودی و فروشنده بررسی شود."}</p>
+      <aside className="sk-cart-summary"><div className="sk-cart-summary-title"><span className="sk-cart-summary-icon" aria-hidden="true">✓</span><h2>خلاصه سفارش</h2></div><div><span>تعداد کالا</span><b>{count.toLocaleString("fa-IR")} قلم</b></div><div><span>جمع کالاها</span><b>{money(total, items[0]?.currency || "IRR")}</b></div><div><span>هزینه ارسال</span><small>پس از تعیین فروشگاه و نشانی مشخص می‌شود</small></div><hr/><div className="sk-cart-total"><span>جمع فعلی</span><strong>{money(total, items[0]?.currency || "IRR")}</strong></div>
+        <p className="sk-cart-notice"><strong>{items.some(item => item.is_demo_product) ? "سبد آزمایشی" : "پیش از سفارش"}</strong><span>{items.some(item => item.is_demo_product) ? "کالاها در پایگاه داده سوکار ثبت شده‌اند، اما قیمت و موجودی مرجع‌اند. این مسیر برای آزمایش است و پرداخت واقعی ندارد." : "این سبد در مرورگر ذخیره شده است. پیش از خرید واقعی، فروشنده، قیمت و موجودی باید تأیید شوند."}</span></p>
         {items.length > 0 && items.every(item => item.is_demo_product)
           ? <Link href="/store/demo-checkout" className="sk-cart-checkout">ادامه مراحل آزمایشی خرید</Link>
           : <Link href="/login" className={items.length ? "sk-cart-checkout" : "sk-cart-checkout is-disabled"} aria-disabled={!items.length}>ورود به حساب کاربری</Link>}
         {items.some(item => item.is_demo_product) && items.some(item => !item.is_demo_product) && <p className="sk-cart-notice">سبد ترکیبی است. برای جلوگیری از اشتباه، کالاهای آزمایشی را از کالاهای واقعی جدا کنید؛ سفارش آزمایشی فقط برای سبدی شامل کالاهای آزمایشی فعال است.</p>}
-        <Link href="/store/shop" className="sk-cart-continue">بازگشت به فروشگاه</Link>
+        <Link href="/store/shop" className="sk-cart-continue"><span aria-hidden="true">←</span> ادامه جست‌وجوی کالاها</Link>
       </aside>
     </div>
     <footer className="sk-footer"><div className="sk-wrap sk-footer-bottom"><div><span>سوکار · فروشگاه اینترنتی و بازارگاه</span><Link href="/store/terms">قوانین و شرایط</Link><Link href="/store/faq">راهنمای خرید</Link></div></div></footer>
