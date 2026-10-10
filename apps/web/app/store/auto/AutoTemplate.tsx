@@ -87,6 +87,39 @@ const css = `
  .auto-section{padding-block:38px}
  .auto-footer{padding:26px 0}
 }
+
+/* Layout stabilization: keep the market landing focused and prevent dense sections from competing. */
+.auto-page .auto-wrap{max-width:1240px}
+.auto-page .auto-section-head{min-width:0}
+.auto-page .auto-section-head>*{min-width:0}
+.auto-page .auto-edit-showcase{padding-top:32px}
+.auto-page .auto-edit-slide{gap:24px}
+.auto-page .auto-edit-slide>div:first-child{min-width:0}
+.auto-page .auto-calc-content{align-items:start}
+.auto-page .auto-calc-fields{min-width:0}
+.auto-page .auto-calc-result{min-width:0;overflow-wrap:anywhere}
+.auto-page .auto-calc-result>span{line-height:1.9}
+.auto-page .auto-amortization{margin:0 20px 20px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#fbfcfd}
+.auto-page .auto-amortization h3{font-size:15px;margin:0 0 12px}
+.auto-page .auto-amortization table{font-variant-numeric:tabular-nums}
+.auto-page .auto-amortization td,.auto-page .auto-amortization th{white-space:nowrap}
+.auto-page:has(.auto-edit-showcase)>section.auto-wrap.auto-section{display:none}
+@media(max-width:760px){
+ .auto-page .auto-wrap{width:calc(100% - 24px)}
+ .auto-page .auto-edit-showcase{padding-top:22px}
+ .auto-page .auto-edit-slide{min-height:280px;gap:14px}
+ .auto-page .auto-calc-content{grid-template-columns:minmax(0,1fr);padding:12px}
+ .auto-page .auto-calc-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .auto-page .auto-calc-result{padding:15px}
+ .auto-page .auto-calc-result strong{font-size:24px}
+ .auto-page .auto-amortization{margin:0 12px 12px;padding:10px}
+}
+@media(max-width:420px){
+ .auto-page .auto-calc-fields{grid-template-columns:minmax(0,1fr)}
+ .auto-page .auto-calc-result strong{font-size:21px}
+ .auto-page .auto-edit-slide h2{font-size:25px}
+}
+
 `;
 function Header(){return <><div className="auto-strip"><div className="auto-wrap"><span>بازار خودرو · انتخاب شفاف، تصمیم مطمئن</span><span>خرید نقدی · اقساط · تعویض · خدمات</span></div></div><header className="auto-header"><div className="auto-wrap auto-head"><Link href="/store/auto" className="auto-logo"><span className="auto-mark">ر</span><span><b>سوکار خودرو</b><small>بازار خودرو و خدمات</small></span></Link><nav className="auto-nav">{nav.map(([href,label])=><Link href={href} key={href}>{label}</Link>)}</nav><Link className="auto-btn gold" href="/store/auto/trade-in">تعویض خودروی من</Link></div></header></>}
 function Footer(){return <footer className="auto-footer"><div className="auto-wrap auto-footer-inner"><div><b>سوکار خودرو</b><p>قالب نمایشی بازار خودرو برای توسعه در سامانه سوکار خودرو</p></div><div className="auto-footer-links">{nav.map(([href,label])=><Link href={href} key={href}>{label}</Link>)}</div></div></footer>}
