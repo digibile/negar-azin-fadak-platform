@@ -233,7 +233,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
     return aliases.find(([pattern]) => pattern.test(key))?.[1] || BROWSE_CATEGORIES.find(name => normalizeText(name) === key) || key;
   };
 
-  const technologyPattern = /موبایل|گوشی|تبلت|لپ.?تاپ|کامپیوتر|مانیتور|کالای دیجیتال|صوتی|تصویری|هدفون|اسپیکر|دوربین|گیمینگ|کنسول|الکترونیک|mobile|phone|tablet|laptop|computer|monitor|digital|audio|video|headphone|speaker|camera|gaming|console|electronics/i;
+  const technologyPattern = /موبایل|گوشی|تبلت|لپ.?تاپ|کامپیوتر|مانیتور|کالای دیجیتال|صوتی|تصویری|هدفون|اسپیکر|دوربین|گیمینگ|کنسول|الکترونیک|ابزارآلات|ابزار|لوازم خانگی|خانه و آشپزخانه|آشپزخانه|شبکه|مودم|پرینتر|اداری|کالای برق|زیبایی|سلامت|ورزش|سفر|فرهنگ|کتاب|نوشت.?افزار|خودرو|موتورسیکلت|طلا|سکه|پوشیدنی|mobile|phone|tablet|laptop|computer|monitor|digital|audio|video|headphone|speaker|camera|gaming|console|electronics|tool|appliance|home|kitchen|network|router|printer|office|beauty|health|travel|book|auto|motor|gold|jewelry|wearable/i;
   const sourceProducts = isTechnolife ? (data?.products || []).filter(product => technologyPattern.test(normalizeText([product.title, product.category || "", product.description || "", product.brand || ""].join(" ")))) : (data?.products || []);
   const categoryNames = [...new Set([...activeStoreNavigation.map(item => item.name), ...(templateVariant === "default" ? BROWSE_CATEGORIES : []), ...(Array.isArray(data?.categories) ? data.categories : [])])].filter(name => !isTechnolife || technologyPattern.test(normalizeText(name)));
   const categories = [...new Set(categoryNames.map(name => canonicalCategory(name.trim())).filter(Boolean))]
@@ -246,8 +246,12 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const techShelfGroups = isTechnolife ? [
     { title: "پرچمداران هوشمند", eyebrow: "گوشی موبایل و تبلت", searchTerm: "گوشی", matches: /موبایل|گوشی|تبلت|phone|mobile|tablet/i },
     { title: "لپ‌تاپ‌ها در تکنولایف", eyebrow: "کار، دانشگاه و بازی", searchTerm: "لپ", matches: /لپ.?تاپ|laptop|notebook/i },
+    { title: "ابزارآلات", eyebrow: "ابزار و تجهیزات", searchTerm: "ابزار", matches: /ابزارآلات|دریل|پیچ.?گوشتی|فرز|کمپرسور|tool|drill|screwdriver/i },
     { title: "هدفون و تجهیزات صوتی", eyebrow: "صوتی و تصویری", searchTerm: "هدفون", matches: /هدفون|هندزفری|اسپیکر|صوتی|headphone|earbud|speaker|audio/i },
-    { title: "لوازم جانبی دیجیتال", eyebrow: "شارژر، پاوربانک و تجهیزات", searchTerm: "شارژر", matches: /شارژر|پاوربانک|کابل|مبدل|charger|power.?bank|cable/i }
+    { title: "کامپیوتر و تجهیزات", eyebrow: "مانیتور، ذخیره‌سازی و شبکه", searchTerm: "کامپیوتر", matches: /مانیتور|کامپیوتر|مودم|روتر|هارد|فلش|ssd|پرینتر|monitor|computer|router|modem|storage|printer/i },
+    { title: "لوازم خانگی خانه و آشپزخانه", eyebrow: "لوازم کاربردی خانه", searchTerm: "لوازم خانگی", matches: /لوازم خانگی|خانه و آشپزخانه|جاروبرقی|یخچال|لباسشویی|چای.?ساز|قهوه.?ساز|air.?fryer|appliance|kitchen/i },
+    { title: "لوازم جانبی منتخب", eyebrow: "شارژر، پاوربانک و تجهیزات", searchTerm: "شارژر", matches: /شارژر|پاوربانک|کابل|مبدل|charger|power.?bank|cable|adapter/i },
+    { title: "گجت و پوشیدنی", eyebrow: "ساعت و ابزارهای هوشمند", searchTerm: "ساعت هوشمند", matches: /ساعت هوشمند|مچ.?بند|پوشیدنی|smart.?watch|wearable|fitness.?band/i }
   ].map(shelf => ({ ...shelf, products: sourceProducts.filter(product => shelf.matches.test(normalizeText([product.title, product.category || "", product.description || "", product.brand || ""].join(" ")))) .slice(0, 8) }))
     : [];
 
