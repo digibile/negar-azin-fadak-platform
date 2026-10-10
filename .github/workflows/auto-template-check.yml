@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "apps/web/app/store/auto/**"
+      - "apps/api/src/domain-marketplace.ts"
+      - "apps/api/package.json"
+      - "apps/api/tsconfig.json"
       - "apps/web/package.json"
       - "apps/web/tsconfig.json"
       - "package.json"
@@ -38,6 +41,8 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Type-check API
+        run: pnpm --filter @naf/api build
       - name: Type-check web app
         run: pnpm --filter @naf/web typecheck
       - name: Build web app
