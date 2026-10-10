@@ -149,6 +149,7 @@ const brandIdentity:Record<StoreVariant,{name:string;mark:string;tagline:string;
 };
 export default function StorePage({ variant = "default" }: { variant?: StoreVariant }) {
   const pathname = usePathname();
+  const [theme, setTheme] = useState<StoreTheme | null>(null);
   const templateVariant: StoreVariant = theme?.key === "technolife-store" ? "technolife" : theme?.key === "digibile-commerce" ? "digibile" : theme?.key === "kipa-store" ? "kipa" : variant;
   const identity = brandIdentity[templateVariant];
   const isTechnolife = templateVariant === "technolife";
@@ -167,7 +168,6 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const [activeNavCategory, setActiveNavCategory] = useState(activeStoreNavigation[0]?.name || "موبایل");
   const [sortBy, setSortBy] = useState<"newest" | "price-asc" | "price-desc" | "title">("newest");
   const [loading, setLoading] = useState(true);
-  const [theme, setTheme] = useState<StoreTheme | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
