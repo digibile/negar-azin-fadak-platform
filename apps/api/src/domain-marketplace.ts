@@ -551,7 +551,7 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
     ...(catalogMode==="reference"?referenceCategories:[])
   ])].sort((a,b)=>a.localeCompare(b,"fa"));
   res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
-  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,sourceStatus,sourceFetchedAt,notice:catalogMode==="reference"?"کاتالوگ مرجع آزمایشی سوکار؛ اطلاعات از منبع بیرونی دریافت شده، خرید در سوکار غیرفعال است و قیمت/موجودی باید پیش از انتشار بررسی شود.":undefined});
+  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,referenceCount:catalogMode==="reference"?publicProducts.length:0,sourceStatus,sourceFetchedAt,notice:catalogMode==="reference"?"کاتالوگ مرجع آزمایشی سوکار؛ اطلاعات از منبع بیرونی دریافت شده، خرید در سوکار غیرفعال است و قیمت/موجودی باید پیش از انتشار بررسی شود.":undefined});
 }));
 
 domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/status",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
