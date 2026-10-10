@@ -283,8 +283,13 @@ domainMarketplaceRouter.patch("/api/marketplace/categories/:id",requireAuth,requ
 
 async function importDemoCatalogForTenant(tenantId:string,requestedLimit=12){
   const limit=Math.max(4,Math.min(24,Math.floor(requestedLimit||12)));
-  const catalog=await getDigikalaCatalog(true);
-  const candidates=catalog.products.filter(item=>item.price!==null&&Number(item.price)>0&&item.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(item.image_url)).slice(0,limit*2);
+  let catalog=await getDigikalaCatalog();
+  let candidates=catalog.products.filter(item=>item.price!==null&&Number(item.price)>0&&item.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(item.image_url)).slice(0,limit*2);
+  // Reuse the warm source cache first; force a refresh only when it has no usable products.
+  if(!candidates.length){
+    catalog=await getDigikalaCatalog(true);
+    candidates=catalog.products.filter(item=>item.price!==null&&Number(item.price)>0&&item.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(item.image_url)).slice(0,limit*2);
+  }
   if(!candidates.length)throw new Error("منبع مرجع در حال حاضر محصول دارای قیمت و تصویر معتبر برنگرداند؛ دوباره تلاش کنید.");
   const sellerResult=await query("select id from sellers where tenant_id=$1 and display_name=$2 order by created_at limit 1",[tenantId,"سوکار · کاتالوگ آزمایشی"]);
   const sellerId=sellerResult.rowCount?sellerResult.rows[0].id:(await query("insert into sellers(tenant_id,legal_name,display_name,status,commission_rate) values($1,$2,$3,'active',0) returning id",[tenantId,"سوکار - فروشنده داخلی آزمایشی","سوکار · کاتالوگ آزمایشی"])).rows[0].id;
@@ -297,11 +302,14 @@ async function importDemoCatalogForTenant(tenantId:string,requestedLimit=12){
     const batch=candidates.slice(start,start+4);
     const results=await Promise.all(batch.map(async source=>{
       try{
-        const localImage=await importDigikalaImage(source.image_url,mediaDir,tenantId);
+        let localImage=source.image_url;
+        try{localImage=await importDigikalaImage(source.image_url,mediaDir,tenantId);}
+        catch(error){console.warn("Sookar demo primary image mirror failed; retaining source image URL:",source.id,error instanceof Error?error.message:"unknown error");}
         const gallery:string[]=[localImage];
         for(const imageUrl of source.gallery_images.slice(0,2)){
           if(imageUrl===source.image_url)continue;
-          try{const local=await importDigikalaImage(imageUrl,mediaDir,tenantId);if(!gallery.includes(local))gallery.push(local);}catch{/* Primary image is sufficient for the demo. */}
+          try{const local=await importDigikalaImage(imageUrl,mediaDir,tenantId);if(!gallery.includes(local))gallery.push(local);}
+          catch{if(!gallery.includes(imageUrl))gallery.push(imageUrl);}
         }
         const sku="SOOKAR-DEMO-"+source.id.replace(/^digikala-/,"");
         const attributes={
@@ -589,54 +597,19 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
     );
     catalogProducts=refreshed.rows;
   }
-  let publicProducts:any[]=catalogProducts;
-  let catalogMode:"owned"|"demo"|"reference"=catalogProducts.some((item:any)=>item.is_demo_product)?"demo":"owned";
-  let sourceStatus:"live"|"unavailable"|"not-needed"="not-needed";
-  let sourceFetchedAt:string|null=null;
-  let referenceCategories:string[]=[];
-  // Keep Sookar useful as a reference storefront when no seller has published products yet.
-  // Reference items remain non-purchasable and are never written into the owned catalog.
-  if(publicProducts.length===0){
-    const referenceCatalog=await getDigikalaCatalog();
-    sourceStatus=referenceCatalog.sourceStatus;
-    sourceFetchedAt=referenceCatalog.fetchedAt;
-    if(referenceCatalog.products.length){
-      const references=referenceCatalog.products
-        .filter(product=>product.price!==null&&Number(product.price)>0)
-        .slice(0,48)
-        .map(product=>{
-          const specSummary=product.specifications.flatMap(group=>group.items.map(item=>item.name+": "+item.values.join("، "))).slice(0,4).join(" · ");
-          return {
-            id:"reference-"+product.id,
-            sku:product.sku,
-            title:product.title,
-            description:[product.description,specSummary].filter(Boolean).join(" · ")||"اطلاعات مرجع از منبع اصلی؛ پیش از فروش باید توسط سوکار بازبینی شود.",
-            category:product.category,
-            price:product.price,
-            currency:product.currency,
-            store_id:null,
-            seller_id:null,
-            seller_name:"سوکار · کاتالوگ مرجع آزمایشی",
-            image_url:product.image_url,
-            brand:product.brand,
-            rating:product.rating,
-            source_url:product.source_url,
-            source_name:product.source_name,
-            source_type:product.source_type,
-            source_available:product.source_available,
-            is_reference:true,
-            attributes:{brand:product.brand,rating:product.rating,specifications:product.specifications,galleryImages:product.gallery_images,sourceUrl:product.source_url,sourceName:product.source_name,referenceOnly:true}
-          };
-        });
-      if(references.length){publicProducts=references;catalogMode="reference";referenceCategories=referenceCatalog.categories;}
-    }
-  }
+  const catalogMode:"owned"|"demo"=catalogProducts.some((item:any)=>item.is_demo_product)?"demo":"owned";
+  const sourceStatus:"live"|"unavailable"|"not-needed"="not-needed";
+  const sourceFetchedAt:string|null=null;
+  const referenceCategories:string[]=[];
+  // Never expose external reference cards as if they were Sookar products.
+  // If import/bootstrap fails, the public API stays empty and the server logs the cause.
+  const publicProducts:any[]=catalogProducts;
   const categories=[...new Set([
     ...categoryRows.rows.map((row:any)=>typeof row.name==="string"?row.name.trim():"").filter(Boolean),
-    ...(catalogMode==="reference"?referenceCategories:[])
+    ...referenceCategories
   ])].sort((a,b)=>a.localeCompare(b,"fa"));
   res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
-  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,referenceCount:catalogMode==="reference"?publicProducts.length:0,sourceStatus,sourceFetchedAt,notice:catalogMode==="demo"?"کاتالوگ آزمایشی در پایگاه داده سوکار؛ قیمت و موجودی مرجع هستند و ثبت سفارش یا پرداخت واقعی فعال نیست.":catalogMode==="reference"?"کاتالوگ مرجع آزمایشی سوکار؛ اطلاعات از منبع بیرونی دریافت شده، خرید در سوکار غیرفعال است و قیمت/موجودی باید پیش از انتشار بررسی شود.":undefined});
+  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,referenceCount:0,sourceStatus,sourceFetchedAt,notice:catalogMode==="demo"?"کاتالوگ آزمایشی در پایگاه داده سوکار؛ قیمت و موجودی مرجع هستند و ثبت سفارش یا پرداخت واقعی فعال نیست."undefined:undefined});
 }));
 
 domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/status",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
