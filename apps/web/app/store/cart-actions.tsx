@@ -124,8 +124,11 @@ export function CartView() {
           </article>)}</div>}
       </section>
       <aside className="sk-cart-summary"><h2>خلاصه سفارش</h2><div><span>تعداد کالا</span><b>{count.toLocaleString("fa-IR")} قلم</b></div><div><span>جمع کالاها</span><b>{money(total, items[0]?.currency || "IRR")}</b></div><div><span>هزینه ارسال</span><small>پس از تعیین فروشگاه و نشانی مشخص می‌شود</small></div><hr/><div className="sk-cart-total"><span>جمع فعلی</span><strong>{money(total, items[0]?.currency || "IRR")}</strong></div>
-        <p className="sk-cart-notice">{items.some(item => item.is_demo_product) ? "سبد شامل کالای آزمایشی سوکار است. قیمت‌ها فقط snapshot منبع مرجع‌اند؛ سفارش و پرداخت واقعی برای این کالاها فعال نیست. سبد فعلی در همین مرورگر ذخیره می‌شود." : "این سبد در همین مرورگر ذخیره شده است. ثبت سفارش نهایی فقط پس از اتصال سبد به فروشگاه فعال، بررسی موجودی و ورود به حساب انجام می‌شود؛ هیچ سفارش یا پرداختی هنوز ثبت نشده است."}</p>
-        <Link href="/login" className={items.length ? "sk-cart-checkout" : "sk-cart-checkout is-disabled"} aria-disabled={!items.length}>ورود به حساب کاربری</Link>
+        <p className="sk-cart-notice">{items.some(item => item.is_demo_product) ? "سبد شامل کالای آزمایشی سوکار است. قیمت‌ها snapshot مرجع‌اند؛ این مرحله فقط شبیه‌سازی داخلی است و سفارش یا پرداخت واقعی ایجاد نمی‌کند." : "این سبد در همین مرورگر ذخیره شده است. برای سفارش واقعی باید به حساب کاربری وارد شوید و موجودی و فروشنده بررسی شود."}</p>
+        {items.length > 0 && items.every(item => item.is_demo_product)
+          ? <Link href="/store/demo-checkout" className="sk-cart-checkout">ادامه مراحل آزمایشی خرید</Link>
+          : <Link href="/login" className={items.length ? "sk-cart-checkout" : "sk-cart-checkout is-disabled"} aria-disabled={!items.length}>ورود به حساب کاربری</Link>}
+        {items.some(item => item.is_demo_product) && items.some(item => !item.is_demo_product) && <p className="sk-cart-notice">سبد ترکیبی است. برای جلوگیری از اشتباه، کالاهای آزمایشی را از کالاهای واقعی جدا کنید؛ سفارش آزمایشی فقط برای سبدی شامل کالاهای آزمایشی فعال است.</p>}
         <Link href="/store/shop" className="sk-cart-continue">بازگشت به فروشگاه</Link>
       </aside>
     </div>
