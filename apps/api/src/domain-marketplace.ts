@@ -282,13 +282,35 @@ domainMarketplaceRouter.patch("/api/marketplace/categories/:id",requireAuth,requ
 }));
 
 async function importDemoCatalogForTenant(tenantId:string,requestedLimit=12){
-  const limit=Math.max(4,Math.min(24,Math.floor(requestedLimit||12)));
+  const limit=Math.max(4,Math.min(120,Math.floor(requestedLimit||12)));
   let catalog=await getDigikalaCatalog();
-  let candidates=catalog.products.filter(item=>item.price!==null&&Number(item.price)>0&&item.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(item.image_url)).slice(0,limit*2);
+  const selectDiverseCandidates=(items:DigikalaCatalogProduct[])=>{
+    const groups=new Map<string,DigikalaCatalogProduct[]>();
+    for(const item of items){
+      const key=canonicalMarketplaceCategory(item.category);
+      const group=groups.get(key)||[];
+      group.push(item);
+      groups.set(key,group);
+    }
+    const ordered:DigikalaCatalogProduct[]=[];
+    const buckets=[...groups.values()];
+    let cursor=0;
+    while(ordered.length<Math.min(items.length,limit*2)){
+      let added=false;
+      for(const bucket of buckets){
+        if(cursor<bucket.length){ordered.push(bucket[cursor]);added=true;if(ordered.length>=limit*2)break;}
+      }
+      if(!added)break;
+      cursor++;
+    }
+    return ordered;
+  };
+  const usable=(items:DigikalaCatalogProduct[])=>items.filter(item=>item.price!==null&&Number(item.price)>0&&item.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(item.image_url));
+  let candidates=selectDiverseCandidates(usable(catalog.products));
   // Reuse the warm source cache first; force a refresh only when it has no usable products.
-  if(!candidates.length){
+  if(candidates.length<limit){
     catalog=await getDigikalaCatalog(true);
-    candidates=catalog.products.filter(item=>item.price!==null&&Number(item.price)>0&&item.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(item.image_url)).slice(0,limit*2);
+    candidates=selectDiverseCandidates(usable(catalog.products));
   }
   if(!candidates.length)throw new Error("منبع مرجع در حال حاضر محصول دارای قیمت و تصویر معتبر برنگرداند؛ دوباره تلاش کنید.");
   const sellerResult=await query("select id from sellers where tenant_id=$1 and display_name=$2 order by created_at limit 1",[tenantId,"سوکار · کاتالوگ آزمایشی"]);
@@ -305,12 +327,9 @@ async function importDemoCatalogForTenant(tenantId:string,requestedLimit=12){
         let localImage=source.image_url;
         try{localImage=await importDigikalaImage(source.image_url,mediaDir,tenantId);}
         catch(error){console.warn("Sookar demo primary image mirror failed; retaining source image URL:",source.id,error instanceof Error?error.message:"unknown error");}
-        const gallery:string[]=[localImage];
-        for(const imageUrl of source.gallery_images.slice(0,2)){
-          if(imageUrl===source.image_url)continue;
-          try{const local=await importDigikalaImage(imageUrl,mediaDir,tenantId);if(!gallery.includes(local))gallery.push(local);}
-          catch{if(!gallery.includes(imageUrl))gallery.push(imageUrl);}
-        }
+        // Store the primary image locally; keep a few source gallery URLs as optional reference images
+        // to avoid hundreds of redundant image downloads during the initial 120-item import.
+        const gallery:string[]=[localImage,...source.gallery_images.filter(url=>url!==source.image_url).slice(0,4)];
         const sku="SOOKAR-DEMO-"+source.id.replace(/^digikala-/,"");
         const attributes={
           imageUrl:localImage,sourceName:source.source_name,sourceUrl:source.source_url,
@@ -319,7 +338,7 @@ async function importDemoCatalogForTenant(tenantId:string,requestedLimit=12){
           sourceAvailable:source.source_available,brand:source.brand,rating:source.rating,
           specifications:source.specifications,galleryImages:gallery,demoCatalog:true,
           demoNotice:"کالای آزمایشی سوکار؛ قیمت و موجودی مرجع هستند و سفارش واقعی/پرداخت فعال نیست.",
-          importedAt:new Date().toISOString(),priceReviewRequired:false
+          importedAt:new Date().toISOString(),priceReviewRequired:true
         };
         const saved=await query(
           "insert into products(tenant_id,seller_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,'active',$9::jsonb) on conflict(tenant_id,sku) do update set title=excluded.title,description=excluded.description,category=excluded.category,price=excluded.price,currency=excluded.currency,status='active',attributes=excluded.attributes,updated_at=now() where products.seller_id=excluded.seller_id and products.attributes->>'demoCatalog'='true' returning id,sku,title",
@@ -582,11 +601,14 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
   ]);
   let catalogProducts:any[]=products.rows;
   const currentHost=String(req.headers["x-forwarded-host"]||req.headers.host||"").split(",")[0].trim().toLowerCase().replace(/:\\d+$/,"");
-  // Bootstrap a small, clearly marked demo catalog only on Sookar's canonical host.
-  // Imported rows and images live in Sookar's own database/media; cart stays local and checkout is explicitly disabled for demos.
-  if(catalogProducts.length===0&&(currentHost==="sookar.ir"||currentHost==="www.sookar.ir")){
+  // Bootstrap and expand Sookar's own demo catalog to at least 120 diverse products.
+  // Never seed a tenant that has no demo catalog while it already has real products.
+  // Demo items remain visibly marked, source-attributed, and non-purchasable.
+  const demoProductCount=catalogProducts.filter((item:any)=>item.is_demo_product).length;
+  const shouldBootstrapDemo=catalogProducts.length===0||(demoProductCount>0&&demoProductCount<120);
+  if(shouldBootstrapDemo&&(currentHost==="sookar.ir"||currentHost==="www.sookar.ir")){
     if(!sookarDemoBootstrap){
-      sookarDemoBootstrap=importDemoCatalogForTenant(tenantId,12)
+      sookarDemoBootstrap=importDemoCatalogForTenant(tenantId,120)
         .catch(error=>{console.error("Sookar demo catalog bootstrap failed:",error);return null;})
         .finally(()=>{sookarDemoBootstrap=null;});
     }
