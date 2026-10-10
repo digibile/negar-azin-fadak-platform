@@ -504,11 +504,54 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
       [tenantId]
     )
   ]);
-  const categories=[...new Set(
-    categoryRows.rows.map((row:any)=>typeof row.name==="string"?row.name.trim():"").filter(Boolean)
-  )].sort((a,b)=>a.localeCompare(b,"fa"));
+  let publicProducts:any[]=products.rows;
+  let catalogMode:"owned"|"reference"="owned";
+  let sourceStatus:"live"|"unavailable"|"not-needed"="not-needed";
+  let sourceFetchedAt:string|null=null;
+  let referenceCategories:string[]=[];
+  // Keep Sookar useful as a reference storefront when no seller has published products yet.
+  // Reference items remain non-purchasable and are never written into the owned catalog.
+  if(publicProducts.length===0){
+    const referenceCatalog=await getDigikalaCatalog();
+    sourceStatus=referenceCatalog.sourceStatus;
+    sourceFetchedAt=referenceCatalog.fetchedAt;
+    if(referenceCatalog.products.length){
+      const references=referenceCatalog.products
+        .filter(product=>product.price!==null&&Number(product.price)>0)
+        .slice(0,48)
+        .map(product=>{
+          const specSummary=product.specifications.flatMap(group=>group.items.map(item=>item.name+": "+item.values.join("، "))).slice(0,4).join(" · ");
+          return {
+            id:"reference-"+product.id,
+            sku:product.sku,
+            title:product.title,
+            description:[product.description,specSummary].filter(Boolean).join(" · ")||"اطلاعات مرجع از منبع اصلی؛ پیش از فروش باید توسط سوکار بازبینی شود.",
+            category:product.category,
+            price:product.price,
+            currency:product.currency,
+            store_id:null,
+            seller_id:null,
+            seller_name:"سوکار · کاتالوگ مرجع آزمایشی",
+            image_url:product.image_url,
+            brand:product.brand,
+            rating:product.rating,
+            source_url:product.source_url,
+            source_name:product.source_name,
+            source_type:product.source_type,
+            source_available:product.source_available,
+            is_reference:true,
+            attributes:{brand:product.brand,rating:product.rating,specifications:product.specifications,galleryImages:product.gallery_images,sourceUrl:product.source_url,sourceName:product.source_name,referenceOnly:true}
+          };
+        });
+      if(references.length){publicProducts=references;catalogMode="reference";referenceCategories=referenceCatalog.categories;}
+    }
+  }
+  const categories=[...new Set([
+    ...categoryRows.rows.map((row:any)=>typeof row.name==="string"?row.name.trim():"").filter(Boolean),
+    ...(catalogMode==="reference"?referenceCategories:[])
+  ])].sort((a,b)=>a.localeCompare(b,"fa"));
   res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
-  res.json({tenant,stores:stores.rows,products:products.rows,categories,total:products.rowCount});
+  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,sourceStatus,sourceFetchedAt,notice:catalogMode==="reference"?"کاتالوگ مرجع آزمایشی سوکار؛ اطلاعات از منبع بیرونی دریافت شده، خرید در سوکار غیرفعال است و قیمت/موجودی باید پیش از انتشار بررسی شود.":undefined});
 }));
 
 domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/status",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
