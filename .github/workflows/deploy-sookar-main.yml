@@ -377,3 +377,32 @@ jobs:
           done
           head -c 1000 /tmp/sookar-ir-health.html || true
           exit 1
+
+      - name: Inspect live Sookar public catalog
+        if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          code=$(curl -L --connect-timeout 5 --max-time 30 -sS -o /tmp/sookar-public-catalog.json -w '%{http_code}' https://sookar.ir/api/public/marketplace || true)
+          echo "PUBLIC_CATALOG_HTTP=$code"
+          if [ "$code" != "200" ]; then
+            head -c 1000 /tmp/sookar-public-catalog.json 2>/dev/null || true
+            echo "::warning::Could not inspect the public catalog API response."
+            exit 0
+          fi
+          node -e '
+            const fs=require("fs");
+            try {
+              const d=JSON.parse(fs.readFileSync("/tmp/sookar-public-catalog.json","utf8"));
+              console.log("PUBLIC_CATALOG_TOTAL="+(d.total ?? d.products?.length ?? 0));
+              console.log("PUBLIC_CATALOG_MODE="+(d.catalogMode ?? "owned"));
+              console.log("REFERENCE_SOURCE_STATUS="+(d.sourceStatus ?? "unknown"));
+              console.log("REFERENCE_SOURCE_FETCHED_AT="+(d.sourceFetchedAt ?? "none"));
+              console.log("FIRST_PRODUCT="+(d.products?.[0]?.title ?? "none"));
+              console.log("FIRST_PRODUCT_HAS_IMAGE="+Boolean(d.products?.[0]?.image_url));
+              console.log("FIRST_PRODUCT_SOURCE="+(d.products?.[0]?.source_url ?? "none"));
+            } catch(e) {
+              console.log("PUBLIC_CATALOG_PARSE_ERROR="+e.message);
+              process.exitCode=0;
+            }
+          '
