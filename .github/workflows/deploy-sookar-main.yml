@@ -378,31 +378,49 @@ jobs:
           head -c 1000 /tmp/sookar-ir-health.html || true
           exit 1
 
-      - name: Inspect live Sookar public catalog
+      - name: Verify live Sookar catalog and shopping flow
         if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
         shell: bash
         run: |
-          set -uo pipefail
-          code=$(curl -L --connect-timeout 5 --max-time 30 -sS -o /tmp/sookar-public-catalog.json -w '%{http_code}' https://sookar.ir/api/public/marketplace || true)
-          echo "PUBLIC_CATALOG_HTTP=$code"
-          if [ "$code" != "200" ]; then
-            head -c 1000 /tmp/sookar-public-catalog.json 2>/dev/null || true
-            echo "::warning::Could not inspect the public catalog API response."
-            exit 0
-          fi
+          set -euo pipefail
+          api_code=$(curl -L --connect-timeout 5 --max-time 30 -sS -o /tmp/sookar-public-catalog.json -w '%{http_code}' https://sookar.ir/api/public/marketplace)
+          echo "PUBLIC_CATALOG_HTTP=$api_code"
+          test "$api_code" = "200"
           node -e '
             const fs=require("fs");
-            try {
-              const d=JSON.parse(fs.readFileSync("/tmp/sookar-public-catalog.json","utf8"));
-              console.log("PUBLIC_CATALOG_TOTAL="+(d.total ?? d.products?.length ?? 0));
-              console.log("PUBLIC_CATALOG_MODE="+(d.catalogMode ?? "owned"));
-              console.log("REFERENCE_SOURCE_STATUS="+(d.sourceStatus ?? "unknown"));
-              console.log("REFERENCE_SOURCE_FETCHED_AT="+(d.sourceFetchedAt ?? "none"));
-              console.log("FIRST_PRODUCT="+(d.products?.[0]?.title ?? "none"));
-              console.log("FIRST_PRODUCT_HAS_IMAGE="+Boolean(d.products?.[0]?.image_url));
-              console.log("FIRST_PRODUCT_SOURCE="+(d.products?.[0]?.source_url ?? "none"));
-            } catch(e) {
-              console.log("PUBLIC_CATALOG_PARSE_ERROR="+e.message);
-              process.exitCode=0;
-            }
+            const d=JSON.parse(fs.readFileSync("/tmp/sookar-public-catalog.json","utf8"));
+            const products=Array.isArray(d.products)?d.products:[];
+            const categories=[...new Set(products.map(p=>p.category).filter(Boolean))];
+            const demo=products.filter(p=>p.is_demo_product===true);
+            const images=products.filter(p=>typeof p.image_url==="string"&&p.image_url.length>0);
+            const localImages=products.filter(p=>typeof p.image_url==="string"&&p.image_url.startsWith("/api/public/media/catalog/"));
+            console.log("PUBLIC_CATALOG_TOTAL="+(d.total??products.length));
+            console.log("PUBLIC_CATALOG_MODE="+(d.catalogMode??"owned"));
+            console.log("DEMO_PRODUCT_COUNT="+demo.length);
+            console.log("PRODUCT_CATEGORY_COUNT="+categories.length);
+            console.log("PRODUCTS_WITH_IMAGES="+images.length);
+            console.log("PRODUCTS_WITH_LOCAL_IMAGES="+localImages.length);
+            console.log("FIRST_PRODUCT="+(products[0]?.title??"none"));
+            console.log("FIRST_PRODUCT_SKU="+(products[0]?.sku??"none"));
+            console.log("FIRST_PRODUCT_SOURCE="+(products[0]?.source_url??"none"));
+            if(products.length<120) throw new Error("Expected at least 120 products, got "+products.length);
+            if(demo.length<120) throw new Error("Expected at least 120 explicitly marked demo products, got "+demo.length);
+            if(categories.length<8) throw new Error("Expected at least 8 product categories, got "+categories.length);
+            if(images.length<120) throw new Error("Expected images on all demo products, got "+images.length);
+            if(!products[0]?.sku) throw new Error("First product has no SKU");
+            fs.writeFileSync("/tmp/sookar-first-product-sku",products[0].sku);
           '
+          sku=$(cat /tmp/sookar-first-product-sku)
+          product_code=$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/sookar-product-page.html -w '%{http_code}' "https://sookar.ir/store/product/${sku}?site=technolife")
+          cart_code=$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/sookar-cart-page.html -w '%{http_code}' https://sookar.ir/store/cart)
+          checkout_code=$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/sookar-demo-checkout.html -w '%{http_code}' https://sookar.ir/store/demo-checkout)
+          echo "PRODUCT_DETAIL_HTTP=$product_code"
+          echo "CART_HTTP=$cart_code"
+          echo "DEMO_CHECKOUT_HTTP=$checkout_code"
+          test "$product_code" = "200"
+          test "$cart_code" = "200"
+          test "$checkout_code" = "200"
+          grep -q "افزودن به سبد خرید" /tmp/sookar-product-page.html
+          grep -q "سبد خرید" /tmp/sookar-cart-page.html
+          grep -q "خرید آزمایشی" /tmp/sookar-demo-checkout.html
+          echo "SOOKAR_SHOPPING_FLOW_ROUTES_OK"
