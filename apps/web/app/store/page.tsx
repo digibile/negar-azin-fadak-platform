@@ -21,6 +21,7 @@ type Product = {
   brand?: string | null;
   rating?: number | null;
   is_reference?: boolean;
+  is_demo_product?: boolean;
   source_url?: string | null;
   source_name?: string | null;
   source_type?: string | null;
@@ -165,7 +166,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const isKipa = templateVariant === "kipa";
   const isDigibile = templateVariant === "digibile";
   const showAllProducts = pathname === "/store/shop";
-  const productHrefFor = (product:Product) => product.is_reference && product.source_url ? product.source_url : "/store/product/" + encodeURIComponent(product.sku || product.id) + "?site=" + templateVariant;
+  const productHrefFor = (product:Product) => "/store/product/" + encodeURIComponent(product.sku || product.id) + "?site=" + templateVariant;
   const [data, setData] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -405,17 +406,17 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
             const image = safeImageUrl(product.image_url);
             return <article className="sk-product-card" key={product.id}>
               <Link href={productHref} className="sk-product-visual" aria-label={"مشاهده " + product.title}>
-                <span className="sk-product-category">{product.is_reference ? "مرجع آزمایشی" : (canonicalCategory(product.category) || "سایر کالاها")}</span>
+                <span className="sk-product-category">{product.is_demo_product || product.is_reference ? "نمونهٔ آزمایشی" : (canonicalCategory(product.category) || "سایر کالاها")}</span>
                 {image ? <img src={image} alt={product.title} loading="lazy" decoding="async" /> : <span className="sk-product-glyph"><span aria-hidden="true">{categoryGlyph(product.category, product.title)}</span><small>تصویر کالا هنوز ثبت نشده</small></span>}
                 <span className="sk-visual-brand">{identity.name}</span>
               </Link>
               <div className="sk-product-info">
-                <span className="sk-seller-name"><i />{product.is_reference ? "سوکار · مرجع آزمایشی" : (product.seller_name || "فروشنده ثبت‌شده")}</span>
+                <span className="sk-seller-name"><i />{product.is_demo_product ? "سوکار · کاتالوگ آزمایشی" : product.is_reference ? "سوکار · مرجع آزمایشی" : (product.seller_name || "فروشنده ثبت‌شده")}</span>
                 <Link href={productHref} className="sk-product-title">{product.title}</Link>
                 <p>{product.description || "مشخصات تکمیلی این کالا هنوز توسط فروشنده ثبت نشده است."}</p>
-                <div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>{product.is_reference ? "قیمت مرجع از منبع اصلی؛ برای تست و بررسی، نه قیمت فروش سوکار" : "قیمت ثبت‌شده در کاتالوگ سوکار"}</small></div>
-                <Link href={productHref} className="sk-product-cta">{product.is_reference ? "مشاهده منبع اصلی" : "مشاهده جزئیات و خرید"} <span>←</span></Link>
-               {!product.is_reference && <AddToCartButton compact product={{ id: product.id, sku: product.sku, title: product.title, price: product.price, currency: product.currency, seller_name: product.seller_name, store_id: product.store_id, image_url: product.image_url }} />}
+                <div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>{product.is_demo_product ? "قیمت مرجع آزمایشی؛ قیمت فروش سوکار نیست" : product.is_reference ? "قیمت مرجع از منبع اصلی؛ برای تست و بررسی" : "قیمت ثبت‌شده در کاتالوگ سوکار"}</small></div>
+                <Link href={productHref} className="sk-product-cta">مشاهده جزئیات <span>←</span></Link>
+               {!product.is_reference && <AddToCartButton compact product={{ id: product.id, sku: product.sku, title: product.title, price: product.price, currency: product.currency, seller_name: product.seller_name, store_id: product.store_id, image_url: product.image_url, is_demo_product: product.is_demo_product, source_url: product.source_url }} />}
               </div>
             </article>;
           })}</div>
