@@ -609,7 +609,7 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
     ...referenceCategories
   ])].sort((a,b)=>a.localeCompare(b,"fa"));
   res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
-  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,referenceCount:0,sourceStatus,sourceFetchedAt,notice:catalogMode==="demo"?"کاتالوگ آزمایشی در پایگاه داده سوکار؛ قیمت و موجودی مرجع هستند و ثبت سفارش یا پرداخت واقعی فعال نیست."undefined:undefined});
+  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,referenceCount:0,sourceStatus,sourceFetchedAt,notice:catalogMode==="demo"?"کاتالوگ آزمایشی در پایگاه داده سوکار؛ قیمت و موجودی مرجع هستند و ثبت سفارش یا پرداخت واقعی فعال نیست.":undefined});
 }));
 
 domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/status",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
