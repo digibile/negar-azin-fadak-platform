@@ -75,6 +75,7 @@ app.use((req,res,next)=>{if(["GET","HEAD","OPTIONS"].includes(req.method)||req.p
 
 app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.json({status:"ok",database:"ok"});}));
 
+// Public endpoint exposes validated published settings only; writes stay behind authenticated module permissions.
 app.get("/api/public/storefront-theme",asyncHandler(async(req,res)=>{
  const tenant=await resolvePublicTenant({hostname:String(req.headers["x-forwarded-host"]||req.hostname||"").trim().toLowerCase().split(":")[0]},typeof req.query.tenant==="string"?req.query.tenant:"");
  res.setHeader("Cache-Control","no-store, max-age=0");
