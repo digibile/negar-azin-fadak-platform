@@ -281,6 +281,63 @@ domainMarketplaceRouter.patch("/api/marketplace/categories/:id",requireAuth,requ
   res.json({item:result.rows[0]});
 }));
 
+domainMarketplaceRouter.post("/api/marketplace/products/import-demo-catalog",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const requestedLimit=bodyNumber(req.body?.limit);
+  const limit=Math.max(4,Math.min(24,Math.floor(requestedLimit||12)));
+  const catalog=await getDigikalaCatalog(true);
+  const candidates=catalog.products.filter(item=>item.price!==null&&Number(item.price)>0&&item.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(item.image_url)).slice(0,limit*2);
+  if(!candidates.length)return res.status(503).json({error:"منبع مرجع در حال حاضر محصول دارای قیمت و تصویر معتبر برنگرداند؛ دوباره تلاش کنید."});
+  const sellerResult=await query("select id from sellers where tenant_id=$1 and display_name=$2 order by created_at limit 1",[ctx.id,"سوکار · کاتالوگ آزمایشی"]);
+  const sellerId=sellerResult.rowCount?sellerResult.rows[0].id:(await query("insert into sellers(tenant_id,legal_name,display_name,status,commission_rate) values($1,$2,$3,'active',0) returning id",[ctx.id,"سوکار - فروشنده داخلی آزمایشی","سوکار · کاتالوگ آزمایشی"])).rows[0].id;
+  await query("update sellers set status='active',updated_at=now() where id=$1 and tenant_id=$2",[sellerId,ctx.id]);
+  const mediaDir=path.join(process.env.MEDIA_ROOT||"/app/media","catalog",ctx.id);
+  await mkdir(mediaDir,{recursive:true});
+  const imported:Array<{id:string;sku:string;title:string;imageUrl:string}>=[];
+  const skipped:Array<{id:string;reason:string}>=[];
+  for(let start=0;start<candidates.length&&imported.length<limit;start+=4){
+    const batch=candidates.slice(start,start+4);
+    const results=await Promise.all(batch.map(async source=>{
+      try{
+        const localImage=await importDigikalaImage(source.image_url,mediaDir,ctx.id);
+        const gallery:string[]=[localImage];
+        for(const imageUrl of source.gallery_images.slice(0,2)){
+          if(imageUrl===source.image_url)continue;
+          try{const local=await importDigikalaImage(imageUrl,mediaDir,ctx.id);if(!gallery.includes(local))gallery.push(local);}catch{/* Primary image is sufficient for the demo. */}
+        }
+        const sku="SOOKAR-DEMO-"+source.id.replace(/^digikala-/,"");
+        const attributes={
+          imageUrl:localImage,sourceName:source.source_name,sourceUrl:source.source_url,
+          sourceType:"demo-reference-import",sourceProductId:source.id,
+          sourcePriceSnapshot:Number(source.price),sourceCurrency:source.currency,
+          sourceAvailable:source.source_available,brand:source.brand,rating:source.rating,
+          specifications:source.specifications,galleryImages:gallery,demoCatalog:true,
+          demoNotice:"کالای آزمایشی سوکار؛ قیمت و موجودی مرجع هستند و سفارش واقعی/پرداخت فعال نیست.",
+          importedAt:new Date().toISOString(),priceReviewRequired:false
+        };
+        const saved=await query(
+          "insert into products(tenant_id,seller_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,'active',$9::jsonb) on conflict(tenant_id,sku) do update set title=excluded.title,description=excluded.description,category=excluded.category,price=excluded.price,currency=excluded.currency,status='active',attributes=excluded.attributes,updated_at=now() where products.seller_id=excluded.seller_id and products.attributes->>'demoCatalog'='true' returning id,sku,title",
+          [ctx.id,sellerId,sku,source.title,source.description,canonicalMarketplaceCategory(source.category),Number(source.price),source.currency,JSON.stringify(attributes)]
+        );
+        if(!saved.rowCount){skipped.push({id:source.id,reason:"شناسه مشابه از قبل به کالای غیرآزمایشی تعلق دارد"});return null;}
+        return {id:saved.rows[0].id,sku:saved.rows[0].sku,title:saved.rows[0].title,imageUrl:localImage,source};
+      }catch(error){skipped.push({id:source.id,reason:error instanceof Error?error.message:"ذخیره محصول ناموفق بود"});return null;}
+    }));
+    for(const item of results){
+      if(!item)continue;
+      const source=item.source;
+      await query(
+        "insert into catalog_source_links(tenant_id,product_id,source_name,source_product_id,source_sku,source_url,source_currency,source_price,source_available,last_checked_at,last_success_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),now()) on conflict(tenant_id,source_name,source_product_id) do update set product_id=excluded.product_id,source_sku=excluded.source_sku,source_url=excluded.source_url,source_currency=excluded.source_currency,source_price=excluded.source_price,source_available=excluded.source_available,last_checked_at=now(),last_success_at=now(),last_error=null,updated_at=now()",
+        [ctx.id,item.id,source.source_name,source.id,source.sku,source.source_url,source.currency,Number(source.price),source.source_available]
+      );
+      imported.push({id:item.id,sku:item.sku,title:item.title,imageUrl:item.imageUrl});
+      if(imported.length>=limit)break;
+    }
+  }
+  res.status(201).json({imported,skipped,totalImported:imported.length,totalSkipped:skipped.length,sellerId,sourceStatus:catalog.sourceStatus,fetchedAt:catalog.fetchedAt,message:"محصولات در پایگاه داده داخلی سوکار ذخیره شدند و تصاویر به رسانه داخلی منتقل شدند. این کاتالوگ فقط برای تست است؛ قیمت و موجودی مرجع هستند و پرداخت/سفارش واقعی فعال نیست."});
+}));
+
 domainMarketplaceRouter.get("/api/marketplace/digikala-product/:sourceId",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
   const sourceId=bodyString(req.params.sourceId,40).replace(/^dkp-/i,"");
   if(!/^\d{1,16}$/.test(sourceId))return res.status(400).json({error:"شناسه محصول دیجی‌کالا باید عددی باشد"});
@@ -496,7 +553,7 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
       [tenantId]
     ),
     query(
-      "select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,jsonb_strip_nulls(jsonb_build_object('brand',p.attributes->'brand','rating',p.attributes->'rating','specifications',p.attributes->'specifications','galleryImages',p.attributes->'galleryImages')) as attributes,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name from products p join sellers sl on sl.id=p.seller_id and sl.tenant_id=p.tenant_id left join stores st on st.id=p.store_id and st.tenant_id=p.tenant_id where p.tenant_id=$1 and p.status='active' and sl.status='active' and (p.store_id is null or st.status='active') order by p.updated_at desc limit 1000",
+      "select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,jsonb_strip_nulls(jsonb_build_object('brand',p.attributes->'brand','rating',p.attributes->'rating','specifications',p.attributes->'specifications','galleryImages',p.attributes->'galleryImages','sourceName',p.attributes->'sourceName','sourceUrl',p.attributes->'sourceUrl','sourcePriceSnapshot',p.attributes->'sourcePriceSnapshot','demoCatalog',p.attributes->'demoCatalog','demoNotice',p.attributes->'demoNotice')) as attributes,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name,(p.attributes->>'demoCatalog'='true') as is_demo_product,p.attributes->>'sourceUrl' as source_url from products p join sellers sl on sl.id=p.seller_id and sl.tenant_id=p.tenant_id left join stores st on st.id=p.store_id and st.tenant_id=p.tenant_id where p.tenant_id=$1 and p.status='active' and sl.status='active' and (p.store_id is null or st.status='active') order by p.updated_at desc limit 1000",
       [tenantId]
     ),
     query(
@@ -505,7 +562,7 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
     )
   ]);
   let publicProducts:any[]=products.rows;
-  let catalogMode:"owned"|"reference"="owned";
+  let catalogMode:"owned"|"demo"|"reference"=products.rows.some((item:any)=>item.is_demo_product)?"demo":"owned";
   let sourceStatus:"live"|"unavailable"|"not-needed"="not-needed";
   let sourceFetchedAt:string|null=null;
   let referenceCategories:string[]=[];
@@ -551,7 +608,7 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
     ...(catalogMode==="reference"?referenceCategories:[])
   ])].sort((a,b)=>a.localeCompare(b,"fa"));
   res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
-  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,referenceCount:catalogMode==="reference"?publicProducts.length:0,sourceStatus,sourceFetchedAt,notice:catalogMode==="reference"?"کاتالوگ مرجع آزمایشی سوکار؛ اطلاعات از منبع بیرونی دریافت شده، خرید در سوکار غیرفعال است و قیمت/موجودی باید پیش از انتشار بررسی شود.":undefined});
+  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,referenceCount:catalogMode==="reference"?publicProducts.length:0,sourceStatus,sourceFetchedAt,notice:catalogMode==="demo"?"کاتالوگ آزمایشی در پایگاه داده سوکار؛ قیمت و موجودی مرجع هستند و ثبت سفارش یا پرداخت واقعی فعال نیست.":catalogMode==="reference"?"کاتالوگ مرجع آزمایشی سوکار؛ اطلاعات از منبع بیرونی دریافت شده، خرید در سوکار غیرفعال است و قیمت/موجودی باید پیش از انتشار بررسی شود.":undefined});
 }));
 
 domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/status",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{

@@ -939,3 +939,7 @@
  .sk-store--technolife .sk-product-visual img{padding:8px}
  .sk-store--technolife .sk-product-title{font-size:10px}
 }
+
+.sk-product-demo-notice{margin:14px 0;padding:13px 15px;border:1px solid #ecd5a7;border-radius:12px;background:#fff9eb;color:#79541d;font-size:12px;line-height:2}
+.sk-product-demo-notice a{display:inline-block;margin-inline-start:6px;color:#2359ad;font-weight:800;text-decoration:underline}
+.sk-demo-cart-note{display:block;margin-top:5px;color:#8b5b13;font-size:11px;line-height:1.8}
