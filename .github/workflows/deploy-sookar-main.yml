@@ -394,15 +394,46 @@ jobs:
             const fs=require("fs");
             try {
               const d=JSON.parse(fs.readFileSync("/tmp/sookar-public-catalog.json","utf8"));
-              console.log("PUBLIC_CATALOG_TOTAL="+(d.total ?? d.products?.length ?? 0));
+              const products=Array.isArray(d.products)?d.products:[];
+              const categories=[...new Set(products.map(p=>p.category).filter(Boolean))];
+              const localImages=products.filter(p=>typeof p.image_url==="string" && p.image_url.startsWith("/api/public/media/catalog/")).length;
+              console.log("PUBLIC_CATALOG_TOTAL="+(d.total ?? products.length));
               console.log("PUBLIC_CATALOG_MODE="+(d.catalogMode ?? "owned"));
-              console.log("REFERENCE_SOURCE_STATUS="+(d.sourceStatus ?? "unknown"));
-              console.log("REFERENCE_SOURCE_FETCHED_AT="+(d.sourceFetchedAt ?? "none"));
-              console.log("FIRST_PRODUCT="+(d.products?.[0]?.title ?? "none"));
-              console.log("FIRST_PRODUCT_HAS_IMAGE="+Boolean(d.products?.[0]?.image_url));
-              console.log("FIRST_PRODUCT_SOURCE="+(d.products?.[0]?.source_url ?? "none"));
+              console.log("PUBLIC_CATALOG_CATEGORY_COUNT="+categories.length);
+              console.log("PUBLIC_CATALOG_LOCAL_IMAGE_COUNT="+localImages);
+              console.log("PUBLIC_CATALOG_DEMO_COUNT="+products.filter(p=>p.is_demo_product).length);
+              console.log("FIRST_PRODUCT="+(products[0]?.title ?? "none"));
+              console.log("FIRST_PRODUCT_SKU="+(products[0]?.sku ?? "none"));
+              console.log("FIRST_PRODUCT_IMAGE_URL="+(products[0]?.image_url ?? "none"));
+              console.log("FIRST_PRODUCT_SOURCE="+(products[0]?.source_url ?? "none"));
+              if(products[0]?.sku) fs.writeFileSync("/tmp/sookar-first-product-sku",encodeURIComponent(products[0].sku));
+              if(products.length<120) console.log("::warning::Sookar demo catalog currently has fewer than 120 products.");
             } catch(e) {
               console.log("PUBLIC_CATALOG_PARSE_ERROR="+e.message);
               process.exitCode=0;
             }
           '
+          if [ -s /tmp/sookar-first-product-sku ]; then
+            sku=$(cat /tmp/sookar-first-product-sku)
+            product_result=$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/sookar-product-detail.html -w '%{http_code}|%{url_effective}' "https://sookar.ir/store/product/$sku?site=default" || true)
+            product_code="${product_result%%|*}"
+            product_url="${product_result#*|}"
+            echo "PRODUCT_DETAIL_HTTP=$product_code"
+            echo "PRODUCT_DETAIL_FINAL_URL=$product_url"
+            case "$product_url" in https://sookar.ir/*) ;; *) echo "::error::Product detail left the Sookar domain."; exit 1;; esac
+            if [ "$product_code" != "200" ]; then echo "::error::Product detail page did not return HTTP 200."; exit 1; fi
+          fi
+          cart_result=$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/sookar-cart.html -w '%{http_code}|%{url_effective}' https://sookar.ir/store/cart || true)
+          cart_code="${cart_result%%|*}"
+          cart_url="${cart_result#*|}"
+          echo "CART_HTTP=$cart_code"
+          echo "CART_FINAL_URL=$cart_url"
+          case "$cart_url" in https://sookar.ir/*) ;; *) echo "::error::Cart page left the Sookar domain."; exit 1;; esac
+          if [ "$cart_code" != "200" ]; then echo "::error::Cart page did not return HTTP 200."; exit 1; fi
+          checkout_result=$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/sookar-demo-checkout.html -w '%{http_code}|%{url_effective}' https://sookar.ir/store/demo-checkout || true)
+          checkout_code="${checkout_result%%|*}"
+          checkout_url="${checkout_result#*|}"
+          echo "DEMO_CHECKOUT_HTTP=$checkout_code"
+          echo "DEMO_CHECKOUT_FINAL_URL=$checkout_url"
+          case "$checkout_url" in https://sookar.ir/*) ;; *) echo "::error::Demo checkout left the Sookar domain."; exit 1;; esac
+          if [ "$checkout_code" != "200" ]; then echo "::error::Demo checkout page did not return HTTP 200."; exit 1; fi
