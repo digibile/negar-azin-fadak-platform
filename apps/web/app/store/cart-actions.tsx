@@ -12,6 +12,8 @@ export type StoreCartProduct = {
   seller_name?: string | null;
   store_id?: string | null;
   image_url?: string | null;
+  is_demo_product?: boolean;
+  source_url?: string | null;
 };
 
 export type StoreCartItem = StoreCartProduct & { quantity: number };
@@ -115,14 +117,14 @@ export function CartView() {
         {items.length === 0 ? <div className="sk-cart-empty"><span>🛒</span><h2>سبد خریدت هنوز خالی است</h2><p>محصولات موردنظرت را از کاتالوگ انتخاب کن و به اینجا برگرد.</p><Link href="/store/shop" className="sk-primary-btn">مشاهده کالاها ←</Link></div> :
           <div className="sk-cart-list">{items.map(item => <article className="sk-cart-item" key={item.id}>
             <div className="sk-cart-thumb">{item.image_url ? <img src={item.image_url} alt={item.title} /> : <span>▧</span>}</div>
-            <div className="sk-cart-item-main"><Link href={"/store/product/" + encodeURIComponent(item.sku || item.id)} className="sk-cart-item-title">{item.title}</Link><small>فروشنده: {item.seller_name || "فروشنده ثبت‌شده"}</small><strong>{money(Number(item.price), item.currency)}</strong>
+            <div className="sk-cart-item-main"><Link href={"/store/product/" + encodeURIComponent(item.sku || item.id)} className="sk-cart-item-title">{item.title}</Link><small>فروشنده: {item.seller_name || "فروشنده ثبت‌شده"}</small>{item.is_demo_product && <small className="sk-demo-cart-note">نمونهٔ آزمایشی سوکار · قیمت مرجع، نه قیمت فروش</small>}<strong>{money(Number(item.price), item.currency)}</strong>
               <div className="sk-cart-controls"><div className="sk-quantity"><button type="button" onClick={() => update(item.id, -1)} aria-label="کاهش تعداد">−</button><span>{item.quantity.toLocaleString("fa-IR")}</span><button type="button" onClick={() => update(item.id, 1)} aria-label="افزایش تعداد">＋</button></div><button type="button" onClick={() => remove(item.id)} className="sk-cart-remove">حذف</button></div>
             </div>
             <strong className="sk-cart-line-total">{money(Number(item.price) * item.quantity, item.currency)}</strong>
           </article>)}</div>}
       </section>
       <aside className="sk-cart-summary"><h2>خلاصه سفارش</h2><div><span>تعداد کالا</span><b>{count.toLocaleString("fa-IR")} قلم</b></div><div><span>جمع کالاها</span><b>{money(total, items[0]?.currency || "IRR")}</b></div><div><span>هزینه ارسال</span><small>پس از تعیین فروشگاه و نشانی مشخص می‌شود</small></div><hr/><div className="sk-cart-total"><span>جمع فعلی</span><strong>{money(total, items[0]?.currency || "IRR")}</strong></div>
-        <p className="sk-cart-notice">این سبد در همین مرورگر ذخیره شده است. ثبت سفارش نهایی فقط پس از اتصال سبد به فروشگاه فعال، بررسی موجودی و ورود به حساب انجام می‌شود؛ هیچ سفارش یا پرداختی هنوز ثبت نشده است.</p>
+        <p className="sk-cart-notice">{items.some(item => item.is_demo_product) ? "سبد شامل کالای آزمایشی سوکار است. قیمت‌ها فقط snapshot منبع مرجع‌اند؛ سفارش و پرداخت واقعی برای این کالاها فعال نیست. سبد فعلی در همین مرورگر ذخیره می‌شود." : "این سبد در همین مرورگر ذخیره شده است. ثبت سفارش نهایی فقط پس از اتصال سبد به فروشگاه فعال، بررسی موجودی و ورود به حساب انجام می‌شود؛ هیچ سفارش یا پرداختی هنوز ثبت نشده است."}</p>
         <Link href="/login" className={items.length ? "sk-cart-checkout" : "sk-cart-checkout is-disabled"} aria-disabled={!items.length}>ورود به حساب کاربری</Link>
         <Link href="/store/shop" className="sk-cart-continue">بازگشت به فروشگاه</Link>
       </aside>
