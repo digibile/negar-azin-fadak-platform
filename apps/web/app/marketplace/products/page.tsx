@@ -52,6 +52,7 @@ export default function ProductsPage() {
   const [importing, setImporting] = useState(false);
   const [sourceLinks, setSourceLinks] = useState<SourceLink[]>([]);
   const [syncingSources, setSyncingSources] = useState(false);
+  const [importingDemo, setImportingDemo] = useState(false);
 
   async function load() {
     setError("");
@@ -243,6 +244,18 @@ export default function ProductsPage() {
     }
   }
 
+  async function importDemoCatalog() {
+    setError(""); setNotice(""); setImportingDemo(true);
+    try {
+      const result = await api<ImportResult & {sourceStatus:string;fetchedAt:string|null}>("/api/marketplace/products/import-demo-catalog", { method: "POST", body: JSON.stringify({ limit: 12 }) });
+      setNotice(`ورود کاتالوگ آزمایشی انجام شد: ${result.totalImported.toLocaleString("fa-IR")} محصول با تصویر محلی، مشخصات و snapshot قیمت در پایگاه دادهٔ سوکار ثبت/به‌روزرسانی شد. ${result.totalSkipped.toLocaleString("fa-IR")} مورد رد شد. این کالاها برای تست ویترین و سبد هستند، نه فروش واقعی.`);
+      setTab("manual");
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "ورود کاتالوگ آزمایشی به پایگاه داده ناموفق بود.");
+    } finally { setImportingDemo(false); }
+  }
+
   async function syncReferenceProducts() {
     if (!sourceLinks.length) return;
     setError(""); setNotice(""); setSyncingSources(true);
@@ -353,7 +366,7 @@ export default function ProductsPage() {
         <label className="mp-field-wide">تصویر محصول (اختیاری، حداکثر ۵ مگابایت)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => void uploadImage(event.target.files?.[0])} disabled={uploadingImage} /><small>{uploadingImage ? "در حال بررسی و ذخیره تصویر در رسانهٔ داخلی…" : "تصویر در رسانهٔ داخلی سوکار ذخیره می‌شود؛ لینک خارجی تصویر پذیرفته نمی‌شود."}</small>{imageUrl && <span className="mp-uploaded-image"><img src={imageUrl} alt="پیش‌نمایش تصویر ثبت‌شده" /><code dir="ltr">{imageUrl}</code><button type="button" onClick={() => setImageUrl("")}>حذف تصویر از پیش‌نویس</button></span>}</label>
         <div className="mp-form-actions"><button type="button" onClick={create} disabled={saving || uploadingImage || !sellerId || !sku.trim() || !title.trim() || price === ""}>{saving ? "در حال ثبت…" : "ثبت پیش‌نویس محصول"} <span>←</span></button><small>انتشار عمومی مرحله‌ای جداگانه است.</small></div>
       </div> : <div className="mp-import-panel">
-        <div className="mp-import-head"><div><h3>ورود مرجع به کاتالوگ داخلی</h3><p>فهرست مرجع فقط در مدیریت دیده می‌شود. هر محصول پس از ورود، شناسه و صفحه داخلی می‌گیرد و با قیمت‌گذاری و انتشار مستقل شما اداره می‌شود.</p>{sourceFetchedAt && <small>آخرین دریافت موفق فهرست: {new Date(sourceFetchedAt).toLocaleString("fa-IR")}</small>}</div></div>
+        <div className="mp-import-head"><div><h3>ورود مرجع به کاتالوگ داخلی</h3><p>ورود عادی، پیش‌نویس می‌سازد. برای بررسی ویترین و سبد خرید، کاتالوگ آزمایشی را با یک کلیک به پایگاه دادهٔ خود سوکار وارد کنید.</p>{sourceFetchedAt && <small>آخرین دریافت موفق فهرست: {new Date(sourceFetchedAt).toLocaleString("fa-IR")}</small>}<div className="mp-inline-warning">۱۲ محصول آزمایشی با تصویر محلی و مشخصات در دیتابیس سوکار ذخیره می‌شوند. قیمت فقط snapshot منبع است؛ این کالاها برای فروش واقعی یا پرداخت استفاده نمی‌شوند.</div></div><button type="button" className="mp-import-submit" onClick={() => void importDemoCatalog()} disabled={importingDemo || loadingSource}>{importingDemo ? "در حال ذخیره در دیتابیس…" : "ورود ۱۲ محصول آزمایشی به سوکار"}</button></div>
         <div className="mp-source-id-row">
           <label htmlFor="mp-source-product-id">شناسه یا لینک محصول دیجی‌کالا<input id="mp-source-product-id" value={sourceProductId} onChange={event => setSourceProductId(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void lookupDigikalaProduct(); } }} placeholder="شناسه یا لینک محصول؛ مثال dkp-12345678" /></label>
           <button type="button" className="mp-refresh" onClick={lookupDigikalaProduct} disabled={loadingSource || !sourceProductId.trim()}>{loadingSource ? "در حال دریافت…" : "دریافت محصول"}</button><button type="button" className="mp-refresh" onClick={() => void loadSourceCatalog()} disabled={loadingSource}>{loadingSource ? "در حال دریافت فهرست…" : "تازه‌سازی فهرست"}</button>
