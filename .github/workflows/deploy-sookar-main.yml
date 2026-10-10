@@ -420,7 +420,7 @@ jobs:
           test "$product_code" = "200"
           test "$cart_code" = "200"
           test "$checkout_code" = "200"
-          grep -q "افزودن به سبد خرید" /tmp/sookar-product-page.html
+          grep -q "$sku" /tmp/sookar-product-page.html
           grep -q "سبد خرید" /tmp/sookar-cart-page.html
-          grep -q "خرید آزمایشی" /tmp/sookar-demo-checkout.html
+          grep -q "تکمیل خرید آزمایشی" /tmp/sookar-demo-checkout.html
           echo "SOOKAR_SHOPPING_FLOW_ROUTES_OK"
