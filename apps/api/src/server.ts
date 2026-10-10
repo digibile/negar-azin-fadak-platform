@@ -97,7 +97,7 @@ app.get("/api/public/storefront-theme",asyncHandler(async(req,res)=>{
   headerMode:["استاندارد","فشرده","بدون هدر"].includes(d["header-mode"])?d["header-mode"]:"استاندارد",
   footerMode:["استاندارد","فشرده","بدون فوتر"].includes(d["footer-mode"])?d["footer-mode"]:"استاندارد",
   sectionOrder:(()=>{const allowed=["hero","benefits","categories","products"];const requested=String(d.sectionOrder||"").split(",").map((x:string)=>x.trim()).filter((x:string)=>allowed.includes(x));return [...new Set([...requested,...allowed])].join(",")})(),
-  showcaseSlides:(()=>{const raw=Array.isArray(d.showcaseSlides)?d.showcaseSlides.slice(0,8):[];return raw.filter((x:any)=>x&&typeof x.title==="string"&&typeof x.text==="string"&&typeof x.button==="string").map((x:any)=>({title:x.title.slice(0,140),text:x.text.slice(0,300),button:x.button.slice(0,40),image:typeof x.image==="string"&&/^https:\\/\\//i.test(x.image)?x.image:"https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=80"}))})()
+  showcaseSlides:(()=>{const raw=Array.isArray(d.showcaseSlides)?d.showcaseSlides.slice(0,8):[];return raw.filter((x:any)=>x&&typeof x.title==="string"&&typeof x.text==="string"&&typeof x.button==="string").map((x:any)=>({title:x.title.slice(0,140),text:x.text.slice(0,300),button:x.button.slice(0,40),image:typeof x.image==="string"&&x.image.startsWith("https://")?x.image:"https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=80"}))})()
  }:null});
 }));
 app.use(dynamicMenuRouter);
