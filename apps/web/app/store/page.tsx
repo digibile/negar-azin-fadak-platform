@@ -23,7 +23,7 @@ type Product = {
 };
 type Store = { id: string; name: string; slug: string; seller_name: string };
 type Catalog = { tenant?: { name?: string }; products: Product[]; stores?: Store[]; categories?: string[]; total?: number };
-type StoreTheme = {primaryColor:string;accentColor:string;canvasColor:string;surfaceColor:string;productColumns:number;productCard:"rounded"|"bordered"|"flat"|"elevated";productImageRatio:"square"|"portrait"|"landscape";showHero:boolean;showCategories:boolean;headerMode:string;footerMode:string;sectionOrder:string};
+type StoreTheme = {key?:string;primaryColor:string;accentColor:string;canvasColor:string;surfaceColor:string;productColumns:number;productCard:"rounded"|"bordered"|"flat"|"elevated";productImageRatio:"square"|"portrait"|"landscape";showHero:boolean;showCategories:boolean;headerMode:string;footerMode:string;sectionOrder:string};
 
 const money = (value: string, currency: string) => {
   const amount = Number(value);
@@ -149,15 +149,16 @@ const brandIdentity:Record<StoreVariant,{name:string;mark:string;tagline:string;
 };
 export default function StorePage({ variant = "default" }: { variant?: StoreVariant }) {
   const pathname = usePathname();
-  const identity = brandIdentity[variant];
-  const isTechnolife = variant === "technolife";
-  const activeStoreNavigation = variant === "digikala" ? DIGIKALA_NAVIGATION : variant === "technolife" ? TECHNOLIFE_NAVIGATION : variant === "digibile" ? DIGIBILE_NAVIGATION : variant === "ava" ? AVA_NAVIGATION : variant === "kipa" ? KIPA_NAVIGATION : STORE_CATEGORY_NAVIGATION;
-  const isDigikala = variant === "digikala";
-  const isAva = variant === "ava";
-  const isKipa = variant === "kipa";
-  const isDigibile = variant === "digibile";
+  const templateVariant: StoreVariant = theme?.key === "technolife-store" ? "technolife" : theme?.key === "digibile-commerce" ? "digibile" : theme?.key === "kipa-store" ? "kipa" : variant;
+  const identity = brandIdentity[templateVariant];
+  const isTechnolife = templateVariant === "technolife";
+  const activeStoreNavigation = templateVariant === "digikala" ? DIGIKALA_NAVIGATION : templateVariant === "technolife" ? TECHNOLIFE_NAVIGATION : templateVariant === "digibile" ? DIGIBILE_NAVIGATION : templateVariant === "ava" ? AVA_NAVIGATION : templateVariant === "kipa" ? KIPA_NAVIGATION : STORE_CATEGORY_NAVIGATION;
+  const isDigikala = templateVariant === "digikala";
+  const isAva = templateVariant === "ava";
+  const isKipa = templateVariant === "kipa";
+  const isDigibile = templateVariant === "digibile";
   const showAllProducts = pathname === "/store/shop";
-  const productHrefFor = (product:Product) => "/store/product/" + encodeURIComponent(product.sku || product.id) + "?site=" + variant;
+  const productHrefFor = (product:Product) => "/store/product/" + encodeURIComponent(product.sku || product.id) + "?site=" + templateVariant;
   const [data, setData] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -234,7 +235,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
 
   const technologyPattern = /موبایل|گوشی|تبلت|لپ.?تاپ|کامپیوتر|مانیتور|کالای دیجیتال|صوتی|تصویری|هدفون|اسپیکر|دوربین|گیمینگ|کنسول|الکترونیک|mobile|phone|tablet|laptop|computer|monitor|digital|audio|video|headphone|speaker|camera|gaming|console|electronics/i;
   const sourceProducts = isTechnolife ? (data?.products || []).filter(product => technologyPattern.test(normalizeText([product.title, product.category || "", product.description || "", product.brand || ""].join(" ")))) : (data?.products || []);
-  const categoryNames = [...new Set([...activeStoreNavigation.map(item => item.name), ...(variant === "default" ? BROWSE_CATEGORIES : []), ...(Array.isArray(data?.categories) ? data.categories : [])])].filter(name => !isTechnolife || technologyPattern.test(normalizeText(name)));
+  const categoryNames = [...new Set([...activeStoreNavigation.map(item => item.name), ...(templateVariant === "default" ? BROWSE_CATEGORIES : []), ...(Array.isArray(data?.categories) ? data.categories : [])])].filter(name => !isTechnolife || technologyPattern.test(normalizeText(name)));
   const categories = [...new Set(categoryNames.map(name => canonicalCategory(name.trim())).filter(Boolean))]
     .filter((name, index, all) => all.findIndex(item => normalizeText(item) === normalizeText(name)) === index)
     .map(name => [normalizeText(name), name] as [string, string]);
@@ -258,7 +259,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
 
 
   return (
-    <main className={`sk-store sk-store--${variant}${isTechnolife ? " sk-store--technolife" : isDigikala ? " sk-store--digikala" : isAva ? " sk-store--ava" : isKipa ? " sk-store--kipa" : isDigibile ? " sk-store--digibile" : ""}${theme?.headerMode === "بدون هدر" ? " sk-hide-header" : theme?.headerMode === "فشرده" ? " sk-compact-header" : ""}${theme?.footerMode === "بدون فوتر" ? " sk-hide-footer" : theme?.footerMode === "فشرده" ? " sk-compact-footer" : ""}`} data-product-card={theme?.productCard||"rounded"} data-product-image-ratio={theme?.productImageRatio||"square"} dir="rtl" style={{"--sk-primary":theme?.primaryColor,"--sk-primary-dark":theme?.primaryColor,"--sk-accent":theme?.accentColor,"--sk-canvas":theme?.canvasColor,"--sk-surface":theme?.surfaceColor,"--sk-product-columns":String(theme?.productColumns||4),"--sk-product-radius":theme?.productCard==="flat"?"4px":theme?.productCard==="bordered"?"7px":theme?.productCard==="elevated"?"18px":"14px"} as CSSProperties}>
+    <main className={`sk-store sk-store--${templateVariant}${isTechnolife ? " sk-store--technolife" : isDigikala ? " sk-store--digikala" : isAva ? " sk-store--ava" : isKipa ? " sk-store--kipa" : isDigibile ? " sk-store--digibile" : ""}${theme?.headerMode === "بدون هدر" ? " sk-hide-header" : theme?.headerMode === "فشرده" ? " sk-compact-header" : ""}${theme?.footerMode === "بدون فوتر" ? " sk-hide-footer" : theme?.footerMode === "فشرده" ? " sk-compact-footer" : ""}`} data-product-card={theme?.productCard||"rounded"} data-product-image-ratio={theme?.productImageRatio||"square"} dir="rtl" style={{"--sk-primary":theme?.primaryColor,"--sk-primary-dark":theme?.primaryColor,"--sk-accent":theme?.accentColor,"--sk-canvas":theme?.canvasColor,"--sk-surface":theme?.surfaceColor,"--sk-product-columns":String(theme?.productColumns||4),"--sk-product-radius":theme?.productCard==="flat"?"4px":theme?.productCard==="bordered"?"7px":theme?.productCard==="elevated"?"18px":"14px"} as CSSProperties}>
       <div className="sk-service-strip">
         <div className="sk-wrap sk-service-inner">
           <span>{identity.strip}</span>
@@ -268,7 +269,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
 
       <header className="sk-header">
         <div className="sk-wrap sk-header-main">
-          <Link href={identity.domain==="sookar.ir"?"/":identity.domain==="digibile.ir"?"/store/digibile":"/store/"+variant} className="sk-logo" aria-label={identity.name+"، صفحه اصلی"}>
+          <Link href={identity.domain==="sookar.ir"?"/":identity.domain==="digibile.ir"?"/store/digibile":"/store/"+templateVariant} className="sk-logo" aria-label={identity.name+"، صفحه اصلی"}>
             <span className="sk-logo-mark">{identity.mark}</span>
             <span><b>{identity.name}</b><small>{identity.tagline}</small></span>
           </Link>
