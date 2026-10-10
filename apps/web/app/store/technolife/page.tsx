@@ -17,15 +17,19 @@ type Product = {
 };
 
 const categories = [
-  ["موبایل و تبلت", /موبایل|گوشی|تبلت|phone|mobile|tablet/i],
-  ["لپ‌تاپ و کامپیوتر", /لپ.?تاپ|کامپیوتر|مانیتور|computer|laptop|monitor/i],
-  ["صوتی و تصویری", /هدفون|هندزفری|اسپیکر|تلویزیون|دوربین|صوتی|تصویری|headphone|speaker|camera/i],
-  ["گیمینگ", /گیمینگ|کنسول|بازی|gaming|console/i],
-  ["شبکه و ذخیره‌سازی", /مودم|روتر|شبکه|هارد|فلش|ssd|پرینتر|router|modem|storage/i],
-  ["لوازم جانبی", /شارژر|پاوربانک|کابل|مبدل|charger|power.?bank|cable|adapter/i]
+  ["موبایل و تبلت", /موبایل|گوشی|تبلت|phone|mobile|tablet|smartphone/i],
+  ["لپ‌تاپ و کامپیوتر", /لپ.?تاپ|کامپیوتر|مانیتور|قطعات کامپیوتر|computer|laptop|monitor|desktop|gpu|processor/i],
+  ["تلویزیون و صوتی تصویری", /تلویزیون|هدفون|هندزفری|اسپیکر|سینمای خانگی|دوربین|صوتی|تصویری|headphone|speaker|camera|television|tv|audio|video/i],
+  ["ساعت و گجت هوشمند", /ساعت هوشمند|ساعت مچی|مچ.?بند|گجت|smart.?watch|wearable|watch/i],
+  ["لوازم جانبی و شبکه", /شارژر|پاوربانک|کابل|مبدل|مودم|روتر|هارد|فلش|ssd|پرینتر|charger|power.?bank|cable|adapter|router|modem|storage|printer/i],
+  ["لوازم خانگی برقی", /یخچال|فریزر|ماشین لباسشویی|ظرفشویی|جاروبرقی|مایکروویو|مایکروفر|اجاق|کولر|تهویه|قهوه.?ساز|لوازم خانگی|refrigerator|freezer|washing machine|dishwasher|vacuum|microwave/i],
+  ["خانه، مبلمان و دکور", /مبلمان|مبل|کاناپه|صندلی|میز|تخت.?خواب|کمد|دکوراسیون|فرش|چراغ|روشنایی|furniture|sofa|chair|table|bed|wardrobe|decor/i],
+  ["مد و پوشاک", /پوشاک|لباس|کفش|کیف|کوله|پارچه|fashion|apparel|clothing|shoes|bag/i],
+  ["زیبایی و سلامت", /زیبایی|آرایش|بهداشت|سلامت|عطر|مراقبت پوست|مراقبت مو|beauty|health|cosmetic|perfume/i],
+  ["ورزش، سفر و ابزار", /ورزش|سفر|کمپینگ|ابزار|دریل|باغبانی|خودرو|موتورسیکلت|sport|travel|camping|tool|drill|auto/i],
+  ["کتاب، کودک و سرگرمی", /کتاب|لوازم.?التحریر|کودک|نوزاد|اسباب.?بازی|بازی فکری|book|stationery|baby|toy|game/i],
+  ["سوپرمارکت و روزمره", /سوپرمارکت|خوراک|مواد غذایی|نوشیدنی|شوینده|grocery|supermarket|food|beverage/i]
 ] as const;
-
-const techPattern = /موبایل|گوشی|تبلت|لپ.?تاپ|کامپیوتر|مانیتور|کالای دیجیتال|صوتی|تصویری|هدفون|اسپیکر|دوربین|گیمینگ|کنسول|الکترونیک|شبکه|مودم|روتر|پرینتر|شارژر|پاوربانک|کابل|ساعت هوشمند|لوازم جانبی|phone|mobile|tablet|laptop|computer|monitor|digital|audio|video|headphone|speaker|camera|gaming|console|electronics|network|router|printer|charger|power.?bank|cable|smart.?watch/i;
 
 function price(value: string | number, currency = "IRR") {
   const amount = Number(value);
@@ -52,7 +56,7 @@ export default function TechnolifeTemplatePreview() {
         const body = await response.json();
         if (!response.ok) throw new Error(body?.error || "کاتالوگ محصولات در دسترس نیست.");
         if (!Array.isArray(body?.products)) throw new Error("پاسخ کاتالوگ معتبر نیست.");
-        if (!controller.signal.aborted) setProducts(body.products.filter((p: Product) => techPattern.test([p.title, p.category || "", p.description || "", p.brand || ""].join(" "))));
+        if (!controller.signal.aborted) setProducts(body.products);
       })
       .catch(reason => {
         if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "اتصال به کاتالوگ ناموفق بود.");
@@ -95,11 +99,11 @@ export default function TechnolifeTemplatePreview() {
         @media(max-width:700px){.tl-wrap{width:calc(100% - 24px)}.tl-topline .tl-wrap{min-height:30px;font-size:9px}.tl-topline .tl-wrap span:last-child{display:none}.tl-head{position:relative}.tl-head-main{min-height:0;padding:12px 0;display:grid;grid-template-columns:1fr auto;gap:12px}.tl-brand{min-width:0}.tl-mark{width:36px;height:36px;font-size:20px}.tl-brand strong{font-size:19px}.tl-brand small{font-size:8px}.tl-search{grid-column:1/-1;grid-row:2;height:42px}.tl-head-actions{grid-column:2;grid-row:1}.tl-head-actions a{font-size:10px;padding:9px}.tl-head-actions a:first-child{display:none}.tl-nav .tl-wrap{gap:19px;min-height:41px}.tl-nav a{font-size:10px}.tl-breadcrumb{font-size:10px;padding-top:13px}.tl-hero{grid-template-columns:1fr;margin-top:10px;min-height:0}.tl-hero-copy{padding:27px 22px}.tl-hero h1{font-size:31px;margin:11px 0 7px}.tl-hero p{font-size:11px}.tl-hero-art{min-height:165px}.tl-ring{width:190px}.tl-ring.r2{width:135px}.tl-device{width:84px;height:126px;border-width:4px;border-radius:16px;padding:7px 5px;transform:rotate(-7deg)}.tl-device:before{height:3px;width:25px;margin-bottom:7px}.tl-device-screen{height:92px;border-radius:8px;font-size:25px}.tl-quick{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0 18px}.tl-quick button{padding:10px 8px;gap:8px}.tl-quick i{width:32px;height:32px;flex-basis:32px;font-size:16px}.tl-quick b{font-size:10px}.tl-quick small{font-size:8px}.tl-shelf{padding:12px;border-radius:13px;margin-bottom:13px}.tl-shelf-head h2{font-size:16px}.tl-products{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.tl-product{padding:8px;border-radius:10px}.tl-product-img{height:130px}.tl-product h3{font-size:11px;min-height:43px}.tl-product-price{font-size:11px}.tl-bottom{padding:20px 0}.tl-bottom span{display:block;margin-top:5px}}
       `}</style>
 
-      <div className="tl-topline"><div className="tl-wrap"><span>تکنولایف | مرجع تخصصی کالای دیجیتال</span><span>انتخاب آگاهانه با اطلاعات ثبت‌شده محصول</span></div></div>
+      <div className="tl-topline"><div className="tl-wrap"><span>تکنولایف | مرجع تخصصی همه کالاها</span><span>انتخاب آگاهانه با اطلاعات ثبت‌شده محصول</span></div></div>
       <header className="tl-head">
         <div className="tl-wrap tl-head-main">
           <Link href="/store/technolife" className="tl-brand" aria-label="صفحه اصلی تکنولایف"><span className="tl-mark">ت</span><span><strong>تکنولایف</strong><small>دنیای فناوری، یک‌جا</small></span></Link>
-          <form className="tl-search" role="search" onSubmit={e => { e.preventDefault(); document.getElementById("tl-catalog")?.scrollIntoView({ behavior: "smooth" }); }}><span>⌕</span><input aria-label="جستجوی کالای دیجیتال" placeholder="جستجو در موبایل، لپ‌تاپ، هدفون و ..." value={query} onChange={e => setQuery(e.target.value)} />{query && <button type="button" onClick={() => setQuery("")} aria-label="پاک کردن جستجو">×</button>}</form>
+          <form className="tl-search" role="search" onSubmit={e => { e.preventDefault(); document.getElementById("tl-catalog")?.scrollIntoView({ behavior: "smooth" }); }}><span>⌕</span><input aria-label="جستجوی کالای دیجیتال" placeholder="جستجو در موبایل، لپ‌تاپ، یخچال، مبلمان و ..." value={query} onChange={e => setQuery(e.target.value)} />{query && <button type="button" onClick={() => setQuery("")} aria-label="پاک کردن جستجو">×</button>}</form>
           <div className="tl-head-actions"><Link href="/login?brand=technolife">ورود</Link><Link className="tl-signup" href="/register?brand=technolife">ثبت‌نام</Link></div>
         </div>
         <nav className="tl-nav" aria-label="دسته‌بندی اصلی"><div className="tl-wrap"><a href="#tl-categories">☰ دسته‌بندی کالاها</a><a href="#tl-mobile">موبایل و تبلت</a><a href="#tl-laptop">لپ‌تاپ و کامپیوتر</a><a href="#tl-audio">صوتی و تصویری</a><a href="#tl-gaming">گیمینگ</a><a href="#tl-network">شبکه و ذخیره‌سازی</a><a href="#tl-accessories">لوازم جانبی</a></div></nav>
@@ -108,23 +112,23 @@ export default function TechnolifeTemplatePreview() {
       <div className="tl-wrap">
         <div className="tl-breadcrumb">خانه / فروشگاه کالای دیجیتال / تکنولایف</div>
         <section className="tl-hero">
-          <div className="tl-hero-copy"><span className="tl-kicker">تجربه تخصصی فناوری</span><h1>تکنولوژی روز،<br/><span>انتخابی آگاهانه.</span></h1><p>گوشی، لپ‌تاپ و تجهیزات دیجیتال را در یک فضای تخصصی بررسی کن. اطلاعات و قیمت‌هایی که می‌بینی از کاتالوگ فعال فروشگاه دریافت می‌شوند.</p><div className="tl-hero-actions"><a className="tl-cta" href="#tl-catalog">مشاهده محصولات ←</a><a className="tl-cta secondary" href="#tl-categories">دسته‌بندی‌ها</a></div></div>
+          <div className="tl-hero-copy"><span className="tl-kicker">خرید هوشمندانه برای همه</span><h1>همه نیازها،<br/><span>یک مقصد خرید.</span></h1><p>از موبایل و کامپیوتر تا تلویزیون، یخچال، ساعت، لوازم جانبی و مبلمان؛ محصولات واقعی ثبت‌شده در کاتالوگ فروشگاه را یک‌جا ببین. قیمت و موجودی تنها وقتی نمایش داده می‌شود که در فروشگاه خودمان ثبت و تأیید شده باشد.</p><div className="tl-hero-actions"><a className="tl-cta" href="#tl-catalog">مشاهده محصولات ←</a><a className="tl-cta secondary" href="#tl-categories">دسته‌بندی‌ها</a></div></div>
           <div className="tl-hero-art" aria-hidden="true"><span className="tl-ring"/><span className="tl-ring r2"/><div className="tl-device"><div className="tl-device-screen">ت</div></div></div>
         </section>
 
-        <section id="tl-categories" className="tl-quick" aria-label="دسته‌بندی‌های کالای دیجیتال">{categories.map(([name], i) => <button key={name} className={activeCategory === name ? "active" : ""} onClick={() => { setActiveCategory(activeCategory === name ? "" : name); document.getElementById("tl-catalog")?.scrollIntoView({ behavior: "smooth" }); }}><i>{["▯","▰","♫","◉","⌘","⌁"][i]}</i><span><b>{name}</b><small>مشاهده کالاهای ثبت‌شده</small></span></button>)}</section>
+        <section id="tl-categories" className="tl-quick" aria-label="دسته‌بندی همه کالاها">{categories.map(([name], i) => <button key={name} className={activeCategory === name ? "active" : ""} onClick={() => { setActiveCategory(activeCategory === name ? "" : name); document.getElementById("tl-catalog")?.scrollIntoView({ behavior: "smooth" }); }}><i>{["▯","▰","♫","◉","⌘","▣","⌂","◇","✳","⚒","▤","◈"][i]}</i><span><b>{name}</b><small>مشاهده کالاهای ثبت‌شده</small></span></button>)}</section>
 
         {categories.map(([name, pattern], index) => {
           const shelf = products.filter(p => pattern.test([p.title, p.category || "", p.description || "", p.brand || ""].join(" "))).slice(0, 5);
           if (!shelf.length || query || activeCategory) return null;
-          return <section className="tl-shelf" id={["tl-mobile","tl-laptop","tl-audio","tl-gaming","tl-network","tl-accessories"][index]} key={name}><div className="tl-shelf-head"><div><small>منتخب کاتالوگ تکنولایف</small><h2>{name}</h2></div><button onClick={() => { setActiveCategory(name); document.getElementById("tl-catalog")?.scrollIntoView({ behavior: "smooth" }); }}>مشاهده همه ←</button></div><div className="tl-products">{shelf.map(p => <ProductCard key={p.id} product={p}/>)}</div></section>;
+          return <section className="tl-shelf" id={["tl-mobile","tl-laptop","tl-audio","tl-watches","tl-accessories","tl-appliances","tl-home","tl-fashion","tl-health","tl-sports","tl-family","tl-daily"][index]} key={name}><div className="tl-shelf-head"><div><small>منتخب کاتالوگ تکنولایف</small><h2>{name}</h2></div><button onClick={() => { setActiveCategory(name); document.getElementById("tl-catalog")?.scrollIntoView({ behavior: "smooth" }); }}>مشاهده همه ←</button></div><div className="tl-products">{shelf.map(p => <ProductCard key={p.id} product={p}/>)}</div></section>;
         })}
 
-        <section id="tl-catalog" className="tl-shelf"><div className="tl-shelf-head"><div><small>کاتالوگ زنده</small><h2>{query ? "نتایج جستجو" : activeCategory || "همه محصولات دیجیتال"}</h2></div><span style={{fontSize:11,color:"#858c96"}}>{loading ? "در حال دریافت…" : filtered.length.toLocaleString("fa-IR") + " کالا"}</span></div>
-          {loading ? <div className="tl-empty">در حال دریافت اطلاعات محصولات از کاتالوگ واقعی…</div> : error ? <div className="tl-empty tl-error"><b>کاتالوگ در دسترس نیست</b>{error}</div> : filtered.length ? <div className="tl-products">{filtered.slice(0, showAll ? filtered.length : 20).map(p => <ProductCard key={p.id} product={p}/>)}</div> : <div className="tl-empty"><b>{products.length ? "محصولی با این جستجو یا دسته‌بندی پیدا نشد." : "هنوز کالای دیجیتال فعالی در کاتالوگ ثبت نشده است."}</b><span>هیچ محصول یا قیمتی به‌صورت ساختگی نمایش داده نمی‌شود.</span></div>}
+        <section id="tl-catalog" className="tl-shelf"><div className="tl-shelf-head"><div><small>کاتالوگ زنده</small><h2>{query ? "نتایج جستجو" : activeCategory || "همه محصولات فروشگاه"}</h2></div><span style={{fontSize:11,color:"#858c96"}}>{loading ? "در حال دریافت…" : filtered.length.toLocaleString("fa-IR") + " کالا"}</span></div>
+          {loading ? <div className="tl-empty">در حال دریافت اطلاعات محصولات از کاتالوگ واقعی…</div> : error ? <div className="tl-empty tl-error"><b>کاتالوگ در دسترس نیست</b>{error}</div> : filtered.length ? <div className="tl-products">{filtered.slice(0, showAll ? filtered.length : 20).map(p => <ProductCard key={p.id} product={p}/>)}</div> : <div className="tl-empty"><b>{products.length ? "محصولی با این جستجو یا دسته‌بندی پیدا نشد." : "هنوز محصول فعالی در کاتالوگ داخلی فروشگاه ثبت نشده است."}</b><span>هیچ محصول یا قیمتی به‌صورت ساختگی نمایش داده نمی‌شود.</span></div>}
           {filtered.length > 20 && <div style={{textAlign:"center",paddingTop:22}}><button className="tl-cta" onClick={() => setShowAll(!showAll)}>{showAll ? "نمایش کمتر" : "نمایش همه محصولات"}</button></div>}
         </section>
-        <footer className="tl-bottom"><strong>تکنولایف</strong><span>این پیش‌نمایش مستقل است؛ محصولات و قیمت‌ها از کاتالوگ فعال دریافت می‌شوند.</span></footer>
+        <footer className="tl-bottom"><strong>تکنولایف</strong><span>محصولات، تصاویر میزبانی‌شده و قیمت‌های منتشرشده از کاتالوگ داخلی همین فروشگاه ارائه می‌شوند؛ اطلاعات مرجع به‌تنهایی قابل خرید نیست.</span></footer>
       </div>
     </main>
   );
