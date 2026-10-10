@@ -112,7 +112,7 @@ export default function TechnolifeTemplatePreview() {
           <div className="tl-hero-art" aria-hidden="true"><span className="tl-ring"/><span className="tl-ring r2"/><div className="tl-device"><div className="tl-device-screen">ت</div></div></div>
         </section>
 
-        <section id="tl-categories" className="tl-quick" aria-label="دسته‌بندی‌های کالای دیجیتال">{categories.map(([name, pattern], i) => <button key={name} className={activeCategory === name ? "active" : ""} onClick={() => { setActiveCategory(activeCategory === name ? "" : name); document.getElementById("tl-catalog")?.scrollIntoView({ behavior: "smooth" }); }}><i>{["▯","▰","♫","◉","⌘","⌁"][i]}</i><span><b>{name}</b><small>مشاهده کالاهای ثبت‌شده</small></span></button>)}</section>
+        <section id="tl-categories" className="tl-quick" aria-label="دسته‌بندی‌های کالای دیجیتال">{categories.map(([name], i) => <button key={name} className={activeCategory === name ? "active" : ""} onClick={() => { setActiveCategory(activeCategory === name ? "" : name); document.getElementById("tl-catalog")?.scrollIntoView({ behavior: "smooth" }); }}><i>{["▯","▰","♫","◉","⌘","⌁"][i]}</i><span><b>{name}</b><small>مشاهده کالاهای ثبت‌شده</small></span></button>)}</section>
 
         {categories.map(([name, pattern], index) => {
           const shelf = products.filter(p => pattern.test([p.title, p.category || "", p.description || "", p.brand || ""].join(" "))).slice(0, 5);
