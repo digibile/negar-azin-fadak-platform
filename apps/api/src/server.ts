@@ -79,7 +79,7 @@ app.get("/api/public/storefront-theme",asyncHandler(async(req,res)=>{
  const tenant=await resolvePublicTenant({hostname:String(req.headers["x-forwarded-host"]||req.hostname||"").trim().toLowerCase().split(":")[0]},typeof req.query.tenant==="string"?req.query.tenant:"");
  res.setHeader("Cache-Control","no-store, max-age=0");
  if(!tenant)return res.json({tenant:null,theme:null});
- const r=await query("select data from module_records mr join platform_modules m on m.id=mr.module_id where mr.tenant_id=$1 and m.code='36-page-templates' and mr.record_type='page-template' and mr.status='فعال' and mr.data->>'template-type' in ('فروشگاهی','بازارگاه') order by mr.updated_at desc limit 1",[tenant.id]);
+ const r=await query("select data from module_records mr join platform_modules m on m.id=mr.module_id where mr.tenant_id=$1 and m.code='36-page-templates' and mr.record_type='page-template' and mr.status='فعال' and (mr.data->>'template-key'='auto-marketplace' or mr.data->>'template-code'='auto-marketplace' or mr.data->>'template-type' in ('فروشگاهی','بازارگاه','بازارگاه خودرو')) order by case when mr.data->>'template-key'='auto-marketplace' or mr.data->>'template-code'='auto-marketplace' then 0 else 1 end,mr.updated_at desc limit 1",[tenant.id]);
  const d=(r.rows[0]?.data||{}) as Record<string,any>;
  const color=(value:unknown,fallback:string)=>typeof value==="string"&&/^#[0-9a-fA-F]{6}$/.test(value)?value:fallback;
  const columns=Number(d.productColumns);
@@ -96,7 +96,8 @@ app.get("/api/public/storefront-theme",asyncHandler(async(req,res)=>{
   showCategories:d.showCategories!==false,
   headerMode:["استاندارد","فشرده","بدون هدر"].includes(d["header-mode"])?d["header-mode"]:"استاندارد",
   footerMode:["استاندارد","فشرده","بدون فوتر"].includes(d["footer-mode"])?d["footer-mode"]:"استاندارد",
-  sectionOrder:(()=>{const allowed=["hero","benefits","categories","products"];const requested=String(d.sectionOrder||"").split(",").map((x:string)=>x.trim()).filter((x:string)=>allowed.includes(x));return [...new Set([...requested,...allowed])].join(",")})()
+  sectionOrder:(()=>{const allowed=["hero","benefits","categories","products"];const requested=String(d.sectionOrder||"").split(",").map((x:string)=>x.trim()).filter((x:string)=>allowed.includes(x));return [...new Set([...requested,...allowed])].join(",")})(),
+  showcaseSlides:(()=>{const raw=Array.isArray(d.showcaseSlides)?d.showcaseSlides.slice(0,8):[];return raw.filter((x:any)=>x&&typeof x.title==="string"&&typeof x.text==="string"&&typeof x.button==="string").map((x:any)=>({title:x.title.slice(0,140),text:x.text.slice(0,300),button:x.button.slice(0,40),image:typeof x.image==="string"&&/^https:\\/\\//i.test(x.image)?x.image:"https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=80"}))})()
  }:null});
 }));
 app.use(dynamicMenuRouter);
