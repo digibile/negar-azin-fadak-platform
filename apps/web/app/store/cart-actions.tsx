@@ -14,6 +14,7 @@ export type StoreCartProduct = {
   image_url?: string | null;
   is_demo_product?: boolean;
   source_url?: string | null;
+  site?: string;
 };
 
 export type StoreCartItem = StoreCartProduct & { quantity: number };
@@ -70,7 +71,7 @@ export function AddToCartButton({ product, compact = false }: { product: StoreCa
     window.setTimeout(() => setAdded(false), 1600);
   }
   return <button type="button" className={compact ? "sk-add-cart sk-add-cart-compact" : "sk-add-cart"} onClick={add}>
-    <span aria-hidden="true">＋</span>{added ? "به سبد اضافه شد" : compact ? "افزودن" : "افزودن به سبد خرید"}
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4h2l2.1 10.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>{added ? "به سبد اضافه شد" : compact ? "افزودن" : "افزودن به سبد خرید"}
   </button>;
 }
 
@@ -117,7 +118,7 @@ export function CartView() {
         {items.length === 0 ? <div className="sk-cart-empty"><span>🛒</span><h2>سبد خریدت هنوز خالی است</h2><p>محصولات موردنظرت را از کاتالوگ انتخاب کن و به اینجا برگرد.</p><Link href="/store/shop" className="sk-primary-btn">مشاهده کالاها ←</Link></div> :
           <div className="sk-cart-list">{items.map(item => <article className="sk-cart-item" key={item.id}>
             <div className="sk-cart-thumb">{item.image_url ? <img src={item.image_url} alt={item.title} /> : <span>▧</span>}</div>
-            <div className="sk-cart-item-main"><Link href={"/store/product/" + encodeURIComponent(item.sku || item.id)} className="sk-cart-item-title">{item.title}</Link><small>فروشنده: {item.seller_name || "فروشنده ثبت‌شده"}</small>{item.is_demo_product && <small className="sk-demo-cart-note">نمونهٔ آزمایشی سوکار · قیمت مرجع، نه قیمت فروش</small>}<strong>{money(Number(item.price), item.currency)}</strong>
+            <div className="sk-cart-item-main"><Link href={"/store/product/" + encodeURIComponent(item.sku || item.id) + "?site=" + encodeURIComponent(item.site || "default")} className="sk-cart-item-title">{item.title}</Link><small>فروشنده: {item.seller_name || "فروشنده ثبت‌شده"}</small>{item.is_demo_product && <small className="sk-demo-cart-note">نمونهٔ آزمایشی سوکار · قیمت مرجع، نه قیمت فروش</small>}<strong>{money(Number(item.price), item.currency)}</strong>
               <div className="sk-cart-controls"><div className="sk-quantity"><button type="button" onClick={() => update(item.id, -1)} aria-label="کاهش تعداد">−</button><span>{item.quantity.toLocaleString("fa-IR")}</span><button type="button" onClick={() => update(item.id, 1)} aria-label="افزایش تعداد">＋</button></div><button type="button" onClick={() => remove(item.id)} className="sk-cart-remove">حذف</button></div>
             </div>
             <strong className="sk-cart-line-total">{money(Number(item.price) * item.quantity, item.currency)}</strong>

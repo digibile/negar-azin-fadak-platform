@@ -416,7 +416,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
                 <p>{product.description || "مشخصات تکمیلی این کالا هنوز توسط فروشنده ثبت نشده است."}</p>
                 <div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>{product.is_demo_product ? "قیمت مرجع آزمایشی؛ قیمت فروش سوکار نیست" : product.is_reference ? "قیمت مرجع از منبع اصلی؛ برای تست و بررسی" : "قیمت ثبت‌شده در کاتالوگ سوکار"}</small></div>
                 <Link href={productHref} className="sk-product-cta">مشاهده جزئیات <span>←</span></Link>
-               {!product.is_reference && <AddToCartButton compact product={{ id: product.id, sku: product.sku, title: product.title, price: product.price, currency: product.currency, seller_name: product.seller_name, store_id: product.store_id, image_url: product.image_url, is_demo_product: product.is_demo_product, source_url: product.source_url }} />}
+               {!product.is_reference && <AddToCartButton compact product={{ id: product.id, sku: product.sku, title: product.title, price: product.price, currency: product.currency, seller_name: product.seller_name, store_id: product.store_id, image_url: product.image_url, is_demo_product: product.is_demo_product, source_url: product.source_url, site: templateVariant }} />}
               </div>
             </article>;
           })}</div>
