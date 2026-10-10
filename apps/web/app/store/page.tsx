@@ -240,6 +240,17 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
     .filter((name, index, all) => all.findIndex(item => normalizeText(item) === normalizeText(name)) === index)
     .map(name => [normalizeText(name), name] as [string, string]);
 
+  const techBrands = isTechnolife
+    ? [...new Set(sourceProducts.map(product => product.brand?.trim()).filter((brand): brand is string => Boolean(brand)))].slice(0, 12)
+    : [];
+  const techShelfGroups = isTechnolife ? [
+    { title: "پرچمداران هوشمند", eyebrow: "گوشی موبایل و تبلت", searchTerm: "گوشی", matches: /موبایل|گوشی|تبلت|phone|mobile|tablet/i },
+    { title: "لپ‌تاپ‌ها در تکنولایف", eyebrow: "کار، دانشگاه و بازی", searchTerm: "لپ", matches: /لپ.?تاپ|laptop|notebook/i },
+    { title: "هدفون و تجهیزات صوتی", eyebrow: "صوتی و تصویری", searchTerm: "هدفون", matches: /هدفون|هندزفری|اسپیکر|صوتی|headphone|earbud|speaker|audio/i },
+    { title: "لوازم جانبی دیجیتال", eyebrow: "شارژر، پاوربانک و تجهیزات", searchTerm: "شارژر", matches: /شارژر|پاوربانک|کابل|مبدل|charger|power.?bank|cable/i }
+  ].map(shelf => ({ ...shelf, products: sourceProducts.filter(product => shelf.matches.test(normalizeText([product.title, product.category || "", product.description || "", product.brand || ""].join(" ")))) .slice(0, 8) }))
+    : [];
+
   const sectionOrder = (theme?.sectionOrder || "hero,benefits,categories,products").split(",");
   const orderOf = (section:string) => { const index=sectionOrder.indexOf(section); return index<0?99:index; };
 
@@ -327,12 +338,27 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
           </div>
         </section>
 
+        {isTechnolife && techBrands.length > 0 && !query && !category && <section className="sk-tech-brands" aria-label="برندهای موجود در کاتالوگ">
+          <div className="sk-tech-brands-heading"><b>برندهای منتخب</b><span>بر اساس برندهای ثبت‌شده در کاتالوگ</span></div>
+          <div className="sk-tech-brand-list">{techBrands.map(brand => <button type="button" key={brand} onClick={() => { setQuery(brand); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>{brand}<span>←</span></button>)}</div>
+        </section>}
+
         <section className="sk-benefits" aria-label="ویژگی‌های تجربه خرید" style={{order:orderOf("benefits")}}>
           <article><span className="sk-benefit-icon">⌕</span><div><b>جستجوی آسان</b><small>کالا و فروشنده را سریع‌تر پیدا کن</small></div></article>
           <article><span className="sk-benefit-icon">▦</span><div><b>بازارگاه چندفروشنده</b><small>محصولات فروشندگان در یک کاتالوگ</small></div></article>
           <article><span className="sk-benefit-icon">↗</span><div><b>جزئیات شفاف</b><small>مشاهده اطلاعات ثبت‌شده محصول</small></div></article>
           <article><span className="sk-benefit-icon">◷</span><div><b>پیگیری سفارش</b><small>دسترسی به مسیر سفارش‌های شما</small></div></article>
         </section>
+
+        {isTechnolife && !query && !category && techShelfGroups.map(shelf => shelf.products.length > 0 && <section className="sk-tech-shelf" key={shelf.title} aria-label={shelf.title}>
+          <div className="sk-tech-shelf-heading"><div><span>{shelf.eyebrow}</span><h2>{shelf.title}</h2></div><button type="button" onClick={() => { setQuery(shelf.searchTerm); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>مشاهده همه <b>←</b></button></div>
+          <div className="sk-tech-shelf-products">{shelf.products.map(product => <Link href={productHrefFor(product)} className="sk-tech-shelf-card" key={product.id}>
+            <span className="sk-tech-shelf-image">{safeImageUrl(product.image_url) ? <img src={safeImageUrl(product.image_url) || ""} alt={product.title} loading="lazy" decoding="async" /> : <i>{categoryGlyph(product.category, product.title)}</i>}</span>
+            <span className="sk-tech-shelf-title">{product.title}</span>
+            <span className="sk-tech-shelf-brand">{product.brand || product.seller_name || "کالای ثبت‌شده"}</span>
+            <strong>{money(product.price, product.currency)}</strong>
+          </Link>)}</div>
+        </section>)}
 
         <section className="sk-featured-categories" aria-labelledby="sk-featured-categories-title" style={{display:theme?.showCategories===false?"none":undefined,order:orderOf("categories")}}>
           <div className="sk-section-heading"><div><span className="sk-eyebrow">دسته‌بندی‌های بازارگاه</span><h2 id="sk-featured-categories-title">از کجا شروع کنیم؟</h2><p>دستهٔ موردنظرت را انتخاب کن تا کالاهای مرتبط از کاتالوگ نمایش داده شوند.</p></div><Link href="/store/shop" className="sk-section-link">همه کالاها <span>←</span></Link></div>
