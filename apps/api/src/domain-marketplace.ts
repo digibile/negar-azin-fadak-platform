@@ -282,6 +282,7 @@ domainMarketplaceRouter.patch("/api/marketplace/categories/:id",requireAuth,requ
 }));
 
 async function importDemoCatalogForTenant(tenantId:string,requestedLimit=12){
+  // Keep the public demo catalog broad, category-balanced, and capped at 120 source records per import.
   const limit=Math.max(4,Math.min(120,Math.floor(requestedLimit||12)));
   let catalog=await getDigikalaCatalog();
   const selectDiverseCandidates=(items:DigikalaCatalogProduct[])=>{
