@@ -827,3 +827,115 @@
  .sk-store--technolife .sk-header-actions{gap:5px}
  .sk-store--technolife .sk-login,.sk-store--technolife .sk-register{padding-inline:8px;font-size:10px}
 }
+
+
+/* Independent Technolife-inspired storefront V2: layout, surfaces, product shelves and mobile */
+.sk-store--technolife{--sk-primary:#f58220!important;--sk-primary-dark:#df6d0b!important;--sk-accent:#173f5f!important;--sk-canvas:#f7f8fa!important;--sk-surface:#fff!important;background:#f7f8fa;color:#202b36}
+.sk-store--technolife .sk-wrap{width:calc(100% - 56px);max-width:1500px}
+.sk-store--technolife .sk-service-strip{background:#173f5f;color:#fff;border:0}
+.sk-store--technolife .sk-service-strip a{color:#fff}
+.sk-store--technolife .sk-header{position:relative;background:#fff;border:0;box-shadow:0 4px 22px #16354a0a}
+.sk-store--technolife .sk-header-main{min-height:88px;gap:26px}
+.sk-store--technolife .sk-logo{flex-basis:185px}
+.sk-store--technolife .sk-logo-mark{width:46px;height:46px;border-radius:13px;background:#f58220;color:#fff;box-shadow:0 7px 18px #f5822033}
+.sk-store--technolife .sk-logo b{font-size:23px;color:#18364d;font-weight:950}
+.sk-store--technolife .sk-search{height:50px;border:1px solid #e7ebef;border-radius:12px;background:#f5f7f9}
+.sk-store--technolife .sk-search:focus-within{border-color:#f58220;background:#fff;box-shadow:0 0 0 4px #f5822016}
+.sk-store--technolife .sk-search>span{color:#f58220}
+.sk-store--technolife .sk-login,.sk-store--technolife .sk-register,.sk-store--technolife .sk-cart{min-height:44px;border-radius:10px;font-weight:800}
+.sk-store--technolife .sk-register{display:flex;border-color:#f8c99e;background:#fff8f1;color:#c9640b}
+.sk-store--technolife .sk-main-nav{background:#fff;border:0;border-top:1px solid #f0f2f4;border-bottom:1px solid #e8edf1}
+.sk-store--technolife .sk-nav-inner{min-height:50px;gap:25px}
+.sk-store--technolife .sk-nav-inner>a{font-size:12px;color:#4f5c68}
+.sk-store--technolife .sk-nav-inner>a:hover{color:#e87515}
+.sk-store--technolife .sk-hero{min-height:360px;margin:24px 0 18px;border-radius:20px;background:radial-gradient(circle at 83% 35%,#46677d 0,#243f54 26%,transparent 47%),linear-gradient(112deg,#152c3e 0%,#203f54 64%,#314b5d 100%);box-shadow:0 14px 34px #19394d12}
+.sk-store--technolife .sk-hero:before{border-color:#ffffff13}
+.sk-store--technolife .sk-hero:after{border-color:#f5822033}
+.sk-store--technolife .sk-hero-copy{padding:42px clamp(24px,4.2vw,64px)}
+.sk-store--technolife .sk-hero-kicker{color:#ffd4a5;font-size:12px}
+.sk-store--technolife .sk-hero-kicker i{background:#f58220;box-shadow:0 0 0 5px #f5822022}
+.sk-store--technolife .sk-hero h1{font-size:clamp(30px,3.2vw,45px);line-height:1.5;letter-spacing:-.7px;color:#fff}
+.sk-store--technolife .sk-hero h1 em{color:#ffad53}
+.sk-store--technolife .sk-hero-copy>p{font-size:13px;line-height:2.15;color:#d7e0e6}
+.sk-store--technolife .sk-primary-btn{background:#f58220!important;color:#fff;border-radius:10px;box-shadow:0 8px 20px #f5822033}
+.sk-store--technolife .sk-primary-btn:hover{background:#e87515!important}
+.sk-store--technolife .sk-quiet-btn{border-radius:10px;background:#ffffff0a}
+.sk-store--technolife .sk-art-panel{border-radius:22px;background:linear-gradient(145deg,#ffffff26,#ffffff0b);box-shadow:0 30px 80px #0005}
+.sk-store--technolife .sk-art-core{background:linear-gradient(145deg,#ffb75d,#f58220)!important}
+.sk-store--technolife .sk-benefits{gap:0;margin:0 0 30px;padding:12px 8px;border:1px solid #e8edf1;border-radius:15px;background:#fff;box-shadow:0 5px 18px #1d354608}
+.sk-store--technolife .sk-benefits article{min-height:64px;border:0;border-left:1px solid #edf0f3;border-radius:0;padding:10px 16px}
+.sk-store--technolife .sk-benefits article:last-child{border-left:0}
+.sk-store--technolife .sk-benefit-icon{border-radius:11px;background:#fff2e5;color:#e87515}
+.sk-store--technolife .sk-tech-brands{grid-template-columns:190px minmax(0,1fr);gap:20px;margin-bottom:28px;padding:20px 22px;border:1px solid #e8edf1;border-radius:16px;background:#fff;box-shadow:0 5px 20px #1d354606}
+.sk-store--technolife .sk-tech-brands-heading b{font-size:15px;color:#1c3549}
+.sk-store--technolife .sk-tech-brand-list{gap:9px}
+.sk-store--technolife .sk-tech-brand-list button{min-height:42px;padding:0 14px;border-color:#e9edf0;border-radius:10px;font-size:11px;transition:all .18s ease}
+.sk-store--technolife .sk-tech-brand-list button:hover{border-color:#f58220;background:#fff7ef;color:#bf5f0a}
+.sk-store--technolife .sk-tech-shelf{margin-bottom:28px;padding:22px 22px 18px;border:1px solid #e8edf1;border-radius:16px;background:#fff;box-shadow:0 5px 20px #1d354606}
+.sk-store--technolife .sk-tech-shelf-heading{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid #edf0f3}
+.sk-store--technolife .sk-tech-shelf-heading>div>span{color:#e87515}
+.sk-store--technolife .sk-tech-shelf-heading h2{font-size:21px;color:#1d3548}
+.sk-store--technolife .sk-tech-shelf-heading>button{color:#d86d10}
+.sk-store--technolife .sk-tech-shelf-products{grid-template-columns:repeat(5,minmax(0,1fr));gap:0}
+.sk-store--technolife .sk-tech-shelf-card{padding:14px 16px;border-left:1px solid #edf0f3}
+.sk-store--technolife .sk-tech-shelf-card:hover{background:#fff9f3}
+.sk-store--technolife .sk-tech-shelf-image{height:160px;border-radius:10px;background:#fafbfc}
+.sk-store--technolife .sk-tech-shelf-title{font-size:12px;line-height:1.9}
+.sk-store--technolife .sk-tech-shelf-card strong{color:#173f5f;font-size:14px}
+.sk-store--technolife .sk-featured-categories,.sk-store--technolife .sk-catalog{margin-bottom:34px}
+.sk-store--technolife .sk-section-heading{margin-bottom:18px}
+.sk-store--technolife .sk-section-heading h2{font-size:23px;color:#1d3548}
+.sk-store--technolife .sk-eyebrow{color:#e87515}
+.sk-store--technolife .sk-featured-grid{gap:12px}
+.sk-store--technolife .sk-featured-category{min-height:105px;border:1px solid #e8edf1;border-radius:14px;background:#fff;box-shadow:0 4px 15px #1d354606}
+.sk-store--technolife .sk-featured-category:hover,.sk-store--technolife .sk-featured-category.is-active{border-color:#f5bd8a;background:#fffaf5;box-shadow:0 8px 20px #f5822010}
+.sk-store--technolife .sk-category-chip{border-radius:10px}
+.sk-store--technolife .sk-category-chip:hover,.sk-store--technolife .sk-category-chip.is-active{border-color:#f5bd8a;background:#fff3e7;color:#bd5e0b}
+.sk-store--technolife .sk-product-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:13px}
+.sk-store--technolife .sk-product-card{overflow:hidden;border:1px solid #e6ebef;border-radius:14px;background:#fff;box-shadow:0 4px 15px #1d354606;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.sk-store--technolife .sk-product-card:hover{transform:translateY(-4px);border-color:#f3c69e;box-shadow:0 14px 30px #1d354612}
+.sk-store--technolife .sk-product-visual{background:linear-gradient(180deg,#fff,#fafbfc)}
+.sk-store--technolife .sk-product-visual img{padding:16px}
+.sk-store--technolife .sk-product-info{padding:14px}
+.sk-store--technolife .sk-product-title{font-size:12px;line-height:1.9}
+.sk-store--technolife .sk-product-price strong{color:#173f5f;font-size:14px}
+.sk-store--technolife .sk-product-cta{min-height:38px;border:1px solid #f5d2b2;border-radius:9px;background:#fff5eb;color:#c9650b;font-size:11px}
+.sk-store--technolife .sk-product-cta:hover{background:#ffe9d6}
+.sk-store--technolife .sk-market-banner{border-radius:16px}
+.sk-store--technolife .sk-footer{background:#152d3e}
+@media(max-width:1100px){
+ .sk-store--technolife .sk-wrap{width:calc(100% - 32px)}
+ .sk-store--technolife .sk-header-main{gap:14px}
+ .sk-store--technolife .sk-logo{flex-basis:155px}
+ .sk-store--technolife .sk-tech-shelf-products,.sk-store--technolife .sk-product-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:700px){
+ .sk-store--technolife .sk-wrap{width:calc(100% - 20px)}
+ .sk-store--technolife .sk-header-main{gap:9px;padding:10px 0}
+ .sk-store--technolife .sk-logo{flex-basis:auto}
+ .sk-store--technolife .sk-logo-mark{width:36px;height:36px;font-size:20px}
+ .sk-store--technolife .sk-logo b{font-size:18px}
+ .sk-store--technolife .sk-header-actions{gap:5px}
+ .sk-store--technolife .sk-register{display:none}
+ .sk-store--technolife .sk-search{grid-column:1/-1;grid-row:2;height:42px}
+ .sk-store--technolife .sk-nav-inner{gap:17px;min-height:42px}
+ .sk-store--technolife .sk-hero{grid-template-columns:1fr;min-height:0;margin:12px 0;border-radius:14px}
+ .sk-store--technolife .sk-hero-copy{padding:24px 18px 12px}
+ .sk-store--technolife .sk-hero h1{font-size:27px}
+ .sk-store--technolife .sk-hero-copy>p{font-size:11px}
+ .sk-store--technolife .sk-hero-art{min-height:230px}
+ .sk-store--technolife .sk-benefits{grid-template-columns:repeat(2,minmax(0,1fr));padding:5px;margin-bottom:20px}
+ .sk-store--technolife .sk-benefits article{padding:8px;border:0}
+ .sk-store--technolife .sk-tech-brands{grid-template-columns:1fr;gap:12px;padding:13px;margin-bottom:18px}
+ .sk-store--technolife .sk-tech-brand-list{flex-wrap:nowrap;overflow-x:auto}
+ .sk-store--technolife .sk-tech-brand-list button{flex:0 0 auto}
+ .sk-store--technolife .sk-tech-shelf{padding:12px 8px 8px;margin-bottom:18px}
+ .sk-store--technolife .sk-tech-shelf-heading h2{font-size:16px}
+ .sk-store--technolife .sk-tech-shelf-products,.sk-store--technolife .sk-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .sk-store--technolife .sk-tech-shelf-card{padding:9px;border-left:1px solid #edf0f3}
+ .sk-store--technolife .sk-tech-shelf-image{height:115px}
+ .sk-store--technolife .sk-tech-shelf-title{font-size:10px}
+ .sk-store--technolife .sk-product-info{padding:9px}
+ .sk-store--technolife .sk-product-visual img{padding:8px}
+ .sk-store--technolife .sk-product-title{font-size:10px}
+}
