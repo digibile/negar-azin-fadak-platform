@@ -281,18 +281,15 @@ domainMarketplaceRouter.patch("/api/marketplace/categories/:id",requireAuth,requ
   res.json({item:result.rows[0]});
 }));
 
-domainMarketplaceRouter.post("/api/marketplace/products/import-demo-catalog",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
-  const ctx=await tenantContext(req,(req as any).user);
-  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
-  const requestedLimit=bodyNumber(req.body?.limit);
+async function importDemoCatalogForTenant(tenantId:string,requestedLimit=12){
   const limit=Math.max(4,Math.min(24,Math.floor(requestedLimit||12)));
   const catalog=await getDigikalaCatalog(true);
   const candidates=catalog.products.filter(item=>item.price!==null&&Number(item.price)>0&&item.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(item.image_url)).slice(0,limit*2);
-  if(!candidates.length)return res.status(503).json({error:"منبع مرجع در حال حاضر محصول دارای قیمت و تصویر معتبر برنگرداند؛ دوباره تلاش کنید."});
-  const sellerResult=await query("select id from sellers where tenant_id=$1 and display_name=$2 order by created_at limit 1",[ctx.id,"سوکار · کاتالوگ آزمایشی"]);
-  const sellerId=sellerResult.rowCount?sellerResult.rows[0].id:(await query("insert into sellers(tenant_id,legal_name,display_name,status,commission_rate) values($1,$2,$3,'active',0) returning id",[ctx.id,"سوکار - فروشنده داخلی آزمایشی","سوکار · کاتالوگ آزمایشی"])).rows[0].id;
-  await query("update sellers set status='active',updated_at=now() where id=$1 and tenant_id=$2",[sellerId,ctx.id]);
-  const mediaDir=path.join(process.env.MEDIA_ROOT||"/app/media","catalog",ctx.id);
+  if(!candidates.length)throw new Error("منبع مرجع در حال حاضر محصول دارای قیمت و تصویر معتبر برنگرداند؛ دوباره تلاش کنید.");
+  const sellerResult=await query("select id from sellers where tenant_id=$1 and display_name=$2 order by created_at limit 1",[tenantId,"سوکار · کاتالوگ آزمایشی"]);
+  const sellerId=sellerResult.rowCount?sellerResult.rows[0].id:(await query("insert into sellers(tenant_id,legal_name,display_name,status,commission_rate) values($1,$2,$3,'active',0) returning id",[tenantId,"سوکار - فروشنده داخلی آزمایشی","سوکار · کاتالوگ آزمایشی"])).rows[0].id;
+  await query("update sellers set status='active',updated_at=now() where id=$1 and tenant_id=$2",[sellerId,tenantId]);
+  const mediaDir=path.join(process.env.MEDIA_ROOT||"/app/media","catalog",tenantId);
   await mkdir(mediaDir,{recursive:true});
   const imported:Array<{id:string;sku:string;title:string;imageUrl:string}>=[];
   const skipped:Array<{id:string;reason:string}>=[];
@@ -300,11 +297,11 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-demo-catalog",req
     const batch=candidates.slice(start,start+4);
     const results=await Promise.all(batch.map(async source=>{
       try{
-        const localImage=await importDigikalaImage(source.image_url,mediaDir,ctx.id);
+        const localImage=await importDigikalaImage(source.image_url,mediaDir,tenantId);
         const gallery:string[]=[localImage];
         for(const imageUrl of source.gallery_images.slice(0,2)){
           if(imageUrl===source.image_url)continue;
-          try{const local=await importDigikalaImage(imageUrl,mediaDir,ctx.id);if(!gallery.includes(local))gallery.push(local);}catch{/* Primary image is sufficient for the demo. */}
+          try{const local=await importDigikalaImage(imageUrl,mediaDir,tenantId);if(!gallery.includes(local))gallery.push(local);}catch{/* Primary image is sufficient for the demo. */}
         }
         const sku="SOOKAR-DEMO-"+source.id.replace(/^digikala-/,"");
         const attributes={
@@ -318,7 +315,7 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-demo-catalog",req
         };
         const saved=await query(
           "insert into products(tenant_id,seller_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,'active',$9::jsonb) on conflict(tenant_id,sku) do update set title=excluded.title,description=excluded.description,category=excluded.category,price=excluded.price,currency=excluded.currency,status='active',attributes=excluded.attributes,updated_at=now() where products.seller_id=excluded.seller_id and products.attributes->>'demoCatalog'='true' returning id,sku,title",
-          [ctx.id,sellerId,sku,source.title,source.description,canonicalMarketplaceCategory(source.category),Number(source.price),source.currency,JSON.stringify(attributes)]
+          [tenantId,sellerId,sku,source.title,source.description,canonicalMarketplaceCategory(source.category),Number(source.price),source.currency,JSON.stringify(attributes)]
         );
         if(!saved.rowCount){skipped.push({id:source.id,reason:"شناسه مشابه از قبل به کالای غیرآزمایشی تعلق دارد"});return null;}
         return {id:saved.rows[0].id,sku:saved.rows[0].sku,title:saved.rows[0].title,imageUrl:localImage,source};
@@ -329,13 +326,27 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-demo-catalog",req
       const source=item.source;
       await query(
         "insert into catalog_source_links(tenant_id,product_id,source_name,source_product_id,source_sku,source_url,source_currency,source_price,source_available,last_checked_at,last_success_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),now()) on conflict(tenant_id,source_name,source_product_id) do update set product_id=excluded.product_id,source_sku=excluded.source_sku,source_url=excluded.source_url,source_currency=excluded.source_currency,source_price=excluded.source_price,source_available=excluded.source_available,last_checked_at=now(),last_success_at=now(),last_error=null,updated_at=now()",
-        [ctx.id,item.id,source.source_name,source.id,source.sku,source.source_url,source.currency,Number(source.price),source.source_available]
+        [tenantId,item.id,source.source_name,source.id,source.sku,source.source_url,source.currency,Number(source.price),source.source_available]
       );
       imported.push({id:item.id,sku:item.sku,title:item.title,imageUrl:item.imageUrl});
       if(imported.length>=limit)break;
     }
   }
-  res.status(201).json({imported,skipped,totalImported:imported.length,totalSkipped:skipped.length,sellerId,sourceStatus:catalog.sourceStatus,fetchedAt:catalog.fetchedAt,message:"محصولات در پایگاه داده داخلی سوکار ذخیره شدند و تصاویر به رسانه داخلی منتقل شدند. این کاتالوگ فقط برای تست است؛ قیمت و موجودی مرجع هستند و پرداخت/سفارش واقعی فعال نیست."});
+  return {imported,skipped,totalImported:imported.length,totalSkipped:skipped.length,sellerId,sourceStatus:catalog.sourceStatus,fetchedAt:catalog.fetchedAt};
+}
+
+let sookarDemoBootstrap:Promise<Awaited<ReturnType<typeof importDemoCatalogForTenant>>|null>|null=null;
+
+domainMarketplaceRouter.post("/api/marketplace/products/import-demo-catalog",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const requestedLimit=bodyNumber(req.body?.limit);
+  try{
+    const result=await importDemoCatalogForTenant(ctx.id,requestedLimit||12);
+    res.status(201).json({...result,message:"محصولات در پایگاه داده داخلی سوکار ذخیره شدند و تصاویر به رسانه داخلی منتقل شدند. این کاتالوگ فقط برای تست است؛ قیمت و موجودی مرجع هستند و پرداخت/سفارش واقعی فعال نیست."});
+  }catch(error){
+    res.status(503).json({error:error instanceof Error?error.message:"ورود کاتالوگ آزمایشی ناموفق بود"});
+  }
 }));
 
 domainMarketplaceRouter.get("/api/marketplace/digikala-product/:sourceId",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
