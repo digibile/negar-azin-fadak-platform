@@ -1291,3 +1291,17 @@
  .sk-store .sk-cart-controls{flex-wrap:wrap}
  .sk-store .sk-cart-remove{font-size:9px}
 }
+
+.sk-store .sk-product-gallery-thumbs a{display:grid;place-items:center;flex:0 0 68px;width:68px;height:68px;overflow:hidden;border:1px solid #e5e9ee;border-radius:10px;background:#fff}
+.sk-store .sk-product-gallery-thumbs a img{width:100%;height:100%;max-width:none;min-width:0;object-fit:contain}
+.sk-store .sk-product-gallery-thumbs a:hover{border-color:#e5322b;box-shadow:0 0 0 2px #e5322b12}
+.sk-store .sk-cart-page-title{min-width:0}
+.sk-store .sk-cart-page-title h1{line-height:1.7}
+.sk-store .sk-cart-item-main{overflow-wrap:anywhere}
+.sk-store .sk-cart-summary-title>h2{flex:1}
+.sk-store .sk-product-header-cart:focus-visible,.sk-store .sk-product-header-back:focus-visible,.sk-store .sk-cart-checkout:focus-visible,.sk-store .sk-cart-continue:focus-visible,.sk-store .sk-product-view-cart:focus-visible{outline:3px solid #e5322b55;outline-offset:3px}
+@media(max-width:760px){
+ .sk-store .sk-product-gallery-thumbs a{flex-basis:58px;width:58px;height:58px}
+ .sk-store .sk-product-gallery-thumbs a img{height:100%}
+ .sk-store .sk-cart-page-title p{max-width:230px;font-size:10px}
+}
