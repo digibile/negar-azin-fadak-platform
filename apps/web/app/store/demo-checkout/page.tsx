@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CartCount } from "../cart-actions";
 import { useEffect, useMemo, useState } from "react";
 
 type DemoCartItem = {
@@ -104,14 +105,11 @@ export default function DemoCheckoutPage() {
   }
 
   return (
-    <main className="sookar-store" dir="rtl">
-      <header className="store-header">
-        <Link href="/" className="store-logo"><b>سوکار</b><span>تکمیل خرید آزمایشی</span></Link>
-        <nav><Link href="/store">فروشگاه</Link><Link href="/store/cart">سبد خرید</Link></nav>
-      </header>
-      <section className="store-section">
+    <main className="sk-store sookar-store sk-demo-checkout-page" dir="rtl">
+      <header className="sk-product-header"><div className="sk-wrap"><Link href="/store" className="sk-product-header-brand"><span className="sk-product-header-mark">س</span><span><strong>سوکار</strong><small>تکمیل خرید آزمایشی</small></span></Link><div className="sk-product-header-label"><span>مسیر خرید</span><b>بررسی و تأیید</b></div><div className="sk-product-header-actions"><Link href="/store/cart" className="sk-product-header-cart" aria-label="بازگشت به سبد خرید"><span aria-hidden="true">🛒</span><span>سبد خرید</span><CartCount /></Link><Link href="/store" className="sk-product-header-back">بازگشت به فروشگاه <span aria-hidden="true">←</span></Link></div></div></header>
+      <section className="store-section sk-demo-checkout-section">
         {order ? (
-          <article className="product-card">
+          <article className="product-card sk-demo-checkout-card">
             <span>شبیه‌سازی کامل شد</span>
             <h1>مسیر خرید سوکار کار کرد</h1>
             <p>شماره پیگیری آزمایشی: <strong>{order.orderNo}</strong></p>
@@ -129,7 +127,7 @@ export default function DemoCheckoutPage() {
             </header>
             {error && <div className="pay-notice" role="alert">{error}</div>}
             <div className="plan-grid">
-              <article className="product-card">
+              <article className="product-card sk-demo-checkout-card">
                 <h2>خلاصه سبد</h2>
                 {items.length ? items.map(item => (
                   <div className="module-row" key={item.id}>
@@ -143,7 +141,7 @@ export default function DemoCheckoutPage() {
                 <hr />
                 <strong>جمع آزمایشی: {money(total, currency)}</strong>
               </article>
-              <article className="product-card">
+              <article className="product-card sk-demo-checkout-card">
                 <h2>اطلاعات نمایشی</h2>
                 <label>نام آزمایشی
                   <input value={customerName} onChange={event => setCustomerName(event.target.value)} maxLength={100} />
