@@ -572,8 +572,25 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
       [tenantId]
     )
   ]);
-  let publicProducts:any[]=products.rows;
-  let catalogMode:"owned"|"demo"|"reference"=products.rows.some((item:any)=>item.is_demo_product)?"demo":"owned";
+  let catalogProducts:any[]=products.rows;
+  const currentHost=String(req.headers["x-forwarded-host"]||req.headers.host||"").split(",")[0].trim().toLowerCase().replace(/:\\d+$/,"");
+  // Bootstrap a small, clearly marked demo catalog only on Sookar's canonical host.
+  // Imported rows and images live in Sookar's own database/media; cart stays local and checkout is explicitly disabled for demos.
+  if(catalogProducts.length===0&&(currentHost==="sookar.ir"||currentHost==="www.sookar.ir")){
+    if(!sookarDemoBootstrap){
+      sookarDemoBootstrap=importDemoCatalogForTenant(tenantId,12)
+        .catch(error=>{console.error("Sookar demo catalog bootstrap failed:",error);return null;})
+        .finally(()=>{sookarDemoBootstrap=null;});
+    }
+    await sookarDemoBootstrap;
+    const refreshed=await query(
+      "select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,jsonb_strip_nulls(jsonb_build_object('brand',p.attributes->'brand','rating',p.attributes->'rating','specifications',p.attributes->'specifications','galleryImages',p.attributes->'galleryImages','sourceName',p.attributes->'sourceName','sourceUrl',p.attributes->'sourceUrl','sourcePriceSnapshot',p.attributes->'sourcePriceSnapshot','demoCatalog',p.attributes->'demoCatalog','demoNotice',p.attributes->'demoNotice')) as attributes,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name,(p.attributes->>'demoCatalog'='true') as is_demo_product,p.attributes->>'sourceUrl' as source_url from products p join sellers sl on sl.id=p.seller_id and sl.tenant_id=p.tenant_id left join stores st on st.id=p.store_id and st.tenant_id=p.tenant_id where p.tenant_id=$1 and p.status='active' and sl.status='active' and (p.store_id is null or st.status='active') order by p.updated_at desc limit 1000",
+      [tenantId]
+    );
+    catalogProducts=refreshed.rows;
+  }
+  let publicProducts:any[]=catalogProducts;
+  let catalogMode:"owned"|"demo"|"reference"=catalogProducts.some((item:any)=>item.is_demo_product)?"demo":"owned";
   let sourceStatus:"live"|"unavailable"|"not-needed"="not-needed";
   let sourceFetchedAt:string|null=null;
   let referenceCategories:string[]=[];
