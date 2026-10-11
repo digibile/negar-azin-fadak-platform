@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AddToCartButton, CartCount } from "./store/cart-actions";
 import "./sookar-home.css";
 
@@ -45,7 +45,7 @@ const productHref = (product: Product) => "/store/product/" + encodeURIComponent
 
 function Icon({ name }: { name: "search" | "user" | "cart" | "arrow" | "chevron" | "shield" | "truck" | "support" | "store" | "heart" }) {
   const common = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
-  const paths: Record<typeof name, React.ReactNode> = {
+  const paths: Record<typeof name, ReactNode> = {
     search: <><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4.2 4.2" /></>,
     user: <><circle cx="12" cy="8" r="3.5" /><path d="M5 20c.7-3.2 3.1-5 7-5s6.3 1.8 7 5" /></>,
     cart: <><path d="M3 4h2l2.2 10.1a2 2 0 0 0 2 1.6h7.4a2 2 0 0 0 1.9-1.4L21 8H6" /><circle cx="10" cy="20" r="1" /><circle cx="18" cy="20" r="1" /></>,
@@ -206,7 +206,6 @@ export default function SookarHome() {
             const href = productHref(product);
             return <article className="sh-product-card" key={product.id}>
               <Link href={href} className="sh-product-visual" aria-label={"مشاهده " + product.title}>
-                <button type="button" className="sh-product-favorite" aria-label="ذخیره محصول" onClick={event => { event.preventDefault(); event.stopPropagation(); }}><Icon name="heart" /></button>
                 <span className="sh-product-label">{product.category || "بازارگاه سوکار"}</span>
                 {image ? <img src={image} alt={product.title} loading="lazy" decoding="async" /> : <span className="sh-product-no-image">س<small>تصویر کالا ثبت نشده</small></span>}
               </Link>
