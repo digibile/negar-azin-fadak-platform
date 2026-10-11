@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import StorePage from "./store/page";
+import SookarHome from "./sookar-home";
 
 export const metadata: Metadata = {
-  title: "سوکار | بازارگاه یکپارچه خرید از فروشندگان معتبر",
-  description: "در بازارگاه سوکار، کالاها و فروشگاه‌های ثبت‌شده را کشف و مقایسه کنید؛ محصولات، فروشندگان و خدمات خرید اعتباری را در یک مسیر یکپارچه ببینید.",
+  title: "سوکار | بازارگاه یکپارچه خرید و فروش",
+  description: "در بازارگاه سوکار محصولات و فروشگاه‌ها را یک‌جا ببینید، اطلاعات کالا را بررسی کنید و انتخاب آگاهانه‌تری داشته باشید.",
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
@@ -11,10 +11,15 @@ export const metadata: Metadata = {
     url: "https://sookar.ir/",
     siteName: "سوکار",
     title: "سوکار | بازارگاه یکپارچه خرید و فروش",
-    description: "کالاها و فروشگاه‌های ثبت‌شده را در بازارگاه سوکار پیدا و مقایسه کنید."
+    description: "کشف کالا، بررسی اطلاعات و دسترسی به فروشگاه‌های ثبت‌شده در یک تجربهٔ یکپارچه."
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "سوکار | بازارگاه یکپارچه خرید و فروش",
+    description: "کشف کالا، بررسی اطلاعات و دسترسی به فروشگاه‌های ثبت‌شده."
   }
 };
 
 export default function HomePage() {
-  return <StorePage variant="default" />;
+  return <SookarHome />;
 }
