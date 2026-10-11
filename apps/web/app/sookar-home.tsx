@@ -1,5 +1,7 @@
 "use client";
 
+// Standalone Sookar homepage: keep the root route independent from shared storefront themes.
+
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AddToCartButton } from "./store/cart-actions";
