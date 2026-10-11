@@ -163,7 +163,9 @@ if(deployWorkflow.includes("sookar.com")||!deployWorkflow.includes("/home/sookar
 const rootPage=fs.readFileSync(path.join(root,"apps/web/app/page.tsx"),"utf8");
 const marketplaceRoute=fs.readFileSync(path.join(root,"apps/web/app/marketplace/page.tsx"),"utf8");
 const rootLayout=fs.readFileSync(path.join(root,"apps/web/app/layout.tsx"),"utf8");
-if(!rootPage.includes('from "./store/page"')||!marketplaceRoute.includes('from "../store/page"'))throw new Error("Sookar.ir root and /marketplace must share one canonical storefront implementation");
+if(!rootPage.includes('from "./sookar-home"')||!marketplaceRoute.includes('from "../store/page"'))throw new Error("Sookar.ir root must use its dedicated homepage while /marketplace remains on the canonical storefront implementation");
+const sookarHome=fs.readFileSync(path.join(root,"apps/web/app/sookar-home.tsx"),"utf8");
+if(!sookarHome.includes('fetch("/api/public/marketplace"')||sookarHome.includes('variant="technolife"'))throw new Error("Sookar homepage must use the public marketplace catalog without the legacy Technolife variant");
 if(!rootLayout.includes('const siteUrl = "https://sookar.ir"')||!rootLayout.includes('"@type": "OnlineStore"'))throw new Error("Root storefront SEO metadata must use sookar.ir and OnlineStore schema");
 
 const storefront=fs.readFileSync(path.join(root,"apps/web/app/store/page.tsx"),"utf8");
