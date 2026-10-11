@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import StorePage from "./store/page";
 
 export const metadata: Metadata = {
-  title: "سوکار | قالب فروشگاهی تکنولایف",
+  title: "سوکار | فروشگاه کالای دیجیتال",
   description: "تجربه فروشگاهی کالای دیجیتال با جستجو و دسته‌بندی محصولات ثبت‌شده در کاتالوگ سوکار.",
   alternates: { canonical: "/" },
   openGraph: {
@@ -16,5 +16,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  redirect("/store/technolife");
+  return <StorePage variant="technolife" />;
 }
