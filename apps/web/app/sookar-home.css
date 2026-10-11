@@ -26,3 +26,31 @@
 .sh-product-actions .sh-product-view-primary:hover{border-color:#e8b2ac;background:#fff7f6;color:var(--sh-brand)}
 .sh-product-actions .sh-product-view-primary svg{width:15px;height:15px;color:var(--sh-brand)}
 @media(max-width:760px){.sh-product-actions .sh-product-view-primary{min-height:33px;padding:6px 8px;font-size:9px}}
+
+/* Sookar storefront: full-width layout and marketplace-style layered navigation */
+.sh-container{width:calc(100% - 40px);max-width:none;margin-inline:auto}
+.sh-header{width:100%;background:#fff}
+.sh-header-main{grid-template-columns:190px minmax(280px,1fr) auto;gap:24px;min-height:82px}
+.sh-nav{width:calc(100% - 40px);min-height:50px;gap:27px;position:relative}
+.sh-nav-catalog{height:50px;display:flex;align-items:center;position:relative;flex-shrink:0}
+.sh-nav-all{height:100%;padding-inline:3px;gap:9px}
+.sh-nav-down{font-size:15px;color:#85929a;transition:transform .18s}
+.sh-nav-catalog:hover .sh-nav-down,.sh-nav-catalog:focus-within .sh-nav-down{transform:rotate(180deg)}
+.sh-mega-menu{position:absolute;display:grid;grid-template-columns:190px minmax(0,1fr);gap:18px;top:calc(100% - 1px);right:0;width:min(760px,calc(100vw - 48px));padding:18px;background:#fff;border:1px solid #e6ebee;border-radius:0 0 14px 14px;box-shadow:0 18px 38px #172d3b1a;opacity:0;visibility:hidden;transform:translateY(7px);transition:opacity .18s,transform .18s,visibility .18s;z-index:20}
+.sh-nav-catalog:hover .sh-mega-menu,.sh-nav-catalog:focus-within .sh-mega-menu{opacity:1;visibility:visible;transform:translateY(0)}
+.sh-mega-intro{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:15px;border-radius:10px;background:linear-gradient(145deg,#fff5f3,#fff);border:1px solid #f6e7e4}
+.sh-mega-intro b{font-size:14px;font-weight:900;color:#263640}
+.sh-mega-intro small{font-size:10px;line-height:1.9;color:#7e8b93}
+.sh-mega-intro>a{margin-top:auto;font-size:10px;font-weight:800;color:var(--sh-brand)}
+.sh-mega-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.sh-mega-link{display:grid;grid-template-columns:34px minmax(0,1fr);grid-template-rows:auto auto;align-items:center;column-gap:10px;min-height:62px;padding:9px;border:1px solid #edf0f2;border-radius:9px;background:#fff}
+.sh-mega-link:hover{border-color:#e9b4ad;background:#fffafa}
+.sh-mega-link>span{grid-row:1 / span 2;display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:#f3f7f6;font-size:18px}
+.sh-mega-link>b{font-size:10px;line-height:1.6;color:#2c3a44}
+.sh-mega-link>small{font-size:9px;color:#929da4}
+.sh-page{padding-top:20px}
+.sh-hero{border-radius:15px}
+@media(min-width:1600px){.sh-container{width:calc(100% - 64px)}.sh-hero{min-height:420px}.sh-hero-showcase{min-height:400px}.sh-product-grid{grid-template-columns:repeat(6,minmax(0,1fr))}.sh-product-visual{height:220px}}
+@media(max-width:1050px){.sh-header-main{grid-template-columns:160px minmax(180px,1fr) auto;gap:14px}.sh-nav{gap:18px}.sh-nav-note{display:none}.sh-mega-menu{grid-template-columns:150px minmax(0,1fr)}}
+@media(max-width:760px){.sh-container{width:calc(100% - 24px)}.sh-header-main{grid-template-columns:1fr auto;gap:12px;padding-block:12px}.sh-brand{grid-column:1;grid-row:1}.sh-header-actions{grid-column:2;grid-row:1}.sh-search{grid-column:1 / -1;grid-row:2;width:100%;height:44px}.sh-account{padding:7px 9px}.sh-account span,.sh-cart>span:last-child{display:none}.sh-account,.sh-cart{min-width:40px;justify-content:center;padding:8px}.sh-nav{width:calc(100% - 24px);min-height:45px;gap:20px;overflow:visible;white-space:nowrap;font-size:10px}.sh-nav-catalog{height:45px}.sh-mega-menu{position:fixed;top:auto;right:12px;left:12px;width:auto;max-height:70vh;overflow:auto;grid-template-columns:1fr;gap:10px;padding:12px;border-radius:0 0 12px 12px}.sh-mega-intro{padding:10px}.sh-mega-links{grid-template-columns:repeat(2,minmax(0,1fr))}.sh-nav-note{display:none}.sh-page{padding-top:12px}}
+@media(max-width:420px){.sh-mega-links{grid-template-columns:1fr}.sh-brand-mark{width:40px;height:40px}.sh-brand-copy b{font-size:20px}}
