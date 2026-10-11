@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import "./storefront.css";
+import "./styles.css";
+import "./commerce-polish.css";
 
 export const metadata: Metadata = {
   title: "فروشگاه اینترنتی سوکار",
