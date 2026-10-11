@@ -86,23 +86,7 @@ class ConfiguredHttpPaymentProvider implements PaymentProvider {
  refundPayment(input:{providerTransactionId:string;amount:number;metadata?:Record<string,unknown>}){return callHttp(this.cfg,"refund",input as unknown as Record<string,unknown>);}
 }
 
-class ManualPaymentProvider implements PaymentProvider {
- readonly code="manual";
- async createPayment(input:PaymentRequest):Promise<PaymentResult>{
-  if(!input.providerRef) throw new Error("برای پرداخت دستی، شناسه مرجع پرداخت الزامی است");
-  return {status:"paid",providerCode:this.code,providerTransactionId:input.providerRef,providerPayload:{mode:"manual",reference:input.providerRef}};
- }
- async verifyPayment(input:{providerTransactionId:string;amount:number}):Promise<PaymentResult>{
-  if(!input.providerTransactionId) throw new Error("شناسه تراکنش الزامی است");
-  return {status:"paid",providerCode:this.code,providerTransactionId:input.providerTransactionId,providerPayload:{mode:"manual",verified:true,amount:input.amount}};
- }
- async refundPayment(input:{providerTransactionId:string;amount:number}):Promise<PaymentResult>{
-  if(!input.providerTransactionId) throw new Error("شناسه تراکنش برای بازگشت وجه الزامی است");
-  return {status:"refunded",providerCode:this.code,providerTransactionId:input.providerTransactionId,providerPayload:{mode:"manual",refunded:true,amount:input.amount}};
- }
-}
-
-const providers:Record<string,PaymentProvider>={manual:new ManualPaymentProvider()};
+const providers:Record<string,PaymentProvider>={};
 
 function configured(code:string):PaymentProvider|undefined{
  const normalized=code.toLowerCase().replace(/[^a-z0-9_-]/g,"_");
@@ -117,7 +101,7 @@ function configured(code:string):PaymentProvider|undefined{
  });
 }
 
-export function getPaymentProvider(code=process.env.PAYMENT_PROVIDER||"manual"):PaymentProvider{
+export function getPaymentProvider(code=process.env.PAYMENT_PROVIDER||"unconfigured"):PaymentProvider{
  const provider=providers[code]||configured(code);
  if(!provider) throw new Error("درگاه پرداخت پیکربندی نشده است: "+code);
  providers[code]=provider;
