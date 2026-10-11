@@ -22,7 +22,7 @@ type Product = {
   is_demo_product?: boolean;
   source_url?: string | null;
 };
-type Catalog = { products: Product[]; categories?: string[]; total?: number };
+type Catalog = { products: Product[]; categories?: string[]; total?: number; catalogMode?: string };
 
 const CATEGORY_GUIDES = [
   { name: "موبایل و تبلت", key: /موبایل|گوشی|تبلت|تلفن/, icon: "▯", tone: "mint" },
@@ -76,7 +76,7 @@ export default function SookarHome() {
         const body = await response.json();
         if (!response.ok) throw new Error(body.error || "دریافت کاتالوگ ناموفق بود.");
         if (!Array.isArray(body.products)) throw new Error("ساختار کاتالوگ معتبر نیست.");
-        if (!controller.signal.aborted) setCatalog({ products: body.products, categories: Array.isArray(body.categories) ? body.categories : [], total: Number(body.total || body.products.length) });
+        if (!controller.signal.aborted) setCatalog({ products: body.products, categories: Array.isArray(body.categories) ? body.categories : [], total: Number(body.total || body.products.length), catalogMode: typeof body.catalogMode === "string" ? body.catalogMode : "owned" });
       })
       .catch(reason => {
         if (controller.signal.aborted || (reason instanceof Error && reason.name === "AbortError")) return;
@@ -86,16 +86,16 @@ export default function SookarHome() {
     return () => controller.abort();
   }, []);
 
-  // The public storefront only advertises actual marketplace listings. Seed/demo/reference
-  // records remain available in test tools, but are never presented as purchasable products.
-  const liveProducts = useMemo(() => catalog.products.filter(product => !product.is_demo_product && !product.is_reference), [catalog]);
+  // Show catalog records and source imagery, but never imply demo/reference records are live stock.
+  const catalogProducts = useMemo(() => catalog.products, [catalog]);
+  const isReferenceCatalog = catalog.catalogMode === "demo" || (catalogProducts.length > 0 && catalogProducts.every(product => product.is_demo_product || product.is_reference));
   const categories = useMemo(() => {
-    const fromProducts = liveProducts.map(product => (product.category || "").trim()).filter(Boolean);
+    const fromProducts = catalogProducts.map(product => (product.category || "").trim()).filter(Boolean);
     const names = Array.from(new Set([...(catalog.categories || []), ...fromProducts])).filter(Boolean);
     return (names.length ? names : FALLBACK_CATEGORIES).slice(0, 12);
-  }, [catalog, liveProducts]);
+  }, [catalog, catalogProducts]);
   const products = useMemo(() => {
-    let list = liveProducts.filter(product => {
+    let list = catalogProducts.filter(product => {
       const term = normalize(search);
       const matchesSearch = !term || normalize([product.title, product.brand || "", product.category || "", product.seller_name || ""].join(" ")).includes(term);
       const itemCategory = normalize(product.category || "");
@@ -107,11 +107,11 @@ export default function SookarHome() {
     if (sort === "price-desc") list = [...list].sort((a, b) => Number(b.price) - Number(a.price));
     if (sort === "name") list = [...list].sort((a, b) => a.title.localeCompare(b.title, "fa"));
     return list;
-  }, [liveProducts, search, category, sort]);
-  const heroProducts = liveProducts.filter(product => safeImage(product.image_url)).slice(0, 3);
+  }, [catalogProducts, search, category, sort]);
+  const heroProducts = catalogProducts.filter(product => safeImage(product.image_url)).slice(0, 3);
   const featured = products.slice(0, showAll ? products.length : 15);
-  const catalogCount = liveProducts.length;
-  const totalStores = new Set(liveProducts.map(product => product.store_id).filter(Boolean)).size;
+  const catalogCount = catalogProducts.length;
+  const totalStores = new Set(catalogProducts.map(product => product.store_id).filter(Boolean)).size;
 
   const chooseCategory = (name: string) => {
     setCategory(current => current === name ? "" : name);
@@ -156,9 +156,9 @@ export default function SookarHome() {
             <p>کالاها را مقایسه کن، اطلاعات ثبت‌شده را ببین و به فروشگاه‌های بازارگاه دسترسی داشته باش؛ همه در یک تجربهٔ منظم و ساده.</p>
             <div className="sh-hero-actions"><Link href="#sh-products" className="sh-primary-btn">مشاهده محصولات <Icon name="arrow" /></Link><Link href="/marketplace/directory" className="sh-text-btn">کشف فروشگاه‌ها <Icon name="chevron" /></Link></div>
             <div className="sh-hero-metrics">
-              <div><b>{catalogCount ? catalogCount.toLocaleString("fa-IR") : "—"}</b><span>کالای منتشرشده</span></div>
+              <div><b>{catalogCount ? catalogCount.toLocaleString("fa-IR") : "—"}</b><span>{isReferenceCatalog ? "کالای مرجع در کاتالوگ" : "کالای منتشرشده"}</span></div>
               <i />
-              <div><b>{totalStores ? totalStores.toLocaleString("fa-IR") : "—"}</b><span>فروشگاه دارای کالا</span></div>
+              <div><b>{totalStores ? totalStores.toLocaleString("fa-IR") : "—"}</b><span>{isReferenceCatalog ? "منبع / فروشگاه مرجع" : "فروشگاه دارای کالا"}</span></div>
               <i />
               <div><b>۲۴/۷</b><span>دسترسی آنلاین</span></div>
             </div>
@@ -187,7 +187,7 @@ export default function SookarHome() {
           <div className="sh-category-grid">
             {CATEGORY_GUIDES.map(guide => {
               const actual = categories.find(name => guide.key.test(name)) || guide.name;
-              const count = liveProducts.filter(product => guide.key.test(product.category || "")).length;
+              const count = catalogProducts.filter(product => guide.key.test(product.category || "")).length;
               const active = category === actual || category === guide.name;
               return <button type="button" key={guide.name} className={"sh-category sh-tone-" + guide.tone + (active ? " is-active" : "")} aria-pressed={active} onClick={() => chooseCategory(active ? "" : actual)}>
                 <span className="sh-category-icon">{guide.icon}</span><span className="sh-category-copy"><b>{guide.name}</b><small>{count.toLocaleString("fa-IR")} کالای ثبت‌شده</small></span><span className="sh-category-arrow"><Icon name="chevron" /></span>
@@ -197,7 +197,7 @@ export default function SookarHome() {
         </section>
 
         <section id="sh-products" className="sh-section sh-products">
-          <div className="sh-section-heading sh-product-heading"><div><span className="sh-overline">کاتالوگ زندهٔ بازارگاه</span><h2>{category || "محصولات بازارگاه"}</h2><p>فقط کالاهای واقعی منتشرشده در کاتالوگ سوکار؛ بدون محصول ساختگی و قیمت نمایشی.</p></div><div className="sh-product-controls"><span className="sh-result-count">{products.length.toLocaleString("fa-IR")} کالا</span><label>مرتب‌سازی<select value={sort} onChange={event => setSort(event.target.value)}><option value="featured">پیشنهادی</option><option value="price-asc">قیمت: کم به زیاد</option><option value="price-desc">قیمت: زیاد به کم</option><option value="name">نام کالا</option></select></label></div></div>
+          <div className="sh-section-heading sh-product-heading"><div><span className="sh-overline">کاتالوگ زندهٔ بازارگاه</span><h2>{category || "محصولات بازارگاه"}</h2><p>{isReferenceCatalog ? "محصولات مرجع با نام و تصویر منبع اصلی نمایش داده می‌شوند؛ تا انتشار موجودی واقعی فروشنده، این موارد برای خرید مستقیم فعال نیستند." : "محصولات منتشرشده در کاتالوگ سوکار با اطلاعات و قیمت ثبت‌شدهٔ فروشندگان."}</p></div><div className="sh-product-controls"><span className="sh-result-count">{products.length.toLocaleString("fa-IR")} کالا</span><label>مرتب‌سازی<select value={sort} onChange={event => setSort(event.target.value)}><option value="featured">پیشنهادی</option><option value="price-asc">قیمت: کم به زیاد</option><option value="price-desc">قیمت: زیاد به کم</option><option value="name">نام کالا</option></select></label></div></div>
           <div className="sh-filter-row"><button type="button" className={!category ? "sh-filter-chip is-active" : "sh-filter-chip"} onClick={() => setCategory("")}>همه کالاها</button>{categories.slice(0, 7).map(name => <button type="button" key={name} className={category === name ? "sh-filter-chip is-active" : "sh-filter-chip"} onClick={() => chooseCategory(name)}>{name}</button>)}{(search || category) && <button type="button" className="sh-reset-filter" onClick={() => { setSearch(""); setCategory(""); setShowAll(false); }}>پاک‌کردن فیلترها ×</button>}</div>
           {loading ? <div className="sh-state"><span className="sh-spinner" /><b>در حال دریافت محصولات بازارگاه</b><small>در حال همگام‌سازی کاتالوگ منتشرشده...</small></div>
           : error ? <div className="sh-state sh-state-error"><b>دریافت کاتالوگ ممکن نشد</b><p>{error}</p><button type="button" onClick={() => window.location.reload()}>تلاش دوباره</button></div>
@@ -206,16 +206,16 @@ export default function SookarHome() {
             const href = productHref(product);
             return <article className="sh-product-card" key={product.id}>
               <Link href={href} className="sh-product-visual" aria-label={"مشاهده " + product.title}>
-                <span className="sh-product-label">{product.category || "بازارگاه سوکار"}</span>
+                <span className={"sh-product-label" + ((product.is_demo_product || product.is_reference) ? " sh-product-label-reference" : "")}>{product.is_demo_product ? "محصول مرجع" : product.is_reference ? "کالای مرجع" : (product.category || "بازارگاه سوکار")}</span>
                 {image ? <img src={image} alt={product.title} loading="lazy" decoding="async" /> : <span className="sh-product-no-image">س<small>تصویر کالا ثبت نشده</small></span>}
               </Link>
               <div className="sh-product-info"><span className="sh-product-seller">{product.brand || product.seller_name || "فروشنده بازارگاه"}</span><Link href={href} className="sh-product-title">{product.title}</Link>
-                <div className="sh-product-price"><b>{money(product.price, product.currency)}</b><small>قیمت ثبت‌شده در بازارگاه</small></div>
-                <div className="sh-product-actions"><AddToCartButton compact product={{ id: product.id, sku: product.sku, title: product.title, price: product.price, currency: product.currency, seller_name: product.seller_name, store_id: product.store_id, image_url: product.image_url, source_url: product.source_url, site: "default" }} /><Link href={href} className="sh-product-view" aria-label={"جزئیات " + product.title}><Icon name="arrow" /></Link></div>
+                <div className="sh-product-price"><b>{money(product.price, product.currency)}</b><small>{product.is_demo_product ? "قیمت مرجع؛ خرید واقعی فعال نیست" : product.is_reference ? "قیمت مرجع از منبع اصلی" : "قیمت ثبت‌شده در بازارگاه"}</small></div>
+                <div className="sh-product-actions"><Link href={href} className="sh-product-view sh-product-view-primary">مشاهده جزئیات <Icon name="arrow" /></Link></div>
               </div>
             </article>;
           })}</div>
-          : <div className="sh-state sh-state-empty"><span className="sh-empty-icon"><Icon name="store" /></span><b>{search || category ? "کالایی با این مشخصات پیدا نشد." : "هنوز کالای واقعی برای نمایش عمومی منتشر نشده است."}</b><p>{search || category ? "عبارت جستجو یا دسته‌بندی را تغییر بده." : "به‌محض انتشار کالا توسط فروشندگان، محصولات واقعی با تصویر و قیمت ثبت‌شده در این بخش نمایش داده می‌شوند. کالاهای آزمایشی عمداً به‌عنوان محصول قابل خرید نمایش داده نمی‌شوند."}</p>{(search || category) && <button type="button" onClick={() => { setSearch(""); setCategory(""); }}>نمایش همه کالاها</button>}<Link href="/marketplace/directory">مشاهده فروشگاه‌ها <Icon name="arrow" /></Link></div>}
+          : <div className="sh-state sh-state-empty"><span className="sh-empty-icon"><Icon name="store" /></span><b>{search || category ? "کالایی با این مشخصات پیدا نشد." : "هنوز کالایی در کاتالوگ بازارگاه ثبت نشده است."}</b><p>{search || category ? "عبارت جستجو یا دسته‌بندی را تغییر بده." : "به‌محض ثبت کالا، اطلاعات و تصویر آن در این بخش نمایش داده می‌شود. سوکار بین کالای مرجع و موجودی قابل خرید فروشنده تفاوت روشن می‌گذارد."}</p>{(search || category) && <button type="button" onClick={() => { setSearch(""); setCategory(""); }}>نمایش همه کالاها</button>}<Link href="/marketplace/directory">مشاهده فروشگاه‌ها <Icon name="arrow" /></Link></div>}
           {!loading && products.length > 15 && <div className="sh-more-row"><span>نمایش {featured.length.toLocaleString("fa-IR")} از {products.length.toLocaleString("fa-IR")} کالا</span><button type="button" onClick={() => setShowAll(value => !value)}>{showAll ? "نمایش کمتر" : "مشاهده همه کالاها"} <Icon name="arrow" /></button></div>}
         </section>
 
