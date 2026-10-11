@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { AddToCartButton, CartCount } from "./store/cart-actions";
+import { CartCount } from "./store/cart-actions";
 import "./sookar-home.css";
 
 type Product = {
