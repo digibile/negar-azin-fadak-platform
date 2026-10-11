@@ -46,29 +46,31 @@ function CheckoutContent(){
     method,providerCode:method==="manual"?"manual":undefined,providerRef:method==="manual"?paymentRef.trim():undefined,creditFacilityId:method==="credit"?facilityId:undefined,idempotencyKey:"WEB-"+oid
    })});
    const pb=await pr.json();if(!pr.ok)throw new Error(pb.error||"پرداخت ناموفق بود");
-   setOrder(pb.order||{id:oid,status:pb.status||"paid"});
-   setMessage(pb.status&&pb.status!=="paid"?"پرداخت در انتظار تأیید درگاه است.":"سفارش با موفقیت ثبت و پرداخت شد.");
+   const resolvedOrder=pb.order||{id:oid,status:pb.status||"pending"};
+   setOrder(resolvedOrder);
+   setMessage(resolvedOrder.status==="paid"||pb.status==="paid"?"پرداخت توسط سرویس پرداخت تأیید شد.":"سفارش ثبت شد؛ وضعیت پرداخت هنوز نهایی نیست و باید از سرویس پرداخت پیگیری شود.");
   }catch(e){setError(e instanceof Error?e.message:"خطا در ثبت سفارش");}
   finally{setBusy(false);}
  }
  useEffect(()=>{load();},[cartId,orderId]);
- if(!cartId)return <main className="sookar-store" dir="rtl"><section className="store-section"><div className="product-card"><h2>Checkout</h2><p>برای ادامه، یک سبد واقعی انتخاب کنید.</p><Link href="/store">بازگشت به فروشگاه ←</Link></div></section></main>;
+ if(!cartId)return <main className="sookar-store" dir="rtl"><section className="store-section"><div className="product-card sk-checkout-empty"><span>تکمیل خرید</span><h1>سبد سفارش مشخص نیست</h1><p>برای ادامه خرید واقعی باید پس از ورود، سبد معتبر سامانه را انتخاب کنید. سبد آزمایشی مرورگر در این مسیر پذیرفته نمی‌شود.</p><Link className="sk-checkout-primary" href="/store/cart">بازگشت به سبد خرید</Link></div></section></main>;
  return <main className="sookar-store" dir="rtl">
   <header className="store-header"><Link href="/store" className="store-logo"><b>سوکار</b><span>Checkout</span></Link><nav><Link href="/store">فروشگاه</Link><Link href="/marketplace">بازارگاه</Link><Link href="/pay">مرکز اعتبار</Link></nav></header>
-  <section className="store-section">
-   <header><div><span>Checkout · سفارش واقعی</span><h2>تکمیل خرید</h2><p>سبد، موجودی، سفارش، پرداخت، دفترکل و رویدادهای عملیاتی در یک تراکنش واقعی ثبت می‌شوند.</p></div><Link href="/store/cart">سبد</Link></header>
-   {error&&<div className="pay-notice">{error}</div>}{message&&<div className="pay-notice">{message}</div>}
-   {loading?<div className="product-card">در حال دریافت سبد...</div>:<div className="plan-grid">
-    <article className="product-card"><span>اقلام سفارش</span><h3>{items.length.toLocaleString("fa-IR")} قلم</h3>{items.map(i=><div key={i.id} className="module-row"><div><strong>{i.title}</strong><small>{i.sku} · تعداد {Number(i.quantity).toLocaleString("fa-IR")}</small></div><span>{(Number(i.unit_price)*Number(i.quantity)).toLocaleString("fa-IR")} {cart?.currency||"IRR"}</span></div>)}<hr/><strong>جمع کل: {total.toLocaleString("fa-IR")} {cart?.currency||"IRR"}</strong></article>
-    <article className="product-card"><span>روش پرداخت</span><h3>انتخاب منبع پرداخت</h3>
-     <label><input type="radio" checked={method==="manual"} onChange={()=>setMethod("manual")}/> ثبت پرداخت با مرجع بانکی</label>
-     <label><input type="radio" checked={method==="credit"} onChange={()=>setMethod("credit")}/> اعتبار خرید</label>
-     {method==="manual"&&<label>شناسه مرجع پرداخت<input value={paymentRef} onChange={e=>setPaymentRef(e.target.value)} placeholder="مرجع واقعی پرداخت"/></label>}{method==="credit"&&<div><label>تسهیلات اعتباری فعال<select value={facilityId} onChange={e=>setFacilityId(e.target.value)}><option value="">انتخاب کنید</option>{facilities.map(f=><option key={f.id} value={f.id}>{f.facility_no} · مانده {Number(f.available_amount).toLocaleString("fa-IR")} {f.currency}</option>)}</select></label>{facilities.length===0&&<p>تسهیلات فعال قابل مصرف برای این حساب پیدا نشد.</p>}</div>}
-     <button disabled={busy||!items.length||(method==="credit"&&!facilityId)||(method==="manual"&&!paymentRef.trim())} onClick={checkoutAndPay}>{busy?"در حال ثبت و پرداخت...":method==="credit"?"پرداخت با اعتبار":"ثبت مرجع پرداخت"}</button>
+  <section className="store-section sk-checkout-workspace">
+   <div className="sk-checkout-progress" aria-label="مراحل خرید"><span className="is-current"><b>۱</b><small>بررسی سفارش</small></span><i /><span className="is-current"><b>۲</b><small>پرداخت</small></span><i /><span className={order?.status==="paid"?"is-complete":""}><b>۳</b><small>تأیید نهایی</small></span></div>
+   <header className="sk-checkout-heading"><div><span>تسویه سفارش</span><h1>تکمیل خرید</h1><p>مبلغ و اقلام سفارش را بررسی کنید و سپس روش پرداخت را انتخاب کنید. وضعیت نهایی فقط بر اساس پاسخ سرویس پرداخت نمایش داده می‌شود.</p></div><Link href="/store/cart">بازگشت به سبد</Link></header>
+   {error&&<div className="pay-notice" role="alert">{error}</div>}{message&&<div className="sk-checkout-message" role="status">{message}</div>}
+   {loading?<div className="product-card sk-checkout-loading" role="status"><span className="sk-checkout-spinner" aria-hidden="true" />در حال دریافت سبد و بررسی وضعیت سفارش…</div>:items.length===0?<div className="product-card sk-checkout-empty"><h2>سبد قابل تسویه نیست</h2><p>این سبد خالی است یا قبلاً تسویه شده. برای ثبت سفارش جدید، به فروشگاه برگردید.</p><Link className="sk-checkout-primary" href="/store/shop">مرور کالاها</Link></div>:<div className="plan-grid sk-checkout-grid">
+    <article className="product-card sk-checkout-card"><span>خلاصه سفارش</span><h3>{items.length.toLocaleString("fa-IR")} قلم</h3>{items.map(i=><div key={i.id} className="module-row"><div><strong>{i.title}</strong><small>{i.sku} · تعداد {Number(i.quantity).toLocaleString("fa-IR")}</small></div><span>{(Number(i.unit_price)*Number(i.quantity)).toLocaleString("fa-IR")} {cart?.currency||"IRR"}</span></div>)}<hr/><strong>جمع کل: {total.toLocaleString("fa-IR")} {cart?.currency||"IRR"}</strong></article>
+    <article className="product-card sk-checkout-card"><span>مرحله پرداخت</span><h3>انتخاب روش پرداخت</h3>
+     <label className="sk-checkout-choice"><input type="radio" checked={method==="manual"} onChange={()=>setMethod("manual")}/> ثبت مرجع پرداخت برای پردازش سامانه</label>
+     <label className="sk-checkout-choice"><input type="radio" checked={method==="credit"} onChange={()=>setMethod("credit")}/> استفاده از اعتبار خرید فعال</label>
+     {method==="manual"&&<><label>شناسه تراکنش یا مرجع صادرشده از سرویس پرداخت<input value={paymentRef} onChange={e=>setPaymentRef(e.target.value)} placeholder="شناسه مرجع پرداخت" autoComplete="off" maxLength={200}/></label><p className="sk-checkout-disclaimer">ثبت مرجع به‌تنهایی مدرک پرداخت بانکی نیست؛ نتیجه نهایی به پاسخ سرویس پرداخت متصل به سامانه وابسته است.</p></>}{method==="credit"&&<div><label>تسهیلات اعتباری فعال<select value={facilityId} onChange={e=>setFacilityId(e.target.value)}><option value="">انتخاب کنید</option>{facilities.map(f=><option key={f.id} value={f.id}>{f.facility_no} · مانده {Number(f.available_amount).toLocaleString("fa-IR")} {f.currency}</option>)}</select></label>{facilities.length===0&&<p>تسهیلات فعال قابل مصرف برای این حساب پیدا نشد.</p>}</div>}
+     <button className="sk-checkout-primary" disabled={busy||!items.length||(method==="credit"&&!facilityId)||(method==="manual"&&!paymentRef.trim())} onClick={checkoutAndPay}>{busy?"در حال ثبت درخواست…":method==="credit"?"ادامه با اعتبار خرید":"ثبت درخواست پرداخت"}</button>
      {orderId&&<div><p>شماره سفارش داخلی: {orderId}</p><Link href={"/store/checkout?cart="+encodeURIComponent(cartId)+"&order="+encodeURIComponent(orderId)}>مشاهده وضعیت ←</Link></div>}
     </article>
    </div>}
-   {order&&<article className="product-card"><span>وضعیت سفارش</span><h3>{order.status==="paid"?"پرداخت موفق":"در حال پردازش"}</h3><p>شناسه سفارش: {order.id}</p><Link href="/store">بازگشت به فروشگاه</Link></article>}
+   {order&&<article className="product-card sk-checkout-order-status"><span>وضعیت سفارش</span><h2>{order.status==="paid"?"پرداخت تأیید شد":order.status==="cancelled"?"سفارش لغو شده":"در انتظار تأیید نهایی"}</h2><p>شناسه سفارش: <b>{order.id}</b></p><p>{order.status==="paid"?"سرویس پرداخت وضعیت موفق را اعلام کرده است.":"سفارش ایجاد شده، اما تا تأیید سرویس پرداخت نباید آن را پرداخت‌شده در نظر گرفت."}</p><Link href="/account/orders">رفتن به سفارش‌های حساب ←</Link></article>}
   </section>
  </main>;
 }
