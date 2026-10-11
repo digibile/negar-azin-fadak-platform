@@ -177,13 +177,19 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // The public Sookar homepage owns its visual identity. Never let the shared
+    // template designer or another storefront's published theme change "/".
+    if (pathname === "/") {
+      setTheme(null);
+      return;
+    }
     const controller = new AbortController();
     fetch("/api/public/storefront-theme", { headers: { accept: "application/json" }, cache: "no-store", signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error("تنظیمات قالب دریافت نشد"); return response.json(); })
       .then(body => { if (!controller.signal.aborted && body?.theme) setTheme(body.theme as StoreTheme); })
       .catch(() => { /* Use the safe built-in brand defaults when no public theme is published. */ });
     return () => controller.abort();
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     const controller = new AbortController();
