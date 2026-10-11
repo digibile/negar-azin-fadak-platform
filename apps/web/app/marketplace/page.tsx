@@ -1,5 +1,5 @@
-import StorePage from "../store/page";
+import { redirect } from "next/navigation";
 
 export default function MarketplaceRoute() {
-  return <StorePage />;
+  redirect("/");
 }
