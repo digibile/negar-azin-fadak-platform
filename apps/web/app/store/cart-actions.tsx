@@ -109,13 +109,13 @@ export function CartView() {
     <div className="sk-service-strip"><div className="sk-wrap sk-service-inner"><span>سبد خرید سوکار</span><div><Link href="/store">ادامه خرید</Link><Link href="/store/faq">راهنمای خرید</Link></div></div></div>
     <header className="sk-header"><div className="sk-wrap sk-header-main">
       <Link href="/" className="sk-logo"><span className="sk-logo-mark">س</span><span><b>سوکار</b><small>سبد خرید شما</small></span></Link>
-      <div className="sk-cart-page-title"><span className="sk-cart-step-kicker"><i aria-hidden="true">01</i> مسیر خرید سوکار</span><h1>سبد خرید</h1><p>کالاها را بررسی کن، تعداد را تغییر بده و بعد ادامه بده.</p></div>
+      <div className="sk-cart-page-title"><span className="sk-cart-step-kicker"><i aria-hidden="true">01</i> مسیر خرید سوکار</span><h1>سبد خرید</h1><p>کالاها را بررسی کنید، تعداد را تغییر دهید و سپس ادامه دهید.</p></div>
       <Link className="sk-primary-btn" href="/store/shop">ادامه خرید ←</Link>
     </div></header>
     <div className="sk-wrap sk-cart-layout">
       <section className="sk-cart-items">
         <div className="sk-cart-heading"><div className="sk-cart-heading-title"><span className="sk-cart-heading-icon" aria-hidden="true">▣</span><div><h2>محصولات انتخاب‌شده</h2><p>{count.toLocaleString("fa-IR")} قلم در سبد</p></div></div>{items.length > 0 && <button type="button" onClick={clear} className="sk-cart-clear">حذف همه کالاها</button>}</div>
-        {items.length === 0 ? <div className="sk-cart-empty"><span>🛒</span><h2>سبد خریدت هنوز خالی است</h2><p>محصولات موردنظرت را از کاتالوگ انتخاب کن و به اینجا برگرد.</p><Link href="/store/shop" className="sk-primary-btn"><span aria-hidden="true">⌕</span> مشاهده کالاها</Link></div> :
+        {items.length === 0 ? <div className="sk-cart-empty"><span>🛒</span><h2>سبد خرید شما هنوز خالی است</h2><p>محصولات موردنظر را از کاتالوگ انتخاب کنید و دوباره به این صفحه برگردید.</p><Link href="/store/shop" className="sk-primary-btn"><span aria-hidden="true">⌕</span> مشاهده کالاها</Link></div> :
           <div className="sk-cart-list">{items.map(item => <article className="sk-cart-item" key={item.id}>
             <div className="sk-cart-thumb">{item.image_url ? <img src={item.image_url} alt={item.title} /> : <span>▧</span>}</div>
             <div className="sk-cart-item-main"><Link href={"/store/product/" + encodeURIComponent(item.sku || item.id) + "?site=" + encodeURIComponent(item.site || "default")} className="sk-cart-item-title">{item.title}</Link><small>فروشنده: {item.seller_name || "فروشنده ثبت‌شده"}</small>{item.is_demo_product && <small className="sk-demo-cart-note">نمونهٔ آزمایشی سوکار · قیمت مرجع، نه قیمت فروش</small>}<strong>{money(Number(item.price), item.currency)}</strong>
