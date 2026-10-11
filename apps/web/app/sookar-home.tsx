@@ -142,9 +142,21 @@ export default function SookarHome() {
           </div>
         </div>
         <nav className="sh-nav sh-container" aria-label="ناوبری اصلی">
-          <Link className="sh-nav-all" href="/marketplace"><span>☰</span> دسته‌بندی کالاها</Link>
-          <Link href="#sh-categories">دسته‌بندی‌ها</Link><Link href="#sh-products">محصولات بازارگاه</Link><Link href="/marketplace/directory">فروشگاه‌ها</Link><Link href="/pay">خرید اعتباری</Link><Link href="/store/faq">راهنمای خرید</Link>
-          <span className="sh-nav-spacer" /><span className="sh-nav-note">انتخاب آگاهانه، خرید مطمئن‌تر</span>
+          <div className="sh-nav-catalog">
+            <Link className="sh-nav-all" href="#sh-categories"><span>☰</span> دسته‌بندی کالاها <span className="sh-nav-down">⌄</span></Link>
+            <div className="sh-mega-menu">
+              <div className="sh-mega-intro"><b>دسته‌بندی محصولات</b><small>سریع‌تر به کالای موردنظرت برس</small><Link href="#sh-categories">مشاهده همه دسته‌ها ←</Link></div>
+              <div className="sh-mega-links">
+                {CATEGORY_GUIDES.map(guide => <Link href="#sh-categories" key={guide.name} className={"sh-mega-link sh-tone-" + guide.tone}><span>{guide.icon}</span><b>{guide.name}</b><small>مشاهده کالاها</small></Link>)}
+              </div>
+            </div>
+          </div>
+          <Link href="#sh-products">پرفروش‌ها و محصولات</Link>
+          <Link href="/marketplace/directory">فروشگاه‌های بازارگاه</Link>
+          <Link href="/pay">خرید اعتباری</Link>
+          <Link href="/store/faq">راهنمای خرید</Link>
+          <span className="sh-nav-spacer" />
+          <span className="sh-nav-note">ارسال و خرید از فروشندگان بازارگاه</span>
         </nav>
       </header>
 
