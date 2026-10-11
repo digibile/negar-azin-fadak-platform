@@ -59,7 +59,9 @@ export default function SookarHome() {
     let list = catalog.products.filter(p => {
       const term = normalize(search);
       const matchesSearch = !term || normalize([p.title, p.brand || "", p.category || "", p.seller_name || ""].join(" ")).includes(term);
-      const productCategory = normalize(p.category || "");\n      const selectedCategory = normalize(category);\n      const matchesCategory = !selectedCategory || (!!productCategory && (productCategory.includes(selectedCategory) || selectedCategory.includes(productCategory)));
+      const productCategory = normalize(p.category || "");
+      const selectedCategory = normalize(category);
+      const matchesCategory = !selectedCategory || (!!productCategory && (productCategory.includes(selectedCategory) || selectedCategory.includes(productCategory)));
       return matchesSearch && matchesCategory;
     });
     if (sort === "price-asc") list = [...list].sort((a,b) => Number(a.price)-Number(b.price));
