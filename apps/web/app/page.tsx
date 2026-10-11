@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import SookarHome from "./sookar-home";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "سوکار | بازارگاه یکپارچه خرید و فروش",
   description: "در بازارگاه سوکار محصولات و فروشگاه‌ها را یک‌جا ببینید، اطلاعات کالا را بررسی کنید و انتخاب آگاهانه‌تری داشته باشید.",
-  alternates: { canonical: "/" },
+  alternates: { canonical: "/marketplace" },
   openGraph: {
     type: "website",
     locale: "fa_IR",
-    url: "https://sookar.ir/",
+    url: "https://sookar.ir/marketplace",
     siteName: "سوکار",
     title: "سوکار | بازارگاه یکپارچه خرید و فروش",
     description: "کشف کالا، بررسی اطلاعات و دسترسی به فروشگاه‌های ثبت‌شده در یک تجربهٔ یکپارچه."
@@ -21,5 +21,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <SookarHome />;
+  redirect("/marketplace");
 }
