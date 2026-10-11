@@ -55,7 +55,7 @@ function CheckoutContent(){
  useEffect(()=>{load();},[cartId,orderId]);
  if(!cartId)return <main className="sookar-store" dir="rtl"><section className="store-section"><div className="product-card sk-checkout-empty"><span>تکمیل خرید</span><h1>سبد سفارش مشخص نیست</h1><p>برای ادامه خرید واقعی باید پس از ورود، سبد معتبر سامانه را انتخاب کنید. سبد آزمایشی مرورگر در این مسیر پذیرفته نمی‌شود.</p><Link className="sk-checkout-primary" href="/store/cart">بازگشت به سبد خرید</Link></div></section></main>;
  return <main className="sookar-store" dir="rtl">
-  <header className="store-header"><Link href="/store" className="store-logo"><b>سوکار</b><span>Checkout</span></Link><nav><Link href="/store">فروشگاه</Link><Link href="/marketplace">بازارگاه</Link><Link href="/pay">مرکز اعتبار</Link></nav></header>
+  <header className="store-header"><Link href="/store" className="store-logo"><b>سوکار</b><span>تکمیل خرید</span></Link><nav><Link href="/store">فروشگاه</Link><Link href="/marketplace">بازارگاه</Link><Link href="/pay">مرکز اعتبار</Link></nav></header>
   <section className="store-section sk-checkout-workspace">
    <div className="sk-checkout-progress" aria-label="مراحل خرید"><span className="is-current"><b>۱</b><small>بررسی سفارش</small></span><i /><span className="is-current"><b>۲</b><small>پرداخت</small></span><i /><span className={order?.status==="paid"?"is-complete":""}><b>۳</b><small>تأیید نهایی</small></span></div>
    <header className="sk-checkout-heading"><div><span>تسویه سفارش</span><h1>تکمیل خرید</h1><p>مبلغ و اقلام سفارش را بررسی کنید و سپس روش پرداخت را انتخاب کنید. وضعیت نهایی فقط بر اساس پاسخ سرویس پرداخت نمایش داده می‌شود.</p></div><Link href="/store/cart">بازگشت به سبد</Link></header>
