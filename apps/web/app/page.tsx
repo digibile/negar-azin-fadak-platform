@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import SookarHome from "./sookar-home";
 
 export const metadata: Metadata = {
   title: "سوکار | بازارگاه یکپارچه خرید و فروش",
@@ -21,5 +21,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  redirect("/marketplace");
+  return <SookarHome />;
 }
