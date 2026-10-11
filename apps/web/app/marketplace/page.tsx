@@ -1,5 +1,5 @@
-import StorePage from "../store/page";
+import SookarHome from "../sookar-home";
 
 export default function MarketplaceRoute() {
-  return <StorePage />;
+  return <SookarHome />;
 }
