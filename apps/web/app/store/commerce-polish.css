@@ -162,3 +162,52 @@
  .sk-terms-list article{padding:17px}
  .sk-info-inline-link{font-size:11px}
 }
+
+.sk-checkout-workspace .sk-checkout-progress{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 0 24px;padding:18px 22px;border:1px solid #e4e9ef;border-radius:15px;background:#fff}
+.sk-checkout-progress>span{display:flex;align-items:center;gap:9px;color:#7a8798}
+.sk-checkout-progress>span>b{width:32px;height:32px;display:grid;place-items:center;border:1px solid #dbe2e9;border-radius:50%;font-size:12px}
+.sk-checkout-progress>span.is-current>b,.sk-checkout-progress>span.is-complete>b{border-color:#d92d2d;background:#d92d2d;color:#fff}
+.sk-checkout-progress>span small{font-size:11px;font-weight:700;white-space:nowrap}
+.sk-checkout-progress>i{width:clamp(18px,8vw,100px);height:1px;background:#e1e6ec}
+.sk-checkout-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin:0 0 18px;padding:25px 28px;border:1px solid #e4e9ef;border-radius:17px;background:#fff}
+.sk-checkout-heading>div{min-width:0}
+.sk-checkout-heading>div>span,.sk-checkout-card>span,.sk-checkout-empty>span,.sk-checkout-order-status>span{display:inline-block;color:#bd2929;font-size:11px;font-weight:800}
+.sk-checkout-heading h1{margin:8px 0;font-size:clamp(24px,3vw,34px);line-height:1.7}
+.sk-checkout-heading p{max-width:750px;margin:0;color:#687586;font-size:12px;line-height:2.15}
+.sk-checkout-heading>a{flex-shrink:0;padding:10px 14px;border:1px solid #dfe5ec;border-radius:10px;color:#354052;font-size:11px;font-weight:800}
+.sk-checkout-grid{grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);align-items:start}
+.sk-checkout-card{gap:14px}
+.sk-checkout-card h3{margin:0 0 5px;font-size:18px}
+.sk-checkout-card>hr{width:100%;border:0;border-top:1px solid #e8edf2}
+.sk-checkout-card>strong{font-size:15px;line-height:1.9}
+.sk-checkout-choice{display:flex!important;align-items:center;gap:10px;padding:12px;border:1px solid #e3e8ee;border-radius:11px;background:#fafbfc}
+.sk-checkout-choice input[type=radio]{flex:0 0 18px;margin:0!important}
+.sk-checkout-card>label:not(.sk-checkout-choice){display:grid;gap:8px}
+.sk-checkout-disclaimer{padding:12px;border-radius:10px;background:#fff8e8;color:#785b1c;font-size:11px;line-height:2}
+.sk-checkout-primary{display:inline-flex;align-items:center;justify-content:center;min-height:47px;padding:0 17px;border:0;border-radius:11px;background:#d92d2d;color:#fff!important;font-size:12px;font-weight:900;text-decoration:none}
+.sk-checkout-primary:hover{background:#bb2424}
+.sk-checkout-primary:disabled{opacity:.5;cursor:not-allowed}
+.sk-checkout-empty{display:grid;gap:14px;justify-items:start;padding:clamp(24px,5vw,45px)!important}
+.sk-checkout-empty h1,.sk-checkout-empty h2{margin:0;font-size:clamp(22px,3vw,30px);line-height:1.7}
+.sk-checkout-empty p{max-width:650px;margin:0;color:#687586;font-size:12px;line-height:2.2}
+.sk-checkout-loading{display:flex;align-items:center;gap:13px;padding:24px!important;color:#687586;font-size:12px}
+.sk-checkout-spinner{width:19px;height:19px;border:2px solid #e6b6b6;border-top-color:#d92d2d;border-radius:50%;animation:sk-checkout-spin .7s linear infinite}
+@keyframes sk-checkout-spin{to{transform:rotate(360deg)}}
+.sk-checkout-message{margin:14px 0;padding:14px 16px;border:1px solid #b9e4cd;border-radius:12px;background:#effaf4;color:#17633c;font-size:12px;line-height:2}
+.sk-checkout-order-status{margin-top:18px;padding:22px!important;border-color:#d8e5dd!important}
+.sk-checkout-order-status h2{margin:8px 0;font-size:20px;line-height:1.8}
+.sk-checkout-order-status p{font-size:12px;line-height:2}
+.sk-checkout-order-status a{color:#bd2929;font-size:12px;font-weight:800}
+@media(max-width:900px){.sk-checkout-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){
+ .sk-checkout-workspace .sk-checkout-progress{justify-content:space-between;gap:6px;padding:13px 9px}
+ .sk-checkout-progress>span{flex-direction:column;gap:5px;min-width:0}
+ .sk-checkout-progress>span>b{width:28px;height:28px}
+ .sk-checkout-progress>span small{font-size:9px}
+ .sk-checkout-progress>i{width:auto;flex:1}
+ .sk-checkout-heading{display:grid;gap:12px;padding:18px}
+ .sk-checkout-heading>a{justify-self:start}
+ .sk-checkout-card{padding:17px!important}
+ .sk-checkout-card h3{font-size:16px}
+ .sk-checkout-order-status{padding:18px!important}
+}
