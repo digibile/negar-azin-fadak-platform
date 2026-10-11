@@ -592,7 +592,7 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
       [tenantId]
     ),
     query(
-      "select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,jsonb_strip_nulls(jsonb_build_object('brand',p.attributes->'brand','rating',p.attributes->'rating','specifications',p.attributes->'specifications','galleryImages',p.attributes->'galleryImages','sourceName',p.attributes->'sourceName','sourceUrl',p.attributes->'sourceUrl','sourcePriceSnapshot',p.attributes->'sourcePriceSnapshot','demoCatalog',p.attributes->'demoCatalog','demoNotice',p.attributes->'demoNotice','vehicleType',p.attributes->'vehicleType','year',p.attributes->'year','province',p.attributes->'province','city',p.attributes->'city','mileage',p.attributes->'mileage','transmission',p.attributes->'transmission')) as attributes,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name,(p.attributes->>'demoCatalog'='true') as is_demo_product,p.attributes->>'sourceUrl' as source_url from products p join sellers sl on sl.id=p.seller_id and sl.tenant_id=p.tenant_id left join stores st on st.id=p.store_id and st.tenant_id=p.tenant_id where p.tenant_id=$1 and p.status='active' and sl.status='active' and (p.store_id is null or st.status='active') order by p.updated_at desc limit 1000",
+      "select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,jsonb_strip_nulls(jsonb_build_object('brand',p.attributes->'brand','rating',p.attributes->'rating','specifications',p.attributes->'specifications','galleryImages',p.attributes->'galleryImages','sourceName',p.attributes->'sourceName','sourceUrl',p.attributes->'sourceUrl','sourcePriceSnapshot',p.attributes->'sourcePriceSnapshot','demoCatalog',p.attributes->'demoCatalog','demoNotice',p.attributes->'demoNotice','vehicleType',p.attributes->'vehicleType','year',p.attributes->'year','province',p.attributes->'province','city',p.attributes->'city','mileage',p.attributes->'mileage','transmission',p.attributes->'transmission')) as attributes,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name,(p.attributes->>'demoCatalog'='true') as is_demo_product,p.attributes->>'sourceUrl' as source_url from products p join sellers sl on sl.id=p.seller_id and sl.tenant_id=p.tenant_id left join stores st on st.id=p.store_id and st.tenant_id=p.tenant_id where p.tenant_id=$1 and p.status='active' and sl.status='active' and coalesce(p.attributes->>'demoCatalog','false') <> 'true' and (p.store_id is null or st.status='active') order by p.updated_at desc limit 1000",
       [tenantId]
     ),
     query(
@@ -600,26 +600,8 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
       [tenantId]
     )
   ]);
-  let catalogProducts:any[]=products.rows;
-  const currentHost=String(req.headers["x-forwarded-host"]||req.headers.host||"").split(",")[0].trim().toLowerCase().replace(/:\\d+$/,"");
-  // Bootstrap and expand Sookar's own demo catalog to at least 120 diverse products.
-  // Never seed a tenant that has no demo catalog while it already has real products.
-  // Demo items remain visibly marked, source-attributed, and non-purchasable.
-  const demoProductCount=catalogProducts.filter((item:any)=>item.is_demo_product).length;
-  const shouldBootstrapDemo=catalogProducts.length===0||(demoProductCount>0&&demoProductCount<120);
-  if(shouldBootstrapDemo&&(currentHost==="sookar.ir"||currentHost==="www.sookar.ir")){
-    if(!sookarDemoBootstrap){
-      sookarDemoBootstrap=importDemoCatalogForTenant(tenantId,120)
-        .catch(error=>{console.error("Sookar demo catalog bootstrap failed:",error);return null;})
-        .finally(()=>{sookarDemoBootstrap=null;});
-    }
-    await sookarDemoBootstrap;
-    const refreshed=await query(
-      "select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,jsonb_strip_nulls(jsonb_build_object('brand',p.attributes->'brand','rating',p.attributes->'rating','specifications',p.attributes->'specifications','galleryImages',p.attributes->'galleryImages','sourceName',p.attributes->'sourceName','sourceUrl',p.attributes->'sourceUrl','sourcePriceSnapshot',p.attributes->'sourcePriceSnapshot','demoCatalog',p.attributes->'demoCatalog','demoNotice',p.attributes->'demoNotice','vehicleType',p.attributes->'vehicleType','year',p.attributes->'year','province',p.attributes->'province','city',p.attributes->'city','mileage',p.attributes->'mileage','transmission',p.attributes->'transmission')) as attributes,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name,(p.attributes->>'demoCatalog'='true') as is_demo_product,p.attributes->>'sourceUrl' as source_url from products p join sellers sl on sl.id=p.seller_id and sl.tenant_id=p.tenant_id left join stores st on st.id=p.store_id and st.tenant_id=p.tenant_id where p.tenant_id=$1 and p.status='active' and sl.status='active' and (p.store_id is null or st.status='active') order by p.updated_at desc limit 1000",
-      [tenantId]
-    );
-    catalogProducts=refreshed.rows;
-  }
+  // Public storefronts expose only seller-owned listings. Demo/reference imports stay admin-only.
+  const catalogProducts:any[]=products.rows;
   const catalogMode:"owned"|"demo"=catalogProducts.some((item:any)=>item.is_demo_product)?"demo":"owned";
   const sourceStatus:"live"|"unavailable"|"not-needed"="not-needed";
   const sourceFetchedAt:string|null=null;
@@ -632,7 +614,7 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
     ...referenceCategories
   ])].sort((a,b)=>a.localeCompare(b,"fa"));
   res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
-  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,referenceCount:0,sourceStatus,sourceFetchedAt,notice:catalogMode==="demo"?"کاتالوگ آزمایشی در پایگاه داده سوکار؛ قیمت و موجودی مرجع هستند و ثبت سفارش یا پرداخت واقعی فعال نیست.":undefined});
+  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,referenceCount:0,sourceStatus,sourceFetchedAt,notice:catalogProducts.length===0?"هنوز کالای واقعیِ منتشرشده از سوی فروشندگان در بازارگاه ثبت نشده است.":undefined});
 }));
 
 domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/status",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
