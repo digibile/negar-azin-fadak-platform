@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   }
 };
 
+// The public Sookar homepage intentionally renders the Technolife storefront variant.
 export default function HomePage() {
   return <StorePage variant="technolife" />;
 }
