@@ -157,7 +157,7 @@ const brandIdentity:Record<StoreVariant,{name:string;mark:string;tagline:string;
 export default function StorePage({ variant = "default" }: { variant?: StoreVariant }) {
   const pathname = usePathname();
   const [theme, setTheme] = useState<StoreTheme | null>(null);
-  const templateVariant: StoreVariant = theme?.key === "technolife-store" ? "technolife" : theme?.key === "digibile-commerce" ? "digibile" : theme?.key === "kipa-store" ? "kipa" : variant;
+  const templateVariant: StoreVariant = pathname === "/" ? "default" : theme?.key === "technolife-store" ? "technolife" : theme?.key === "digibile-commerce" ? "digibile" : theme?.key === "kipa-store" ? "kipa" : variant;
   const identity = brandIdentity[templateVariant];
   const isTechnolife = templateVariant === "technolife";
   const activeStoreNavigation = templateVariant === "digikala" ? DIGIKALA_NAVIGATION : templateVariant === "technolife" ? TECHNOLIFE_NAVIGATION : templateVariant === "digibile" ? DIGIBILE_NAVIGATION : templateVariant === "ava" ? AVA_NAVIGATION : templateVariant === "kipa" ? KIPA_NAVIGATION : STORE_CATEGORY_NAVIGATION;
@@ -177,13 +177,19 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // The public Sookar homepage owns its visual identity. Never let the shared
+    // template designer or another storefront's published theme change "/".
+    if (pathname === "/") {
+      setTheme(null);
+      return;
+    }
     const controller = new AbortController();
     fetch("/api/public/storefront-theme", { headers: { accept: "application/json" }, cache: "no-store", signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error("تنظیمات قالب دریافت نشد"); return response.json(); })
       .then(body => { if (!controller.signal.aborted && body?.theme) setTheme(body.theme as StoreTheme); })
       .catch(() => { /* Use the safe built-in brand defaults when no public theme is published. */ });
     return () => controller.abort();
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     const controller = new AbortController();
