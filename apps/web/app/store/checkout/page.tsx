@@ -13,8 +13,8 @@ function CheckoutContent(){
  const cartId=search.get("cart")||"";
  const [cart,setCart]=useState<Cart|null>(null),[items,setItems]=useState<Item[]>([]);
  const [facilities,setFacilities]=useState<Facility[]>([]);
- const [method,setMethod]=useState<"manual"|"credit">("manual");
- const [facilityId,setFacilityId]=useState(""),[paymentRef,setPaymentRef]=useState("");
+ const [method,setMethod]=useState<"online"|"credit">("online");
+ const [facilityId,setFacilityId]=useState("");
  const [orderId,setOrderId]=useState(search.get("order")||"");
  const [order,setOrder]=useState<any>(null);
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[message,setMessage]=useState(""),[error,setError]=useState("");
@@ -39,11 +39,14 @@ function CheckoutContent(){
   if(!cartId||!items.length)return;
   setBusy(true);setError("");setMessage("");
   try{
-   const cr=await fetch("/api/checkout/carts/"+encodeURIComponent(cartId)+"/checkout",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({paymentMethod:method})});
-   const cb=await cr.json();if(!cr.ok)throw new Error(cb.error||"ثبت سفارش ناموفق بود");
-   const oid=cb.order.id;setOrderId(oid);
+   let oid=orderId;
+   if(!oid){
+    const cr=await fetch("/api/checkout/carts/"+encodeURIComponent(cartId)+"/checkout",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({paymentMethod:method})});
+    const cb=await cr.json();if(!cr.ok)throw new Error(cb.error||"ثبت سفارش ناموفق بود");
+    oid=cb.order.id;setOrderId(oid);
+   }
    const pr=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/payment",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({
-    method,providerCode:method==="manual"?"manual":undefined,providerRef:method==="manual"?paymentRef.trim():undefined,creditFacilityId:method==="credit"?facilityId:undefined,idempotencyKey:"WEB-"+oid
+    method,creditFacilityId:method==="credit"?facilityId:undefined,idempotencyKey:"WEB-"+oid
    })});
    const pb=await pr.json();if(!pr.ok)throw new Error(pb.error||"پرداخت ناموفق بود");
    const resolvedOrder=pb.order||{id:oid,status:pb.status||"pending"};
@@ -63,10 +66,10 @@ function CheckoutContent(){
    {loading?<div className="product-card sk-checkout-loading" role="status"><span className="sk-checkout-spinner" aria-hidden="true" />در حال دریافت سبد و بررسی وضعیت سفارش…</div>:items.length===0?<div className="product-card sk-checkout-empty"><h2>سبد قابل تسویه نیست</h2><p>این سبد خالی است یا قبلاً تسویه شده. برای ثبت سفارش جدید، به فروشگاه برگردید.</p><Link className="sk-checkout-primary" href="/store/shop">مرور کالاها</Link></div>:<div className="plan-grid sk-checkout-grid">
     <article className="product-card sk-checkout-card"><span>خلاصه سفارش</span><h3>{items.length.toLocaleString("fa-IR")} قلم</h3>{items.map(i=><div key={i.id} className="module-row"><div><strong>{i.title}</strong><small>{i.sku} · تعداد {Number(i.quantity).toLocaleString("fa-IR")}</small></div><span>{(Number(i.unit_price)*Number(i.quantity)).toLocaleString("fa-IR")} {cart?.currency||"IRR"}</span></div>)}<hr/><strong>جمع کل: {total.toLocaleString("fa-IR")} {cart?.currency||"IRR"}</strong></article>
     <article className="product-card sk-checkout-card"><span>مرحله پرداخت</span><h3>انتخاب روش پرداخت</h3>
-     <label className="sk-checkout-choice"><input type="radio" checked={method==="manual"} onChange={()=>setMethod("manual")}/> ثبت مرجع پرداخت برای پردازش سامانه</label>
+     <label className="sk-checkout-choice"><input type="radio" checked={method==="online"} onChange={()=>setMethod("online")}/> پرداخت آنلاین از درگاه متصل</label>
      <label className="sk-checkout-choice"><input type="radio" checked={method==="credit"} onChange={()=>setMethod("credit")}/> استفاده از اعتبار خرید فعال</label>
-     {method==="manual"&&<><label>شناسه تراکنش یا مرجع صادرشده از سرویس پرداخت<input value={paymentRef} onChange={e=>setPaymentRef(e.target.value)} placeholder="شناسه مرجع پرداخت" autoComplete="off" maxLength={200}/></label><p className="sk-checkout-disclaimer">ثبت مرجع به‌تنهایی مدرک پرداخت بانکی نیست؛ نتیجه نهایی به پاسخ سرویس پرداخت متصل به سامانه وابسته است.</p></>}{method==="credit"&&<div><label>تسهیلات اعتباری فعال<select value={facilityId} onChange={e=>setFacilityId(e.target.value)}><option value="">انتخاب کنید</option>{facilities.map(f=><option key={f.id} value={f.id}>{f.facility_no} · مانده {Number(f.available_amount).toLocaleString("fa-IR")} {f.currency}</option>)}</select></label>{facilities.length===0&&<p>تسهیلات فعال قابل مصرف برای این حساب پیدا نشد.</p>}</div>}
-     <button className="sk-checkout-primary" disabled={busy||!items.length||(method==="credit"&&!facilityId)||(method==="manual"&&!paymentRef.trim())} onClick={checkoutAndPay}>{busy?"در حال ثبت درخواست…":method==="credit"?"ادامه با اعتبار خرید":"ثبت درخواست پرداخت"}</button>
+     {method==="online"&&<p className="sk-checkout-disclaimer">پرداخت فقط پس از تأیید درگاه واقعی نهایی می‌شود. واردکردن شماره مرجع به‌تنهایی پرداخت محسوب نمی‌شود.</p>}{method==="credit"&&<div><label>تسهیلات اعتباری فعال<select value={facilityId} onChange={e=>setFacilityId(e.target.value)}><option value="">انتخاب کنید</option>{facilities.map(f=><option key={f.id} value={f.id}>{f.facility_no} · مانده {Number(f.available_amount).toLocaleString("fa-IR")} {f.currency}</option>)}</select></label>{facilities.length===0&&<p>تسهیلات فعال قابل مصرف برای این حساب پیدا نشد.</p>}</div>}
+     <button className="sk-checkout-primary" disabled={busy||!items.length||(method==="credit"&&!facilityId)} onClick={checkoutAndPay}>{busy?"در حال ثبت درخواست…":method==="credit"?"ادامه با اعتبار خرید":"ثبت درخواست پرداخت"}</button>
      {orderId&&<div><p>شماره سفارش داخلی: {orderId}</p><Link href={"/store/checkout?cart="+encodeURIComponent(cartId)+"&order="+encodeURIComponent(orderId)}>مشاهده وضعیت ←</Link></div>}
     </article>
    </div>}
