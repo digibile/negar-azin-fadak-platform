@@ -1475,3 +1475,30 @@
  .sk-store--technolife .sk-product-grid{gap:6px}
  .sk-store--technolife .sk-product-info{padding:8px}
 }
+
+
+/* Dedicated professional marketplace skin. It shares the live commerce components and data flow. */
+.sk-store--marketplace-pro{--sk-primary:#0f766e;--sk-primary-dark:#115e59;--sk-accent:#d6a84f;--sk-canvas:#f3f6f7;--sk-ink:#172b36}
+.sk-store--marketplace-pro .sk-service-strip{background:#123b43;color:#e2f4f1}
+.sk-store--marketplace-pro .sk-header{border-bottom:1px solid #dce7e7;box-shadow:0 5px 22px #143b4310}
+.sk-store--marketplace-pro .sk-logo-mark{background:linear-gradient(145deg,#0f766e,#164e63);border-radius:13px;box-shadow:0 7px 18px #0f766e2a}
+.sk-store--marketplace-pro .sk-search{background:#f0f5f4;border-color:#e1eae8}
+.sk-store--marketplace-pro .sk-search:focus-within{border-color:#0f766e;box-shadow:0 0 0 3px #0f766e14}
+.sk-store--marketplace-pro .sk-nav-inner .sk-all-cats{color:#0f766e}
+.sk-store--marketplace-pro .sk-nav-inner>a:hover{color:#0f766e}
+.sk-store--marketplace-pro .sk-hero{background:radial-gradient(ellipse at 10% 5%,#277d782d 0,transparent 40%),linear-gradient(115deg,#102b33 0%,#17454b 58%,#246c65 120%);border-radius:25px;box-shadow:0 22px 48px #173f441a}
+.sk-store--marketplace-pro .sk-hero h1 em{color:#e8c77c}
+.sk-store--marketplace-pro .sk-hero-kicker{color:#e8d9b5}
+.sk-store--marketplace-pro .sk-primary-btn{background:#d6a84f;color:#172b36}
+.sk-store--marketplace-pro .sk-primary-btn:hover{background:#e6bd6b}
+.sk-store--marketplace-pro .sk-quiet-btn{border-color:#ffffff45}
+.sk-store--marketplace-pro .sk-art-core{background:linear-gradient(145deg,#d6a84f,#a67b32);color:#183b40;box-shadow:0 18px 30px #071b1d55}
+.sk-store--marketplace-pro .sk-art-panel{border-color:#d7c58b55;background:linear-gradient(145deg,#ffffff20,#ffffff08)}
+.sk-store--marketplace-pro .sk-benefits article{border-color:#e0e9e6;box-shadow:0 5px 18px #153b3b06}
+.sk-store--marketplace-pro .sk-section-title small,.sk-store--marketplace-pro .sk-section-kicker{color:#0f766e}
+.sk-store--marketplace-pro .sk-product-card{border-color:#e2e9e7;box-shadow:0 5px 18px #163c3b08}
+.sk-store--marketplace-pro .sk-product-card:hover{border-color:#b7d4ce;box-shadow:0 12px 28px #163c3b14;transform:translateY(-2px)}
+.sk-store--marketplace-pro .sk-product-card button,.sk-store--marketplace-pro .sk-product-card .sk-add-cart{border-radius:10px}
+.sk-store--marketplace-pro .sk-footer{background:#12343b;color:#e1efed}
+.sk-store--marketplace-pro .sk-footer a{color:#c9dedb}
+@media(max-width:760px){.sk-store--marketplace-pro .sk-hero{border-radius:18px}.sk-store--marketplace-pro .sk-hero-copy{padding:30px 22px}.sk-store--marketplace-pro .sk-benefits article{padding:13px 10px}}
