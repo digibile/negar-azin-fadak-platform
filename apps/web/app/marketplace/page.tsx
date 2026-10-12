@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import StorePage from "../store/page";
+import MarketplacePro from "./MarketplacePro";
 
 export const metadata: Metadata = {
-  title: "مارکت‌پلیس پرو | سوکار دیتا‌یار",
-  description: "بازارگاه حرفه‌ای سوکار دیتا‌یار با جست‌وجو، دسته‌بندی، کاتالوگ محصولات و مسیر خرید یکپارچه.",
+  title: "بازارگاه نگار آذین فدک | Marketplace Pro",
+  description: "بازارگاه حرفه‌ای نگار آذین فدک ایران؛ جست‌وجوی کالا، دسته‌بندی محصولات، اطلاعات فروشندگان و سبد خرید واکنش‌گرا.",
   robots: { index: false, follow: false }
 };
 
 export default function MarketplaceRoute() {
-  return <StorePage variant="marketplace-pro" />;
+  return <MarketplacePro />;
 }
