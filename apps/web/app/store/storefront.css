@@ -1495,10 +1495,10 @@
 .sk-store--marketplace-pro .sk-art-core{background:linear-gradient(145deg,#d6a84f,#a67b32);color:#183b40;box-shadow:0 18px 30px #071b1d55}
 .sk-store--marketplace-pro .sk-art-panel{border-color:#d7c58b55;background:linear-gradient(145deg,#ffffff20,#ffffff08)}
 .sk-store--marketplace-pro .sk-benefits article{border-color:#e0e9e6;box-shadow:0 5px 18px #153b3b06}
-.sk-store--marketplace-pro .sk-section-title small,.sk-store--marketplace-pro .sk-section-kicker{color:#0f766e}
+.sk-store--marketplace-pro .sk-section-heading .sk-eyebrow{color:#0f766e}
 .sk-store--marketplace-pro .sk-product-card{border-color:#e2e9e7;box-shadow:0 5px 18px #163c3b08}
 .sk-store--marketplace-pro .sk-product-card:hover{border-color:#b7d4ce;box-shadow:0 12px 28px #163c3b14;transform:translateY(-2px)}
-.sk-store--marketplace-pro .sk-product-card button,.sk-store--marketplace-pro .sk-product-card .sk-add-cart{border-radius:10px}
+.sk-store--marketplace-pro .sk-product-card .sk-product-cta,.sk-store--marketplace-pro .sk-product-card .sk-add-cart{border-radius:10px}
 .sk-store--marketplace-pro .sk-footer{background:#12343b;color:#e1efed}
 .sk-store--marketplace-pro .sk-footer a{color:#c9dedb}
 @media(max-width:760px){.sk-store--marketplace-pro .sk-hero{border-radius:18px}.sk-store--marketplace-pro .sk-hero-copy{padding:30px 22px}.sk-store--marketplace-pro .sk-benefits article{padding:13px 10px}}
