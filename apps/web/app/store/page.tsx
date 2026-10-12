@@ -79,7 +79,7 @@ const categoryGlyph = (category: string | null, title: string) => {
   return "◈";
 };
 
-type StoreVariant = "default" | "digikala" | "technolife" | "ava" | "kipa" | "digibile";
+type StoreVariant = "default" | "digikala" | "technolife" | "ava" | "kipa" | "digibile" | "marketplace-pro";
 
 const DIGIKALA_NAVIGATION = [
   { name: "موبایل و تبلت", children: ["همه موبایل‌ها", "گوشی سامسونگ", "گوشی اپل", "گوشی شیائومی", "گوشی اقتصادی", "تبلت", "ساعت هوشمند", "لوازم جانبی موبایل", "شارژر و پاوربانک"] },
@@ -152,7 +152,8 @@ const brandIdentity:Record<StoreVariant,{name:string;mark:string;tagline:string;
   technolife:{name:"سوکار",mark:"س",tagline:"فناوری، با انتخابی مطمئن",strip:"سوکار؛ مقصد خرید هوشمند کالای دیجیتال",heroKicker:"کالای دیجیتال در سوکار",heroTitle:<>فناوری روز،<br /><em>انتخابی آگاهانه.</em></>,heroDescription:"گوشی، لپ‌تاپ و تجهیزات دیجیتال را در یک تجربه منظم بررسی کن؛ مشخصات، قیمت ثبت‌شده و فروشنده را پیش از انتخاب ببین.",loginBrand:"naf",footerDescription:"بازارگاه سوکار برای کشف و مقایسه کالای دیجیتال از کاتالوگ فروشندگان ثبت‌شده.",domain:"sookar.ir"},
   ava:{name:"آوا",mark:"آ",tagline:"خرید آرام، انتخاب هوشمند",strip:"آوا، تجربه خرید آرام و هوشمند",heroKicker:"تجربه خرید مینیمال",heroTitle:<>انتخابی ساده،<br /><em>خریدی مطمئن.</em></>,heroDescription:"کالاهای ثبت‌شده را با رابطی خلوت، خوانا و سازگار با موبایل مرور کن.",loginBrand:"naf",footerDescription:"قالب فروشگاهی مینیمال با دسترسی روشن به کاتالوگ و سفارش‌ها.",domain:"پیش‌نمایش قالب"},
   kipa:{name:"کیپا",mark:"ک",tagline:"انتخاب روشن، خرید مطمئن",strip:"کیپا، بازارگاه هوشمند و یکپارچه",heroKicker:"کیپا · خرید آگاهانه",heroTitle:<>خرید روشن‌تر،<br /><em>انتخاب مطمئن‌تر.</em></>,heroDescription:"کالاهای ثبت‌شده فروشندگان فعال را مرور کن، جزئیات و قیمت واقعی را ببین و انتخابت را با اطلاعات شفاف انجام بده.",loginBrand:"kipa",footerDescription:"بازارگاه هوشمند با نمایش شفاف اطلاعات ثبت‌شده محصولات و فروشندگان.",domain:"پیش‌نمایش قالب"},
-  digibile:{name:"دیجی‌بایل",mark:"د",tagline:"بازارگاه تجارت دیجیتال",strip:"دیجی‌بایل، خرید و فروش در یک بازارگاه یکپارچه",heroKicker:"بازارگاه دیجی‌بایل",heroTitle:<>بازار خرید و فروش،<br /><em>همه‌چیز یک‌جا.</em></>,heroDescription:"محصولات و فروشندگان ثبت‌شده را کشف کن، دسته‌بندی‌ها را مرور کن و خرید را از مسیر واقعی بازارگاه ادامه بده.",loginBrand:"digibile",footerDescription:"بازارگاه چندفروشنده با کاتالوگ زنده، دسترسی فروشندگان و مسیر روشن سفارش.",domain:"digibile.ir"}
+  digibile:{name:"دیجی‌بایل",mark:"د",tagline:"بازارگاه تجارت دیجیتال",strip:"دیجی‌بایل، خرید و فروش در یک بازارگاه یکپارچه",heroKicker:"بازارگاه دیجی‌بایل",heroTitle:<>بازار خرید و فروش،<br /><em>همه‌چیز یک‌جا.</em></>,heroDescription:"محصولات و فروشندگان ثبت‌شده را کشف کن، دسته‌بندی‌ها را مرور کن و خرید را از مسیر واقعی بازارگاه ادامه بده.",loginBrand:"digibile",footerDescription:"بازارگاه چندفروشنده با کاتالوگ زنده، دسترسی فروشندگان و مسیر روشن سفارش.",domain:"digibile.ir"},
+  "marketplace-pro":{name:"نگار آذین فدک",mark:"ن",tagline:"بازارگاه یکپارچه خرید و فروش",strip:"بازارگاه حرفه‌ای نگار آذین فدک · اطلاعات کالا از کاتالوگ ثبت‌شده",heroKicker:"بازارگاه یکپارچه",heroTitle:<>انتخاب هوشمند،<br /><em>خرید شفاف‌تر.</em></>,heroDescription:"محصولات و فروشندگان را در یک تجربه منظم پیدا کن، دسته‌بندی‌ها را مرور کن و مشخصات ثبت‌شده را پیش از خرید بررسی کن.",loginBrand:"naf",footerDescription:"بازارگاه یکپارچه نگار آذین فدک؛ کاتالوگ، اطلاعات فروشنده و مسیر خرید متصل به سامانه.",domain:"پیش‌نمایش قالب"}
 };
 export default function StorePage({ variant = "default" }: { variant?: StoreVariant }) {
   const pathname = usePathname();
