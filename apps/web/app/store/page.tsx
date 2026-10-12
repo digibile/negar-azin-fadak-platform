@@ -258,7 +258,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const techBrands = isTechnolife
     ? [...new Set(sourceProducts.map(product => product.brand?.trim()).filter((brand): brand is string => Boolean(brand)))].slice(0, 12)
     : [];
-  const techShelfGroups = isTechnolife ? [
+  const techShelfGroups = (isTechnolife || isMarketplacePro) ? [
     { title: "پرچمداران هوشمند", eyebrow: "گوشی موبایل و تبلت", searchTerm: "گوشی", matches: /موبایل|گوشی|تبلت|phone|mobile|tablet/i },
     { title: "لپ‌تاپ و کامپیوتر", eyebrow: "کار، دانشگاه و بازی", searchTerm: "لپ", matches: /لپ.?تاپ|laptop|notebook/i },
     { title: "ابزارآلات", eyebrow: "ابزار و تجهیزات", searchTerm: "ابزار", matches: /ابزارآلات|دریل|پیچ.?گوشتی|فرز|کمپرسور|tool|drill|screwdriver/i },
