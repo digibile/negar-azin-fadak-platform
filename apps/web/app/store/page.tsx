@@ -158,7 +158,7 @@ const brandIdentity:Record<StoreVariant,{name:string;mark:string;tagline:string;
 export default function StorePage({ variant = "default" }: { variant?: StoreVariant }) {
   const pathname = usePathname();
   const [theme, setTheme] = useState<StoreTheme | null>(null);
-  const templateVariant: StoreVariant = pathname === "/" ? variant : theme?.key === "technolife-store" ? "technolife" : theme?.key === "digibile-commerce" ? "digibile" : theme?.key === "kipa-store" ? "kipa" : variant;
+  const templateVariant: StoreVariant = pathname === "/" || pathname === "/store/marketplace-pro" ? variant : theme?.key === "technolife-store" ? "technolife" : theme?.key === "digibile-commerce" ? "digibile" : theme?.key === "kipa-store" ? "kipa" : variant;
   const identity = brandIdentity[templateVariant];
   const isTechnolife = templateVariant === "technolife";
   const activeStoreNavigation = templateVariant === "digikala" ? DIGIKALA_NAVIGATION : templateVariant === "technolife" ? TECHNOLIFE_NAVIGATION : templateVariant === "digibile" ? DIGIBILE_NAVIGATION : templateVariant === "ava" ? AVA_NAVIGATION : templateVariant === "kipa" ? KIPA_NAVIGATION : STORE_CATEGORY_NAVIGATION;
