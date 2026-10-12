@@ -1,4 +1,4 @@
-"import type { Metadata } from "next";
+import type { Metadata } from "next";
 import StorePage from "../page";
 
 export const metadata: Metadata = {
