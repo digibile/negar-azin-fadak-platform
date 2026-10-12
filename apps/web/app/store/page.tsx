@@ -161,6 +161,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const templateVariant: StoreVariant = pathname === "/" || pathname === "/store/marketplace-pro" ? variant : theme?.key === "technolife-store" ? "technolife" : theme?.key === "digibile-commerce" ? "digibile" : theme?.key === "kipa-store" ? "kipa" : variant;
   const identity = brandIdentity[templateVariant];
   const isTechnolife = templateVariant === "technolife";
+  const isMarketplacePro = templateVariant === "marketplace-pro";
   const activeStoreNavigation = templateVariant === "digikala" ? DIGIKALA_NAVIGATION : templateVariant === "technolife" ? TECHNOLIFE_NAVIGATION : templateVariant === "digibile" ? DIGIBILE_NAVIGATION : templateVariant === "ava" ? AVA_NAVIGATION : templateVariant === "kipa" ? KIPA_NAVIGATION : STORE_CATEGORY_NAVIGATION;
   const isDigikala = templateVariant === "digikala";
   const isAva = templateVariant === "ava";
@@ -343,7 +344,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
             <h1 id="sk-hero-title">{identity.heroTitle}</h1>
             <p>{identity.heroDescription}</p>
             <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">خرید از همه دسته‌ها <span>←</span></Link><Link href="/marketplace/directory" className="sk-quiet-btn">فروشگاه‌های بازارگاه</Link></div>
-            <div className="sk-hero-note"><span>✓</span> {hasDemoProducts ? "کاتالوگ آزمایشی سوکار؛ قیمت‌ها مرجع‌اند و پرداخت واقعی غیرفعال است" : "اطلاعات محصولات از کاتالوگ ثبت‌شدهٔ سوکار نمایش داده می‌شود"}</div>
+            <div className="sk-hero-note"><span>✓</span> {hasDemoProducts ? `کاتالوگ آزمایشی ${identity.name}؛ قیمت‌ها مرجع‌اند و پرداخت واقعی غیرفعال است` : `اطلاعات محصولات از کاتالوگ ثبت‌شدهٔ ${identity.name} نمایش داده می‌شود`}</div>
           </div>
           <div className="sk-hero-products" aria-label="محصولات منتخب از کاتالوگ">
             {sourceProducts.filter(product => safeImageUrl(product.image_url)).slice(0, 3).map((product, index) => (
@@ -368,7 +369,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
           <article><span className="sk-benefit-icon">◷</span><div><b>پیگیری سفارش</b><small>دسترسی به مسیر سفارش‌های شما</small></div></article>
         </section>
 
-        {isTechnolife && !query && !category && techShelfGroups.map(shelf => shelf.products.length > 0 && <section className="sk-tech-shelf" key={shelf.title} aria-label={shelf.title}>
+        {(isTechnolife || isMarketplacePro) && !query && !category && techShelfGroups.map(shelf => shelf.products.length > 0 && <section className="sk-tech-shelf" key={shelf.title} aria-label={shelf.title}>
           <div className="sk-tech-shelf-heading"><div><span>{shelf.eyebrow}</span><h2>{shelf.title}</h2></div><button type="button" onClick={() => { setQuery(shelf.searchTerm); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>مشاهده همه <b>←</b></button></div>
           <div className="sk-tech-shelf-products">{shelf.products.map(product => <Link href={productHrefFor(product)} className="sk-tech-shelf-card" key={product.id}>
             <span className="sk-tech-shelf-image">{safeImageUrl(product.image_url) ? <img src={safeImageUrl(product.image_url) || ""} alt={product.title} loading="lazy" decoding="async" /> : <i>{categoryGlyph(product.category, product.title)}</i>}</span>
@@ -434,8 +435,8 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
 
 
         <section className="sk-market-banner">
-          <div><span className="sk-eyebrow">برای فروشندگان</span><h2>کسب‌وکارت را به بازارگاه سوکار وصل کن.</h2><p>مسیر فروشندگان و فروشگاه‌های ثبت‌شده را ببین و درباره حضور در بازارگاه اطلاعات بگیر.</p><Link href={"/login?brand="+identity.loginBrand}>ورود به بخش فروشندگان <span>←</span></Link></div>
-          <div className="sk-banner-symbol" aria-hidden="true"><span>س</span><i /><i /><i /></div>
+          <div><span className="sk-eyebrow">برای فروشندگان</span><h2>کسب‌وکارت را به بازارگاه نگار آذین فدک وصل کن.</h2><p>فروشگاهت را معرفی کن، محصولاتت را در کنار سایر فروشندگان عرضه کن و مسیر ورود به بازارگاه را بررسی کن.</p><Link href={"/login?brand="+identity.loginBrand}>ورود به بخش فروشندگان <span>←</span></Link></div>
+          <div className="sk-banner-symbol" aria-hidden="true"><span>{identity.mark}</span><i /><i /><i /></div>
         </section>
 
         <section className="sk-bottom-links"><Link href="/marketplace/directory"><span>▦</span><b>فروشگاه‌های بازارگاه</b><small>مرور فروشگاه‌های ثبت‌شده</small><em>←</em></Link><Link href="/pay"><span>◇</span><b>خدمات اعتباری</b><small>مشاهده مسیرهای فعال</small><em>←</em></Link><Link href="/store/orders"><span>◷</span><b>پیگیری سفارش</b><small>رفتن به بخش سفارش‌ها</small><em>←</em></Link></section>
