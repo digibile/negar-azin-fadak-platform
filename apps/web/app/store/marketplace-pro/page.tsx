@@ -13,5 +13,5 @@ export const metadata: Metadata = {
  * stay connected to the existing commerce UI instead of becoming a dead mockup.
  */
 export default function MarketplaceProTemplatePreview() {
-  return <StorePage variant="technolife" />;
+  return <StorePage variant="marketplace-pro" />;
 }
