@@ -581,6 +581,30 @@ domainMarketplaceRouter.get("/api/marketplace/digikala-catalog",requireAuth,requ
   res.json({source:"دیجی‌کالا",sourceStatus:catalog.sourceStatus,fetchedAt:catalog.fetchedAt,categories:catalog.categories,products:catalog.products.filter(product=>product.price!==null),total:catalog.products.filter(product=>product.price!==null).length,notice:"این فهرست فقط برای ورود مدیریت‌شده به کاتالوگ داخلی است؛ قیمت، توضیحات و انتشار محصول باید در سامانه خودتان بازبینی شوند."});
 }));
 
+domainMarketplaceRouter.get("/api/public/marketplace/reference-catalog",asyncHandler(async(req,res)=>{
+  const requestedCode=bodyString(req.query.tenantCode,80)||bodyString(req.query.tenant,80)||undefined;
+  const tenant=await resolvePublicTenant(req,requestedCode);
+  if(!tenant)return res.status(404).json({error:"بازارگاه فعال پیدا نشد",products:[],categories:[],total:0});
+  const catalog=await getDigikalaCatalog();
+  const products=catalog.products
+    .filter(product=>product.price!==null&&Number(product.price)>0&&product.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(product.image_url)&&/^https:\/\//i.test(product.source_url))
+    .map(product=>({
+      id:product.id,sku:product.sku,title:product.title,description:product.description,
+      category:canonicalMarketplaceCategory(product.category),price:String(product.price),currency:product.currency,
+      seller_name:"منبع اصلی · دیجی‌کالا",store_id:null,image_url:product.image_url,brand:product.brand,rating:product.rating,
+      is_reference:true,is_demo_product:false,source_url:product.source_url,source_name:product.source_name,
+      source_type:product.source_type,source_available:product.source_available,
+      attributes:{specifications:product.specifications,galleryImages:product.gallery_images}
+    }));
+  res.setHeader("Cache-Control","public, max-age=60, stale-while-revalidate=120");
+  res.json({
+    tenant:{name:tenant.name,code:tenant.code},products,
+    categories:[...new Set([...catalog.categories,...products.map(product=>product.category)].filter(Boolean))],
+    total:products.length,catalogMode:"reference",sourceStatus:catalog.sourceStatus,sourceFetchedAt:catalog.fetchedAt,
+    notice:"این‌ها کالاهای مرجع از منبع بیرونی‌اند؛ فروشنده، موجودی و پرداخت در سوکار تأیید نشده‌اند. خرید فقط از صفحه منبع اصلی انجام می‌شود."
+  });
+}));
+
 domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res)=>{
   const requestedCode=bodyString(req.query.tenantCode,80)||bodyString(req.query.tenant,80)||undefined;
   const tenant=await resolvePublicTenant(req,requestedCode);
