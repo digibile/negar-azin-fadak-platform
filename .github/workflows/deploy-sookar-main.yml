@@ -85,6 +85,21 @@ jobs:
       - name: API tests
         working-directory: apps/api
         run: pnpm test
+      - name: Extract the original Digibile template
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCHIVE=public/templates/marketplace-preview/marketplace-ui.zip
+          test -s "$ARCHIVE"
+          if unzip -Z1 "$ARCHIVE" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+            echo "Unsafe archive path found in Digibile template."
+            exit 1
+          fi
+          mkdir -p public/digibile-template
+          unzip -oq "$ARCHIVE" -d public/digibile-template
+          test -s public/digibile-template/src/index.html
+          echo "DIGIBILE_TEMPLATE_EXTRACTED"
       - name: Web build
         working-directory: apps/web
         run: pnpm build
@@ -379,6 +394,12 @@ jobs:
             head -c 1000 /tmp/sookar-ir-health.html || true
             exit 1
           fi
+          grep -q 'digibile-template/src/index.html' /tmp/sookar-ir-health.html
+          template_code=$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/sookar-digibile-template.html -w '%{http_code}' https://sookar.ir/digibile-template/src/index.html)
+          echo "DIGIBILE_TEMPLATE_HTTP=$template_code"
+          test "$template_code" = "200"
+          grep -qi '<html' /tmp/sookar-digibile-template.html
+          echo "DIGIBILE_ROOT_TEMPLATE_OK"
           preview_code=$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/sookar-marketplace-preview.html -w '%{http_code}' https://sookar.ir/store/marketplace-preview)
           echo "MARKETPLACE_PREVIEW_HTTP=$preview_code"
           test "$preview_code" = "200"
