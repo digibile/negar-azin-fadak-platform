@@ -371,12 +371,23 @@ jobs:
             echo "PUBLIC_HTTP=$code attempt=$i"
             if [ "$code" = "200" ]; then
               echo PUBLIC_HTTPS_HEALTH_OK
-              exit 0
+              break
             fi
             sleep 2
           done
-          head -c 1000 /tmp/sookar-ir-health.html || true
-          exit 1
+          if [ "$code" != "200" ]; then
+            head -c 1000 /tmp/sookar-ir-health.html || true
+            exit 1
+          fi
+          preview_code=$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/sookar-marketplace-preview.html -w '%{http_code}' https://sookar.ir/store/marketplace-preview)
+          echo "MARKETPLACE_PREVIEW_HTTP=$preview_code"
+          test "$preview_code" = "200"
+          grep -q "بازارگاه" /tmp/sookar-marketplace-preview.html
+          legacy_preview_code=$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/sookar-marketplace-preview-legacy.html -w '%{http_code}' https://sookar.ir/templates/marketplace-preview/index.html)
+          echo "MARKETPLACE_PREVIEW_LEGACY_HTTP=$legacy_preview_code"
+          test "$legacy_preview_code" = "200"
+          grep -q "بازارگاه" /tmp/sookar-marketplace-preview-legacy.html
+          echo "MARKETPLACE_PREVIEW_ROUTES_OK"
 
       - name: Verify live Sookar catalog and shopping flow
         if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
