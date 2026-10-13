@@ -592,7 +592,7 @@ domainMarketplaceRouter.get("/api/public/marketplace/reference-catalog",asyncHan
       id:product.id,sku:product.sku,title:product.title,description:product.description,
       category:canonicalMarketplaceCategory(product.category),price:String(product.price),currency:product.currency,
       seller_name:"منبع اصلی · دیجی‌کالا",store_id:null,image_url:product.image_url,brand:product.brand,rating:product.rating,
-      is_reference:true,is_demo_product:false,source_url:product.source_url,source_name:product.source_name,
+      is_reference:true,referenceOnly:true,is_demo_product:false,source_url:product.source_url,source_name:product.source_name,
       source_type:product.source_type,source_available:product.source_available,
       attributes:{specifications:product.specifications,galleryImages:product.gallery_images}
     }));
@@ -601,7 +601,7 @@ domainMarketplaceRouter.get("/api/public/marketplace/reference-catalog",asyncHan
     tenant:{name:tenant.name,code:tenant.code},products,
     categories:[...new Set([...catalog.categories,...products.map(product=>product.category)].filter(Boolean))],
     total:products.length,catalogMode:"reference",sourceStatus:catalog.sourceStatus,sourceFetchedAt:catalog.fetchedAt,
-    notice:"این‌ها کالاهای مرجع از منبع بیرونی‌اند؛ فروشنده، موجودی و پرداخت در سوکار تأیید نشده‌اند. خرید فقط از صفحه منبع اصلی انجام می‌شود."
+    notice:"این‌ها کالاهای مرجع از منبع بیرونی‌اند؛ فروشنده و موجودی سوکار تأیید نشده‌اند و خرید در سوکار غیرفعال است. خرید فقط از صفحه منبع اصلی انجام می‌شود."
   });
 }));
 
