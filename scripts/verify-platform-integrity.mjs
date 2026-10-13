@@ -163,7 +163,7 @@ if(deployWorkflow.includes("sookar.com")||!deployWorkflow.includes("/home/sookar
 const rootPage=fs.readFileSync(path.join(root,"apps/web/app/page.tsx"),"utf8");
 const marketplaceRoute=fs.readFileSync(path.join(root,"apps/web/app/marketplace/page.tsx"),"utf8");
 const rootLayout=fs.readFileSync(path.join(root,"apps/web/app/layout.tsx"),"utf8");
-if(!rootPage.includes('from "./sookar-home"')||(!marketplaceRoute.includes('from "../sookar-home"')&&!marketplaceRoute.includes('from "./MarketplacePro"')))throw new Error("Sookar.ir root and /marketplace must each serve a dedicated storefront implementation");
+if((!rootPage.includes('from "./sookar-home"')&&!rootPage.includes('from "./marketplace/MarketplacePro"'))||(!marketplaceRoute.includes('from "../sookar-home"')&&!marketplaceRoute.includes('from "./MarketplacePro"')))throw new Error("Sookar.ir root and /marketplace must each serve a dedicated storefront implementation");
 if(marketplaceRoute.includes('from "./MarketplacePro"')){const marketplacePro=fs.readFileSync(path.join(root,"apps/web/app/marketplace/MarketplacePro.tsx"),"utf8");if(!marketplacePro.includes('fetch("/api/public/marketplace"')||!marketplacePro.includes("نگار آذین فدک")||!marketplacePro.includes("AddToCartButton"))throw new Error("NAF Marketplace Pro must use the live catalog, NAF identity, and shared cart actions");}
 const sookarHome=fs.readFileSync(path.join(root,"apps/web/app/sookar-home.tsx"),"utf8");
 if(!sookarHome.includes('fetch("/api/public/marketplace"')||sookarHome.includes('variant="technolife"'))throw new Error("Sookar homepage must use the public marketplace catalog without the legacy Technolife variant");
