@@ -1,25 +1,25 @@
 import type { Metadata } from "next";
-import StorePage from "./store/page";
+import DigibileHome from "./digibile-home";
 
 export const metadata: Metadata = {
-  title: "سوکار | بازارگاه یکپارچه خرید و فروش",
-  description: "بازارگاه سوکار برای کشف کالاها، بررسی اطلاعات محصولات و دسترسی به فروشندگان ثبت‌شده در یک تجربه یکپارچه.",
+  title: "Digibile | بازارگاه خرید و فروش",
+  description: "قالب Digibile، بازارگاه خرید و فروش.",
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "fa_IR",
     url: "https://sookar.ir/",
-    siteName: "سوکار",
-    title: "سوکار | بازارگاه یکپارچه خرید و فروش",
-    description: "کشف کالا، بررسی اطلاعات و دسترسی به فروشندگان بازارگاه سوکار."
+    siteName: "Digibile",
+    title: "Digibile | بازارگاه خرید و فروش",
+    description: "قالب Digibile، بازارگاه خرید و فروش."
   },
   twitter: {
     card: "summary_large_image",
-    title: "سوکار | بازارگاه یکپارچه خرید و فروش",
-    description: "کشف کالا، بررسی اطلاعات و دسترسی به فروشندگان بازارگاه سوکار."
+    title: "Digibile | بازارگاه خرید و فروش",
+    description: "قالب Digibile، بازارگاه خرید و فروش."
   }
 };
 
 export default function HomePage() {
-  return <StorePage variant="marketplace-pro" />;
+  return <DigibileHome />;
 }
