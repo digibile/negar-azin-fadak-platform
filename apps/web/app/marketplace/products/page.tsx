@@ -42,6 +42,12 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const [savingId, setSavingId] = useState("");
   const [editingId, setEditingId] = useState("");
+  const [inventoryEditingId, setInventoryEditingId] = useState("");
+  const [inventoryQuantity, setInventoryQuantity] = useState("0");
+  const [inventorySourceType, setInventorySourceType] = useState<"seller-owned" | "supplier-verified">("seller-owned");
+  const [inventorySource, setInventorySource] = useState("");
+  const [supplierReference, setSupplierReference] = useState("");
+  const [inventoryVerified, setInventoryVerified] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editPrice, setEditPrice] = useState("");
@@ -305,6 +311,35 @@ export default function ProductsPage() {
     }
   }
 
+  function startInventoryEdit(item: Product) {
+    const attributes = item.attributes || {};
+    setInventoryEditingId(item.id);
+    setInventoryQuantity(String(attributes.inventoryQuantity ?? "0"));
+    setInventorySourceType(attributes.sourceType === "supplier-verified" ? "supplier-verified" : "seller-owned");
+    setInventorySource(String(attributes.inventorySource ?? ""));
+    setSupplierReference(String(attributes.supplierReference ?? ""));
+    setInventoryVerified(attributes.inventoryVerified === true);
+    setError(""); setNotice("");
+  }
+
+  async function saveInventory(item: Product) {
+    const quantity = Number(inventoryQuantity);
+    if (!Number.isInteger(quantity) || quantity < 0) { setError("موجودی باید عدد صحیح و صفر یا بیشتر باشد."); return; }
+    if (!inventorySource.trim()) { setError("محل انبار یا مرجع موجودی را وارد کنید."); return; }
+    if (inventorySourceType === "supplier-verified" && !supplierReference.trim()) { setError("برای موجودی تأمین‌کننده، شناسه یا مرجع تأمین الزامی است."); return; }
+    setError(""); setNotice(""); setSavingId(item.id);
+    try {
+      const result = await api<{message?:string}>("/api/marketplace/products/" + encodeURIComponent(item.id) + "/inventory", {
+        method: "PATCH",
+        body: JSON.stringify({ quantity, sourceType: inventorySourceType, source: inventorySource.trim(), supplierReference: inventorySourceType === "supplier-verified" ? supplierReference.trim() : "", verified: inventoryVerified })
+      });
+      setNotice(result.message || "اطلاعات موجودی ذخیره شد.");
+      setInventoryEditingId("");
+      await load();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "ثبت موجودی ناموفق بود."); }
+    finally { setSavingId(""); }
+  }
+
   async function changeStatus(item: Product, status: "active" | "draft") {
     setError(""); setNotice(""); setSavingId(item.id);
     try {
@@ -408,12 +443,23 @@ export default function ProductsPage() {
           <span className={"mp-status status-" + item.status}><i />{statusLabel[item.status] || item.status}</span>
           <div className="mp-row-actions">
             <button type="button" onClick={() => startEdit(item)} disabled={savingId === item.id}>ویرایش قیمت و مشخصات</button>
+            <button type="button" onClick={() => inventoryEditingId === item.id ? setInventoryEditingId("") : startInventoryEdit(item)} disabled={savingId === item.id}>ثبت / ویرایش موجودی</button>
             {item.status === "active"
               ? <button type="button" onClick={() => changeStatus(item, "draft")} disabled={savingId === item.id}>{savingId === item.id ? "در حال ذخیره…" : "برداشتن از ویترین"}</button>
               : <button type="button" onClick={() => changeStatus(item, "active")} disabled={savingId === item.id || !canPublish} title={needsPriceReview ? "ابتدا قیمت فروش خودتان را ثبت و ذخیره کنید" : !canPublish ? "ابتدا فروشنده را فعال کنید" : ""}>{savingId === item.id ? "در حال ذخیره…" : "انتشار محصول"}</button>}
             {needsPriceReview && <small>قیمت منبع فقط برای مرجع است؛ قیمت فروش خودتان را وارد کنید.</small>}
             {!seller || seller.status !== "active" ? <small>فعال‌سازی فروشنده لازم است</small> : null}
           </div>
+          {inventoryEditingId === item.id && <div className="mp-product-edit-form">
+            <h3>موجودی قابل فروش</h3>
+            <p>فقط موجودی واقعی و قابل تحویل را ثبت کنید. بدون تأیید موجودی، محصول در کاتالوگ عمومی نمایش داده نمی‌شود.</p>
+            <label>تعداد موجودی<input type="number" min="0" step="1" value={inventoryQuantity} onChange={event => setInventoryQuantity(event.target.value)} /></label>
+            <label>نوع منبع موجودی<select value={inventorySourceType} onChange={event => setInventorySourceType(event.target.value as "seller-owned" | "supplier-verified")}><option value="seller-owned">موجودی متعلق به فروشنده</option><option value="supplier-verified">تأمین‌کننده تأییدشده</option></select></label>
+            <label>محل انبار / مرجع موجودی<input value={inventorySource} onChange={event => setInventorySource(event.target.value)} maxLength={250} placeholder="مثلاً انبار مرکزی فروشنده" /></label>
+            {inventorySourceType === "supplier-verified" && <label>شناسه تأمین‌کننده / قرارداد<input value={supplierReference} onChange={event => setSupplierReference(event.target.value)} maxLength={200} placeholder="شناسه قرارداد یا مرجع تأمین" /></label>}
+            <label className="mp-edit-description"><input type="checkbox" checked={inventoryVerified} onChange={event => setInventoryVerified(event.target.checked)} /> موجودی و منبع آن را بررسی و تأیید کرده‌ام</label>
+            <div className="mp-edit-actions"><button type="button" onClick={() => void saveInventory(item)} disabled={savingId === item.id || !inventorySource.trim() || (inventorySourceType === "supplier-verified" && !supplierReference.trim())}>{savingId === item.id ? "در حال ذخیره…" : "ذخیره موجودی"}</button><button type="button" onClick={() => setInventoryEditingId("")} disabled={savingId === item.id}>انصراف</button></div>
+          </div>}
           {editingId === item.id && <div className="mp-product-edit-form">
             <label>عنوان محصول<input value={editTitle} onChange={event => setEditTitle(event.target.value)} maxLength={250} /></label>
             <label>قیمت فروش خودمان (ریال)<input type="number" min="1" step="1" value={editPrice} onChange={event => setEditPrice(event.target.value)} placeholder="قیمت نهایی خودمان" /></label>
