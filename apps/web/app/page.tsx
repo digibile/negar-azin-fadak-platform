@@ -21,5 +21,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <StorePage variant="default" />;
+  return <StorePage variant="marketplace-pro" />;
 }
