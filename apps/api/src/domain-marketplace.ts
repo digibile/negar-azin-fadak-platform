@@ -734,7 +734,7 @@ domainMarketplaceRouter.get("/api/public/marketplace/reference-catalog",asyncHan
   res.json({
     tenant:{name:tenant.name,code:tenant.code},products,
     categories:[...new Set([...categories.rows.map((r:any)=>r.category),...products.map((p:any)=>p.category)].filter(Boolean))],
-    total:products.length,catalogMode:"reference",sourceStatus:products.length?"stored":"empty",
+    total:products.length,catalogMode:"reference",storageMode:"persistent-database",sourceStatus:products.length?"stored":"empty",
     sourceFetchedAt:products[0]?.attributes?.sourceFetchedAt||null,bootstrapStatus,
     notice:"اطلاعات کالاها از کاتالوگ مرجع ذخیره‌شده در پایگاه داده سامانه خوانده می‌شود؛ همگام‌سازی اولیه فقط هنگام خالی بودن کاتالوگ انجام می‌شود. این کالاها تا زمان تأیید فروشنده و موجودی، کالای قابل فروش دیجی‌بایل محسوب نمی‌شوند."
   });
