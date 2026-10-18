@@ -450,7 +450,7 @@ jobs:
           '
           sku=$(cat /tmp/sookar-first-product-sku)
           if [ -n "$sku" ]; then
-            product_code=$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/sookar-product-page.html -w '%{http_code}' "https://sookar.ir/store/product/${sku}?site=technolife")
+            product_code=$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/sookar-product-page.html -w '%{http_code}' "https://sookar.ir/store/product/${sku}?site=default")
             echo "PRODUCT_DETAIL_HTTP=$product_code"
             test "$product_code" = "200"
             grep -q "$sku" /tmp/sookar-product-page.html
