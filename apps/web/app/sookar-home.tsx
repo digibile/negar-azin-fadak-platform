@@ -68,6 +68,7 @@ export default function SookarHome() {
   const [category, setCategory] = useState("");
   const [sort, setSort] = useState("featured");
   const [showAll, setShowAll] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -114,6 +115,7 @@ export default function SookarHome() {
   const totalStores = new Set(catalogProducts.map(product => product.store_id).filter(Boolean)).size;
 
   const chooseCategory = (name: string) => {
+    setMenuOpen(false);
     setCategory(current => current === name ? "" : name);
     setShowAll(false);
     document.getElementById("sh-products")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -142,8 +144,19 @@ export default function SookarHome() {
           </div>
         </div>
         <nav className="sh-nav sh-container" aria-label="ناوبری اصلی">
-          <Link className="sh-nav-all" href="/marketplace"><span>☰</span> دسته‌بندی کالاها</Link>
-          <Link href="#sh-categories">دسته‌بندی‌ها</Link><Link href="#sh-products">محصولات بازارگاه</Link><Link href="/marketplace/directory">فروشگاه‌ها</Link><Link href="/pay">خرید اعتباری</Link><Link href="/store/faq">راهنمای خرید</Link>
+          <div className="sh-nav-menu-wrap">
+            <button type="button" className={"sh-nav-all" + (menuOpen ? " is-open" : "")} aria-expanded={menuOpen} aria-controls="sh-mega-menu" onClick={() => setMenuOpen(open => !open)}><span className="sh-menu-glyph">{menuOpen ? "×" : "☰"}</span> دسته‌بندی کالاها <span className="sh-menu-chevron">⌄</span></button>
+            {menuOpen && <div id="sh-mega-menu" className="sh-mega-menu">
+              <div className="sh-mega-intro"><span className="sh-mega-eyebrow">کشف سریع بازارگاه</span><b>دستهٔ موردنظرت را انتخاب کن</b><small>دسته‌بندی‌ها از روی محصولات کاتالوگ سوکار فیلتر می‌شوند.</small><Link href="/marketplace" onClick={() => setMenuOpen(false)}>مشاهده همه دسته‌ها <Icon name="arrow" /></Link></div>
+              <div className="sh-mega-categories">{CATEGORY_GUIDES.map(guide => {
+                const actual = categories.find(name => guide.key.test(name)) || guide.name;
+                const count = catalogProducts.filter(product => guide.key.test(product.category || "")).length;
+                return <button type="button" key={guide.name} onClick={() => chooseCategory(actual)}><span className={"sh-mega-icon sh-tone-" + guide.tone}>{guide.icon}</span><span><b>{guide.name}</b><small>{count.toLocaleString("fa-IR")} کالا</small></span><Icon name="chevron" /></button>;
+              })}</div>
+              <div className="sh-mega-shortcuts"><span>دسترسی سریع</span><Link href="/marketplace/directory" onClick={() => setMenuOpen(false)}><Icon name="store" /> فروشگاه‌ها</Link><Link href="/pay" onClick={() => setMenuOpen(false)}>خرید اعتباری <Icon name="arrow" /></Link><Link href="/store/faq" onClick={() => setMenuOpen(false)}>راهنمای خرید <Icon name="arrow" /></Link></div>
+            </div>}
+          </div>
+          <Link href="#sh-categories" onClick={() => setMenuOpen(false)}>دسته‌بندی‌ها</Link><Link href="#sh-products" onClick={() => setMenuOpen(false)}>محصولات بازارگاه</Link><Link href="/marketplace/directory" onClick={() => setMenuOpen(false)}>فروشگاه‌ها</Link><Link href="/pay" onClick={() => setMenuOpen(false)}>خرید اعتباری</Link><Link href="/store/faq" onClick={() => setMenuOpen(false)}>راهنمای خرید</Link>
           <span className="sh-nav-spacer" /><span className="sh-nav-note">انتخاب آگاهانه، خرید مطمئن‌تر</span>
         </nav>
       </header>
