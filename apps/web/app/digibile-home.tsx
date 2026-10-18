@@ -52,6 +52,13 @@ export default function DigibileHome() {
   ];
   const currentSlide = heroSlides[slide];
 
+  function handleHeroAction() {
+    if (slide === 1) setActiveCategory("موبایل و دیجیتال");
+    else if (slide === 2) setActiveCategory("خانه و آشپزخانه");
+    else setActiveCategory("همه");
+    scrollToProducts();
+  }
+
   function scrollToProducts() {
     document.getElementById("featured-products")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
