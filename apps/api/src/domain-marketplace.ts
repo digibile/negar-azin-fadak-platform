@@ -693,6 +693,38 @@ domainMarketplaceRouter.get("/api/public/marketplace/reference-catalog",asyncHan
     res.setHeader("Cache-Control","public, max-age=30");
     return res.json({tenant:{name:"دیجی‌بایل",code:requestedCode},products:[],categories:[],total:0,catalogMode:"reference",sourceStatus:"empty",sourceFetchedAt:null,notice:"هنوز کاتالوگ مرجع در سامانه ذخیره نشده است."});
   }
+
+  // Bootstrap the persistent catalog only when the database has no products for this tenant.
+  // Normal visitor requests read the database and never re-fetch the source once seeded.
+  const existing=await query("select count(*)::int as total from catalog_reference_products where tenant_id=$1",[tenant.id]);
+  let bootstrapStatus:"not-needed"|"stored"|"unavailable"="not-needed";
+  if(Number(existing.rows[0]?.total||0)===0){
+    try{
+      const catalog=await getDigikalaCatalog(true);
+      const candidates=catalog.products.filter(p=>p.price!==null&&Number(p.price)>0&&p.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(p.image_url)&&/^https:\/\//i.test(p.source_url)).slice(0,250);
+      const mediaDir=path.join(process.env.MEDIA_ROOT||"/app/media","catalog",tenant.id);
+      await mkdir(mediaDir,{recursive:true});
+      let stored=0;
+      for(let i=0;i<candidates.length;i+=4){
+        await Promise.all(candidates.slice(i,i+4).map(async p=>{
+          try{
+            let imageUrl=p.image_url;
+            try{imageUrl=await importDigikalaImage(p.image_url,mediaDir,tenant.id);}catch(error){console.warn("Reference image mirror failed; retaining source URL",p.id,error instanceof Error?error.message:"unknown");}
+            await query(
+              "insert into catalog_reference_products(tenant_id,source_name,source_product_id,sku,title,description,category,source_price,original_price,discount_percent,currency,image_url,source_url,brand,rating,source_available,specifications,gallery_images,source_fetched_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::jsonb,$18::jsonb,$19::timestamptz) on conflict(tenant_id,source_name,source_product_id) do update set sku=excluded.sku,title=excluded.title,description=excluded.description,category=excluded.category,source_price=excluded.source_price,original_price=excluded.original_price,discount_percent=excluded.discount_percent,currency=excluded.currency,image_url=excluded.image_url,source_url=excluded.source_url,brand=excluded.brand,rating=excluded.rating,source_available=excluded.source_available,specifications=excluded.specifications,gallery_images=excluded.gallery_images,source_fetched_at=excluded.source_fetched_at,updated_at=now()",
+              [tenant.id,p.source_name,p.id,p.sku,p.title,p.description,canonicalMarketplaceCategory(p.category),Number(p.price),p.original_price?Number(p.original_price):null,p.discount_percent,p.currency,imageUrl,p.source_url,p.brand,p.rating,p.source_available,JSON.stringify(p.specifications),JSON.stringify(p.gallery_images),catalog.fetchedAt||new Date().toISOString()]
+            );
+            stored++;
+          }catch(error){console.error("Reference catalog bootstrap failed for product",p.id,error instanceof Error?error.message:"unknown");}
+        }));
+      }
+      bootstrapStatus=stored>0?"stored":"unavailable";
+    }catch(error){
+      bootstrapStatus="unavailable";
+      console.error("Reference catalog bootstrap failed",error instanceof Error?error.message:"unknown");
+    }
+  }
+
   const [rows,categories]=await Promise.all([
     query("select id,sku,title,description,category,source_price as price,original_price,discount_percent,currency,image_url,source_url,brand,rating,source_available,true as is_reference,true as \"referenceOnly\",false as is_demo_product,source_url,source_name, 'external-reference' as source_type, jsonb_build_object('sourceFetchedAt',source_fetched_at,'specifications',specifications,'galleryImages',gallery_images) as attributes from catalog_reference_products where tenant_id=$1 and source_price>0 order by category,title limit 500",[tenant.id]),
     query("select distinct category from catalog_reference_products where tenant_id=$1 order by category",[tenant.id])
@@ -703,8 +735,8 @@ domainMarketplaceRouter.get("/api/public/marketplace/reference-catalog",asyncHan
     tenant:{name:tenant.name,code:tenant.code},products,
     categories:[...new Set([...categories.rows.map((r:any)=>r.category),...products.map((p:any)=>p.category)].filter(Boolean))],
     total:products.length,catalogMode:"reference",sourceStatus:products.length?"stored":"empty",
-    sourceFetchedAt:products[0]?.attributes?.sourceFetchedAt||null,
-    notice:"اطلاعات کالاها از کاتالوگ مرجع ذخیره‌شده در پایگاه داده سامانه خوانده می‌شود؛ این کالاها مرجع بیرونی هستند و خرید در سوکار غیرفعال است. فروشنده و موجودی دیجی‌بایل تأیید نشده‌اند."
+    sourceFetchedAt:products[0]?.attributes?.sourceFetchedAt||null,bootstrapStatus,
+    notice:"اطلاعات کالاها از کاتالوگ مرجع ذخیره‌شده در پایگاه داده سامانه خوانده می‌شود؛ همگام‌سازی اولیه فقط هنگام خالی بودن کاتالوگ انجام می‌شود. این کالاها تا زمان تأیید فروشنده و موجودی، کالای قابل فروش دیجی‌بایل محسوب نمی‌شوند."
   });
 }));
 
