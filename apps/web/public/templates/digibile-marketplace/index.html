@@ -256,20 +256,24 @@ function setFilter(v,scroll=true){filter=v;document.getElementById("productTitle
 const slides=[["خریدی که به سلیقه تو نزدیکه","کالاهای واقعی،|قیمت‌های به‌روز","کالاها را جست‌وجو کن، قیمت را ببین و انتخاب‌هایت را در سبد جمع کن.","همه"],["تکنولوژی برای هر روز","محصولات دیجیتال|با قیمت","کالاهای دیجیتال را از فهرست زنده بررسی کن و قبل از خرید مشخصات را ببین.","موبایل و تبلت"],["خانه، استایل، زندگی","برای هر نیاز|یک انتخاب تازه","دسته‌بندی‌ها را بگرد و فقط قیمت‌هایی را ببین که از منبع دریافت شده‌اند.","خانه و آشپزخانه"]];
 function setSlide(n){slide=(n+slides.length)%slides.length;const s=slides[slide];document.getElementById("eyebrow").textContent=s[0];document.getElementById("heroTitle").innerHTML=s[1].split("|").map(x=>"<span>"+safe(x)+"</span>").join("");document.getElementById("heroBody").textContent=s[2];document.querySelectorAll("#pager button").forEach((b,i)=>b.classList.toggle("active",i===slide));const small=document.querySelector("#pager small");if(small)small.textContent=count(slide+1)+" / "+count(slides.length);document.getElementById("heroCta").onclick=()=>setFilter(s[3]);}
 async function loadCatalog(){
- sourceStatus="loading";render();let data=null;let catalogMode="owned";
+ sourceStatus="loading";render();let data=null;let catalogMode="owned";let ownedError=null;
  try{
-  let response=await fetch(API,{headers:{accept:"application/json"},cache:"no-store"});
-  data=await response.json();
-  if(!response.ok||!Array.isArray(data.products))throw new Error(data.message||"کاتالوگ داخلی هنوز آماده نیست");
- }catch(error){
+  const response=await fetch(API,{headers:{accept:"application/json"},cache:"no-store"});
+  const owned=await response.json();
+  if(!response.ok||!Array.isArray(owned.products))throw new Error(owned.message||owned.error||"کاتالوگ داخلی هنوز آماده نیست");
+  if(owned.products.length){data=owned;}
+  else {ownedError=new Error("کاتالوگ داخلی پاسخ داد اما محصول منتشرشده ندارد؛ کاتالوگ مرجع را بررسی می‌کنیم.");}
+ }catch(error){ownedError=error;}
+ // An empty 200 response is not a usable storefront. Try the persisted reference catalog too.
+ if(!data||!Array.isArray(data.products)||data.products.length===0){
   try{
    const response=await fetch(REFERENCE_API,{headers:{accept:"application/json"},cache:"no-store"});
    const reference=await response.json();
    if(!response.ok||!Array.isArray(reference.products))throw new Error(reference.error||"فهرست مرجع در دسترس نیست");
    data=reference;catalogMode="reference";
   }catch(referenceError){
-   products=[];sourceStatus="unavailable";
-   console.error("Digibile catalog:",error,referenceError);
+   data=null;products=[];sourceStatus="unavailable";
+   console.error("Digibile catalog:",ownedError,referenceError);
   }
  }
  if(data){
@@ -278,9 +282,9 @@ async function loadCatalog(){
   fetchedAt=data.fetchedAt||data.sourceFetchedAt||null;
  }
  const desc=document.getElementById("productDescription");
- if(desc&&products.length)desc.textContent=count(products.length)+" کالای واقعی از منبع دریافت شد؛ تخفیف فقط برای کالاهایی نمایش داده می‌شود که قیمت قبل و بعد یا درصد تخفیف معتبر در دادهٔ منبع دارند.";
- if(desc&&!products.length)desc.textContent="هنوز کاتالوگ واقعی دریافت نشده است؛ برای جلوگیری از نمایش کالای ساختگی، محصول نمایشی جایگزین نمی‌کنیم.";
- if(desc)desc.textContent=sourceStatus==="live"?"کالاها از کاتالوگ داخلی منتشرشده بازارگاه دیجی‌بایل بارگذاری شده‌اند.":sourceStatus==="reference"?"کالاهای واقعیِ فهرست مرجع با قیمت و تصویر منبع نمایش داده می‌شوند؛ فروشنده و موجودی دیجی‌بایل هنوز تأیید نشده و ثبت خرید داخلی فعال نیست.":"کاتالوگ پاسخ نداد؛ برای جلوگیری از نمایش قیمت یا موجودی ساختگی، محصول نمونه نشان داده نمی‌شود.";
+ if(desc&&products.length)desc.textContent=count(products.length)+" کالا از کاتالوگ دریافت شد؛ کالاهای مرجع تا زمان تأیید فروشنده و موجودی، کالای قابل فروش دیجی‌بایل محسوب نمی‌شوند.";
+ if(desc&&!products.length)desc.textContent="کاتالوگ محصول خالی است؛ برای جلوگیری از نمایش کالای ساختگی، محصول نمونه جایگزین نمی‌کنیم.";
+ if(desc)desc.textContent=sourceStatus==="live"?"کالاها از کاتالوگ داخلی منتشرشده بازارگاه دیجی‌بایل بارگذاری شده‌اند.":sourceStatus==="reference"?"کالاهای مرجع از کاتالوگ ذخیره‌شده خوانده می‌شوند؛ فروشنده و موجودی دیجی‌بایل هنوز تأیید نشده و ثبت خرید داخلی فعال نیست.":"کاتالوگ محصول در دسترس نیست؛ اطلاعات ساختگی نمایش داده نمی‌شود.";
  const title=document.getElementById("productTitle");if(title)title.textContent=sourceStatus==="reference"?"کالاهای واقعی از فهرست مرجع":"ویترین انتخاب‌های روز";
  const badge=document.querySelector("#products .demo");if(badge)badge.textContent=sourceStatus==="reference"?"فهرست مرجع":"کاتالوگ بازارگاه";
  render();updateCartBadge();
