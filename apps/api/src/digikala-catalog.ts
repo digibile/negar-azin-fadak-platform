@@ -5,6 +5,8 @@ export type DigikalaCatalogProduct = {
   description: string | null;
   category: string;
   price: string | null;
+  original_price: string | null;
+  discount_percent: number | null;
   currency: "IRR";
   seller_name: "دیجی‌کالا · منبع اصلی";
   store_id: null;
@@ -172,6 +174,26 @@ export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: st
           : status === "unavailable" || status === "sold_out"
             ? false
             : typeof product.is_available === "boolean" ? product.is_available : null;
+    const originalPrice = numericValue(
+      at(product, "default_variant", "price", "rrp_price"),
+      at(product, "default_variant", "price", "original_price"),
+      at(product, "default_variant", "price", "list_price"),
+      at(product, "price", "rrp_price"),
+      at(product, "price", "original_price"),
+      product.original_price,
+      product.list_price
+    );
+    const explicitDiscount = numericValue(
+      at(product, "default_variant", "price", "discount_percent"),
+      at(product, "default_variant", "price", "discountPercent"),
+      at(product, "price", "discount_percent"),
+      at(product, "price", "discountPercent"),
+      product.discount_percent,
+      product.discountPercent
+    );
+    const discountPercent = price !== null && originalPrice !== null && originalPrice > price
+      ? Math.round((originalPrice - price) / originalPrice * 100)
+      : explicitDiscount !== null && explicitDiscount <= 100 ? explicitDiscount : null;
     if (price === null && sourceAvailable !== false) continue;
     const ratingNumber = typeof rawRating === "number" ? rawRating : typeof rawRating === "string" ? Number(rawRating) : NaN;
     normalized.push({
@@ -181,6 +203,8 @@ export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: st
       description,
       category,
       price: price === null ? null : String(price),
+      original_price: originalPrice !== null && price !== null && originalPrice > price ? String(originalPrice) : null,
+      discount_percent: discountPercent !== null && discountPercent > 0 ? discountPercent : null,
       currency: "IRR",
       seller_name: "دیجی‌کالا · منبع اصلی",
       store_id: null,
