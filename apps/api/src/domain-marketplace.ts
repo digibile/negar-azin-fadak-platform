@@ -648,28 +648,63 @@ domainMarketplaceRouter.get("/api/marketplace/digikala-catalog",requireAuth,requ
   res.json({source:"دیجی‌کالا",sourceStatus:catalog.sourceStatus,fetchedAt:catalog.fetchedAt,categories:catalog.categories,products:catalog.products.filter(product=>product.price!==null),total:catalog.products.filter(product=>product.price!==null).length,notice:"این فهرست فقط برای ورود مدیریت‌شده به کاتالوگ داخلی است؛ قیمت، توضیحات و انتشار محصول باید در سامانه خودتان بازبینی شوند."});
 }));
 
+domainMarketplaceRouter.post("/api/marketplace/reference-catalog/sync",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const catalog=await getDigikalaCatalog(true);
+  const candidates=catalog.products.filter(p=>p.price!==null&&Number(p.price)>0&&p.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(p.image_url)&&/^https:\/\//i.test(p.source_url)).slice(0,250);
+  if(!candidates.length)return res.status(503).json({error:"منبع کالا محصول دارای قیمت و تصویر معتبر برنگرداند؛ اطلاعات ذخیره‌شده تغییر نکرد.",sourceStatus:catalog.sourceStatus,stored:0});
+  const fetchedAt=catalog.fetchedAt||new Date().toISOString();
+  const mediaDir=path.join(process.env.MEDIA_ROOT||"/app/media","catalog-reference",ctx.id);
+  await mkdir(mediaDir,{recursive:true});
+  let stored=0,imagesMirrored=0;
+  const failures:Array<{sku:string;reason:string}>=[];
+  for(let i=0;i<candidates.length;i+=4){
+    const batch=candidates.slice(i,i+4);
+    await Promise.all(batch.map(async p=>{
+      try{
+        let imageUrl=p.image_url;
+        try{imageUrl=await importDigikalaImage(p.image_url,mediaDir,ctx.id);imagesMirrored++;}
+        catch(error){console.warn("Reference image mirror failed; retaining source URL",p.id,error instanceof Error?error.message:"unknown");}
+        await query(
+          "insert into catalog_reference_products(tenant_id,source_name,source_product_id,sku,title,description,category,source_price,original_price,discount_percent,currency,image_url,source_url,brand,rating,source_available,specifications,gallery_images,source_fetched_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::jsonb,$18::jsonb,$19::timestamptz) on conflict(tenant_id,source_name,source_product_id) do update set sku=excluded.sku,title=excluded.title,description=excluded.description,category=excluded.category,source_price=excluded.source_price,original_price=excluded.original_price,discount_percent=excluded.discount_percent,currency=excluded.currency,image_url=excluded.image_url,source_url=excluded.source_url,brand=excluded.brand,rating=excluded.rating,source_available=excluded.source_available,specifications=excluded.specifications,gallery_images=excluded.gallery_images,source_fetched_at=excluded.source_fetched_at,updated_at=now()",
+          [ctx.id,p.source_name,p.id,p.sku,p.title,p.description,canonicalMarketplaceCategory(p.category),Number(p.price),p.original_price?Number(p.original_price):null,p.discount_percent,p.currency,imageUrl,p.source_url,p.brand,p.rating,p.source_available,JSON.stringify(p.specifications),JSON.stringify(p.gallery_images),fetchedAt]
+        );
+        stored++;
+      }catch(error){failures.push({sku:p.sku,reason:error instanceof Error?error.message:"ذخیره کالا ناموفق بود"});}
+    }));
+  }
+  res.setHeader("Cache-Control","private, no-store");
+  res.json({tenantCode:ctx.code,source:"دیجی‌کالا",requested:candidates.length,stored,imagesMirrored,failed:failures.length,failures:failures.slice(0,20),fetchedAt,storage:"database",notice:"اطلاعات در کاتالوگ مرجع داخلی ذخیره شد؛ این کالاها هنوز موجودی یا فروشنده تأییدشده دیجی‌بایل محسوب نمی‌شوند."});
+}));
+
+domainMarketplaceRouter.get("/api/marketplace/digikala-catalog",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const r=await query("select source_product_id as id,sku,title,description,category,source_price as price,original_price,discount_percent,currency,image_url,source_url,brand,rating,source_available,source_fetched_at from catalog_reference_products where tenant_id=$1 order by category,title limit 500",[ctx.id]);
+  res.setHeader("Cache-Control","private, no-store");
+  res.json({source:"کاتالوگ مرجع ذخیره‌شده",sourceStatus:r.rowCount?"stored":"empty",fetchedAt:r.rows[0]?.source_fetched_at||null,products:r.rows,total:r.rowCount,notice:"این فهرست از پایگاه داده داخلی خوانده می‌شود. برای همگام‌سازی دوباره از مسیر sync استفاده کنید."});
+}));
+
 domainMarketplaceRouter.get("/api/public/marketplace/reference-catalog",asyncHandler(async(req,res)=>{
   const requestedCode=bodyString(req.query.tenantCode,80)||bodyString(req.query.tenant,80)||undefined;
-  // This is a read-only reference feed, not tenant-owned inventory.
-  // Keep it available while the Digibile tenant is being provisioned; checkout remains on the source site.
   const tenant=await resolvePublicTenant(req,requestedCode);
-  const catalog=await getDigikalaCatalog();
-  const products=catalog.products
-    .filter(product=>product.price!==null&&Number(product.price)>0&&product.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(product.image_url)&&/^https:\/\//i.test(product.source_url))
-    .map(product=>({
-      id:product.id,sku:product.sku,title:product.title,description:product.description,
-      category:canonicalMarketplaceCategory(product.category),price:String(product.price),currency:product.currency,
-      seller_name:"منبع اصلی · دیجی‌کالا",store_id:null,image_url:product.image_url,brand:product.brand,rating:product.rating,
-      is_reference:true,referenceOnly:true,is_demo_product:false,source_url:product.source_url,source_name:product.source_name,
-      source_type:product.source_type,source_available:product.source_available,
-      attributes:{specifications:product.specifications,galleryImages:product.gallery_images}
-    }));
+  if(!tenant){
+    res.setHeader("Cache-Control","public, max-age=30");
+    return res.json({tenant:{name:"دیجی‌بایل",code:requestedCode},products:[],categories:[],total:0,catalogMode:"reference",sourceStatus:"empty",sourceFetchedAt:null,notice:"هنوز کاتالوگ مرجع در سامانه ذخیره نشده است."});
+  }
+  const [rows,categories]=await Promise.all([
+    query("select id,sku,title,description,category,source_price as price,original_price,discount_percent,currency,image_url,source_url,brand,rating,source_available,true as is_reference,true as \"referenceOnly\",false as is_demo_product,source_url,source_name, 'external-reference' as source_type, jsonb_build_object('sourceFetchedAt',source_fetched_at,'specifications',specifications,'galleryImages',gallery_images) as attributes from catalog_reference_products where tenant_id=$1 and source_price>0 order by category,title limit 500",[tenant.id]),
+    query("select distinct category from catalog_reference_products where tenant_id=$1 order by category",[tenant.id])
+  ]);
+  const products=rows.rows;
   res.setHeader("Cache-Control","public, max-age=60, stale-while-revalidate=120");
   res.json({
-    tenant:tenant?{name:tenant.name,code:tenant.code}:{name:"دیجی‌بایل",code:requestedCode},products,
-    categories:[...new Set([...catalog.categories,...products.map(product=>product.category)].filter(Boolean))],
-    total:products.length,catalogMode:"reference",sourceStatus:catalog.sourceStatus,sourceFetchedAt:catalog.fetchedAt,
-    notice:"این‌ها کالاهای مرجع از منبع بیرونی‌اند؛ فروشنده و موجودی سوکار تأیید نشده‌اند و خرید در سوکار غیرفعال است. خرید فقط از صفحه منبع اصلی انجام می‌شود."
+    tenant:{name:tenant.name,code:tenant.code},products,
+    categories:[...new Set([...categories.rows.map((r:any)=>r.category),...products.map((p:any)=>p.category)].filter(Boolean))],
+    total:products.length,catalogMode:"reference",sourceStatus:products.length?"stored":"empty",
+    sourceFetchedAt:products[0]?.attributes?.sourceFetchedAt||null,
+    notice:"اطلاعات کالاها از کاتالوگ مرجع ذخیره‌شده در پایگاه داده سامانه خوانده می‌شود؛ قیمت منبع مرجع است و فروشنده، موجودی و امکان خرید داخلی تأیید نشده‌اند."
   });
 }));
 
