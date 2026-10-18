@@ -168,7 +168,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const isKipa = templateVariant === "kipa";
   const isDigibile = templateVariant === "digibile";
   const showAllProducts = pathname === "/store/shop";
-  const productHrefFor = (product:Product) => product.is_reference && product.source_url ? product.source_url : "/store/product/" + encodeURIComponent(product.sku || product.id) + "?site=" + templateVariant;
+  const productHrefFor = (product:Product) => "/store/product/" + encodeURIComponent(product.sku || product.id) + "?site=" + templateVariant;
   const [data, setData] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -203,17 +203,6 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
       let body = await response.json();
       if (!response.ok) throw new Error(body.error || "دریافت کاتالوگ ناموفق بود.");
       if (!Array.isArray(body.products)) throw new Error("ساختار کاتالوگ معتبر نیست.");
-      // If no seller-owned listings are published yet, show clearly labeled live reference products.
-      // Reference cards always link to the original source and are never added to Sookar checkout.
-      if (body.products.length === 0) {
-        try {
-          const referenceResponse = await fetch("/api/public/marketplace/reference-catalog", { headers: { accept: "application/json" }, cache: "no-store", signal: controller.signal });
-          if (referenceResponse.ok) {
-            const referenceBody = await referenceResponse.json();
-            if (Array.isArray(referenceBody.products) && referenceBody.products.length > 0) body = referenceBody;
-          }
-        } catch { /* Keep the owned catalog empty if the reference source is unavailable. */ }
-      }
       if (!controller.signal.aborted) {
         setData({
           ...body,
@@ -356,7 +345,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
             <h1 id="sk-hero-title">{identity.heroTitle}</h1>
             <p>{identity.heroDescription}</p>
             <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">خرید از همه دسته‌ها <span>←</span></Link><Link href="/marketplace/directory" className="sk-quiet-btn">فروشگاه‌های بازارگاه</Link></div>
-            <div className="sk-hero-note"><span>✓</span> {hasDemoProducts ? `کاتالوگ آزمایشی ${identity.name}؛ قیمت‌ها مرجع‌اند و پرداخت واقعی غیرفعال است` : hasReferenceProducts ? `کالاهای مرجع زنده؛ بررسی قیمت و خرید در منبع اصلی` : `اطلاعات محصولات از کاتالوگ ثبت‌شدهٔ ${identity.name} نمایش داده می‌شود`}</div>
+            <div className="sk-hero-note"><span>✓</span> {`اطلاعات محصولات از کاتالوگ ثبت‌شدهٔ ${identity.name} نمایش داده می‌شود`}</div>
           </div>
           <div className="sk-hero-products" aria-label="محصولات منتخب از کاتالوگ">
             {sourceProducts.filter(product => safeImageUrl(product.image_url)).slice(0, 3).map((product, index) => (
@@ -381,7 +370,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
           <article><span className="sk-benefit-icon">◷</span><div><b>پیگیری سفارش</b><small>دسترسی به مسیر سفارش‌های شما</small></div></article>
         </section>
 
-        {(isTechnolife || isMarketplacePro) && !query && !category && techShelfGroups.map(shelf => shelf.products.length > 0 && <section className="sk-tech-shelf" key={shelf.title} aria-label={shelf.title}>
+        {isTechnolife && !query && !category && techShelfGroups.map(shelf => shelf.products.length > 0 && <section className="sk-tech-shelf" key={shelf.title} aria-label={shelf.title}>
           <div className="sk-tech-shelf-heading"><div><span>{shelf.eyebrow}</span><h2>{shelf.title}</h2></div><button type="button" onClick={() => { setQuery(shelf.searchTerm); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>مشاهده همه <b>←</b></button></div>
           <div className="sk-tech-shelf-products">{shelf.products.map(product => <Link href={productHrefFor(product)} className="sk-tech-shelf-card" key={product.id}>
             <span className="sk-tech-shelf-image">{safeImageUrl(product.image_url) ? <img src={safeImageUrl(product.image_url) || ""} alt={product.title} loading="lazy" decoding="async" /> : <i>{categoryGlyph(product.category, product.title)}</i>}</span>
@@ -406,7 +395,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
         </section>
 
         <section className="sk-catalog" id="sk-products" aria-labelledby="sk-products-title" style={{order:orderOf("products")}}>
-          <div className="sk-section-heading"><div><span className="sk-eyebrow">کاتالوگ بازارگاه</span><h2 id="sk-products-title">محصولات برای انتخاب تو</h2><p>{hasDemoProducts ? "کالاهای نمونه برای آزمایش هستند؛ قیمت و موجودی آن‌ها متعلق به سوکار نیست." : hasReferenceProducts ? "این فهرست زنده از منبع اصلی دریافت می‌شود. سوکار فروشنده یا تأییدکنندهٔ موجودی این کالاها نیست؛ برای قیمت نهایی و خرید به منبع اصلی برو." : "محصولات منتشرشدهٔ کاتالوگ سوکار را ببین، دسته‌بندی کن و مشخصات ثبت‌شده را مقایسه کن."}</p></div><Link href="/marketplace" className="sk-section-link">رفتن به بازارگاه <span>←</span></Link></div>
+          <div className="sk-section-heading"><div><span className="sk-eyebrow">کاتالوگ بازارگاه</span><h2 id="sk-products-title">محصولات برای انتخاب تو</h2><p>{"فقط محصولات ثبت‌شده و منتشرشده در کاتالوگ داخلی نمایش داده می‌شوند؛ کالاها به منبع بیرونی وابسته نیستند."}</p></div><Link href="/marketplace" className="sk-section-link">رفتن به بازارگاه <span>←</span></Link></div>
 
           <div className="sk-category-row" aria-label="فیلتر دسته‌بندی">
             <button type="button" className={!category ? "sk-category-chip is-active" : "sk-category-chip"} onClick={() => setCategory("")}>همه کالاها</button>
@@ -426,17 +415,17 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
             const image = safeImageUrl(product.image_url);
             return <article className="sk-product-card" key={product.id}>
               <Link href={productHref} className="sk-product-visual" aria-label={"مشاهده " + product.title}>
-                <span className="sk-product-category">{product.is_demo_product ? "نمونهٔ آزمایشی" : product.is_reference ? "کالای مرجع زنده" : (canonicalCategory(product.category) || "سایر کالاها")}</span>
+                <span className="sk-product-category">{canonicalCategory(product.category) || "سایر کالاها"}</span>
                 {image ? <img src={image} alt={product.title} loading="lazy" decoding="async" /> : <span className="sk-product-glyph"><span aria-hidden="true">{categoryGlyph(product.category, product.title)}</span><small>تصویر کالا هنوز ثبت نشده</small></span>}
                 <span className="sk-visual-brand">{identity.name}</span>
               </Link>
               <div className="sk-product-info">
-                <span className="sk-seller-name"><i />{product.is_demo_product ? "سوکار · کاتالوگ آزمایشی" : product.is_reference ? (product.source_name || "منبع اصلی") + " · فروش در منبع اصلی" : (product.seller_name || "فروشنده ثبت‌شده")}</span>
+                <span className="sk-seller-name"><i />{product.seller_name || "فروشنده ثبت‌شده"}</span>
                 <Link href={productHref} className="sk-product-title">{product.title}</Link>
                 <p>{product.description || "مشخصات تکمیلی این کالا هنوز توسط فروشنده ثبت نشده است."}</p>
-                <div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>{product.is_demo_product ? "قیمت مرجع آزمایشی؛ قیمت فروش سوکار نیست" : product.is_reference ? "قیمت نمایش‌داده‌شده از منبع اصلی است و ممکن است تغییر کند" : "قیمت ثبت‌شده در کاتالوگ سوکار"}</small></div>
-                <Link href={productHref} className="sk-product-cta" target={product.is_reference ? "_blank" : undefined} rel={product.is_reference ? "noopener noreferrer" : undefined}>{product.is_reference ? "بررسی و خرید در منبع اصلی" : "مشاهده جزئیات"} <span>←</span></Link>
-               {!product.is_reference && <AddToCartButton compact product={{ id: product.id, sku: product.sku, title: product.title, price: product.price, currency: product.currency, seller_name: product.seller_name, store_id: product.store_id, image_url: product.image_url, is_demo_product: product.is_demo_product, source_url: product.source_url, site: templateVariant }} />}
+                <div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>قیمت ثبت‌شده در کاتالوگ سوکار</small></div>
+                <Link href={productHref} className="sk-product-cta">مشاهده جزئیات <span>←</span></Link>
+               <AddToCartButton compact product={{ id: product.id, sku: product.sku, title: product.title, price: product.price, currency: product.currency, seller_name: product.seller_name, store_id: product.store_id, image_url: product.image_url, site: templateVariant }} />
               </div>
             </article>;
           })}</div>
