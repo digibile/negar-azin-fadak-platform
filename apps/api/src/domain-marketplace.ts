@@ -655,7 +655,7 @@ domainMarketplaceRouter.post("/api/marketplace/reference-catalog/sync",requireAu
   const candidates=catalog.products.filter(p=>p.price!==null&&Number(p.price)>0&&p.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(p.image_url)&&/^https:\/\//i.test(p.source_url)).slice(0,250);
   if(!candidates.length)return res.status(503).json({error:"منبع کالا محصول دارای قیمت و تصویر معتبر برنگرداند؛ اطلاعات ذخیره‌شده تغییر نکرد.",sourceStatus:catalog.sourceStatus,stored:0});
   const fetchedAt=catalog.fetchedAt||new Date().toISOString();
-  const mediaDir=path.join(process.env.MEDIA_ROOT||"/app/media","catalog-reference",ctx.id);
+  const mediaDir=path.join(process.env.MEDIA_ROOT||"/app/media","catalog",ctx.id);
   await mkdir(mediaDir,{recursive:true});
   let stored=0,imagesMirrored=0;
   const failures:Array<{sku:string;reason:string}>=[];
