@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import DigibileHome from "./digibile-home";
+import StorePage from "./store/page";
 
 export const metadata: Metadata = {
   title: "سوکار | بازارگاه اینترنتی خرید و فروش",
@@ -21,5 +21,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <DigibileHome />;
+  return <StorePage variant="default" />;
 }
