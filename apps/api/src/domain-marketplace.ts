@@ -147,7 +147,7 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-supplier-catalog"
   const supplierName=bodyString(req.body?.supplierName,200);
   const supplierReference=bodyString(req.body?.supplierReference,200);
   const items=Array.isArray(req.body?.items)?req.body.items:[];
-  if(!sellerId||!supplierName||!items.length)return res.status(400).json({error:"فروشنده، نام تأمین‌کننده و فهرست کالاها الزامی است"});
+  if(!sellerId||!supplierName||!supplierReference||!items.length)return res.status(400).json({error:"فروشنده، نام تأمین‌کننده، مرجع قابل‌ردیابی تأمین و فهرست کالاها الزامی است"});
   if(items.length>500)return res.status(400).json({error:"هر نوبت حداکثر ۵۰۰ کالا می‌پذیرد؛ برای کاتالوگ بزرگ‌تر چند نوبت ارسال کنید"});
   const seller=await query("select id,display_name,status from sellers where id=$1 and tenant_id=$2",[sellerId,ctx.id]);
   if(!seller.rowCount)return res.status(404).json({error:"فروشنده در محدوده سازمانی جاری پیدا نشد"});
@@ -176,8 +176,8 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-supplier-catalog"
     const duplicate=await query("select id from products where tenant_id=$1 and sku=$2",[ctx.id,sku]);
     if(duplicate.rowCount){skipped.push({sku,reason:"این شناسه کالا از قبل در کاتالوگ ثبت شده است"});continue;}
     const attributes={
-      imageUrl,sourceName:supplierName,sourceType:"supplier-verified",
-      supplierReference:supplierReference||null,inventorySource:supplierName,
+      imageUrl,sourceName:supplierName,sourceType:"supplier-pending",
+      supplierReference,inventorySource:supplierName,
       inventoryQuantity:0,inventoryVerified:false,priceReviewRequired:true,
       catalogImportType:"supplier-bulk",catalogImportedAt:new Date().toISOString(),
       catalogReviewRequired:true
