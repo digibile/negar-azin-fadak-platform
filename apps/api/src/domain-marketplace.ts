@@ -697,14 +697,14 @@ domainMarketplaceRouter.get("/api/public/marketplace/reference-catalog",asyncHan
     query("select id,sku,title,description,category,source_price as price,original_price,discount_percent,currency,image_url,source_url,brand,rating,source_available,true as is_reference,true as \"referenceOnly\",false as is_demo_product,source_url,source_name, 'external-reference' as source_type, jsonb_build_object('sourceFetchedAt',source_fetched_at,'specifications',specifications,'galleryImages',gallery_images) as attributes from catalog_reference_products where tenant_id=$1 and source_price>0 order by category,title limit 500",[tenant.id]),
     query("select distinct category from catalog_reference_products where tenant_id=$1 order by category",[tenant.id])
   ]);
-  const products=rows.rows;
+  const products=rows.rows.map((p:any)=>({...p,is_reference:true,referenceOnly:true,is_demo_product:false}));
   res.setHeader("Cache-Control","public, max-age=60, stale-while-revalidate=120");
   res.json({
     tenant:{name:tenant.name,code:tenant.code},products,
     categories:[...new Set([...categories.rows.map((r:any)=>r.category),...products.map((p:any)=>p.category)].filter(Boolean))],
     total:products.length,catalogMode:"reference",sourceStatus:products.length?"stored":"empty",
     sourceFetchedAt:products[0]?.attributes?.sourceFetchedAt||null,
-    notice:"اطلاعات کالاها از کاتالوگ مرجع ذخیره‌شده در پایگاه داده سامانه خوانده می‌شود؛ قیمت منبع مرجع است و فروشنده، موجودی و امکان خرید داخلی تأیید نشده‌اند."
+    notice:"اطلاعات کالاها از کاتالوگ مرجع ذخیره‌شده در پایگاه داده سامانه خوانده می‌شود؛ این کالاها مرجع بیرونی هستند و خرید در سوکار غیرفعال است. فروشنده و موجودی دیجی‌بایل تأیید نشده‌اند."
   });
 }));
 
