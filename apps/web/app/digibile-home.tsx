@@ -57,7 +57,7 @@ export default function DigibileHome() {
   }
 
   return (
-    <main className="dg-store" dir="rtl">
+    <main className="dg-store" id="top" dir="rtl">
       <div className="dg-promo-strip">
         <span>تجربه‌ای تازه برای خرید آنلاین</span><span className="dg-promo-dot">●</span><span>کشف کن، مقایسه کن، انتخاب کن</span>
         <a href="#categories">دسته‌بندی‌های فروشگاه <b>←</b></a>
