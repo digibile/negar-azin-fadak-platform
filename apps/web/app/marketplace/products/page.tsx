@@ -28,7 +28,11 @@ export default function ProductsPage() {
   const [imageUrl, setImageUrl] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [tab, setTab] = useState<"manual" | "import">("manual");
+  const [tab, setTab] = useState<"manual" | "import" | "supplier">("manual");
+  const [supplierName, setSupplierName] = useState("");
+  const [supplierReference, setSupplierReference] = useState("");
+  const [supplierCsvText, setSupplierCsvText] = useState("");
+  const [supplierImporting, setSupplierImporting] = useState(false);
   const [sourceProducts, setSourceProducts] = useState<SourceProduct[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sourceSearch, setSourceSearch] = useState("");
@@ -230,6 +234,60 @@ export default function ProductsPage() {
     }
   }
 
+  function parseSupplierCsv(text: string): Array<Record<string, string>> {
+    const rows: string[][] = [];
+    let row: string[] = [], cell = "", quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (ch === '"' && quoted && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = !quoted;
+      else if ((ch === "," || ch === ";") && !quoted) { row.push(cell.trim()); cell = ""; }
+      else if ((ch === "\n" || ch === "\r") && !quoted) {
+        if (ch === "\r" && text[i + 1] === "\n") i++;
+        row.push(cell.trim()); cell = "";
+        if (row.some(value => value !== "")) rows.push(row);
+        row = [];
+      } else cell += ch;
+    }
+    row.push(cell.trim());
+    if (row.some(value => value !== "")) rows.push(row);
+    if (rows.length < 2) return [];
+    const headers = rows.shift()!.map(value => value.replace(/^\\uFEFF/, "").trim());
+    return rows.map(values => Object.fromEntries(headers.map((header, index) => [header, values[index] || ""])));
+  }
+
+  async function importSupplierCsv() {
+    if (!sellerId || !supplierName.trim() || !supplierReference.trim()) {
+      setError("فروشنده، نام تأمین‌کننده و مرجع قابل‌ردیابی تأمین را کامل کنید.");
+      return;
+    }
+    const parsed = parseSupplierCsv(supplierCsvText);
+    if (!parsed.length) { setError("فایل CSV معتبر با سطر عنوان و حداقل یک کالا وارد کنید."); return; }
+    const items = parsed.map(row => ({
+      sku: row.sku || row.SKU || row["شناسه کالا"] || "",
+      title: row.title || row.Title || row["عنوان"] || "",
+      category: row.category || row.Category || row["دسته‌بندی"] || "",
+      price: Number(row.price || row.Price || row["قیمت"]),
+      currency: row.currency || row.Currency || "IRR",
+      description: row.description || row.Description || row["توضیحات"] || "",
+      imageUrl: row.imageUrl || row.image_url || row["مسیر تصویر"] || ""
+    }));
+    if (items.length > 500) { setError("هر بار حداکثر ۵۰۰ کالا وارد کنید."); return; }
+    setError(""); setNotice(""); setSupplierImporting(true);
+    try {
+      const result = await api<{imported:number;skipped:number;skippedItems:Array<{sku:string;reason:string}>;message:string}>(
+        "/api/marketplace/products/import-supplier-catalog",
+        { method: "POST", body: JSON.stringify({ sellerId, supplierName: supplierName.trim(), supplierReference: supplierReference.trim(), items }) }
+      );
+      const reasons = (result.skippedItems || []).slice(0, 5).map(item => item.sku + ": " + item.reason).join("؛ ");
+      setNotice("ورود تأمین‌کننده انجام شد: " + result.imported.toLocaleString("fa-IR") + " پیش‌نویس ثبت شد و " + result.skipped.toLocaleString("fa-IR") + " مورد رد شد. " + (reasons ? "نمونه علت رد: " + reasons + "؛ " : "") + "برای فروش عمومی، قیمت و موجودی واقعی هر کالا را بررسی و تأیید کنید.");
+      if (result.imported > 0) setSupplierCsvText("");
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "ورود CSV تأمین‌کننده ناموفق بود.");
+    } finally { setSupplierImporting(false); }
+  }
+
   async function importSelected() {
     if (!sellerId || !selectedIds.length) return;
     setError("");
@@ -387,6 +445,7 @@ export default function ProductsPage() {
         <div className="mp-tabs" role="tablist" aria-label="روش افزودن محصول">
           <button type="button" role="tab" aria-selected={tab === "manual"} className={tab === "manual" ? "is-active" : ""} onClick={() => setTab("manual")}>ثبت محصول</button>
           <button type="button" role="tab" aria-selected={tab === "import"} className={tab === "import" ? "is-active" : ""} onClick={() => { setTab("import"); if (!sourceProducts.length) void loadSourceCatalog(); }}>ورود از منبع</button>
+          <button type="button" role="tab" aria-selected={tab === "supplier"} className={tab === "supplier" ? "is-active" : ""} onClick={() => setTab("supplier")}>ورود CSV تأمین‌کننده</button>
         </div>
       </div>
 
@@ -400,6 +459,16 @@ export default function ProductsPage() {
         <label className="mp-field-wide">توضیحات محصول<textarea value={description} onChange={event => setDescription(event.target.value)} rows={3} placeholder="ویژگی‌ها، مشخصات و نکات مهم کالا" /></label>
         <label className="mp-field-wide">تصویر محصول (اختیاری، حداکثر ۵ مگابایت)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => void uploadImage(event.target.files?.[0])} disabled={uploadingImage} /><small>{uploadingImage ? "در حال بررسی و ذخیره تصویر در رسانهٔ داخلی…" : "تصویر در رسانهٔ داخلی سوکار ذخیره می‌شود؛ لینک خارجی تصویر پذیرفته نمی‌شود."}</small>{imageUrl && <span className="mp-uploaded-image"><img src={imageUrl} alt="پیش‌نمایش تصویر ثبت‌شده" /><code dir="ltr">{imageUrl}</code><button type="button" onClick={() => setImageUrl("")}>حذف تصویر از پیش‌نویس</button></span>}</label>
         <div className="mp-form-actions"><button type="button" onClick={create} disabled={saving || uploadingImage || !sellerId || !sku.trim() || !title.trim() || price === ""}>{saving ? "در حال ثبت…" : "ثبت پیش‌نویس محصول"} <span>←</span></button><small>انتشار عمومی مرحله‌ای جداگانه است.</small></div>
+      </div> : tab === "supplier" ? <div className="mp-import-panel">
+        <div className="mp-import-head"><div><h3>ورود گروهی کاتالوگ تأمین‌کننده</h3><p>فهرست واقعی کالاهای مجاز را با CSV وارد کنید. تمام ردیف‌ها ابتدا پیش‌نویس می‌شوند و هیچ موجودی یا تأییدی به‌صورت خودکار ساخته نمی‌شود.</p></div></div>
+        <div className="mp-form-grid">
+          <label>نام تأمین‌کننده<input value={supplierName} onChange={event => setSupplierName(event.target.value)} maxLength={200} placeholder="نام حقوقی یا تجاری تأمین‌کننده" /></label>
+          <label>مرجع تأمین / قرارداد<input value={supplierReference} onChange={event => setSupplierReference(event.target.value)} maxLength={200} placeholder="شماره قرارداد، فاکتور یا شناسه قابل‌ردیابی" /></label>
+          <label className="mp-field-wide">فایل CSV کاتالوگ<input type="file" accept=".csv,text/csv" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 2 * 1024 * 1024) { setError("حجم CSV حداکثر ۲ مگابایت است."); return; } setError(""); setSupplierCsvText(await file.text()); }} /><small>ستون‌های لازم: sku,title,category,price,imageUrl. ستون‌های اختیاری: currency,description. جداکنندهٔ کاما یا نقطه‌ویرگول پشتیبانی می‌شود.</small></label>
+          <label className="mp-field-wide">پیش‌نمایش / محتوای CSV<textarea rows={8} value={supplierCsvText} onChange={event => setSupplierCsvText(event.target.value)} placeholder={'sku,title,category,price,currency,imageUrl,description\nSKU-1001,نام کالای واقعی,موبایل و تبلت,250000000,IRR,/api/public/media/catalog/TENANT/image.jpg,توضیحات کالا'} /></label>
+          <div className="mp-inline-warning mp-field-wide">مسیر imageUrl باید تصویر از قبل ذخیره‌شده در رسانهٔ داخلی باشد؛ لینک خارجی پذیرفته نمی‌شود. قیمت باید قیمت فروش واقعی باشد. بعد از ورود، موجودی و مرجع تأمین را برای هر کالا ثبت و تأیید کنید. هیچ کالای مرجع یا آزمایشی خودکار قابل‌فروش نمی‌شود.</div>
+          <div className="mp-form-actions"><button type="button" onClick={() => void importSupplierCsv()} disabled={supplierImporting || !sellerId || !supplierName.trim() || !supplierReference.trim() || !supplierCsvText.trim()}>{supplierImporting ? "در حال اعتبارسنجی و ورود…" : "اعتبارسنجی و ورود کالاها"} <span>←</span></button><small>{parseSupplierCsv(supplierCsvText).length.toLocaleString("fa-IR")} ردیف قابل‌خواندن · حداکثر ۵۰۰ کالا در هر نوبت</small></div>
+        </div>
       </div> : <div className="mp-import-panel">
         <div className="mp-import-head"><div><h3>ورود مرجع به کاتالوگ داخلی</h3><p>ورود عادی، پیش‌نویس می‌سازد. برای بررسی ویترین و سبد خرید، کاتالوگ آزمایشی را با یک کلیک به پایگاه دادهٔ خود سوکار وارد کنید.</p>{sourceFetchedAt && <small>آخرین دریافت موفق فهرست: {new Date(sourceFetchedAt).toLocaleString("fa-IR")}</small>}<div className="mp-inline-warning">۱۲ محصول آزمایشی با تصویر محلی و مشخصات در دیتابیس سوکار ذخیره می‌شوند. قیمت فقط snapshot منبع است؛ این کالاها برای فروش واقعی یا پرداخت استفاده نمی‌شوند.</div></div><button type="button" className="mp-import-submit" onClick={() => void importDemoCatalog()} disabled={importingDemo || loadingSource}>{importingDemo ? "در حال ذخیره در دیتابیس…" : "ورود ۱۲ محصول آزمایشی به سوکار"}</button></div>
         <div className="mp-source-id-row">
