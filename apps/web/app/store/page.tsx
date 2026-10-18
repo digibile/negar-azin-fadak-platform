@@ -345,7 +345,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
             <h1 id="sk-hero-title">{identity.heroTitle}</h1>
             <p>{identity.heroDescription}</p>
             <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">خرید از همه دسته‌ها <span>←</span></Link><Link href="/marketplace/directory" className="sk-quiet-btn">فروشگاه‌های بازارگاه</Link></div>
-            <div className="sk-hero-note"><span>✓</span> {`اطلاعات محصولات از کاتالوگ ثبت‌شدهٔ ${identity.name} نمایش داده می‌شود`}</div>
+            <div className="sk-hero-note"><span>✓</span> {hasDemoProducts ? `کاتالوگ آزمایشی ${identity.name}؛ قیمت‌ها مرجع‌اند و پرداخت واقعی غیرفعال است` : hasReferenceProducts ? `کالاهای مرجع زنده؛ بررسی قیمت و خرید در منبع اصلی` : `اطلاعات محصولات از کاتالوگ ثبت‌شدهٔ ${identity.name} نمایش داده می‌شود`}</div>
           </div>
           <div className="sk-hero-products" aria-label="محصولات منتخب از کاتالوگ">
             {sourceProducts.filter(product => safeImageUrl(product.image_url)).slice(0, 3).map((product, index) => (
@@ -415,17 +415,17 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
             const image = safeImageUrl(product.image_url);
             return <article className="sk-product-card" key={product.id}>
               <Link href={productHref} className="sk-product-visual" aria-label={"مشاهده " + product.title}>
-                <span className="sk-product-category">{canonicalCategory(product.category) || "سایر کالاها"}</span>
+                <span className="sk-product-category">{product.is_demo_product ? "نمونهٔ آزمایشی" : product.is_reference ? "کالای مرجع زنده" : (canonicalCategory(product.category) || "سایر کالاها")}</span>
                 {image ? <img src={image} alt={product.title} loading="lazy" decoding="async" /> : <span className="sk-product-glyph"><span aria-hidden="true">{categoryGlyph(product.category, product.title)}</span><small>تصویر کالا هنوز ثبت نشده</small></span>}
                 <span className="sk-visual-brand">{identity.name}</span>
               </Link>
               <div className="sk-product-info">
-                <span className="sk-seller-name"><i />{product.seller_name || "فروشنده ثبت‌شده"}</span>
+                <span className="sk-seller-name"><i />{product.is_demo_product ? "سوکار · کاتالوگ آزمایشی" : product.is_reference ? (product.source_name || "منبع اصلی") + " · فروش در منبع اصلی" : (product.seller_name || "فروشنده ثبت‌شده")}</span>
                 <Link href={productHref} className="sk-product-title">{product.title}</Link>
                 <p>{product.description || "مشخصات تکمیلی این کالا هنوز توسط فروشنده ثبت نشده است."}</p>
-                <div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>قیمت ثبت‌شده در کاتالوگ سوکار</small></div>
-                <Link href={productHref} className="sk-product-cta">مشاهده جزئیات <span>←</span></Link>
-               <AddToCartButton compact product={{ id: product.id, sku: product.sku, title: product.title, price: product.price, currency: product.currency, seller_name: product.seller_name, store_id: product.store_id, image_url: product.image_url, site: templateVariant }} />
+                <div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>{product.is_demo_product ? "قیمت مرجع آزمایشی؛ قیمت فروش سوکار نیست" : product.is_reference ? "قیمت نمایش‌داده‌شده از منبع اصلی است و ممکن است تغییر کند" : "قیمت ثبت‌شده در کاتالوگ سوکار"}</small></div>
+                <Link href={productHref} className="sk-product-cta" target={product.is_reference ? "_blank" : undefined} rel={product.is_reference ? "noopener noreferrer" : undefined}>{product.is_reference ? "بررسی و خرید در منبع اصلی" : "مشاهده جزئیات"} <span>←</span></Link>
+               {!product.is_reference && <AddToCartButton compact product={{ id: product.id, sku: product.sku, title: product.title, price: product.price, currency: product.currency, seller_name: product.seller_name, store_id: product.store_id, image_url: product.image_url, is_demo_product: product.is_demo_product, site: templateVariant }} />}
               </div>
             </article>;
           })}</div>
