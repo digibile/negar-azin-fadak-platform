@@ -196,10 +196,10 @@ html,body{background:#fff;color:#202124;font-family:Vazirmatn,Tahoma,sans-serif}
 <script>
 (function(){
 "use strict";
-const API="https://sookar.ir/api/public/marketplace?tenantCode=digibile";
+const API="https://sookar.ir/api/public/marketplace?tenantCode=digibile";const REFERENCE_API="https://sookar.ir/api/public/marketplace/reference-catalog?tenantCode=digibile";
 let products=[],filter="همه",query="",cart=new Map(),favorites=new Set(),slide=0,sourceStatus="loading",fetchedAt=null;
 const fa=v=>String(v??"").replace(/[ي]/g,"ی").replace(/[ك]/g,"ک").replace(/\u200c/g," ").trim().toLocaleLowerCase("fa-IR");
-const money=v=>{const n=Number(v);if(!Number.isFinite(n)||n<=0)return "قیمت نامشخص";return new Intl.NumberFormat("fa-IR").format(Math.round(n))+" تومان";};
+const money=v=>{const n=Number(v);if(!Number.isFinite(n)||n<=0)return "قیمت نامشخص";return new Intl.NumberFormat("fa-IR").format(Math.round(n/10))+" تومان";};
 const count=v=>new Intl.NumberFormat("fa-IR").format(v);
 const safe=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function ensureCartUI(){
@@ -228,7 +228,7 @@ function renderCart(){
  row.querySelector('[data-act="minus"]').onclick=()=>changeQty(id,-1);row.querySelector('[data-act="plus"]').onclick=()=>changeQty(id,1);row.querySelector('[data-act="remove"]').onclick=()=>{cart.delete(id);persistCart();renderCart();render();};host.appendChild(row);
  });
  document.getElementById("dgCartCount").textContent=count(qty);document.getElementById("dgCartTotal").textContent=money(total);
- status.innerHTML=sourceStatus==="live"?'<span class="dg-live">قیمت‌های دریافت‌شده از منبع زنده</span>':'<span class="dg-live offline">وضعیت منبع نیازمند بررسی است</span>';
+ status.innerHTML=sourceStatus==="live"?'<span class="dg-live">کاتالوگ داخلی</span>':sourceStatus==="reference"?'<span class="dg-live offline">فهرست مرجع؛ خرید در سایت منبع</span>':'<span class="dg-live offline">وضعیت منبع نیازمند بررسی است</span>';
  document.getElementById("dgCheckout").disabled=!rows.length;
 }
 function changeQty(id,delta){const next=(cart.get(id)||0)+delta;if(next<=0)cart.delete(id);else cart.set(id,Math.min(20,next));persistCart();renderCart();render();}
@@ -252,7 +252,34 @@ function updateCartBadge(){const button=document.getElementById("cartButton");if
 function setFilter(v,scroll=true){filter=v;document.getElementById("productTitle").textContent=v==="همه"?"ویترین کالاهای به‌روز":v;document.getElementById("productDescription").textContent=sourceStatus==="live"?"قیمت‌ها و مشخصات از فهرست زنده منبع دریافت می‌شوند؛ برای سفارش نهایی به صفحه اصلی کالا بروید.":"قیمت و موجودی بدون تأیید منبع نمایش داده نمی‌شود.";document.querySelectorAll("[data-filter]").forEach(b=>b.classList.toggle("active",b.dataset.filter===v));render();if(scroll)document.getElementById("products").scrollIntoView({behavior:"smooth",block:"start"});}
 const slides=[["خریدی که به سلیقه تو نزدیکه","کالاهای واقعی،|قیمت‌های به‌روز","کالاها را جست‌وجو کن، قیمت منبع را ببین و انتخاب‌هایت را در سبد جمع کن.","همه"],["تکنولوژی برای هر روز","محصولات دیجیتال|با قیمت منبع","کالاهای دیجیتال را از فهرست زنده بررسی کن و قبل از خرید مشخصات را ببین.","موبایل و تبلت"],["خانه، استایل، زندگی","برای هر نیاز|یک انتخاب تازه","دسته‌بندی‌ها را بگرد و فقط قیمت‌هایی را ببین که از منبع دریافت شده‌اند.","خانه و آشپزخانه"]];
 function setSlide(n){slide=(n+slides.length)%slides.length;const s=slides[slide];document.getElementById("eyebrow").textContent=s[0];document.getElementById("heroTitle").innerHTML=s[1].split("|").map(x=>"<span>"+safe(x)+"</span>").join("");document.getElementById("heroBody").textContent=s[2];document.querySelectorAll("#pager button").forEach((b,i)=>b.classList.toggle("active",i===slide));const small=document.querySelector("#pager small");if(small)small.textContent=count(slide+1)+" / "+count(slides.length);document.getElementById("heroCta").onclick=()=>setFilter(s[3]);}
-async function loadCatalog(){sourceStatus="loading";render();try{const response=await fetch(API,{headers:{accept:"application/json"},cache:"no-store"});const data=await response.json();if(!response.ok||!Array.isArray(data.products))throw new Error(data.message||"منبع کالا در دسترس نیست");products=data.products.map(p=>({...p,image_url:p.image_url&&p.image_url.startsWith("http")?p.image_url:"https://sookar.ir"+(p.image_url||"")})).filter(p=>p&&p.id&&p.title&&p.image_url&&Number(p.price)>0);sourceStatus=products.length?"live":"unavailable";fetchedAt=data.fetchedAt||null;if(!products.length)sourceStatus="unavailable";}catch(error){products=[];sourceStatus="unavailable";console.error("Digibile live catalog:",error);}const desc=document.getElementById("productDescription");if(desc)desc.textContent=sourceStatus==="live"?"کالاها از کاتالوگ منتشرشده خود بازارگاه دیجی‌بایل بارگذاری شده‌اند.":"هنوز کالای دارای فروشنده و موجودی تأییدشده در کاتالوگ عمومی بازارگاه موجود نیست؛ کالای ساختگی نمایش داده نمی‌شود.";render();updateCartBadge();}
+async function loadCatalog(){
+ sourceStatus="loading";render();let data=null;let catalogMode="owned";
+ try{
+  let response=await fetch(API,{headers:{accept:"application/json"},cache:"no-store"});
+  data=await response.json();
+  if(!response.ok||!Array.isArray(data.products))throw new Error(data.message||"کاتالوگ داخلی هنوز آماده نیست");
+ }catch(error){
+  try{
+   const response=await fetch(REFERENCE_API,{headers:{accept:"application/json"},cache:"no-store"});
+   const reference=await response.json();
+   if(!response.ok||!Array.isArray(reference.products))throw new Error(reference.error||"فهرست مرجع در دسترس نیست");
+   data=reference;catalogMode="reference";
+  }catch(referenceError){
+   products=[];sourceStatus="unavailable";
+   console.error("Digibile catalog:",error,referenceError);
+  }
+ }
+ if(data){
+  products=data.products.map(p=>({...p,image_url:p.image_url&&p.image_url.startsWith("http")?p.image_url:"https://sookar.ir"+(p.image_url||"")})).filter(p=>p&&p.id&&p.title&&p.image_url&&Number(p.price)>0);
+  sourceStatus=products.length?(catalogMode==="owned"?"live":"reference"):"unavailable";
+  fetchedAt=data.fetchedAt||data.sourceFetchedAt||null;
+ }
+ const desc=document.getElementById("productDescription");
+ if(desc)desc.textContent=sourceStatus==="live"?"کالاها از کاتالوگ داخلی منتشرشده بازارگاه دیجی‌بایل بارگذاری شده‌اند.":sourceStatus==="reference"?"کالاهای واقعیِ فهرست مرجع با قیمت و تصویر منبع نمایش داده می‌شوند؛ فروشنده و موجودی دیجی‌بایل هنوز تأیید نشده و ثبت خرید داخلی فعال نیست.":"کاتالوگ پاسخ نداد؛ برای جلوگیری از نمایش قیمت یا موجودی ساختگی، محصول نمونه نشان داده نمی‌شود.";
+ const title=document.getElementById("productTitle");if(title)title.textContent=sourceStatus==="reference"?"کالاهای واقعی از فهرست مرجع":"ویترین انتخاب‌های روز";
+ const badge=document.querySelector("#products .demo");if(badge)badge.textContent=sourceStatus==="reference"?"فهرست مرجع":"کاتالوگ بازارگاه";
+ render();updateCartBadge();
+}
 function setup(){ensureCartUI();restoreCart();const search=document.getElementById("searchForm");if(search)search.addEventListener("submit",e=>{e.preventDefault();query=document.getElementById("searchInput").value||"";setFilter("همه");});
 document.querySelectorAll("[data-filter]").forEach(b=>b.onclick=()=>{query="";const input=document.getElementById("searchInput");if(input)input.value="";setFilter(b.dataset.filter);});
 document.querySelectorAll("[data-category]").forEach(b=>b.onclick=()=>setFilter(b.dataset.category));document.querySelectorAll("[data-jump]").forEach(b=>b.onclick=()=>setFilter(b.dataset.jump));
