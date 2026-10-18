@@ -199,7 +199,7 @@ html,body{background:#fff;color:#202124;font-family:Vazirmatn,Tahoma,sans-serif}
 const API="https://sookar.ir/api/public/marketplace?tenantCode=digibile";const REFERENCE_API="https://sookar.ir/api/public/marketplace/reference-catalog?tenantCode=digibile";
 let products=[],filter="همه",query="",cart=new Map(),favorites=new Set(),slide=0,sourceStatus="loading",fetchedAt=null;
 const fa=v=>String(v??"").replace(/[ي]/g,"ی").replace(/[ك]/g,"ک").replace(/\u200c/g," ").trim().toLocaleLowerCase("fa-IR");
-const money=v=>{const n=Number(v);if(!Number.isFinite(n)||n<=0)return "قیمت نامشخص";return new Intl.NumberFormat("fa-IR").format(Math.round(n))+" تومان";};
+const money=v=>{const n=Number(v);if(!Number.isFinite(n)||n<=0)return "قیمت نامشخص";return new Intl.NumberFormat("fa-IR").format(Math.round(n/10))+" تومان";};
 const count=v=>new Intl.NumberFormat("fa-IR").format(v);
 const safe=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function ensureCartUI(){
@@ -228,7 +228,7 @@ function renderCart(){
  row.querySelector('[data-act="minus"]').onclick=()=>changeQty(id,-1);row.querySelector('[data-act="plus"]').onclick=()=>changeQty(id,1);row.querySelector('[data-act="remove"]').onclick=()=>{cart.delete(id);persistCart();renderCart();render();};host.appendChild(row);
  });
  document.getElementById("dgCartCount").textContent=count(qty);document.getElementById("dgCartTotal").textContent=money(total);
- status.innerHTML=sourceStatus==="live"?'<span class="dg-live">قیمت‌های دریافت‌شده از منبع زنده</span>':'<span class="dg-live offline">وضعیت منبع نیازمند بررسی است</span>';
+ status.innerHTML=sourceStatus==="live"?'<span class="dg-live">کاتالوگ داخلی</span>':sourceStatus==="reference"?'<span class="dg-live offline">فهرست مرجع؛ خرید در سایت منبع</span>':'<span class="dg-live offline">وضعیت منبع نیازمند بررسی است</span>';
  document.getElementById("dgCheckout").disabled=!rows.length;
 }
 function changeQty(id,delta){const next=(cart.get(id)||0)+delta;if(next<=0)cart.delete(id);else cart.set(id,Math.min(20,next));persistCart();renderCart();render();}
