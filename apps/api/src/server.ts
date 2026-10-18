@@ -65,7 +65,7 @@ const requireModulePermission=async(user:any,moduleId:number,action:"read"|"writ
  );
  return Boolean(p.rowCount);
 };
-const allowedOrigins=(process.env.CORS_ORIGIN||"http://localhost:3000").split(",").map(x=>x.trim()).filter(Boolean);
+const allowedOrigins=[...new Set([...(process.env.CORS_ORIGIN||"http://localhost:3000").split(",").map(x=>x.trim()).filter(Boolean),"https://digibile.ir","https://www.digibile.ir"])];
 app.disable("x-powered-by");
 app.use(cors({origin:(origin,callback)=>{if(!origin||allowedOrigins.includes(origin))return callback(null,true);callback(new Error("مبدأ درخواست مجاز نیست"))},credentials:true}));
 app.use(express.json({limit:"12mb",verify:(req,_,buf)=>{(req as any).rawBody=Buffer.from(buf)}}));
@@ -76,6 +76,14 @@ app.use((req,res,next)=>{if(["GET","HEAD","OPTIONS"].includes(req.method)||req.p
 app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.json({status:"ok",database:"ok"});}));
 
 // Public endpoint exposes validated published settings only; writes stay behind authenticated module permissions.
+app.get("/api/public/digikala-catalog",asyncHandler(async(_req,res)=>{
+ const catalog=await getDigikalaCatalog(false);
+ res.setHeader("Cache-Control","public, max-age=60, stale-while-revalidate=240");
+ res.setHeader("X-Catalog-Source","digikala-live");
+ if(!catalog.products.length) return res.status(503).json({source:"digikala",sourceStatus:"unavailable",fetchedAt:catalog.fetchedAt,products:[],message:"در حال حاضر دریافت فهرست زنده کالاها از منبع اصلی ممکن نیست."});
+ res.json({source:"digikala",sourceStatus:catalog.sourceStatus,fetchedAt:catalog.fetchedAt,categories:catalog.categories,products:catalog.products});
+}));
+
 app.get("/api/public/storefront-theme",asyncHandler(async(req,res)=>{
  const tenant=await resolvePublicTenant({hostname:String(req.headers["x-forwarded-host"]||req.hostname||"").trim().toLowerCase().split(":")[0]},typeof req.query.tenant==="string"?req.query.tenant:"");
  res.setHeader("Cache-Control","no-store, max-age=0");
