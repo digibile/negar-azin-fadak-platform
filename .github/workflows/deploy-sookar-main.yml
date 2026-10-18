@@ -499,7 +499,7 @@ jobs:
           set -euo pipefail
           test -n "$DEPLOY_KEY" && test -n "$DEPLOY_HOST" && test -n "$DEPLOY_PORT"
           umask 077
-          printf '%s\\n' "$DEPLOY_KEY" > "$HOME/.deploy_key"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.deploy_key"
           mkdir -p "$HOME/.ssh"
           chmod 700 "$HOME/.ssh"
           ssh-keyscan -T 15 -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> "$HOME/.ssh/known_hosts"
@@ -524,7 +524,7 @@ jobs:
           test -f "$REGISTRY/templates.json" || { echo "Digibile templates.json missing; stopped."; exit 22; }
           test -f "$REGISTRY/active.json" || { echo "Digibile active.json missing; stopped."; exit 23; }
           test -f /usr/local/directadmin/data/users/digibile/domains/digibile.ir.conf || { echo "Digibile DirectAdmin domain config missing; stopped."; exit 24; }
-          grep -Eq 'server_name[^;]*digibile\\.ir' /usr/local/directadmin/data/users/digibile/nginx.conf || { echo "Digibile nginx server block not found; stopped."; exit 25; }
+          grep -Eq 'server_name[^;]*digibile\.ir' /usr/local/directadmin/data/users/digibile/nginx.conf || { echo "Digibile nginx server block not found; stopped."; exit 25; }
           SCRIPT="$(find "$DOMAIN/ui" "$DOMAIN" -maxdepth 4 -type f -name 'switch-template.sh' -print -quit 2>/dev/null || true)"
           test -n "$SCRIPT" || { echo "Template switch script not found; refusing to replace the live document root."; exit 26; }
           python3 - "$REGISTRY/templates.json" "$REGISTRY/active.json" <<'PY'
@@ -608,7 +608,7 @@ jobs:
                   data[tid]=item
           else: raise SystemExit("Unsupported templates.json structure; activation stopped.")
           fd,tmp=tempfile.mkstemp(prefix=".templates-",dir=os.path.dirname(path))
-          with os.fdopen(fd,"w",encoding="utf-8") as f: json.dump(data,f,ensure_ascii=False,indent=2); f.write("\\n")
+          with os.fdopen(fd,"w",encoding="utf-8") as f: json.dump(data,f,ensure_ascii=False,indent=2); f.write("\n")
           os.replace(tmp,path)
           PY
           chown digibile:digibile "$REGISTRY/templates.json"
