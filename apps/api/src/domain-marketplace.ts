@@ -650,8 +650,9 @@ domainMarketplaceRouter.get("/api/marketplace/digikala-catalog",requireAuth,requ
 
 domainMarketplaceRouter.get("/api/public/marketplace/reference-catalog",asyncHandler(async(req,res)=>{
   const requestedCode=bodyString(req.query.tenantCode,80)||bodyString(req.query.tenant,80)||undefined;
+  // This is a read-only reference feed, not tenant-owned inventory.
+  // Keep it available while the Digibile tenant is being provisioned; checkout remains on the source site.
   const tenant=await resolvePublicTenant(req,requestedCode);
-  if(!tenant)return res.status(404).json({error:"بازارگاه فعال پیدا نشد",products:[],categories:[],total:0});
   const catalog=await getDigikalaCatalog();
   const products=catalog.products
     .filter(product=>product.price!==null&&Number(product.price)>0&&product.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(product.image_url)&&/^https:\/\//i.test(product.source_url))
@@ -665,7 +666,7 @@ domainMarketplaceRouter.get("/api/public/marketplace/reference-catalog",asyncHan
     }));
   res.setHeader("Cache-Control","public, max-age=60, stale-while-revalidate=120");
   res.json({
-    tenant:{name:tenant.name,code:tenant.code},products,
+    tenant:tenant?{name:tenant.name,code:tenant.code}:{name:"دیجی‌بایل",code:requestedCode},products,
     categories:[...new Set([...catalog.categories,...products.map(product=>product.category)].filter(Boolean))],
     total:products.length,catalogMode:"reference",sourceStatus:catalog.sourceStatus,sourceFetchedAt:catalog.fetchedAt,
     notice:"این‌ها کالاهای مرجع از منبع بیرونی‌اند؛ فروشنده و موجودی سوکار تأیید نشده‌اند و خرید در سوکار غیرفعال است. خرید فقط از صفحه منبع اصلی انجام می‌شود."
