@@ -1,0 +1,233 @@
+name: Publish Digibile Marketplace Template
+run-name: Publish Digibile template from ${{ inputs.target_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: "Exact reviewed commit SHA containing the Digibile template"
+        required: true
+        type: string
+      activate_on_digibile:
+        description: "Activate the template on digibile.ir after server preflight"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: digibile-template-production
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact reviewed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_sha }}
+
+      - name: Validate static template package
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s apps/web/public/templates/digibile-marketplace/index.html
+          grep -q 'دیجی‌بایل' apps/web/public/templates/digibile-marketplace/index.html
+          grep -q 'id="productGrid"' apps/web/public/templates/digibile-marketplace/index.html
+          if grep -E '(^|/)\.\./|/etc/passwd|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY' apps/web/public/templates/digibile-marketplace/index.html; then
+            echo "Unexpected unsafe path or secret-like content in template."
+            exit 1
+          fi
+          mkdir -p /tmp/digibile-template-package/digibile-marketplace/dist
+          cp apps/web/public/templates/digibile-marketplace/index.html /tmp/digibile-template-package/digibile-marketplace/dist/index.html
+          tar -czf /tmp/digibile-template.tar.gz -C /tmp/digibile-template-package digibile-marketplace
+          sha256sum /tmp/digibile-template.tar.gz
+
+      - name: Prepare SSH
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_KEY" && test -n "$DEPLOY_HOST" && test -n "$DEPLOY_PORT"
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.deploy_key"
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          ssh-keyscan -T 15 -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.deploy_key"
+          chmod 644 "$HOME/.ssh/known_hosts"
+
+      - name: Preflight Digibile target only
+        shell: bash
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          ACTIVATE: ${{ inputs.activate_on_digibile }}
+        run: |
+          set -euo pipefail
+          HOST="$DEPLOY_USER@$DEPLOY_HOST"
+          ssh -i "$HOME/.deploy_key" -p "$DEPLOY_PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "ACTIVATE='$ACTIVATE' bash -s" <<'REMOTE'
+          set -euo pipefail
+          DOMAIN=/home/digibile/domains/digibile.ir
+          PUBLIC="$DOMAIN/public_html"
+          REGISTRY="$DOMAIN/ui/negar-templates"
+          DOMAIN_CONF=/usr/local/directadmin/data/users/digibile/domains/digibile.ir.conf
+          test -d "$PUBLIC" || { echo "Digibile document root missing; stopped."; exit 20; }
+          test -d "$REGISTRY" || { echo "Digibile template registry missing; stopped."; exit 21; }
+          test -f "$REGISTRY/templates.json" || { echo "Digibile templates.json missing; stopped."; exit 22; }
+          test -f "$REGISTRY/active.json" || { echo "Digibile active.json missing; stopped."; exit 23; }
+          test -f "$DOMAIN_CONF" || { echo "Digibile DirectAdmin domain config missing; stopped."; exit 24; }
+          grep -Eq 'server_name[^;]*digibile\.ir' /usr/local/directadmin/data/users/digibile/nginx.conf || { echo "Digibile nginx server block not found; stopped."; exit 25; }
+          SCRIPT="$(find "$DOMAIN/ui" "$DOMAIN" -maxdepth 4 -type f -name 'switch-template.sh' -print -quit 2>/dev/null || true)"
+          if [ "$ACTIVATE" = "true" ] && [ -z "$SCRIPT" ]; then
+            echo "Template switch script not found; refusing to replace the live document root."
+            exit 26
+          fi
+          python3 - "$REGISTRY/templates.json" "$REGISTRY/active.json" <<'PY'
+          import json,sys
+          for path in sys.argv[1:]:
+              with open(path,encoding="utf-8") as f: json.load(f)
+          print("DIGIBILE_REGISTRY_JSON_OK")
+          PY
+          printf 'DIGIBILE_TARGET_OK\n'
+          REMOTE
+
+      - name: Upload template package
+        shell: bash
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          scp -i "$HOME/.deploy_key" -P "$DEPLOY_PORT" -o BatchMode=yes /tmp/digibile-template.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:/tmp/digibile-template.tar.gz"
+
+      - name: Register and optionally activate template on Digibile
+        shell: bash
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          RELEASE_SHA: ${{ inputs.target_sha }}
+          ACTIVATE: ${{ inputs.activate_on_digibile }}
+        run: |
+          set -euo pipefail
+          HOST="$DEPLOY_USER@$DEPLOY_HOST"
+          ssh -i "$HOME/.deploy_key" -p "$DEPLOY_PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "RELEASE_SHA='$RELEASE_SHA' ACTIVATE='$ACTIVATE' bash -s" <<'REMOTE'
+          set -euo pipefail
+          DOMAIN=/home/digibile/domains/digibile.ir
+          REGISTRY="$DOMAIN/ui/negar-templates"
+          PUBLIC="$DOMAIN/public_html"
+          ID=digibile-marketplace
+          STAMP="$(date +%Y%m%d-%H%M%S)"
+          BACKUP="$DOMAIN/ui/backups/digibile-marketplace-$STAMP"
+          mkdir -p "$BACKUP" "$REGISTRY/$ID"
+          cp -a "$REGISTRY/templates.json" "$BACKUP/templates.json"
+          cp -a "$REGISTRY/active.json" "$BACKUP/active.json"
+          python3 - "$REGISTRY/active.json" "$REGISTRY/templates.json" > "$BACKUP/previous-active-id" <<'PY'
+          import json,sys
+          with open(sys.argv[1],encoding="utf-8") as f: active=json.load(f)
+          found=""
+          def walk(x):
+              global found
+              if isinstance(x,dict):
+                  for k,v in x.items():
+                      if k.lower() in ("id","template_id","templateid","active_template") and isinstance(v,str) and v:
+                          found=v
+                      walk(v)
+              elif isinstance(x,list):
+                  for v in x: walk(v)
+          walk(active)
+          print(found)
+          PY
+          tar -xzf /tmp/digibile-template.tar.gz -C "$REGISTRY"
+          chown -R digibile:digibile "$REGISTRY/$ID"
+          python3 - "$REGISTRY/templates.json" "$ID" "$RELEASE_SHA" <<'PY'
+          import json,sys,os,tempfile
+          path,tid,sha=sys.argv[1:]
+          with open(path,encoding="utf-8") as f: data=json.load(f)
+          item={
+            "id":tid,
+            "name":"دیجی‌بایل | بازارگاه حرفه‌ای",
+            "type":"marketplace",
+            "version":"1.0.0",
+            "description":"قالب فروشگاهی اختصاصی دیجی‌بایل؛ راست‌چین و واکنش‌گرا.",
+            "domain":"digibile.ir",
+            "dist":"digibile-marketplace/dist",
+            "path":"digibile-marketplace/dist",
+            "entrypoint":"index.html",
+            "preview_url":"https://digibile.ir/",
+            "source_sha":sha,
+            "status":"published"
+          }
+          if isinstance(data,list):
+            data=[x for x in data if not (isinstance(x,dict) and x.get("id")==tid)]
+            data.append(item)
+          elif isinstance(data,dict):
+            key=next((k for k in ("templates","items","records") if isinstance(data.get(k),list)),None)
+            if key:
+              data[key]=[x for x in data[key] if not (isinstance(x,dict) and x.get("id")==tid)]
+              data[key].append(item)
+            else:
+              data[tid]=item
+          else:
+            raise SystemExit("Unsupported templates.json structure; activation stopped.")
+          fd,tmp=tempfile.mkstemp(prefix=".templates-",dir=os.path.dirname(path))
+          with os.fdopen(fd,"w",encoding="utf-8") as f:
+            json.dump(data,f,ensure_ascii=False,indent=2); f.write("\n")
+          os.replace(tmp,path)
+          PY
+          chown digibile:digibile "$REGISTRY/templates.json"
+          if [ "$ACTIVATE" = "true" ]; then
+            SCRIPT="$(find "$DOMAIN/ui" "$DOMAIN" -maxdepth 4 -type f -name 'switch-template.sh' -print -quit 2>/dev/null)"
+            chmod +x "$SCRIPT"
+            if ! "$SCRIPT" "$ID"; then
+              echo "Template activation failed; restoring registry files."
+              cp -a "$BACKUP/templates.json" "$REGISTRY/templates.json"
+              cp -a "$BACKUP/active.json" "$REGISTRY/active.json"
+              exit 30
+            fi
+            for i in $(seq 1 12); do
+              code="$(curl -L --connect-timeout 5 --max-time 15 -sS -o /tmp/digibile-live-check.html -w '%{http_code}' https://digibile.ir/ || true)"
+              if [ "$code" = "200" ] && grep -q 'دیجی‌بایل' /tmp/digibile-live-check.html; then
+                echo "DIGIBILE_LIVE_TEMPLATE_OK"
+                break
+              fi
+              sleep 3
+            done
+            if [ "$code" != "200" ] || ! grep -q 'دیجی‌بایل' /tmp/digibile-live-check.html; then
+              PREVIOUS="$(cat "$BACKUP/previous-active-id" 2>/dev/null || true)"
+              if [ -n "$PREVIOUS" ] && [ -d "$REGISTRY/$PREVIOUS/dist" ]; then
+                "$SCRIPT" "$PREVIOUS" || true
+              fi
+              cp -a "$BACKUP/templates.json" "$REGISTRY/templates.json"
+              cp -a "$BACKUP/active.json" "$REGISTRY/active.json"
+              echo "Live verification failed; rollback attempted. Backup: $BACKUP"
+              exit 31
+            fi
+          fi
+          rm -f /tmp/digibile-template.tar.gz
+          echo "DIGIBILE_TEMPLATE_REGISTERED=$ID"
+          echo "DIGIBILE_TEMPLATE_SOURCE_SHA=$RELEASE_SHA"
+          echo "DIGIBILE_TEMPLATE_ACTIVATED=$ACTIVATE"
+          REMOTE
+
+      - name: Verify Digibile HTTPS after publish
+        if: ${{ inputs.activate_on_digibile }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/digibile-final.html -w '%{http_code}' https://digibile.ir/)"
+          echo "DIGIBILE_HTTP=$code"
+          test "$code" = "200"
+          grep -q 'دیجی‌بایل' /tmp/digibile-final.html
+          grep -q 'دسته‌بندی‌های محبوب' /tmp/digibile-final.html
+          echo "DIGIBILE_PUBLIC_VERIFICATION_OK"
