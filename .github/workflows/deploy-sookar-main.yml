@@ -399,7 +399,7 @@ jobs:
             head -c 1000 /tmp/sookar-ir-health.html || true
             exit 1
           fi
-          grep -q 'digibile-template/src/index.html' /tmp/sookar-ir-health.html
+          grep -q 'sk-store--default' /tmp/sookar-ir-health.html
           template_code=$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/sookar-digibile-template.html -w '%{http_code}' https://sookar.ir/digibile-template/src/index.html)
           echo "DIGIBILE_TEMPLATE_HTTP=$template_code"
           test "$template_code" = "200"
