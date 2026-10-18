@@ -134,6 +134,73 @@ domainMarketplaceRouter.post("/api/marketplace/products",requireAuth,requirePerm
   res.status(201).json(r.rows[0]);
 }));
 
+
+/**
+ * Bulk ingestion for real seller/supplier catalog records.
+ * Records remain drafts until price, seller, image and inventory have been reviewed.
+ * Product images must already be hosted by this platform; external hotlinks are rejected.
+ */
+domainMarketplaceRouter.post("/api/marketplace/products/import-supplier-catalog",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const sellerId=bodyString(req.body?.sellerId,100);
+  const supplierName=bodyString(req.body?.supplierName,200);
+  const supplierReference=bodyString(req.body?.supplierReference,200);
+  const items=Array.isArray(req.body?.items)?req.body.items:[];
+  if(!sellerId||!supplierName||!items.length)return res.status(400).json({error:"فروشنده، نام تأمین‌کننده و فهرست کالاها الزامی است"});
+  if(items.length>500)return res.status(400).json({error:"هر نوبت حداکثر ۵۰۰ کالا می‌پذیرد؛ برای کاتالوگ بزرگ‌تر چند نوبت ارسال کنید"});
+  const seller=await query("select id,display_name,status from sellers where id=$1 and tenant_id=$2",[sellerId,ctx.id]);
+  if(!seller.rowCount)return res.status(404).json({error:"فروشنده در محدوده سازمانی جاری پیدا نشد"});
+  const storeId=bodyString(req.body?.storeId,100)||null;
+  if(storeId){
+    const store=await query("select id from stores where id=$1 and tenant_id=$2 and seller_id=$3 and status='active'",[storeId,ctx.id,sellerId]);
+    if(!store.rowCount)return res.status(400).json({error:"فروشگاه باید متعلق به همین فروشنده و فعال باشد"});
+  }
+  const imported:Array<{sku:string;id:string;status:string}>=[];
+  const skipped:Array<{sku:string;reason:string}>=[];
+  for(const raw of items){
+    const item=raw&&typeof raw==="object"&&!Array.isArray(raw)?raw as Record<string,unknown>:{};
+    const sku=bodyString(item.sku,120);
+    const title=bodyString(item.title,250);
+    const category=bodyString(item.category,200);
+    const imageUrl=bodyString(item.imageUrl,500);
+    const price=bodyNumber(item.price);
+    const currency=bodyString(item.currency,10)||"IRR";
+    const description=bodyString(item.description,5000)||null;
+    if(!sku||!title||!category||price===null||price<=0){
+      skipped.push({sku:sku||"(بدون SKU)",reason:"شناسه، عنوان، دسته‌بندی و قیمت فروش معتبر الزامی است"});continue;
+    }
+    if(!imageUrl||!/^\/api\/public\/media\/catalog\/[a-zA-Z0-9/_-]+\.(?:webp|png|jpe?g|avif)$/i.test(imageUrl)){
+      skipped.push({sku,reason:"تصویر باید ابتدا در رسانه داخلی پلتفرم ذخیره شود؛ لینک تصویر خارجی پذیرفته نیست"});continue;
+    }
+    const duplicate=await query("select id from products where tenant_id=$1 and sku=$2",[ctx.id,sku]);
+    if(duplicate.rowCount){skipped.push({sku,reason:"این شناسه کالا از قبل در کاتالوگ ثبت شده است"});continue;}
+    const attributes={
+      imageUrl,sourceName:supplierName,sourceType:"supplier-verified",
+      supplierReference:supplierReference||null,inventorySource:supplierName,
+      inventoryQuantity:0,inventoryVerified:false,priceReviewRequired:true,
+      catalogImportType:"supplier-bulk",catalogImportedAt:new Date().toISOString(),
+      catalogReviewRequired:true
+    };
+    try{
+      const saved=await query(
+        "insert into products(tenant_id,seller_id,store_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10::jsonb) on conflict(tenant_id,sku) do nothing returning id,sku,status",
+        [ctx.id,sellerId,storeId,sku,title,description,category,price,currency,JSON.stringify(attributes)]
+      );
+      if(!saved.rowCount){skipped.push({sku,reason:"شناسه کالا هم‌زمان توسط فرایند دیگری ثبت شد"});continue;}
+      imported.push({sku:saved.rows[0].sku,id:saved.rows[0].id,status:saved.rows[0].status});
+    }catch(error){
+      skipped.push({sku,reason:error instanceof Error?error.message:"ذخیره کالا ناموفق بود"});
+    }
+  }
+  res.status(201).json({
+    tenantCode:ctx.code,sellerId,supplierName,requested:items.length,
+    imported:imported.length,skipped:skipped.length,items:imported,skippedItems:skipped,
+    status:"draft",
+    message:"کالاها در کاتالوگ داخلی ثبت شدند؛ برای انتشار باید تصاویر داخلی، قیمت فروش، مرجع تأمین و موجودی واقعی بررسی و تأیید شوند. هیچ کالایی خودکار منتشر نشده است."
+  });
+}));
+
 domainMarketplaceRouter.get("/api/marketplace/orders",requireAuth,requirePermission("order:view"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
