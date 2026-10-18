@@ -468,14 +468,14 @@ jobs:
           echo "SOOKAR_STOREFRONT_ROUTES_OK"
 
   publish-digibile-template:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_to_digibile }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.deploy_to_digibile) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-digibile]')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout exact reviewed commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.target_sha }}
+          ref: ${{ inputs.target_sha || github.sha }}
 
       - name: Validate and package Digibile template
         shell: bash
@@ -556,7 +556,7 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          RELEASE_SHA: ${{ inputs.target_sha }}
+          RELEASE_SHA: ${{ inputs.target_sha || github.sha }}
         run: |
           set -euo pipefail
           HOST="$DEPLOY_USER@$DEPLOY_HOST"
