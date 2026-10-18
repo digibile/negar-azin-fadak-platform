@@ -16,7 +16,7 @@ const categories = [
 ];
 
 const products = [
-  { id: 1, name: "گوشی هوشمند؛ انتخابی برای هر روز", category: "موبایل و دیجیتال", label: "پیشنهاد روز", price: "مشاهده قیمت", oldPrice: "", image: "photo-151 smartphones", photo: "https://images.unsplash.com/photo-1511704095947-9e7b8f6f4a2b?auto=format&fit=crop&w=700&q=85", tone: "phone", badge: "محبوب" },
+  { id: 1, name: "گوشی هوشمند؛ انتخابی برای هر روز", category: "موبایل و دیجیتال", label: "پیشنهاد روز", price: "مشاهده قیمت", photo: "https://images.unsplash.com/photo-1511704095947-9e7b8f6f4a2b?auto=format&fit=crop&w=700&q=85", tone: "phone", badge: "محبوب" },
   { id: 2, name: "هدفون بی‌سیم با طراحی مینیمال", category: "موبایل و دیجیتال", label: "صدای بهتر", price: "مشاهده قیمت", oldPrice: "", photo: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=700&q=85", tone: "audio", badge: "پرطرفدار" },
   { id: 3, name: "ساعت هوشمند برای سبک زندگی فعال", category: "ساعت و اکسسوری", label: "انتخاب هوشمند", price: "مشاهده قیمت", oldPrice: "", photo: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=700&q=85", tone: "watch", badge: "جدید" },
   { id: 4, name: "کفش روزمره با طراحی ساده", category: "مد و پوشاک", label: "استایل روزانه", price: "مشاهده قیمت", oldPrice: "", photo: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=700&q=85", tone: "shoe", badge: "منتخب" },
@@ -27,6 +27,12 @@ const products = [
 ];
 
 const formatCount = (count: number) => new Intl.NumberFormat("fa-IR").format(count);
+const normalizeText = (value: string) => value
+  .replace(/[ي]/g, "ی")
+  .replace(/[ك]/g, "ک")
+  .replace(/\u200c/g, " ")
+  .trim()
+  .toLocaleLowerCase("fa-IR");
 
 export default function DigibileHome() {
   const [query, setQuery] = useState("");
@@ -89,7 +95,7 @@ export default function DigibileHome() {
             <span className="dg-eyebrow"><i /> {currentSlide.eyebrow}</span>
             <h1>{currentSlide.title.split("\n").map((line, index) => <span key={index}>{line}</span>)}</h1>
             <p>{currentSlide.body}</p>
-            <button className="dg-hero-cta" onClick={scrollToProducts}>{currentSlide.button}<span>←</span></button>
+            <button className="dg-hero-cta" onClick={handleHeroAction}>{currentSlide.button}<span>←</span></button>
             <div className="dg-hero-pagination">
               {heroSlides.map((item, index) => <button key={item.className} onClick={() => setSlide(index)} className={index === slide ? "active" : ""} aria-label={`نمایش اسلاید ${index + 1}`} />)}
               <small>{formatCount(slide + 1)} / {formatCount(heroSlides.length)}</small>
@@ -129,8 +135,8 @@ export default function DigibileHome() {
           <div className="dg-section-head"><div><span className="dg-section-kicker">برای شروع ایده بگیر</span><h2>{activeCategory === "همه" ? "ویترین انتخاب‌های روز" : activeCategory}</h2><p>{query ? `نتایج جست‌وجو برای «${query}»` : "نمونه‌ای از چیدمان محصولات فروشگاه دیجی‌بایل"}</p></div><div className="dg-section-actions"><span className="dg-demo-note">نمایش طراحی، نه موجودی قطعی</span><Link href="/store/shop">رفتن به فهرست کالاها <b>←</b></Link></div></div>
           <div className="dg-filter-row"><button className={activeCategory === "همه" ? "active" : ""} onClick={() => setActiveCategory("همه")}>همه کالاها</button>{categories.slice(0, 5).map((category) => <button key={category.name} className={activeCategory === category.name ? "active" : ""} onClick={() => setActiveCategory(category.name)}>{category.name}</button>)}</div>
           {filtered.length ? <div className="dg-product-grid">{filtered.map((product) => <article className="dg-product-card" key={product.id}>
-            <div className="dg-product-image"><span className="dg-product-badge">{product.badge}</span><button className={favorites.includes(product.id) ? "dg-favorite active" : "dg-favorite"} aria-label="افزودن به علاقه‌مندی‌ها" onClick={() => setFavorites((current) => current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id])}>{favorites.includes(product.id) ? "♥" : "♡"}</button><img src={product.photo} alt="" loading="lazy" /><span className="dg-image-caption">{product.label}</span></div>
-            <div className="dg-product-info"><small>{product.category}</small><h3>{product.name}</h3><div className="dg-product-rating"><span>★★★★★</span><small>نمونه طراحی</small></div><div className="dg-product-price"><span>{product.price}</span><small>قیمت از سرویس کالا دریافت می‌شود</small></div><button className="dg-add-cart" onClick={() => setCartCount((count) => count + 1)}>افزودن به سبد نمایشی <span>＋</span></button></div>
+            <div className="dg-product-image"><span className="dg-product-badge">{product.badge}</span><button className={favorites.includes(product.id) ? "dg-favorite active" : "dg-favorite"} aria-label={favorites.includes(product.id) ? "حذف از علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها"} aria-pressed={favorites.includes(product.id)} onClick={() => setFavorites((current) => current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id])}>{favorites.includes(product.id) ? "♥" : "♡"}</button><img src={product.photo} alt={product.name} loading="lazy" /><span className="dg-image-caption">{product.label}</span></div>
+            <div className="dg-product-info"><small>{product.category}</small><h3>{product.name}</h3><div className="dg-product-rating"><span className="dg-product-spec-label">ویترین پیشنهادی</span><small>اطلاعات نمونه</small></div><div className="dg-product-price"><span>{product.price}</span><small>قیمت از سرویس کالا دریافت می‌شود</small></div><button className="dg-add-cart" onClick={() => setCartCount((count) => count + 1)}>افزودن به سبد نمایشی <span>＋</span></button></div>
           </article>)}</div> : <div className="dg-empty"><span>⌕</span><b>چیزی پیدا نشد</b><p>عبارت جست‌وجو یا دسته‌بندی را تغییر بده.</p><button onClick={() => { setQuery(""); setActiveCategory("همه"); }}>نمایش همه کالاها</button></div>}
         </section>
 
