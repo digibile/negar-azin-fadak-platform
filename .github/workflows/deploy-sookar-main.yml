@@ -658,3 +658,27 @@ jobs:
           grep -q 'دیجی‌بایل' /tmp/digibile-final.html
           grep -q 'دسته‌بندی‌های محبوب' /tmp/digibile-final.html
           echo DIGIBILE_PUBLIC_VERIFICATION_OK
+
+      - name: Inspect Digibile-owned live catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -L --connect-timeout 5 --max-time 25 -sS -o /tmp/digibile-owned-catalog.json -w '%{http_code}' 'https://sookar.ir/api/public/marketplace?tenantCode=digibile' || true)"
+          echo "DIGIBILE_CATALOG_HTTP=$code"
+          python3 - <<'PY'
+          import json
+          path="/tmp/digibile-owned-catalog.json"
+          try:
+              with open(path,encoding="utf-8") as f: data=json.load(f)
+          except Exception as exc:
+              print("DIGIBILE_CATALOG_JSON_ERROR="+str(exc))
+              raise SystemExit(0)
+          products=data.get("products") if isinstance(data,dict) else None
+          products=products if isinstance(products,list) else []
+          print("DIGIBILE_OWNED_PRODUCTS="+str(len(products)))
+          print("DIGIBILE_CATALOG_TENANT="+str((data.get("tenant") or {}).get("code","unknown")))
+          print("DIGIBILE_CATALOG_CATEGORIES="+str(len(data.get("categories") or [])))
+          local=sum(1 for p in products if isinstance(p,dict) and isinstance(p.get("image_url"),str) and p["image_url"].startswith("/api/public/media/"))
+          print("DIGIBILE_LOCAL_MEDIA_PRODUCTS="+str(local))
+          if not products: print("DIGIBILE_CATALOG_EMPTY=No seller-owned products with verified stock are published yet.")
+          PY
