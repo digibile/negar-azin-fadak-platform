@@ -50,7 +50,7 @@
 <script>
 (function(){
 "use strict";
-const API="/api/public/digikala-catalog";
+const API="https://sookar.ir/api/public/digikala-catalog";
 let products=[],filter="همه",query="",cart=new Map(),favorites=new Set(),slide=0,sourceStatus="loading",fetchedAt=null;
 const fa=v=>String(v??"").replace(/[ي]/g,"ی").replace(/[ك]/g,"ک").replace(/\u200c/g," ").trim().toLocaleLowerCase("fa-IR");
 const money=v=>{const n=Number(v);if(!Number.isFinite(n)||n<=0)return "قیمت نامشخص";return new Intl.NumberFormat("fa-IR").format(Math.round(n/10))+" تومان";};
