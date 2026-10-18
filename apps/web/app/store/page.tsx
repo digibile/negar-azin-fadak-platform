@@ -168,7 +168,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const isKipa = templateVariant === "kipa";
   const isDigibile = templateVariant === "digibile";
   const showAllProducts = pathname === "/store/shop";
-  const productHrefFor = (product:Product) => "/store/product/" + encodeURIComponent(product.sku || product.id) + "?site=" + templateVariant;
+  const productHrefFor = (product:Product) => product.is_reference && product.source_url ? product.source_url : "/store/product/" + encodeURIComponent(product.sku || product.id) + "?site=" + templateVariant;
   const [data, setData] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -195,14 +195,42 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/public/marketplace", {
-      headers: { accept: "application/json" },
-      cache: "no-store",
-      signal: controller.signal
-    }).then(async response => {
-      let body = await response.json();
-      if (!response.ok) throw new Error(body.error || "دریافت کاتالوگ ناموفق بود.");
-      if (!Array.isArray(body.products)) throw new Error("ساختار کاتالوگ معتبر نیست.");
+    const readCatalog = async () => {
+      const ownedResponse = await fetch("/api/public/marketplace", {
+        headers: { accept: "application/json" },
+        cache: "no-store",
+        signal: controller.signal
+      });
+      const ownedBody = await ownedResponse.json();
+      if (!ownedResponse.ok) throw new Error(ownedBody.error || "دریافت کاتالوگ ناموفق بود.");
+      if (!Array.isArray(ownedBody.products)) throw new Error("ساختار کاتالوگ معتبر نیست.");
+
+      // Keep seller-owned, verified inventory first. If none is published, show clearly
+      // labelled reference products and link directly to their source, never to fake checkout.
+      let body = ownedBody;
+      if (ownedBody.products.length === 0) {
+        const referenceResponse = await fetch("/api/public/marketplace/reference-catalog", {
+          headers: { accept: "application/json" },
+          cache: "no-store",
+          signal: controller.signal
+        });
+        if (referenceResponse.ok) {
+          const referenceBody = await referenceResponse.json();
+          if (Array.isArray(referenceBody.products) && referenceBody.products.length > 0) {
+            body = {
+              ...referenceBody,
+              catalogMode: "reference",
+              products: referenceBody.products.map((product: Product) => ({
+                ...product,
+                is_reference: true,
+                is_demo_product: false,
+                source_name: product.source_name || "منبع اصلی",
+                seller_name: product.source_name || "منبع اصلی"
+              }))
+            };
+          }
+        }
+      }
       if (!controller.signal.aborted) {
         setData({
           ...body,
@@ -212,7 +240,8 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
         } as Catalog);
         setError("");
       }
-    }).catch(reason => {
+    };
+    readCatalog().catch(reason => {
       if (controller.signal.aborted || (reason instanceof Error && reason.name === "AbortError")) return;
       setError(reason instanceof Error ? reason.message : "اتصال به کاتالوگ برقرار نشد.");
     }).finally(() => {
@@ -345,7 +374,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
             <h1 id="sk-hero-title">{identity.heroTitle}</h1>
             <p>{identity.heroDescription}</p>
             <div className="sk-hero-actions"><Link href="/store/shop" className="sk-primary-btn">خرید از همه دسته‌ها <span>←</span></Link><Link href="/marketplace/directory" className="sk-quiet-btn">فروشگاه‌های بازارگاه</Link></div>
-            <div className="sk-hero-note"><span>✓</span> {hasDemoProducts ? `کاتالوگ آزمایشی ${identity.name}؛ قیمت‌ها مرجع‌اند و پرداخت واقعی غیرفعال است` : hasReferenceProducts ? `کالاهای مرجع زنده؛ بررسی قیمت و خرید در منبع اصلی` : `اطلاعات محصولات از کاتالوگ ثبت‌شدهٔ ${identity.name} نمایش داده می‌شود`}</div>
+            <div className="sk-hero-note"><span>✓</span> {hasDemoProducts ? `کاتالوگ آزمایشی ${identity.name}؛ قیمت‌ها مرجع‌اند و پرداخت واقعی غیرفعال است` : hasReferenceProducts ? `کالاهای مرجع؛ قیمت و خرید نهایی در منبع اصلی` : `اطلاعات محصولات از کاتالوگ ثبت‌شدهٔ ${identity.name} نمایش داده می‌شود`}</div>
           </div>
           <div className="sk-hero-products" aria-label="محصولات منتخب از کاتالوگ">
             {sourceProducts.filter(product => safeImageUrl(product.image_url)).slice(0, 3).map((product, index) => (
