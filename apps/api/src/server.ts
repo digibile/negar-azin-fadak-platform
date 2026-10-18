@@ -65,7 +65,7 @@ const requireModulePermission=async(user:any,moduleId:number,action:"read"|"writ
  );
  return Boolean(p.rowCount);
 };
-const allowedOrigins=(process.env.CORS_ORIGIN||"http://localhost:3000").split(",").map(x=>x.trim()).filter(Boolean);
+const allowedOrigins=[...new Set([...(process.env.CORS_ORIGIN||"http://localhost:3000").split(",").map(x=>x.trim()).filter(Boolean),"https://digibile.ir","https://www.digibile.ir"])];
 app.disable("x-powered-by");
 app.use(cors({origin:(origin,callback)=>{if(!origin||allowedOrigins.includes(origin))return callback(null,true);callback(new Error("مبدأ درخواست مجاز نیست"))},credentials:true}));
 app.use(express.json({limit:"12mb",verify:(req,_,buf)=>{(req as any).rawBody=Buffer.from(buf)}}));
