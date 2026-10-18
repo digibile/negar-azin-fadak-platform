@@ -682,3 +682,40 @@ jobs:
           print("DIGIBILE_LOCAL_MEDIA_PRODUCTS="+str(local))
           if not products: print("DIGIBILE_CATALOG_EMPTY=No seller-owned products with verified stock are published yet.")
           PY
+
+      - name: Import and verify persistent Digibile reference products
+        shell: bash
+        run: |
+          set -euo pipefail
+          # This endpoint bootstraps the tenant-scoped reference catalog from the source API
+          # when empty, writes products/images metadata to PostgreSQL, then serves database rows.
+          code="$(curl -L --connect-timeout 5 --max-time 150 -sS -o /tmp/digibile-reference-catalog.json -w '%{http_code}' 'https://sookar.ir/api/public/marketplace/reference-catalog?tenantCode=digibile')"
+          echo "DIGIBILE_REFERENCE_CATALOG_HTTP=$code"
+          test "$code" = "200"
+          python3 - <<'PY'
+          import json,sys
+          path="/tmp/digibile-reference-catalog.json"
+          with open(path,encoding="utf-8") as f:
+              data=json.load(f)
+          products=data.get("products") if isinstance(data,dict) else None
+          products=products if isinstance(products,list) else []
+          total=int(data.get("total",len(products)) or 0)
+          tenant=(data.get("tenant") or {}).get("code","unknown")
+          categories=data.get("categories") or []
+          local=sum(1 for p in products if isinstance(p,dict) and isinstance(p.get("image_url"),str) and p["image_url"].startswith("/api/public/media/catalog/"))
+          priced=sum(1 for p in products if isinstance(p,dict) and float(p.get("price") or 0)>0)
+          print("DIGIBILE_REFERENCE_PRODUCTS="+str(total))
+          print("DIGIBILE_REFERENCE_TENANT="+str(tenant))
+          print("DIGIBILE_REFERENCE_CATEGORIES="+str(len(categories)))
+          print("DIGIBILE_REFERENCE_PRICED_PRODUCTS="+str(priced))
+          print("DIGIBILE_REFERENCE_LOCAL_IMAGES="+str(local))
+          print("DIGIBILE_REFERENCE_BOOTSTRAP_STATUS="+str(data.get("bootstrapStatus","unknown")))
+          if tenant != "digibile":
+              print("ERROR: reference catalog resolved to the wrong tenant",file=sys.stderr)
+              sys.exit(2)
+          if total < 1 or priced < 1:
+              print("ERROR: source API did not populate the persistent reference catalog",file=sys.stderr)
+              print("NOTICE="+str(data.get("notice","")),file=sys.stderr)
+              sys.exit(3)
+          print("DIGIBILE_REFERENCE_CATALOG_PERSISTED_OK")
+          PY
