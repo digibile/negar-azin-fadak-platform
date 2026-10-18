@@ -257,14 +257,23 @@ const slides=[["خریدی که به سلیقه تو نزدیکه","کالاها
 function setSlide(n){slide=(n+slides.length)%slides.length;const s=slides[slide];document.getElementById("eyebrow").textContent=s[0];document.getElementById("heroTitle").innerHTML=s[1].split("|").map(x=>"<span>"+safe(x)+"</span>").join("");document.getElementById("heroBody").textContent=s[2];document.querySelectorAll("#pager button").forEach((b,i)=>b.classList.toggle("active",i===slide));const small=document.querySelector("#pager small");if(small)small.textContent=count(slide+1)+" / "+count(slides.length);document.getElementById("heroCta").onclick=()=>setFilter(s[3]);}
 async function loadCatalog(){
  sourceStatus="loading";render();let data=null;let catalogMode="owned";let ownedError=null;
+ // Prefer a deployment-time snapshot served from this same domain. Visitors do not
+ // need a browser-to-API request, CORS permission, or a live source API connection.
  try{
-  const response=await fetch(API,{headers:{accept:"application/json"},cache:"no-store"});
-  const owned=await response.json();
-  if(!response.ok||!Array.isArray(owned.products))throw new Error(owned.message||owned.error||"کاتالوگ داخلی هنوز آماده نیست");
-  if(owned.products.length){data=owned;}
-  else {ownedError=new Error("کاتالوگ داخلی پاسخ داد اما محصول منتشرشده ندارد؛ کاتالوگ مرجع را بررسی می‌کنیم.");}
- }catch(error){ownedError=error;}
- // An empty 200 response is not a usable storefront. Try the persisted reference catalog too.
+  const snapshotResponse=await fetch("./catalog.json",{headers:{accept:"application/json"},cache:"no-cache"});
+  if(snapshotResponse.ok){
+   const snapshot=await snapshotResponse.json();
+   if(snapshot.tenant?.code==="digibile"&&Array.isArray(snapshot.products)&&snapshot.products.length){data=snapshot;catalogMode="reference";}
+  }
+ }catch(snapshotError){console.warn("Digibile local catalog snapshot unavailable; trying platform API.",snapshotError);}
+ if(!data){
+  try{
+   const response=await fetch(API,{headers:{accept:"application/json"},cache:"no-store"});
+   const owned=await response.json();
+   if(!response.ok||!Array.isArray(owned.products))throw new Error(owned.message||owned.error||"کاتالوگ داخلی هنوز آماده نیست");
+   if(owned.products.length){data=owned;}else{ownedError=new Error("کاتالوگ داخلی محصول منتشرشده ندارد؛ کاتالوگ ذخیره‌شده را بررسی می‌کنیم.");}
+  }catch(error){ownedError=error;}
+ }
  if(!data||!Array.isArray(data.products)||data.products.length===0){
   try{
    const response=await fetch(REFERENCE_API,{headers:{accept:"application/json"},cache:"no-store"});
@@ -279,14 +288,13 @@ async function loadCatalog(){
  if(data){
   products=data.products.map(p=>({...p,image_url:p.image_url&&p.image_url.startsWith("http")?p.image_url:"https://sookar.ir"+(p.image_url||"")})).filter(p=>p&&p.id&&p.title&&p.image_url&&Number(p.price)>0);
   sourceStatus=products.length?(catalogMode==="owned"?"live":"reference"):"unavailable";
-  fetchedAt=data.fetchedAt||data.sourceFetchedAt||null;
+  fetchedAt=data.fetchedAt||data.sourceFetchedAt||data.products[0]?.attributes?.sourceFetchedAt||null;
  }
  const desc=document.getElementById("productDescription");
- if(desc&&products.length)desc.textContent=count(products.length)+" کالا از کاتالوگ دریافت شد؛ کالاهای مرجع تا زمان تأیید فروشنده و موجودی، کالای قابل فروش دیجی‌بایل محسوب نمی‌شوند.";
  if(desc&&!products.length)desc.textContent="کاتالوگ محصول خالی است؛ برای جلوگیری از نمایش کالای ساختگی، محصول نمونه جایگزین نمی‌کنیم.";
- if(desc)desc.textContent=sourceStatus==="live"?"کالاها از کاتالوگ داخلی منتشرشده بازارگاه دیجی‌بایل بارگذاری شده‌اند.":sourceStatus==="reference"?"کالاهای مرجع از کاتالوگ ذخیره‌شده خوانده می‌شوند؛ فروشنده و موجودی دیجی‌بایل هنوز تأیید نشده و ثبت خرید داخلی فعال نیست.":"کاتالوگ محصول در دسترس نیست؛ اطلاعات ساختگی نمایش داده نمی‌شود.";
- const title=document.getElementById("productTitle");if(title)title.textContent=sourceStatus==="reference"?"کالاهای واقعی از فهرست مرجع":"ویترین انتخاب‌های روز";
- const badge=document.querySelector("#products .demo");if(badge)badge.textContent=sourceStatus==="reference"?"فهرست مرجع":"کاتالوگ بازارگاه";
+ if(desc)desc.textContent=sourceStatus==="live"?"کالاها از کاتالوگ داخلی منتشرشده بازارگاه دیجی‌بایل بارگذاری شده‌اند.":sourceStatus==="reference"?"کالاها از نسخهٔ ذخیره‌شدهٔ کاتالوگ بارگذاری شده‌اند؛ فروشنده و موجودی دیجی‌بایل هنوز تأیید نشده و ثبت خرید داخلی فعال نیست.":"کاتالوگ محصول در دسترس نیست؛ اطلاعات ساختگی نمایش داده نمی‌شود.";
+ const title=document.getElementById("productTitle");if(title)title.textContent=sourceStatus==="reference"?"کالاهای ذخیره‌شده از فهرست مرجع":"ویترین انتخاب‌های روز";
+ const badge=document.querySelector("#products .demo");if(badge)badge.textContent=sourceStatus==="reference"?"فهرست ذخیره‌شده":"کاتالوگ بازارگاه";
  render();updateCartBadge();
 }
 function setup(){ensureCartUI();restoreCart();const search=document.getElementById("searchForm");if(search)search.addEventListener("submit",e=>{e.preventDefault();query=document.getElementById("searchInput").value||"";setFilter("همه");});
