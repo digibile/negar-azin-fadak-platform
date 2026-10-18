@@ -468,6 +468,7 @@ jobs:
           echo "SOOKAR_STOREFRONT_ROUTES_OK"
 
   publish-digibile-template:
+    needs: deploy
     if: ${{ (github.event_name == 'workflow_dispatch' && inputs.deploy_to_digibile) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-digibile]')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
