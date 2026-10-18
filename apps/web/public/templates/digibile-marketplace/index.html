@@ -161,7 +161,7 @@ const cartButton=document.getElementById("cartButton");if(cartButton)cartButton.
 const newsletter=document.getElementById("newsletterForm");if(newsletter)newsletter.onsubmit=e=>{e.preventDefault();alert("عضویت خبرنامه هنوز به سرویس ارسال پیام متصل نشده است.");};
 const back=document.getElementById("backTop");if(back)back.onclick=e=>{e.preventDefault();window.scrollTo({top:0,behavior:"smooth"});};
 const categories=document.querySelector(".categories");if(categories){categories.querySelectorAll("[data-category]").forEach(b=>{b.onclick=()=>setFilter(b.dataset.category);});}
-setSlide(0);loadCatalog();setInterval(loadCatalog,5*60*1000);
+setSlide(0);loadCatalog();setInterval(()=>setSlide(slide+1),6500);setInterval(loadCatalog,5*60*1000);
 }
 setup();
 })();
