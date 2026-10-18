@@ -46,7 +46,7 @@ export default function ProductsPage() {
   const [inventoryQuantity, setInventoryQuantity] = useState("0");
   const [inventorySourceType, setInventorySourceType] = useState<"seller-owned" | "supplier-verified">("seller-owned");
   const [inventorySource, setInventorySource] = useState("");
-  const [catalogSupplierReference, setSupplierReference] = useState("");
+  const [catalogSupplierReference, setCatalogSupplierReference] = useState("");
   const [inventoryVerified, setInventoryVerified] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -317,7 +317,7 @@ export default function ProductsPage() {
     setInventoryQuantity(String(attributes.inventoryQuantity ?? "0"));
     setInventorySourceType(attributes.sourceType === "supplier-verified" ? "supplier-verified" : "seller-owned");
     setInventorySource(String(attributes.inventorySource ?? ""));
-    setSupplierReference(String(attributes.catalogSupplierReference ?? ""));
+    setCatalogSupplierReference(String(attributes.catalogSupplierReference ?? ""));
     setInventoryVerified(attributes.inventoryVerified === true);
     setError(""); setNotice("");
   }
@@ -456,7 +456,7 @@ export default function ProductsPage() {
             <label>تعداد موجودی<input type="number" min="0" step="1" value={inventoryQuantity} onChange={event => setInventoryQuantity(event.target.value)} /></label>
             <label>نوع منبع موجودی<select value={inventorySourceType} onChange={event => setInventorySourceType(event.target.value as "seller-owned" | "supplier-verified")}><option value="seller-owned">موجودی متعلق به فروشنده</option><option value="supplier-verified">تأمین‌کننده تأییدشده</option></select></label>
             <label>محل انبار / مرجع موجودی<input value={inventorySource} onChange={event => setInventorySource(event.target.value)} maxLength={250} placeholder="مثلاً انبار مرکزی فروشنده" /></label>
-            {inventorySourceType === "supplier-verified" && <label>شناسه تأمین‌کننده / قرارداد<input value={catalogSupplierReference} onChange={event => setSupplierReference(event.target.value)} maxLength={200} placeholder="شناسه قرارداد یا مرجع تأمین" /></label>}
+            {inventorySourceType === "supplier-verified" && <label>شناسه تأمین‌کننده / قرارداد<input value={catalogSupplierReference} onChange={event => setCatalogSupplierReference(event.target.value)} maxLength={200} placeholder="شناسه قرارداد یا مرجع تأمین" /></label>}
             <label className="mp-edit-description"><input type="checkbox" checked={inventoryVerified} onChange={event => setInventoryVerified(event.target.checked)} /> موجودی و منبع آن را بررسی و تأیید کرده‌ام</label>
             <div className="mp-edit-actions"><button type="button" onClick={() => void saveInventory(item)} disabled={savingId === item.id || !inventorySource.trim() || (inventorySourceType === "supplier-verified" && !catalogSupplierReference.trim())}>{savingId === item.id ? "در حال ذخیره…" : "ذخیره موجودی"}</button><button type="button" onClick={() => setInventoryEditingId("")} disabled={savingId === item.id}>انصراف</button></div>
           </div>}
