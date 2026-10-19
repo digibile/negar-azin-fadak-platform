@@ -546,43 +546,121 @@ jobs:
           curl -fSs --connect-timeout 10 --max-time 150 'https://sookar.ir/api/public/marketplace/reference-catalog?tenantCode=digibile' -o /tmp/digibile-template-package/digibile-marketplace/dist/catalog.json
           node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync("/tmp/digibile-template-package/digibile-marketplace/dist/catalog.json","utf8"));const p=Array.isArray(d.products)?d.products:[];const priced=p.filter(x=>Number(x.price)>0);console.log("DIGIBILE_STATIC_CATALOG_PRODUCTS="+p.length);console.log("DIGIBILE_STATIC_CATALOG_PRICED="+priced.length);if(d.tenant?.code!=="digibile"||priced.length===0)process.exit(1);'
           cp apps/web/public/templates/digibile-marketplace/index.html /tmp/digibile-template-package/digibile-marketplace/dist/index.html
-          # Render an initial set of real saved products into the HTML itself. This keeps the storefront useful even if browser JavaScript is blocked or fails.
+          # Render real saved products, category shelves, and verified discounts into HTML at deployment time.
+          # This gives the homepage meaningful product sections before JavaScript starts and keeps the reference inventory honest.
           python3 - <<'PY'
-          import html, json, pathlib
+          import html, json, pathlib, re
           catalog_path = pathlib.Path("/tmp/digibile-template-package/digibile-marketplace/dist/catalog.json")
           index_path = pathlib.Path("/tmp/digibile-template-package/digibile-marketplace/dist/index.html")
           data = json.loads(catalog_path.read_text(encoding="utf-8"))
           products = data.get("products", [])
+          category_rows = data.get("categories", []) if isinstance(data.get("categories", []), list) else []
+          category_by_id = {}
+          for row in category_rows:
+              if not isinstance(row, dict):
+                  continue
+              label = row.get("name") or row.get("title") or row.get("label") or row.get("category_name") or row.get("categoryName") or row.get("slug")
+              if label:
+                  for key in (row.get("id"), row.get("category_id"), row.get("categoryId"), row.get("slug")):
+                      if key is not None:
+                          category_by_id[str(key)] = str(label)
           def esc(value):
               return html.escape(str(value if value is not None else ""), quote=True)
-          cards = []
-          for p in products:
-              if not isinstance(p, dict):
-                  continue
-              title = p.get("title") or p.get("name") or p.get("product_name") or p.get("productName") or p.get("label") or "کالا"
-              price = float(p.get("price") or p.get("sale_price") or p.get("final_price") or 0)
-              image = p.get("image_url") or p.get("imageUrl") or p.get("image") or ""
-              if isinstance(image, dict):
-                  image = image.get("url") or image.get("src") or ""
-              if not isinstance(image, str) or not image or price <= 0:
-                  continue
-              image = image if image.startswith("http") else "https://sookar.ir/" + image.lstrip("/")
-              category = p.get("category") or p.get("category_name") or p.get("categoryName") or "سایر کالاها"
-              toman = format(round(price / 10), ",")
-              cards.append('<article class="card"><div class="photo"><span class="tag">کالای ذخیره‌شده</span><img loading="lazy" alt="' + esc(title) + '" src="' + esc(image) + '"></div><div class="pinfo"><span class="cat">' + esc(category) + '</span><h3>' + esc(title) + '</h3><div class="pfoot"><div><strong>' + esc(toman) + ' تومان</strong><small>قیمت ثبت‌شده از کاتالوگ ذخیره‌شده</small></div></div></div></article>')
-              if len(cards) >= 24:
-                  break
+          def number(value):
+              if value is None:
+                  return 0.0
+              text = str(value).translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789"))
+              text = re.sub(r"[٬،,\sتومانریال﷼$€]", "", text)
+              text = re.sub(r"[^0-9.\-]", "", text)
+              try:
+                  return float(text)
+              except (TypeError, ValueError):
+                  return 0.0
+          def first_value(item, keys, fallback=None):
+              for key in keys:
+                  value = item.get(key)
+                  if value is not None and value != "":
+                      return value
+              return fallback
+          def as_text(value):
+              if isinstance(value, list):
+                  return " ".join(as_text(v) for v in value)
+              if isinstance(value, dict):
+                  return str(value.get("name") or value.get("title") or value.get("label") or value.get("slug") or category_by_id.get(str(value.get("id") or value.get("category_id") or value.get("categoryId") or ""), ""))
+              return str(value or "")
+          taxonomy = [
+              ("موبایل و دیجیتال", r"موبایل|گوشی|تلفن همراه|smart.?phone|mobile|tablet|تبلت|iphone|آیفون|ipad|آیپد|galaxy|گلکسی|redmi|ردمی|poco|پوکو|pixel phone"),
+              ("لپ‌تاپ و کامپیوتر", r"لپ.?تاپ|laptop|notebook|macbook|مک.?بوک|thinkpad|vivobook|ideapad|chromebook|کامپیوتر|computer|desktop|pc|ultrabook|mini.?pc"),
+              ("خانه و آشپزخانه", r"خانه|آشپزخانه|یخچال|جاروبرقی|مبلمان|home appliance|kitchen|microwave|ظرفشویی|اجاق"),
+              ("ساعت و اکسسوری", r"ساعت|اکسسوری|watch|bracelet|جواهر|زیور|smart.?watch"),
+              ("مد و پوشاک", r"پوشاک|لباس|کفش|fashion|clothing|apparel|shoes|sneaker|مانتو|شلوار"),
+              ("زیبایی و سلامت", r"زیبایی|سلامت|آرایشی|بهداشتی|beauty|health|skincare|عطر|ادکلن"),
+              ("ورزش و سفر", r"ورزش|سفر|camping|sport|travel|دوچرخه|کوهنوردی"),
+              ("خودرو و ابزار", r"خودرو|ابزار|automotive|tool|لوازم یدکی|موتور سیکلت|موتورسیکلت"),
+          ]
+          def normalize_product(raw, index):
+              if not isinstance(raw, dict):
+                  return None
+              attrs = raw.get("attributes") if isinstance(raw.get("attributes"), dict) else {}
+              title = first_value(raw, ("title", "name", "product_title", "productTitle", "product_name", "productName", "label", "display_name"), first_value(attrs, ("title", "name"), "کالای " + str(index + 1)))
+              price = number(first_value(raw, ("price", "sale_price", "salePrice", "final_price", "finalPrice", "discounted_price", "discountedPrice", "current_price", "currentPrice", "selling_price", "sellingPrice", "amount"), first_value(attrs, ("price", "sale_price", "salePrice", "final_price"), 0)))
+              original = number(first_value(raw, ("original_price", "originalPrice", "regular_price", "regularPrice", "list_price", "listPrice", "compare_at_price", "compareAtPrice", "old_price", "oldPrice", "mrp"), first_value(attrs, ("original_price", "originalPrice", "regular_price"), 0)))
+              raw_image = first_value(raw, ("image_url", "imageUrl", "image", "thumbnail_url", "thumbnail", "main_image", "mainImage"), first_value(attrs, ("image_url", "imageUrl"), ""))
+              if isinstance(raw_image, list):
+                  raw_image = raw_image[0] if raw_image else ""
+              if isinstance(raw_image, dict):
+                  raw_image = raw_image.get("url") or raw_image.get("src") or raw_image.get("original") or ""
+              image = str(raw_image or "")
+              if image and not image.startswith("http"):
+                  image = "https://sookar.ir/" + image.lstrip("/")
+              raw_category = first_value(raw, ("category", "category_name", "categoryName", "category_title", "categoryTitle", "category_path", "categoryPath", "product_type", "productType", "categories", "category_id", "categoryId", "primary_category_id", "primaryCategoryId", "category_ids", "categoryIds"), first_value(attrs, ("category", "category_name", "categories", "category_id", "categoryId"), ""))
+              category_text = as_text(raw_category)
+              if not category_text and raw_category is not None:
+                  category_text = category_by_id.get(str(raw_category), "")
+              searchable = " ".join(str(x or "") for x in (title, category_text, raw.get("brand"), raw.get("description"), raw.get("short_description")))
+              normalized = searchable.replace("ي", "ی").replace("ك", "ک").lower()
+              category = next((name for name, pattern in taxonomy if re.search(pattern, normalized, re.I)), category_text or "سایر کالاها")
+              raw_discount = first_value(raw, ("discount_percent", "discountPercent", "discount_percentage", "discountPercentage", "discount_rate", "discountRate"), first_value(attrs, ("discount_percent", "discountPercent", "discount_rate"), 0))
+              discount_value = number(raw_discount)
+              discount = min(100, round(discount_value if discount_value > 1 else discount_value * 100)) if discount_value > 0 else (round((original-price)/original*100) if original > price > 0 else 0)
+              return {"title": str(title), "price": price, "original": original, "discount": discount, "image": image, "category": category, "raw": raw}
+          normalized_products = [p for i, raw in enumerate(products) if (p := normalize_product(raw, i)) and p["title"] and p["image"] and p["price"] > 0]
+          def card(p):
+              discount = p["discount"]
+              tag = "٪" + str(discount) + " تخفیف معتبر" if discount > 0 else "کالای ذخیره‌شده"
+              old_price = '<small style="text-decoration:line-through">' + esc(format(round(p["original"]/10, 0), ",") + " تومان") + '</small>' if p["original"] > p["price"] else ""
+              return '<article class="card"><div class="photo"><span class="tag">' + esc(tag) + '</span><img loading="lazy" alt="' + esc(p["title"]) + '" src="' + esc(p["image"]) + '"></div><div class="pinfo"><span class="cat">' + esc(p["category"]) + '</span><h3>' + esc(p["title"]) + '</h3><div class="pfoot"><div>' + old_price + '<strong>' + esc(format(round(p["price"]/10, 0), ",")) + ' تومان</strong><small>فهرست مرجع؛ عرضه و موجودی فروشنده تأیید نشده</small></div></div></div></article>'
+          cards = [card(p) for p in normalized_products[:24]]
           if not cards:
-              raise SystemExit("No valid products can be rendered into the storefront HTML")
+              raise SystemExit("No valid saved products can be rendered into the storefront HTML")
+          shelves = []
+          offers = [p for p in normalized_products if p["discount"] > 0 or p["original"] > p["price"]]
+          shelf_groups = [("موبایل و دیجیتال", [p for p in normalized_products if p["category"] == "موبایل و دیجیتال"]), ("لپ‌تاپ و کامپیوتر", [p for p in normalized_products if p["category"] == "لپ‌تاپ و کامپیوتر"]), ("خانه و آشپزخانه", [p for p in normalized_products if p["category"] == "خانه و آشپزخانه"]), ("ساعت و اکسسوری", [p for p in normalized_products if p["category"] == "ساعت و اکسسوری"])]
+          shelf_groups.insert(0, ("فروش ویژه و تخفیف‌خورده‌ها", offers))
+          for title, items in shelf_groups:
+              if items:
+                  shelves.append('<section class="section home-product-section"><div class="sectionhead"><div><span class="kicker">' + ("پیشنهادهای تخفیف" if title.startswith("فروش ویژه") else "دسته‌بندی محصولات") + '</span><h2>' + esc(title) + '</h2><p>' + ("فقط تخفیف‌های دارای دادهٔ ثبت‌شده؛ بدون قیمت‌سازی." if title.startswith("فروش ویژه") else "کالاهای ذخیره‌شده در این دسته، با وضعیت عرضهٔ شفاف.") + '</p></div><a class="textlink" href="#products">مشاهده همه ←</a></div><div class="grid">' + "".join(card(p) for p in items[:8]) + '</div></section>')
+              elif title.startswith("فروش ویژه"):
+                  shelves.append('<section class="section home-product-section"><div class="sectionhead"><div><span class="kicker">پیشنهادهای تخفیف</span><h2>' + esc(title) + '</h2><p>فقط تخفیف‌های دارای دادهٔ ثبت‌شده؛ بدون قیمت‌سازی.</p></div></div><div class="empty">در فهرست ذخیره‌شده هنوز تخفیف معتبر ثبت نشده است؛ برای نمایش تخفیف ساختگی نمی‌سازیم.</div></section>')
           source = index_path.read_text(encoding="utf-8")
-          placeholder = '<div class="grid" id="productGrid"></div>'
-          if placeholder not in source:
+          grid_placeholder = '<div class="grid" id="productGrid"></div>'
+          if grid_placeholder not in source:
               raise SystemExit("Storefront product grid placeholder not found")
-          source = source.replace(placeholder, '<div class="grid" id="productGrid" data-static-fallback="true">' + ''.join(cards) + '</div>', 1)
+          source = source.replace(grid_placeholder, '<div class="grid" id="productGrid" data-static-fallback="true">' + ''.join(cards) + '</div>', 1)
+          shelf_placeholder = '<div id="homeMerchandisingGrid"></div>'
+          if shelf_placeholder not in source:
+              raise SystemExit("Storefront homepage merchandising placeholder not found")
+          source = source.replace(shelf_placeholder, '<div id="homeMerchandisingGrid">' + ''.join(shelves) + '</div>', 1)
           index_path.write_text(source, encoding="utf-8")
           print("DIGIBILE_STATIC_RENDERED_CARDS=" + str(len(cards)))
+          print("DIGIBILE_STATIC_CATEGORY_SECTIONS=" + str(sum(1 for title, items in shelf_groups if items)))
+          print("DIGIBILE_STATIC_SALE_PRODUCTS=" + str(len(offers)))
+          print("DIGIBILE_STATIC_SHELVES_RENDERED=" + str(len(shelves)))
           PY
           grep -q 'data-static-fallback="true"' /tmp/digibile-template-package/digibile-marketplace/dist/index.html
+          grep -q 'id="homeMerchandisingGrid">' /tmp/digibile-template-package/digibile-marketplace/dist/index.html
+          grep -q 'فهرست مرجع؛ عرضه و موجودی فروشنده تأیید نشده' /tmp/digibile-template-package/digibile-marketplace/dist/index.html
+          echo DIGIBILE_STATIC_PRODUCT_HTML_OK
           echo DIGIBILE_STATIC_PRODUCT_HTML_OK
           tar -czf /tmp/digibile-template.tar.gz -C /tmp/digibile-template-package digibile-marketplace
           sha256sum /tmp/digibile-template.tar.gz
