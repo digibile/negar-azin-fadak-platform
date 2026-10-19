@@ -71,7 +71,7 @@ app.use(cors({origin:(origin,callback)=>{if(!origin||allowedOrigins.includes(ori
 app.use(express.json({limit:"12mb",verify:(req,_,buf)=>{(req as any).rawBody=Buffer.from(buf)}}));
 app.use(express.urlencoded({extended:false,limit:"2mb"}));
 app.use("/api/public/media",express.static(process.env.MEDIA_ROOT||"/app/media",{dotfiles:"deny",index:false,immutable:true,maxAge:"365d",setHeaders:(res)=>res.setHeader("X-Content-Type-Options","nosniff")}));
-app.use((req,res,next)=>{if(["GET","HEAD","OPTIONS"].includes(req.method)||req.path==="/api/auth/login"||(req.method==="POST"&&/^\/api\/payment-gateways\/[^/]+\/webhook$/.test(req.path)))return next();return requireCsrf(req,res,next);});
+app.use((req,res,next)=>{if(["GET","HEAD","OPTIONS"].includes(req.method)||(req.path==="/api/auth/login"||req.path==="/api/auth/register")||(req.method==="POST"&&/^\/api\/payment-gateways\/[^/]+\/webhook$/.test(req.path)))return next();return requireCsrf(req,res,next);});
 
 app.get("/health",asyncHandler(async(_req,res)=>{await query("select 1");res.json({status:"ok",database:"ok"});}));
 
@@ -179,6 +179,22 @@ app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  res.json({user:{id:u.id,email:u.email,fullName:u.full_name,role:u.role}});
 }));
 
+app.post("/api/auth/register",asyncHandler(async(req,res)=>{
+ const email=String(req.body?.email||"").trim().toLowerCase();
+ const fullName=String(req.body?.fullName||"").trim();
+ const password=String(req.body?.password||"");
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>320)return res.status(400).json({error:"آدرس ایمیل معتبر نیست"});
+ if(fullName.length<2||fullName.length>200)return res.status(400).json({error:"نام و نام خانوادگی را کامل وارد کنید"});
+ if(password.length<8||password.length>200)return res.status(400).json({error:"رمز عبور باید حداقل ۸ و حداکثر ۲۰۰ نویسه باشد"});
+ if(!verifyHumanCheck(String(req.body?.humanCheck||""),String(req.body?.humanAnswer||"")))return res.status(400).json({error:"تأیید انسانی نامعتبر یا منقضی شده است"});
+ const passwordHash=await hashPassword(password);
+ const created=await query("insert into users(email,password_hash,full_name,role,status) values($1,$2,$3,'viewer','active') on conflict (email) do nothing returning id,email,full_name,role",[email,passwordHash,fullName]);
+ if(!created.rowCount)return res.status(409).json({error:"با این ایمیل قبلاً حساب ساخته شده است؛ وارد شوید"});
+ const user=created.rows[0];
+ await issueSession(req,res,{id:user.id,email:user.email,role:user.role});
+ res.status(201).json({user:{id:user.id,email:user.email,fullName:user.full_name,role:user.role}});
+}));
+ 
 app.get("/api/auth/me",requireAuth,(req,res)=>res.json({user:(req as any).user}));
 app.post("/api/auth/logout",requireAuth,asyncHandler(async(req,res)=>{const user=(req as any).user;if(user.sessionId)await query("update security_sessions set revoked_at=now() where id=$1 and user_id=$2 and revoked_at is null",[user.sessionId,user.id]);clearSession(res);res.status(204).end();}));
 
