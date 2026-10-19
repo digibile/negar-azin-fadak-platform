@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ef394e">
+<title>جزئیات محصول | دیجی‌بایل</title>
+<meta name="description" content="مشاهده مشخصات، تصویر و قیمت ثبت‌شده محصولات در بازارگاه دیجی‌بایل.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap');
+:root{font-family:Vazirmatn,Tahoma,sans-serif;color:#202936;background:#f5f7fa}*{box-sizing:border-box}body{margin:0}a{color:inherit;text-decoration:none}.wrap{width:min(1120px,calc(100% - 32px));margin:auto}.top{background:#fff;border-bottom:1px solid #e5e9ef;padding:15px 0}.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{font-size:21px;font-weight:900;color:#ef394e}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 15px;border:1px solid #dfe5ec;border-radius:11px;background:#fff;font:inherit;font-size:12px;font-weight:800}.btn.primary{background:#ef394e;border-color:#ef394e;color:#fff}.crumb{font-size:12px;color:#788596;padding:22px 0}.detail{background:#fff;border:1px solid #e6ebf0;border-radius:22px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);overflow:hidden;box-shadow:0 12px 38px #172c4308}.image{min-height:440px;background:#fff;padding:30px;display:grid;place-items:center;border-left:1px solid #edf0f4}.image img{width:100%;height:380px;object-fit:contain}.info{padding:35px;display:flex;flex-direction:column;align-items:flex-start}.category{font-size:12px;color:#ef394e;font-weight:800}.info h1{font-size:25px;line-height:1.9;margin:12px 0}.description{font-size:13px;color:#68778a;line-height:2.2}.price{font-size:28px;font-weight:900;margin:22px 0 5px}.old{color:#8994a2;text-decoration:line-through;font-size:13px}.notice{background:#fff7e6;color:#7d5a1b;border:1px solid #f5e4bb;border-radius:12px;padding:13px;font-size:12px;line-height:2;margin:18px 0;width:100%}.meta{font-size:12px;color:#758296;line-height:2.1}.bottom{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}.status{padding:36px;text-align:center;color:#657286;line-height:2}.footer{color:#8290a0;text-align:center;font-size:11px;padding:30px 0}@media(max-width:700px){.detail{grid-template-columns:1fr}.image{min-height:260px;height:280px;border-left:0;border-bottom:1px solid #edf0f4;padding:18px}.image img{height:245px}.info{padding:22px}.info h1{font-size:20px}.price{font-size:23px}.top .wrap{align-items:flex-start}.brand{font-size:18px}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="./">دیجی‌بایل</a><div class="actions"><a class="btn" href="./">بازگشت به فروشگاه</a><a class="btn primary" href="https://sookar.ir/login?brand=digibile">ورود / ثبت‌نام</a></div></div></header>
+<main class="wrap"><div class="crumb"><a href="./">خانه</a> / <span id="crumbTitle">جزئیات محصول</span></div><div id="productRoot" class="status">در حال بارگذاری اطلاعات کالا از کاتالوگ ذخیره‌شده…</div></main>
+<footer class="footer">دیجی‌بایل · قیمت و مشخصات بر اساس داده‌های ثبت‌شده نمایش داده می‌شود.</footer>
+<script>
+(async function(){
+"use strict";
+const root=document.getElementById("productRoot"), params=new URLSearchParams(location.search), requested=params.get("id")||"", money=v=>{const n=Number(v);return n>0?new Intl.NumberFormat("fa-IR").format(Math.round(n/10))+" تومان":"قیمت نامشخص";}, esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const idOf=(p,i)=>String(p.id??p.product_id??p.productId??p.sku??p.slug??("digibile-ref-"+(i+1)));
+const titleOf=(p,i)=>String(p.title??p.name??p.product_title??p.productTitle??p.product_name??p.productName??p.label??p.display_name??p.attributes?.title??p.attributes?.name??("کالای "+(i+1)));
+const imageOf=p=>{let v=p.image_url??p.imageUrl??p.image??p.thumbnail_url??p.thumbnail??p.main_image??p.mainImage??p.attributes?.image_url??(Array.isArray(p.images)?p.images[0]:"");if(Array.isArray(v))v=v[0]||"";if(v&&typeof v==="object")v=v.url??v.src??v.original??"";v=String(v||"");return v&&!/^https?:\/\//i.test(v)?"https://sookar.ir/"+v.replace(/^\/+ /,"").replace(/^\//,""):v;};
+try{
+ const response=await fetch("./catalog.json",{cache:"no-store",headers:{accept:"application/json"}});
+ if(!response.ok)throw new Error("catalog-http-"+response.status);
+ const data=await response.json(), items=Array.isArray(data.products)?data.products:[];
+ const index=Number(params.get("ref"));
+ let found=Number.isInteger(index)&&index>=0&&index<items.length?{p:items[index],i:index}:items.map((p,i)=>({p,i})).find(x=>idOf(x.p,x.i)===requested);
+ if(!found){root.innerHTML='<div class="status"><h1>محصول پیدا نشد</h1><p>این کالا در کاتالوگ ذخیره‌شده وجود ندارد یا پیوند آن قدیمی است.</p><a class="btn primary" href="./">بازگشت به فروشگاه</a></div>';return;}
+ const p=found.p,i=found.i,title=titleOf(p,i),image=imageOf(p),category=p.category_name??p.categoryName??(typeof p.category==="string"?p.category:p.category?.name)??p.product_type??"کالای ذخیره‌شده";
+ const price=p.price??p.sale_price??p.salePrice??p.final_price??p.finalPrice??p.current_price??p.currentPrice??p.amount??p.attributes?.price??0;
+ const original=p.original_price??p.originalPrice??p.regular_price??p.regularPrice??p.list_price??p.old_price??p.mrp??0;
+ const description=p.description??p.short_description??p.shortDescription??p.attributes?.description??"مشخصات تکمیلی در داده‌های ثبت‌شدهٔ این کالا موجود نیست.";
+ const discount=Number(p.discount_percent)>0?Math.round(Number(p.discount_percent)):Number(original)>Number(price)&&Number(original)>0?Math.round((Number(original)-Number(price))/Number(original)*100):0;
+ document.title=title+" | دیجی‌بایل";document.getElementById("crumbTitle").textContent=title;
+ root.className="detail";root.innerHTML='<div class="image"><img src="'+esc(image)+'" alt="'+esc(title)+'" onerror="this.style.opacity=.25;this.alt=\'تصویر کالا در دسترس نیست\'"></div><section class="info"><span class="category">'+esc(category)+'</span><h1>'+esc(title)+'</h1><p class="description">'+esc(description)+'</p>'+(Number(original)>Number(price)?'<span class="old">'+money(original)+'</span>':'')+'<div class="price">'+money(price)+'</div>'+(discount>0?'<span class="category">٪'+new Intl.NumberFormat("fa-IR").format(discount)+' تخفیف ثبت‌شده</span>':'')+'<div class="notice">این کالا از فهرست مرجع ذخیره‌شده نمایش داده شده است. تا زمانی که فروشنده دیجی‌بایل آن را منتشر و موجودی را تأیید نکند، امکان سفارش داخلی فعال نیست.</div><div class="meta">شناسه کالا: '+esc(idOf(p,i))+'<br>وضعیت عرضه: تأییدنشده<br>قیمت نمایش‌داده‌شده: '+(Number(price)>0?"قیمت ثبت‌شده":"قیمت ثبت نشده")+'</div><div class="bottom"><a class="btn" href="./">بازگشت به کالاها</a><a class="btn primary" href="https://sookar.ir/login?brand=digibile">ورود / ثبت‌نام</a></div></section>';
+}catch(error){console.error(error);root.innerHTML='<div class="status"><h1>اطلاعات محصول بارگذاری نشد</h1><p>دریافت کاتالوگ ذخیره‌شده ناموفق بود. دوباره تلاش کنید یا به صفحه اصلی برگردید.</p><button class="btn" onclick="location.reload()">تلاش دوباره</button> <a class="btn primary" href="./">صفحه اصلی</a></div>';}
+})();
+</script>
+</body></html>
