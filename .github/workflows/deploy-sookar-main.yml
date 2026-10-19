@@ -490,6 +490,42 @@ jobs:
           curl -fSs --connect-timeout 10 --max-time 150 'https://sookar.ir/api/public/marketplace/reference-catalog?tenantCode=digibile' -o /tmp/digibile-template-package/digibile-marketplace/dist/catalog.json
           node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync("/tmp/digibile-template-package/digibile-marketplace/dist/catalog.json","utf8"));const p=Array.isArray(d.products)?d.products:[];const priced=p.filter(x=>Number(x.price)>0);console.log("DIGIBILE_STATIC_CATALOG_PRODUCTS="+p.length);console.log("DIGIBILE_STATIC_CATALOG_PRICED="+priced.length);if(d.tenant?.code!=="digibile"||priced.length===0)process.exit(1);'
           cp apps/web/public/templates/digibile-marketplace/index.html /tmp/digibile-template-package/digibile-marketplace/dist/index.html
+          # Render an initial set of real saved products into the HTML itself. This keeps the storefront useful even if browser JavaScript is blocked or fails.
+          python3 - <<'PY'
+          import html, json, pathlib
+          catalog_path = pathlib.Path("/tmp/digibile-template-package/digibile-marketplace/dist/catalog.json")
+          index_path = pathlib.Path("/tmp/digibile-template-package/digibile-marketplace/dist/index.html")
+          data = json.loads(catalog_path.read_text(encoding="utf-8"))
+          products = data.get("products", [])
+          def esc(value):
+              return html.escape(str(value if value is not None else ""), quote=True)
+          cards = []
+          for p in products:
+              if not isinstance(p, dict):
+                  continue
+              title = p.get("title") or p.get("name") or p.get("product_name") or p.get("productName") or p.get("label") or "کالا"
+              price = float(p.get("price") or p.get("sale_price") or p.get("final_price") or 0)
+              image = p.get("image_url") or p.get("imageUrl") or p.get("image") or ""
+              if isinstance(image, dict):
+                  image = image.get("url") or image.get("src") or ""
+              if not isinstance(image, str) or not image or price <= 0:
+                  continue
+              image = image if image.startswith("http") else "https://sookar.ir/" + image.lstrip("/")
+              category = p.get("category") or p.get("category_name") or p.get("categoryName") or "سایر کالاها"
+              toman = format(round(price / 10), ",")
+              cards.append('<article class="card"><div class="photo"><span class="tag">کالای ذخیره‌شده</span><img loading="lazy" alt="' + esc(title) + '" src="' + esc(image) + '"></div><div class="pinfo"><span class="cat">' + esc(category) + '</span><h3>' + esc(title) + '</h3><div class="pfoot"><div><strong>' + esc(toman) + ' تومان</strong><small>قیمت ثبت‌شده از کاتالوگ ذخیره‌شده</small></div></div></div></article>')
+              if len(cards) >= 24:
+                  break
+          if not cards:
+              raise SystemExit("No valid products can be rendered into the storefront HTML")
+          source = index_path.read_text(encoding="utf-8")
+          placeholder = '<div class="grid" id="productGrid"></div>'
+          if placeholder not in source:
+              raise SystemExit("Storefront product grid placeholder not found")
+          source = source.replace(placeholder, '<div class="grid" id="productGrid" data-static-fallback="true">' + ''.join(cards) + '</div>', 1)
+          index_path.write_text(source, encoding="utf-8")
+          print("DIGIBILE_STATIC_RENDERED_CARDS=" + str(len(cards)))
+          PY
           tar -czf /tmp/digibile-template.tar.gz -C /tmp/digibile-template-package digibile-marketplace
           sha256sum /tmp/digibile-template.tar.gz
 
