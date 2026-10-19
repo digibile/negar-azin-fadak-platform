@@ -286,7 +286,7 @@ async function loadCatalog(){
   }
  }
  if(data){
-  products=data.products.map(p=>({...p,image_url:p.image_url&&p.image_url.startsWith("http")?p.image_url:"https://sookar.ir"+(p.image_url||"")})).filter(p=>p&&p.id&&p.title&&p.image_url&&Number(p.price)>0);
+  products=data.products.map((raw,index)=>{const p=raw&&typeof raw==="object"?raw:{};const id=p.id??p.product_id??p.productId??p.sku??`digibile-ref-${index+1}`;const title=p.title??p.name??p.product_title??p.productTitle??p.product_name??p.productName??p.label??p.display_name??`کالای ${index+1}`;const rawImage=p.image_url??p.imageUrl??p.image??p.thumbnail_url??p.thumbnail??(Array.isArray(p.images)?p.images[0]:"");const image=typeof rawImage==="string"?rawImage:(rawImage&&typeof rawImage==="object"?(rawImage.url??rawImage.src??""):"");const price=p.price??p.sale_price??p.salePrice??p.final_price??p.finalPrice??p.amount;const imageUrl=image?(image.startsWith("http")?image:"https://sookar.ir/"+image.replace(/^\\/+/, "")):"";return {...p,id:String(id),title:String(title).trim(),category:p.category??p.category_name??p.categoryName??p.category_title??"سایر کالاها",price,image_url:imageUrl};}).filter(p=>p&&p.title&&p.image_url&&Number(p.price)>0);console.info("Digibile catalog loaded",{mode:catalogMode,rawCount:data.products.length,visibleCount:products.length,keys:Object.keys(data.products[0]||{})});
   sourceStatus=products.length?(catalogMode==="owned"?"live":"reference"):"unavailable";
   fetchedAt=data.fetchedAt||data.sourceFetchedAt||data.products[0]?.attributes?.sourceFetchedAt||null;
  }
