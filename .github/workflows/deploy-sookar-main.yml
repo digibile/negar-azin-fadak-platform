@@ -627,6 +627,11 @@ jobs:
               cp -a "$BACKUP/active.json" "$REGISTRY/active.json"
               exit 30
           fi
+          # Some template switchers copy only index.html into the document root.
+          # Publish the same-origin snapshot explicitly so the browser never needs CORS or the source API.
+          test -s "$REGISTRY/$ID/dist/catalog.json" || { echo "Persisted catalog snapshot missing from release"; exit 32; }
+          cp -f "$REGISTRY/$ID/dist/catalog.json" "$PUBLIC/catalog.json"
+          chown digibile:digibile "$PUBLIC/catalog.json"
           code=000
           for i in $(seq 1 12); do
               code="$(curl -L --connect-timeout 5 --max-time 15 -sS -o /tmp/digibile-live-check.html -w '%{http_code}' https://digibile.ir/ || true)"
@@ -662,6 +667,11 @@ jobs:
           grep -q 'دیجی‌بایل' /tmp/digibile-final.html
           grep -q 'دسته‌بندی‌های محبوب' /tmp/digibile-final.html
           echo DIGIBILE_PUBLIC_VERIFICATION_OK
+          catalog_code="$(curl -L --connect-timeout 5 --max-time 30 -sS -o /tmp/digibile-public-catalog.json -w '%{http_code}' https://digibile.ir/catalog.json)"
+          echo "DIGIBILE_STATIC_CATALOG_HTTP=$catalog_code"
+          test "$catalog_code" = "200"
+          node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync("/tmp/digibile-public-catalog.json","utf8"));const p=Array.isArray(d.products)?d.products:[];const priced=p.filter(x=>Number(x.price)>0);const images=p.filter(x=>typeof x.image_url==="string"&&x.image_url.length>0);console.log("DIGIBILE_PUBLIC_PRODUCTS="+p.length);console.log("DIGIBILE_PUBLIC_PRICED_PRODUCTS="+priced.length);console.log("DIGIBILE_PUBLIC_IMAGE_PRODUCTS="+images.length);if(d.tenant?.code!=="digibile"||priced.length===0||images.length===0)process.exit(1);'
+          echo DIGIBILE_STATIC_CATALOG_VISIBLE_OK
 
       - name: Inspect Digibile-owned live catalog
         shell: bash
