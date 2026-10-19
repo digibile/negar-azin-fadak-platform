@@ -918,29 +918,6 @@ domainMarketplaceRouter.patch("/api/marketplace/products/:id/status",requireAuth
  const r=await query("update products set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);
  res.json(r.rows[0]);
 }));
-      [tenantId]
-    ),
-    query(
-      "select name from marketplace_categories where tenant_id=$1 and status='active' order by sort_order,name",
-      [tenantId]
-    )
-  ]);
-  // Public storefronts expose only seller-owned listings. Demo/reference imports stay admin-only.
-  const catalogProducts:any[]=products.rows;
-  const catalogMode:"owned"|"demo"=catalogProducts.some((item:any)=>item.is_demo_product)?"demo":"owned";
-  const sourceStatus:"live"|"unavailable"|"not-needed"="not-needed";
-  const sourceFetchedAt:string|null=null;
-  const referenceCategories:string[]=[];
-  // Never expose external reference cards as if they were Sookar products.
-  // If import/bootstrap fails, the public API stays empty and the server logs the cause.
-  const publicProducts:any[]=catalogProducts;
-  const categories=[...new Set([
-    ...categoryRows.rows.map((row:any)=>typeof row.name==="string"?row.name.trim():"").filter(Boolean),
-    ...referenceCategories
-  ])].sort((a,b)=>a.localeCompare(b,"fa"));
-  res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
-  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,referenceCount:0,sourceStatus,sourceFetchedAt,notice:catalogProducts.length===0?"هنوز کالای واقعیِ منتشرشده از سوی فروشندگان در بازارگاه ثبت نشده است.":undefined});
-}));
 
 domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/status",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
  const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
@@ -998,29 +975,6 @@ domainMarketplaceRouter.patch("/api/marketplace/products/:id/status",requireAuth
  if(status==="active"&&(attributes.inventoryVerified!==true||!Number.isInteger(Number(attributes.inventoryQuantity))||Number(attributes.inventoryQuantity)<=0||!["seller-owned","supplier-verified"].includes(String(attributes.sourceType||""))||!String(attributes.inventorySource||"").trim()))return res.status(409).json({error:"برای انتشار، منبع واقعی کالا و موجودی مثبت را ثبت و تأیید کنید"});
  const r=await query("update products set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);
  res.json(r.rows[0]);
-}));
-      [tenantId]
-    ),
-    query(
-      "select name from marketplace_categories where tenant_id=$1 and status='active' order by sort_order,name",
-      [tenantId]
-    )
-  ]);
-  // Public storefronts expose only seller-owned listings. Demo/reference imports stay admin-only.
-  const catalogProducts:any[]=products.rows;
-  const catalogMode:"owned"|"demo"=catalogProducts.some((item:any)=>item.is_demo_product)?"demo":"owned";
-  const sourceStatus:"live"|"unavailable"|"not-needed"="not-needed";
-  const sourceFetchedAt:string|null=null;
-  const referenceCategories:string[]=[];
-  // Never expose external reference cards as if they were Sookar products.
-  // If import/bootstrap fails, the public API stays empty and the server logs the cause.
-  const publicProducts:any[]=catalogProducts;
-  const categories=[...new Set([
-    ...categoryRows.rows.map((row:any)=>typeof row.name==="string"?row.name.trim():"").filter(Boolean),
-    ...referenceCategories
-  ])].sort((a,b)=>a.localeCompare(b,"fa"));
-  res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
-  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,referenceCount:0,sourceStatus,sourceFetchedAt,notice:catalogProducts.length===0?"هنوز کالای واقعیِ منتشرشده از سوی فروشندگان در بازارگاه ثبت نشده است.":undefined});
 }));
 
 domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/status",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
