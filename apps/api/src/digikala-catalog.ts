@@ -18,6 +18,7 @@ export type DigikalaCatalogProduct = {
   rating: number | null;
   source_available: boolean | null;
   specifications: Array<{ group: string; items: Array<{ name: string; values: string[] }> }>;
+  variants: Array<Record<string, unknown>>;
   gallery_images: string[];
 };
 
@@ -127,6 +128,54 @@ function galleryImages(product: UnknownRecord, primary: string): string[] {
   return urls;
 }
 
+function normalizedVariants(product: UnknownRecord): Array<Record<string, unknown>> {
+  const raw = Array.isArray(product.variants)
+    ? product.variants
+    : Array.isArray(at(product, "variants", "items"))
+      ? at(product, "variants", "items") as unknown[]
+      : [];
+  const variants: Array<Record<string, unknown>> = [];
+  for (const entry of raw.slice(0, 100)) {
+    const variant = record(entry);
+    const price = numericValue(
+      at(variant, "price", "selling_price"),
+      at(variant, "price", "sellingPrice"),
+      variant.selling_price,
+      variant.price
+    );
+    const rawAvailable = variant.is_available ?? variant.isAvailable;
+    const rawSoldOut = variant.is_sold_out ?? variant.isSoldOut;
+    const attributes = variant.attributes ?? variant.attribute_values ?? variant.variant_attributes ?? {};
+    const normalizedAttributes: Record<string, string> = {};
+    if (attributes && typeof attributes === "object" && !Array.isArray(attributes)) {
+      for (const [key, value] of Object.entries(attributes as Record<string, unknown>).slice(0, 40)) {
+        const text = typeof value === "string" || typeof value === "number" ? String(value).trim()
+          : textValue(record(value).title) || textValue(record(value).value) || "";
+        if (text) normalizedAttributes[key.slice(0, 100)] = text.slice(0, 250);
+      }
+    }
+    const id = variant.id ?? variant.variant_id ?? variant.variantId;
+    const sku = textValue(variant.sku) || textValue(variant.code);
+    const title = textValue(variant.title_fa) || textValue(variant.title) || textValue(variant.name);
+    const color = textValue(at(variant, "color", "title_fa")) || textValue(at(variant, "color", "title")) || textValue(variant.color);
+    const size = textValue(at(variant, "size", "title_fa")) || textValue(at(variant, "size", "title")) || textValue(variant.size);
+    const available = typeof rawAvailable === "boolean" ? rawAvailable : typeof rawSoldOut === "boolean" ? !rawSoldOut : null;
+    if (id === undefined && !sku && !title && price === null && !Object.keys(normalizedAttributes).length && !color && !size) continue;
+    variants.push({
+      id: id === undefined || id === null ? null : String(id),
+      sku,
+      title,
+      price,
+      currency: "IRR",
+      available,
+      color,
+      size,
+      attributes: normalizedAttributes
+    });
+  }
+  return variants;
+}
+
 export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: string): DigikalaCatalogProduct[] {
   const data = record(record(payload).data);
   const rawProducts = Array.isArray(data.products)
@@ -216,6 +265,7 @@ export function normalizeDigikalaProducts(payload: unknown, fallbackCategory: st
       rating: Number.isFinite(ratingNumber) && ratingNumber > 0 && ratingNumber <= 5 ? ratingNumber : null,
       source_available: sourceAvailable,
       specifications: normalizedSpecifications(product),
+      variants: normalizedVariants(product),
       gallery_images: galleryImages(product, image)
     });
   }
