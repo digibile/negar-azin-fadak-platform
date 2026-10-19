@@ -19,18 +19,23 @@ function bodyString(value:unknown,max=500){return typeof value==="string"?value.
 function canonicalMarketplaceCategory(value:unknown):string{
  const key=typeof value==="string"?value.normalize("NFKC").replace(/[يى]/g,"ی").replace(/ك/g,"ک").trim().toLocaleLowerCase("fa"):"";
  const aliases:Array<[RegExp,string]>=[
-  [/موبایل|گوشی|تبلت|mobile|phone|tablet/,"موبایل و تبلت"],
-  [/لپ.?تاپ|کامپیوتر|مانیتور|computer|laptop/,"لپ‌تاپ و کامپیوتر"],
+  [/موبایل|گوشی|تبلت|mobile|phone|tablet/,"موبایل"],
+  [/لپ.?تاپ|کامپیوتر|مانیتور|computer|laptop/,"لپ تاپ"],
+  [/لوازم خانگی برقی|جاروبرقی|یخچال|ماشین لباسشویی|appliance/,"لوازم خانگی برقی"],
   [/خانه|آشپزخانه|لوازم خانگی|home|kitchen/,"خانه و آشپزخانه"],
   [/پوشاک|لباس|کفش|مد|fashion|apparel|clothing/,"مد و پوشاک"],
-  [/زیبایی|آرایش|بهداشت|سلامت|beauty|health/,"زیبایی و سلامت"],
-  [/صوتی|تصویری|هدفون|اسپیکر|audio|video/,"صوتی و تصویری"],
+  [/زیبایی|آرایش|بهداشت|سلامت|beauty|health|cosmetic/,"آرایشی بهداشتی"],
+  [/صوتی|تصویری|هدفون|اسپیکر|دوربین|audio|video|digital/,"کالای دیجیتال"],
   [/ورزش|سفر|sport|travel/,"ورزش و سفر"],
-  [/کتاب|لوازم.?التحریر|stationery|book/,"کتاب و لوازم‌التحریر"],
-  [/کودک|نوزاد|baby|kid/,"کودک و نوزاد"],
-  [/خودرو|ابزار|car|auto|tool/,"خودرو و ابزار"],
-  [/سوپرمارکت|خوراک|مواد غذایی|grocery|supermarket/,"سوپرمارکت"],
-  [/اداری|لوازم دفتر|office/,"لوازم اداری"]
+  [/کتاب|هنر|فرهنگ|لوازم.?التحریر|stationery|book|art|اداری|office/,"شهر کتاب و هنر"],
+  [/کودک|نوزاد|اسباب.?بازی|baby|kid|toy/,"اسباب‌بازی و کودک"],
+  [/خودرو|موتور|car|auto|motor/,"خودرو و موتور"],
+  [/ابزارآلات|ابزار|tool|hardware/,"ابزارآلات"],
+  [/سوپرمارکت|خوراک|مواد غذایی|grocery|supermarket/,"سوپرمارکتی"],
+  [/کارت هدیه|gift.?card/,"کارت هدیه"],
+  [/طلا|نقره|gold|silver/,"طلا و نقره"],
+  [/بومی|محلی|صنایع دستی|local/,"بومی و محلی"],
+  [/پت.?شاپ|حیوان خانگی|pet|animal/,"پت شاپ"]
  ];
  return aliases.find(([pattern])=>pattern.test(key))?.[1]||"سایر کالاها";
 }
