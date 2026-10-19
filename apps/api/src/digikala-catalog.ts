@@ -133,7 +133,9 @@ function normalizedVariants(product: UnknownRecord): Array<Record<string, unknow
     ? product.variants
     : Array.isArray(at(product, "variants", "items"))
       ? at(product, "variants", "items") as unknown[]
-      : [];
+      : product.default_variant && typeof product.default_variant === "object"
+        ? [product.default_variant]
+        : [];
   const variants: Array<Record<string, unknown>> = [];
   for (const entry of raw.slice(0, 100)) {
     const variant = record(entry);
