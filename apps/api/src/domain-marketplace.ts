@@ -655,6 +655,7 @@ domainMarketplaceRouter.get("/api/marketplace/digikala-catalog",requireAuth,requ
   res.json({source:"دیجی‌کالا",sourceStatus:catalog.sourceStatus,fetchedAt:catalog.fetchedAt,categories:catalog.categories,products:catalog.products.filter(product=>product.price!==null),total:catalog.products.filter(product=>product.price!==null).length,notice:"این فهرست فقط برای ورود مدیریت‌شده به کاتالوگ داخلی است؛ قیمت، توضیحات و انتشار محصول باید در سامانه خودتان بازبینی شوند."});
 }));
 
+// Durable catalog ingestion: bounded batches mirror primary/gallery media and persist source variants before local materialization.
 domainMarketplaceRouter.post("/api/marketplace/reference-catalog/sync",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
