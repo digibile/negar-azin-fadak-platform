@@ -207,7 +207,91 @@ html,body{background:#fff;color:#202124;font-family:Vazirmatn,Tahoma,sans-serif}
 .home-product-section .grid .card{height:100%}
 .home-product-section .photo img{object-fit:contain;padding:10px}
 @media(max-width:700px){.category .cicon{width:58px;height:58px}.category small{font-size:9px}.home-product-section .sectionhead{gap:8px}}
-.dg-static-product{display:block;height:100%;color:inherit;text-decoration:none}.dg-static-product .photo img{display:block}.dg-static-product .pinfo h3{color:#353943}</style>
+.dg-static-product{display:block;height:100%;color:inherit;text-decoration:none}.dg-static-product .photo img{display:block}.dg-static-product .pinfo h3{color:#353943}
+/* Production storefront refinement: clear hierarchy, usable category tiles, and calmer product cards. */
+:root{--ink:#17283e;--muted:#68798d;--line:#e4eaf0;--teal:#087f8c;--teal-dark:#066873;--paper:#f5f7fa;--radius:20px;--shadow:0 12px 32px rgba(20,42,65,.08)}
+body{background:#f5f7fa}
+.wrap{width:min(1360px,calc(100% - 44px))}
+.topline{background:#10243a}
+.header{box-shadow:0 5px 20px rgba(16,36,58,.035)}
+.headmain{gap:22px}
+.search{background:#f3f6f9}
+.hero{box-shadow:0 18px 48px rgba(18,46,68,.06);border:1px solid rgba(255,255,255,.75)}
+.benefit{box-shadow:0 4px 16px rgba(20,42,65,.025)}
+.section{scroll-margin-top:140px}
+#homeMerchandisingGrid>.home-product-section{background:#fff;border:1px solid #e8edf2;border-radius:24px;padding:24px;margin:22px auto;box-shadow:0 8px 28px rgba(19,42,64,.035)}
+#homeMerchandisingGrid>.home-product-section:first-child{background:linear-gradient(135deg,#fff8f7 0%,#fff 72%);border-color:#f4dfdf}
+#homeMerchandisingGrid>.home-product-section:first-child .kicker{color:#d43b50}
+#homeMerchandisingGrid>.home-product-section:first-child .tag{background:#ffedf0;color:#c72d45}
+.categories{grid-template-columns:repeat(8,minmax(0,1fr));gap:12px}
+.category{min-height:155px;justify-content:flex-start;border-radius:18px;box-shadow:0 3px 14px rgba(20,42,65,.025)}
+.category:focus-visible,.filterrow button:focus-visible,.textlink:focus-visible{outline:3px solid #63c6cc;outline-offset:3px}
+.category[disabled]{opacity:1}
+.category small{max-width:100%;overflow-wrap:anywhere}
+.cicon{overflow:hidden;flex-shrink:0}
+.cicon.has-product-image{background:#fff;border:1px solid #edf0f3;padding:5px}
+.cicon.has-product-image img{width:100%;height:100%;object-fit:contain;border-radius:12px}
+.filterrow{scrollbar-width:thin;scrollbar-color:#c6d4df transparent}
+.filterrow button{transition:background .18s,border-color .18s,color .18s}
+.filterrow button:hover{border-color:#0e9aa2;color:#087f8c}
+.grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.card{border-color:#e5eaf0;border-radius:20px;box-shadow:0 3px 12px rgba(19,42,64,.025)}
+.card:hover{transform:translateY(-4px);box-shadow:0 15px 34px rgba(19,42,64,.11);border-color:#d4e2e8}
+.photo{height:220px;background:#fff}
+.photo img{object-fit:contain;padding:12px}
+.pinfo{padding:16px}
+.pinfo h3{min-height:48px;font-size:13px;font-weight:700}
+.pfoot strong{font-size:14px}
+.pfoot small{line-height:1.8}
+.dg-static-product .photo img{object-fit:contain;padding:12px}
+.band{border-radius:26px;overflow:hidden}
+#products .sectionhead{align-items:center}
+.demo{max-width:100%;white-space:normal;text-align:center;line-height:1.8}
+@media(max-width:1100px){
+ .wrap{width:min(100% - 32px,1000px)}
+ .categories{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .hero{padding:36px 5%}
+}
+@media(max-width:760px){
+ .wrap{width:calc(100% - 24px)}
+ .headmain{gap:10px;padding:12px 0;flex-wrap:wrap}
+ .brand{gap:7px}.brand strong{font-size:18px}.mark{width:39px;height:39px}
+ .search{order:3;flex-basis:100%;flex-grow:1}
+ .headactions{margin-right:auto}
+ .login,.cart{padding:9px 10px;font-size:11px}
+ .nav{gap:17px;padding-bottom:11px}
+ .hero{grid-template-columns:1fr;min-height:auto;padding:28px 22px 18px;border-radius:22px;margin-top:14px}
+ .hero h1{font-size:30px;line-height:1.45}
+ .hero p{font-size:13px}
+ .hero-art{min-height:220px;margin-top:8px}
+ .product-visual{height:205px;width:205px}
+ .float.one{right:0;top:8px}.float.two{left:0;bottom:4px}
+ .benefits{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:34px}
+ .benefit{padding:12px 10px;gap:8px}.bicon{width:34px;height:34px}
+ .section{margin:32px auto}
+ .section h2{font-size:21px}
+ .sectionhead{align-items:flex-start}
+ .categories{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .category{min-height:135px;padding:14px 8px}
+ #homeMerchandisingGrid>.home-product-section{padding:15px 12px;border-radius:18px;margin:14px auto}
+ .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .photo{height:155px}
+ .pinfo{padding:11px}
+ .pinfo h3{font-size:12px;line-height:1.7;min-height:58px}
+ .pfoot{align-items:flex-start}
+ .pfoot strong{font-size:12px}
+ .tag{right:7px;top:7px;font-size:8px;padding:4px 6px}
+ .band{grid-template-columns:1fr;padding:24px}
+}
+@media(max-width:380px){
+ .categories{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .grid{gap:7px}
+ .photo{height:135px}
+ .pinfo{padding:9px}
+}
+
+</style>
 </head>
 <body>
 <div class="topline"><div class="wrap"><span>بازارگاه دیجی‌بایل <b>·</b> کاتالوگ ذخیره‌شده و دسته‌بندی هوشمند</span><span>قیمت و تخفیف فقط بر اساس دادهٔ ثبت‌شده</span></div></div>
@@ -344,15 +428,18 @@ function renderHomeSections(){
    const label=button.querySelector("small");if(!label)return;
    const key=button.dataset.category;const matching=products.filter(p=>categoryMatches(p,key));const n=matching.length;const icon=button.querySelector(".cicon");const representative=matching.find(p=>p.image_url);
    if(icon&&representative&&icon.dataset.productImage!==representative.image_url){icon.innerHTML='<img loading="lazy" alt="" src="'+safe(representative.image_url)+'">';icon.classList.add("has-product-image");icon.dataset.productImage=representative.image_url;}
-   label.textContent=sourceStatus==="loading"?"در حال دریافت":count(n)+" کالای ذخیره‌شده";
-   button.hidden=sourceStatus!=="loading"&&n===0;
-   button.disabled=sourceStatus!=="loading"&&n===0;
+   label.textContent=sourceStatus==="loading"?"در حال دریافت":n?count(n)+" کالای ذخیره‌شده":"هنوز کالایی ثبت نشده";
+   // Keep the full taxonomy visible; empty categories should explain their state,
+   // not disappear and make the navigation look broken.
+   button.hidden=false;
+   button.disabled=false;
   });
   document.querySelectorAll("#filters [data-filter]").forEach(button=>{
    const key=button.dataset.filter;
    if(key==="همه"||key==="پیشنهاد ویژه")return;
-   const n=products.filter(p=>categoryMatches(p,key)).length;
-   button.hidden=sourceStatus!=="loading"&&n===0;
+   // Preserve the complete category filter set so users can navigate consistently.
+   button.hidden=false;
+   button.setAttribute("aria-label",key+"، "+count(products.filter(p=>categoryMatches(p,key)).length)+" کالا");
   });
  if(!host.children.length&&sourceStatus==="loading")host.innerHTML='<div class="empty">در حال بارگذاری دسته‌بندی‌ها و پیشنهادهای ذخیره‌شده…</div>';
 }
@@ -363,22 +450,23 @@ const slides=[["کاتالوگ ذخیره‌شدهٔ دیجی‌بایل","کا�
 function setSlide(n){slide=(n+slides.length)%slides.length;const s=slides[slide];document.getElementById("eyebrow").textContent=s[0];document.getElementById("heroTitle").innerHTML=s[1].split("|").map(x=>"<span>"+safe(x)+"</span>").join("");document.getElementById("heroBody").textContent=s[2];document.querySelectorAll("#pager button").forEach((b,i)=>b.classList.toggle("active",i===slide));const small=document.querySelector("#pager small");if(small)small.textContent=count(slide+1)+" / "+count(slides.length);document.getElementById("heroCta").onclick=()=>setFilter(s[3]);}
 async function loadCatalog(){
  sourceStatus="loading";if(products.length)render();let data=null;let catalogMode="owned";let ownedError=null;
- // Prefer a deployment-time snapshot served from this same domain. Visitors do not
- // need a browser-to-API request, CORS permission, or a live source API connection.
+ // Source priority matters: use the marketplace's own published inventory first.
+ // Only fall back to the same-origin persisted snapshot when there are no published seller products.
  try{
-  const snapshotResponse=await fetch("./catalog.json",{headers:{accept:"application/json"},cache:"no-cache"});
-  if(snapshotResponse.ok){
-   const snapshot=await snapshotResponse.json();
-   if(snapshot.tenant?.code==="digibile"&&Array.isArray(snapshot.products)&&snapshot.products.length){data=snapshot;catalogMode="reference";}
-  }
- }catch(snapshotError){console.warn("Digibile local catalog snapshot unavailable; trying platform API.",snapshotError);}
+  const response=await fetch(API,{headers:{accept:"application/json"},cache:"no-store"});
+  const owned=await response.json();
+  if(!response.ok||!Array.isArray(owned.products))throw new Error(owned.message||owned.error||"کاتالوگ داخلی هنوز آماده نیست");
+  if(owned.products.length){data=owned;catalogMode="owned";}
+  else{ownedError=new Error("هنوز کالای منتشرشدهٔ فروشنده وجود ندارد؛ فهرست ذخیره‌شده بررسی می‌شود.");}
+ }catch(error){ownedError=error;}
  if(!data){
   try{
-   const response=await fetch(API,{headers:{accept:"application/json"},cache:"no-store"});
-   const owned=await response.json();
-   if(!response.ok||!Array.isArray(owned.products))throw new Error(owned.message||owned.error||"کاتالوگ داخلی هنوز آماده نیست");
-   if(owned.products.length){data=owned;}else{ownedError=new Error("کاتالوگ داخلی محصول منتشرشده ندارد؛ کاتالوگ ذخیره‌شده را بررسی می‌کنیم.");}
-  }catch(error){ownedError=error;}
+   const snapshotResponse=await fetch("./catalog.json",{headers:{accept:"application/json"},cache:"no-cache"});
+   if(snapshotResponse.ok){
+    const snapshot=await snapshotResponse.json();
+    if(snapshot.tenant?.code==="digibile"&&Array.isArray(snapshot.products)&&snapshot.products.length){data=snapshot;catalogMode="reference";}
+   }
+  }catch(snapshotError){console.warn("Digibile local catalog snapshot unavailable; trying persisted reference catalog.",snapshotError);}
  }
  if(!data||!Array.isArray(data.products)||data.products.length===0){
   try{
