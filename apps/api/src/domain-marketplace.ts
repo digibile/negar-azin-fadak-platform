@@ -130,7 +130,9 @@ domainMarketplaceRouter.post("/api/marketplace/products",requireAuth,requirePerm
   if(!seller||!sku||!title||price===null||price<=0)return res.status(400).json({error:"شناسه، عنوان و قیمت فروش داخلی معتبر و قیمت بیشتر از صفر الزامی است"});
   const owned=await query("select id from sellers where id=$1 and tenant_id=$2",[seller,ctx.id]);
   if(!owned.rowCount)return res.status(404).json({error:"فروشنده در این محدوده پیدا نشد"});
-  const r=await query("insert into products(tenant_id,seller_id,store_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10) returning *",[ctx.id,seller,bodyString(req.body?.storeId,100)||null,sku,title,bodyString(req.body?.description,2000)||null,bodyString(req.body?.category,200)||null,price,bodyString(req.body?.currency,10)||"IRR",req.body?.attributes&&typeof req.body.attributes==="object"?req.body.attributes:{}]);
+  const submittedAttributes=req.body?.attributes&&typeof req.body.attributes==="object"?req.body.attributes as Record<string,unknown>:{};
+  const attributes={inventoryQuantity:10,inventoryVerified:false,inventorySource:"",...submittedAttributes};
+  const r=await query("insert into products(tenant_id,seller_id,store_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10) returning *",[ctx.id,seller,bodyString(req.body?.storeId,100)||null,sku,title,bodyString(req.body?.description,2000)||null,bodyString(req.body?.category,200)||null,price,bodyString(req.body?.currency,10)||"IRR",JSON.stringify(attributes)]);
   res.status(201).json(r.rows[0]);
 }));
 
@@ -716,7 +718,7 @@ domainMarketplaceRouter.post("/api/marketplace/reference-catalog/materialize",re
         sourceSnapshotId:String(product.source_product_id),
         priceReviewRequired:true,
         inventoryVerified:false,
-        inventoryQuantity:0,
+        inventoryQuantity:10,
         inventorySource:"",
         listingNote:"اطلاعات و تصویر در پایگاه داده داخلی ذخیره شده‌اند؛ قیمت فروش و موجودی باید توسط فروشنده تعیین و تأیید شود."
       };

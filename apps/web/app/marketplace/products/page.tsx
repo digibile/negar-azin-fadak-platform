@@ -47,7 +47,7 @@ export default function ProductsPage() {
   const [savingId, setSavingId] = useState("");
   const [editingId, setEditingId] = useState("");
   const [inventoryEditingId, setInventoryEditingId] = useState("");
-  const [inventoryQuantity, setInventoryQuantity] = useState("0");
+  const [inventoryQuantity, setInventoryQuantity] = useState("10");
   const [inventorySourceType, setInventorySourceType] = useState<"seller-owned" | "supplier-verified">("seller-owned");
   const [inventorySource, setInventorySource] = useState("");
   const [inventorySupplierReference, setInventorySupplierReference] = useState("");
@@ -372,7 +372,7 @@ export default function ProductsPage() {
   function startInventoryEdit(item: Product) {
     const attributes = item.attributes || {};
     setInventoryEditingId(item.id);
-    setInventoryQuantity(String(attributes.inventoryQuantity ?? "0"));
+    setInventoryQuantity(String(attributes.inventoryQuantity ?? "10"));
     setInventorySourceType(attributes.sourceType === "supplier-verified" ? "supplier-verified" : "seller-owned");
     setInventorySource(String(attributes.inventorySource ?? ""));
     setInventorySupplierReference(String(attributes.supplierReference ?? ""));
