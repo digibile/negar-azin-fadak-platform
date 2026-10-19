@@ -444,7 +444,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
             const image = safeImageUrl(product.image_url);
             return <article className="sk-product-card" key={product.id}>
               <Link href={productHref} className="sk-product-visual" aria-label={"مشاهده " + product.title}>
-                <span className="sk-product-category">{product.is_demo_product ? "نمونهٔ آزمایشی" : product.is_reference ? "کالای مرجع زنده" : (canonicalCategory(product.category) || "سایر کالاها")}</span>
+                <span className="sk-product-category">{product.is_demo_product ? "نمونهٔ آزمایشی" : product.is_reference ? "کالای مرجع زنده" : product.attributes?.preorderEnabled === true ? "پیش‌فروش · ظرفیت ۱۰ سفارش" : (canonicalCategory(product.category) || "سایر کالاها")}</span>
                 {image ? <img src={image} alt={product.title} loading="lazy" decoding="async" /> : <span className="sk-product-glyph"><span aria-hidden="true">{categoryGlyph(product.category, product.title)}</span><small>تصویر کالا هنوز ثبت نشده</small></span>}
                 <span className="sk-visual-brand">{identity.name}</span>
               </Link>
@@ -452,9 +452,9 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
                 <span className="sk-seller-name"><i />{product.is_demo_product ? "سوکار · کاتالوگ آزمایشی" : product.is_reference ? (product.source_name || "منبع اصلی") + " · فروش در منبع اصلی" : (product.seller_name || "فروشنده ثبت‌شده")}</span>
                 <Link href={productHref} className="sk-product-title">{product.title}</Link>
                 <p>{product.description || "مشخصات تکمیلی این کالا هنوز توسط فروشنده ثبت نشده است."}</p>
-                <div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>{product.is_demo_product ? "قیمت مرجع آزمایشی؛ قیمت فروش سوکار نیست" : product.is_reference ? "قیمت نمایش‌داده‌شده از منبع اصلی است و ممکن است تغییر کند" : "قیمت ثبت‌شده در کاتالوگ سوکار"}</small></div>
+                <div className="sk-product-price"><strong>{money(product.price, product.currency)}</strong><small>{product.is_demo_product ? "قیمت مرجع آزمایشی؛ قیمت فروش سوکار نیست" : product.is_reference ? "قیمت نمایش‌داده‌شده از منبع اصلی است و ممکن است تغییر کند" : product.attributes?.preorderEnabled === true ? "قیمت آغازین ثبت‌شده؛ پیش‌فروش با سقف ۱۰ عدد، بدون ادعای موجودی فیزیکی" : "قیمت ثبت‌شده در کاتالوگ سوکار"}</small></div>
                 <Link href={productHref} className="sk-product-cta" target={product.is_reference ? "_blank" : undefined} rel={product.is_reference ? "noopener noreferrer" : undefined}>{product.is_reference ? "بررسی و خرید در منبع اصلی" : "مشاهده جزئیات"} <span>←</span></Link>
-               {!product.is_reference && <AddToCartButton compact product={{ id: product.id, sku: product.sku, title: product.title, price: product.price, currency: product.currency, seller_name: product.seller_name, store_id: product.store_id, image_url: product.image_url, is_demo_product: product.is_demo_product, site: templateVariant }} />}
+               {!product.is_reference && <AddToCartButton compact product={{ id: product.id, sku: product.sku, title: product.title, price: product.price, currency: product.currency, seller_name: product.seller_name, store_id: product.store_id, image_url: product.image_url, is_demo_product: product.is_demo_product, is_preorder: product.attributes?.preorderEnabled === true, preorder_limit: Number(product.attributes?.preorderLimit || 0), site: templateVariant }} />}
               </div>
             </article>;
           })}</div>
