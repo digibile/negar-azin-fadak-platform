@@ -798,7 +798,7 @@ jobs:
               raise SystemExit("No valid saved products can be rendered into the storefront HTML")
           shelves = []
           offers = [p for p in normalized_products if p["discount"] > 0 or p["original"] > p["price"]]
-          shelf_groups = [("موبایل و دیجیتال", [p for p in normalized_products if p["category"] == "موبایل و دیجیتال"]), ("لپ‌تاپ و کامپیوتر", [p for p in normalized_products if p["category"] == "لپ‌تاپ و کامپیوتر"]), ("خانه و آشپزخانه", [p for p in normalized_products if p["category"] == "خانه و آشپزخانه"]), ("ساعت و اکسسوری", [p for p in normalized_products if p["category"] == "ساعت و اکسسوری"])]
+          shelf_groups = [("موبایل و دیجیتال", [p for p in normalized_products if p["category"] == "موبایل و دیجیتال"]), ("لپ‌تاپ و کامپیوتر", [p for p in normalized_products if p["category"] == "لپ‌تاپ و کامپیوتر"]), ("خانه و آشپزخانه", [p for p in normalized_products if p["category"] == "خانه و آشپزخانه"]), ("ساعت و اکسسوری", [p for p in normalized_products if p["category"] == "ساعت و اکسسوری"]), ("مد و پوشاک", [p for p in normalized_products if p["category"] == "مد و پوشاک"]), ("زیبایی و سلامت", [p for p in normalized_products if p["category"] == "زیبایی و سلامت"]), ("ورزش و سفر", [p for p in normalized_products if p["category"] == "ورزش و سفر"]), ("خودرو و ابزار", [p for p in normalized_products if p["category"] == "خودرو و ابزار"])]
           shelf_groups.insert(0, ("فروش ویژه و تخفیف‌خورده‌ها", offers))
           for title, items in shelf_groups:
               if items:
