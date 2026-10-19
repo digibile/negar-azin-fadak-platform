@@ -196,6 +196,17 @@ html,body{background:#fff;color:#202124;font-family:Vazirmatn,Tahoma,sans-serif}
 @media(max-width:1000px){.wrap{width:min(calc(100% - 28px),1380px)}.home-product-section{padding:18px}.home-product-section .grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:640px){.wrap{width:calc(100% - 20px)}.topline .wrap span:last-child{display:none}.hero{min-height:unset}.categories{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.category{min-height:122px;padding:13px 8px}.category .cicon{width:48px;height:48px;border-radius:14px}.home-product-section{padding:12px;border-radius:16px;margin:22px auto}.home-product-section .sectionhead{align-items:flex-start;gap:10px}.home-product-section .sectionhead h2{font-size:18px}.home-product-section .sectionhead p{font-size:10px}.home-product-section .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.home-product-section .photo{height:150px}.demo{font-size:9px;padding:6px 8px}.filterrow{overflow:visible}.filterrow button{font-size:10px;padding:8px 10px}}
 
+
+/* Category merchandising: use the actual saved catalog photography instead of generic icon tiles. */
+.category .cicon.has-product-image{background:#f7f8fa;color:transparent;padding:4px;overflow:hidden;border:1px solid #eef0f3}
+.category .cicon.has-product-image img{display:block;width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply}
+.category strong{line-height:1.8}
+.category small{font-size:10px;font-weight:700;color:#77808d}
+.home-product-section .sectionhead{padding-bottom:12px;border-bottom:1px solid #eceef1}
+.home-product-section .sectionhead p{max-width:760px}
+.home-product-section .grid .card{height:100%}
+.home-product-section .photo img{object-fit:contain;padding:10px}
+@media(max-width:700px){.category .cicon{width:58px;height:58px}.category small{font-size:9px}.home-product-section .sectionhead{gap:8px}}
 </style>
 </head>
 <body>
@@ -302,7 +313,7 @@ function categoryMatches(p,v){
  return !!c&&(c===f||c.includes(f)||f.includes(c));
 }
 function createProductCard(p){const c=document.createElement("article");c.className="card";const unavailable=sourceStatus==="unavailable"||sourceStatus==="reference"||p.source_available===false||Number(p.stock_quantity??0)<=0||!p.price;const original=Number(p.original_price)>Number(p.price)?Number(p.original_price):0;const discount=Number(p.discount_percent)>0?Math.min(100,Math.round(Number(p.discount_percent))):(original>0?Math.round((original-Number(p.price))/original*100):0);c.innerHTML='<div class="photo"><span class="tag">'+(discount>0?("٪"+count(discount)+" تخفیف"):sourceStatus==="reference"?"فهرست مرجع":p.source_available===false?"عرضه تأیید نشده":Number(p.stock_quantity??0)<=0?"ناموجود":"قیمت ثبت‌شده")+'</span><button class="fav '+(favorites.has(p.id)?"active":"")+'" aria-label="افزودن به علاقه‌مندی‌ها" aria-pressed="'+favorites.has(p.id)+'">'+(favorites.has(p.id)?"♥":"♡")+'</button><img loading="lazy" alt="'+safe(p.title)+'" src="'+safe(p.image_url)+'" onerror="this.style.opacity=.2"></div><div class="pinfo"><span class="cat">'+safe(p.category)+(p.brand?" · "+safe(p.brand):"")+'</span><h3>'+safe(p.title)+'</h3><div class="pfoot"><div>'+(original>Number(p.price)?'<small style="text-decoration:line-through">'+money(original)+'</small>':'')+'<strong>'+money(p.price)+'</strong><small>'+(sourceStatus==="reference"?"موجودی و عرضه فروشنده تأیید نشده":p.source_available===false?"وضعیت عرضه تأیید نشده":"موجودی ثبت‌شده: "+count(p.stock_quantity??0)+" عدد")+'</small></div><button class="add" '+(unavailable?'disabled':'')+'>'+(sourceStatus==="reference"?"فروشنده هنوز عرضه نکرده":unavailable?"ناموجود":"افزودن به سبد")+"</button></div><button class="dg-view" type="button">مشاهده محصول</button></div>';c.querySelector(".fav").onclick=()=>{favorites.has(p.id)?favorites.delete(p.id):favorites.add(p.id);render();};const view=c.querySelector(".dg-view");view.onclick=()=>openDetail(p.id);c.querySelector(".photo img").onclick=()=>openDetail(p.id);c.querySelector("h3").onclick=()=>openDetail(p.id);const add=c.querySelector(".add");add.onclick=()=>{if(sourceStatus==="reference"||p.source_available===false||Number(p.stock_quantity??0)<=0){add.textContent="فعلاً قابل خرید نیست";return;}if((cart.get(p.id)||0)>=Number(p.stock_quantity??0)){add.textContent="حداکثر موجودی";return;}cart.set(p.id,(cart.get(p.id)||0)+1);persistCart();updateCartBadge();add.textContent="اضافه شد ✓";setTimeout(()=>{if(add.isConnected)add.textContent="افزودن به سبد"},1000);};return c;}
-function syncHomeVisuals(){const pick=(key)=>products.find(p=>categoryMatches(p,key))||null;const hero=products[0],digital=pick("موبایل و دیجیتال")||pick("لپ‌تاپ و کامپیوتر"),home=pick("خانه و آشپزخانه");const set=(selector,p)=>{const img=document.querySelector(selector);if(!img||!p||!p.image_url)return;img.src=p.image_url;img.alt=p.title;img.onerror=()=>{img.onerror=null;};};set(".product-visual img",hero);set(".bandart img",digital||hero);set("#digital .splitcard img",digital||hero);set("#lifestyle img",home||digital||hero);}
+function syncHomeVisuals(){const pick=(key)=>products.find(p=>categoryMatches(p,key))||null;const hero=pick("پیشنهاد ویژه")||pick("موبایل و دیجیتال")||pick("لپ‌تاپ و کامپیوتر")||products[0],digital=pick("موبایل و دیجیتال")||pick("لپ‌تاپ و کامپیوتر"),home=pick("خانه و آشپزخانه");const set=(selector,p)=>{const img=document.querySelector(selector);if(!img||!p||!p.image_url)return;img.src=p.image_url;img.alt=p.title;img.onerror=()=>{img.onerror=null;};};set(".product-visual img",hero);set(".bandart img",digital||hero);set("#digital .splitcard img",digital||hero);set("#lifestyle img",home||digital||hero);}
 function renderHomeSections(){
  syncHomeVisuals();
  const host=document.getElementById("homeMerchandisingGrid");if(!host)return;
@@ -331,8 +342,9 @@ function renderHomeSections(){
  });
  document.querySelectorAll("[data-category]").forEach(button=>{
    const label=button.querySelector("small");if(!label)return;
-   const key=button.dataset.category;const n=products.filter(p=>categoryMatches(p,key)).length;
-   label.textContent=sourceStatus==="loading"?"در حال دریافت":count(n)+" کالا";
+   const key=button.dataset.category;const matching=products.filter(p=>categoryMatches(p,key));const n=matching.length;const icon=button.querySelector(".cicon");const representative=matching.find(p=>p.image_url);
+   if(icon&&representative&&icon.dataset.productImage!==representative.image_url){icon.innerHTML='<img loading="lazy" alt="" src="'+safe(representative.image_url)+'">';icon.classList.add("has-product-image");icon.dataset.productImage=representative.image_url;}
+   label.textContent=sourceStatus==="loading"?"در حال دریافت":count(n)+" کالای ذخیره‌شده";
    button.hidden=sourceStatus!=="loading"&&n===0;
    button.disabled=sourceStatus!=="loading"&&n===0;
   });
