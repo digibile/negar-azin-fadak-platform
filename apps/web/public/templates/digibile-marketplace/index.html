@@ -255,6 +255,14 @@ body{background:#f5f7fa}
 .band{border-radius:26px;overflow:hidden}
 #products .sectionhead{align-items:center}
 .demo{max-width:100%;white-space:normal;text-align:center;line-height:1.8}
+/* Production-style category shelves: horizontal browsing on desktop and mobile. */
+#homeMerchandisingGrid>.home-product-section{padding:22px 20px;margin:20px auto}
+#homeMerchandisingGrid .home-shelf-grid{display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;gap:14px;padding:4px 2px 16px;scroll-snap-type:x mandatory;overscroll-behavior-inline:contain;scrollbar-width:thin}
+#homeMerchandisingGrid .home-shelf-grid>.card{flex:0 0 clamp(225px,23%,270px);min-width:0;scroll-snap-align:start}
+#homeMerchandisingGrid .home-shelf-grid>.empty{flex:1 0 100%;min-height:100px}
+#homeMerchandisingGrid .home-product-section .sectionhead p{max-width:760px}
+#homeMerchandisingGrid .home-product-section:first-child .home-shelf-grid>.card{border-color:#f0dfe2}
+@media(max-width:760px){#homeMerchandisingGrid>.home-product-section{padding:16px 12px;margin:14px auto;border-radius:18px}#homeMerchandisingGrid .home-shelf-grid{gap:10px}#homeMerchandisingGrid .home-shelf-grid>.card{flex-basis:72%;max-width:290px}}
 @media(max-width:1100px){
  .wrap{width:min(100% - 32px,1000px)}
  .categories{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -410,17 +418,22 @@ function renderHomeSections(){
  syncHomeVisuals();
  const host=document.getElementById("homeMerchandisingGrid");if(!host)return;
  const groups=[
-  {title:"فروش ویژه و تخفیف‌خورده‌ها",filter:"پیشنهاد ویژه",note:"فقط تخفیف‌هایی که قیمت قبلی یا درصد تخفیف معتبر در کاتالوگ ذخیره‌شده دارند."},
-  {title:"موبایل و دیجیتال",filter:"موبایل و دیجیتال",note:"گوشی‌ها و محصولات دیجیتال از کاتالوگ ذخیره‌شده."},
-  {title:"لپ‌تاپ و کامپیوتر",filter:"لپ‌تاپ و کامپیوتر",note:"لپ‌تاپ‌ها و تجهیزات محاسباتی از کاتالوگ ذخیره‌شده."},
-  {title:"خانه و آشپزخانه",filter:"خانه و آشپزخانه",note:"کالاهای ذخیره‌شده برای خانه و آشپزخانه."},
-  {title:"ساعت و اکسسوری",filter:"ساعت و اکسسوری",note:"ساعت و لوازم جانبی از فهرست ذخیره‌شده."}
+  {title:"فروش ویژه و تخفیف‌خورده‌ها",filter:"پیشنهاد ویژه",note:"پیشنهادهایی با قیمت قبلی و درصد تخفیف معتبر؛ بدون تخفیف ساختگی."},
+  {title:"موبایل و دیجیتال",filter:"موبایل و دیجیتال",note:"گوشی، تبلت و کالاهای دیجیتال ثبت‌شده."},
+  {title:"لپ‌تاپ و کامپیوتر",filter:"لپ‌تاپ و کامپیوتر",note:"لپ‌تاپ و تجهیزات محاسباتی ثبت‌شده."},
+  {title:"خانه و آشپزخانه",filter:"خانه و آشپزخانه",note:"کالاهای ثبت‌شده برای خانه و آشپزخانه."},
+  {title:"ساعت و اکسسوری",filter:"ساعت و اکسسوری",note:"ساعت و لوازم جانبی ثبت‌شده."},
+  {title:"مد و پوشاک",filter:"مد و پوشاک",note:"محصولات پوشاک دسته‌بندی‌شده."},
+  {title:"زیبایی و سلامت",filter:"زیبایی و سلامت",note:"محصولات مراقبت و سلامت ثبت‌شده."},
+  {title:"ورزش و سفر",filter:"ورزش و سفر",note:"کالاهای ورزشی و سفر ثبت‌شده."},
+  {title:"خودرو و ابزار",filter:"خودرو و ابزار",note:"تجهیزات خودرو و ابزارهای ثبت‌شده."}
  ];
  host.innerHTML="";
  groups.forEach(g=>{
-  const list=products.filter(p=>categoryMatches(p,g.filter)&&fa(p.title+" "+p.category+" "+(p.brand||"")+" "+(p.description||"")).includes(fa(query))).slice(0,8);
+  const matching=products.filter(p=>categoryMatches(p,g.filter)&&fa(p.title+" "+p.category+" "+(p.brand||"")+" "+(p.description||"")).includes(fa(query)));
+  const list=(g.filter==="پیشنهاد ویژه"?matching.sort((a,b)=>Number(b.discount_percent||0)-Number(a.discount_percent||0)):matching).slice(0,12);
   const section=document.createElement("section");section.className="section home-product-section";
-  section.innerHTML='<div class="sectionhead"><div><span class="kicker">'+(g.filter==="پیشنهاد ویژه"?"پیشنهادهای تخفیف":"دسته‌بندی محصولات")+'</span><h2>'+safe(g.title)+'</h2><p>'+safe(g.note)+'</p></div><button class="textlink" type="button">مشاهده همه ←</button></div><div class="grid"></div>';
+  section.innerHTML='<div class="sectionhead"><div><span class="kicker">'+(g.filter==="پیشنهاد ویژه"?"پیشنهادهای تخفیف":"دسته‌بندی محصولات")+'</span><h2>'+safe(g.title)+'</h2><p>'+safe(g.note)+(matching.length?' · '+count(matching.length)+' کالا':'')+'</p></div><button class="textlink" type="button">مشاهده همه ←</button></div><div class="grid home-shelf-grid" aria-label="'+safe(g.title)+'"></div>';
   section.querySelector(".textlink").onclick=()=>setFilter(g.filter);
   const grid=section.querySelector(".grid");
   if(list.length){list.forEach(p=>grid.appendChild(createProductCard(p)));}
