@@ -307,6 +307,52 @@ body{background:#f5f7fa}
  .pinfo{padding:9px}
 }
 
+
+/* Premium marketplace merchandising: dense, shoppable shelves without fake stock claims. */
+#homeMerchandising{margin-top:22px}
+.home-product-section{background:#fff;border:1px solid #e9edf2;border-radius:24px;padding:22px 22px 14px;box-shadow:0 8px 28px rgba(20,35,55,.045);overflow:hidden}
+.home-product-section .sectionhead{align-items:center;gap:18px;margin-bottom:16px}
+.home-product-section .sectionhead h2{display:flex;align-items:center;gap:10px;margin:4px 0 2px;font-size:22px;letter-spacing:-.35px}
+.home-product-section .sectionhead p{margin:3px 0 0;font-size:11px;color:#738093}
+.home-product-section .kicker{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:900;letter-spacing:.1px}
+.home-product-section .kicker:before{content:"";width:18px;height:3px;border-radius:5px;background:currentColor}
+.home-product-section .grid{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,248px);grid-template-columns:none;gap:12px;overflow-x:auto;overflow-y:hidden;padding:3px 2px 14px;scroll-snap-type:x proximity;overscroll-behavior-inline:contain;scrollbar-width:thin;scrollbar-color:#cbd4df transparent}
+.home-product-section .card{min-width:0;scroll-snap-align:start;border:1px solid #e9edf2;border-radius:16px;box-shadow:0 3px 12px rgba(19,36,58,.035);transition:transform .18s,border-color .18s,box-shadow .18s}
+.home-product-section .card:hover{transform:translateY(-3px);border-color:#f0a4ac;box-shadow:0 12px 26px rgba(38,48,65,.09)}
+.home-product-section .photo{height:185px;padding:13px;background:linear-gradient(180deg,#fff,#fbfcfe)}
+.home-product-section .pinfo{padding:13px}
+.home-product-section .pinfo h3{min-height:48px;font-size:12px;line-height:1.85}
+.home-product-section .pfoot strong{font-size:15px;color:#202b3b}
+.home-product-section .pfoot small{line-height:1.8}
+#homeMerchandisingGrid>.home-product-section:first-child{background:linear-gradient(135deg,#fff4f5 0%,#fff 62%);border-color:#ffd9de}
+#homeMerchandisingGrid>.home-product-section:first-child .kicker{color:#d92d42}
+#homeMerchandisingGrid>.home-product-section:first-child .sectionhead h2:before{content:"٪";display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#ef394e;color:#fff;font-size:18px}
+#homeMerchandisingGrid>.home-product-section:first-child .tag{background:#ef394e;color:#fff}
+.categories{gap:12px}
+.category{position:relative;min-width:0;background:linear-gradient(180deg,#fff 0%,#fbfcfe 100%);border:1px solid #e8edf3;box-shadow:0 4px 14px rgba(22,39,61,.035);text-align:center}
+.category:after{content:"←";position:absolute;left:12px;top:12px;color:#9aa5b4;font-size:13px;opacity:0;transform:translateX(4px);transition:.18s}
+.category:hover:after,.category:focus-visible:after{opacity:1;transform:none}
+.cicon.has-product-image{display:grid;place-items:center;overflow:hidden;background:#fff;border:1px solid #edf0f4;padding:5px}
+.cicon.has-product-image img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply}
+.category small{display:block;min-height:18px;color:#7b8797;font-size:9px;line-height:1.7}
+#filters button{transition:background .15s,border-color .15s,transform .15s}
+#filters button:hover{border-color:#ef394e;transform:translateY(-1px)}
+.photo .tag{box-shadow:0 2px 7px rgba(20,30,45,.08)}
+.dg-view{font-weight:800}
+@media(min-width:1200px){.home-product-section .grid{grid-auto-columns:248px}.home-product-section .photo{height:195px}}
+@media(max-width:700px){
+ .home-product-section{padding:15px 12px 8px;border-radius:18px;margin:24px auto}
+ .home-product-section .sectionhead{margin-bottom:12px}
+ .home-product-section .sectionhead h2{font-size:17px}
+ .home-product-section .sectionhead p{font-size:10px}
+ .home-product-section .grid{grid-auto-columns:minmax(68vw,68vw);gap:10px;padding-bottom:12px}
+ .home-product-section .photo{height:165px}
+ .home-product-section .pinfo{padding:11px}
+ .home-product-section .pinfo h3{font-size:11px;min-height:42px}
+ .category{min-height:126px}
+ .category small{font-size:9px}
+}
+
 </style>
 </head>
 <body>
