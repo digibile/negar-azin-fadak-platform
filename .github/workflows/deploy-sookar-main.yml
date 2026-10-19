@@ -145,7 +145,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, pathlib, tempfile
+          import json, pathlib
           workflow = pathlib.Path(".github/workflows/deploy-sookar-main.yml").read_text(encoding="utf-8")
           marker = workflow.index("# Render real saved products, category shelves, and verified discounts into HTML at deployment time.")
           heredoc = workflow.index("python3 - <<'PY'\n", marker) + len("python3 - <<'PY'\n")
