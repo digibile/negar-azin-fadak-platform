@@ -63,6 +63,7 @@ export default function ProductsPage() {
   const [sourceLinks, setSourceLinks] = useState<SourceLink[]>([]);
   const [syncingSources, setSyncingSources] = useState(false);
   const [importingDemo, setImportingDemo] = useState(false);
+  const [importingFullCatalog, setImportingFullCatalog] = useState(false);
 
   async function load() {
     setError("");
@@ -320,6 +321,41 @@ export default function ProductsPage() {
     } finally { setImportingDemo(false); }
   }
 
+  async function importFullReferenceCatalog() {
+    if (!sellerId) {
+      setError("ابتدا فروشندهٔ فعال را انتخاب کنید.");
+      return;
+    }
+    setError(""); setNotice(""); setImportingFullCatalog(true);
+    try {
+      const synced = await api<{stored:number;failed:number;imagesMirrored:number;notice?:string}>(
+        "/api/marketplace/reference-catalog/sync",
+        { method: "POST", body: JSON.stringify({}) }
+      );
+      const result = await api<{
+        created:number;alreadyPresent:number;skippedNoLocalImage:number;skippedUnavailable:number;
+        failed:number;sourceCatalogCount:number;message:string
+      }>("/api/marketplace/reference-catalog/materialize", {
+        method: "POST",
+        body: JSON.stringify({ sellerId })
+      });
+      setNotice(
+        "ورود کاتالوگ مستقل تمام شد: " +
+        result.created.toLocaleString("fa-IR") + " کالای جدید ثبت شد، " +
+        result.alreadyPresent.toLocaleString("fa-IR") + " مورد از قبل وجود داشت، " +
+        result.skippedNoLocalImage.toLocaleString("fa-IR") + " مورد به‌دلیل تصویر غیرمحلی رد شد و " +
+        result.skippedUnavailable.toLocaleString("fa-IR") + " مورد ناموجود در مرجع رد شد. " +
+        "ظرفیت پیش‌فروش هر کالای واردشده ۱۰ سفارش است؛ موجودی فیزیکی به‌دروغ تأیید نشده. " +
+        "دریافت مرجع: " + Number(synced.stored || 0).toLocaleString("fa-IR") + " رکورد."
+      );
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "ورود کاتالوگ مستقل ناموفق بود.");
+    } finally {
+      setImportingFullCatalog(false);
+    }
+  }
+
   async function syncReferenceProducts() {
     if (!sourceLinks.length) return;
     setError(""); setNotice(""); setSyncingSources(true);
@@ -470,7 +506,7 @@ export default function ProductsPage() {
           <div className="mp-form-actions"><button type="button" onClick={() => void importSupplierCsv()} disabled={supplierImporting || !sellerId || !supplierName.trim() || !supplierCatalogReference.trim() || !supplierCsvText.trim()}>{supplierImporting ? "در حال اعتبارسنجی و ورود…" : "اعتبارسنجی و ورود کالاها"} <span>←</span></button><small>{parseSupplierCsv(supplierCsvText).length.toLocaleString("fa-IR")} ردیف قابل‌خواندن · حداکثر ۵۰۰ کالا در هر نوبت</small></div>
         </div>
       </div> : <div className="mp-import-panel">
-        <div className="mp-import-head"><div><h3>ورود مرجع به کاتالوگ داخلی</h3><p>ورود عادی، پیش‌نویس می‌سازد. برای بررسی ویترین و سبد خرید، کاتالوگ آزمایشی را با یک کلیک به پایگاه دادهٔ خود سوکار وارد کنید.</p>{sourceFetchedAt && <small>آخرین دریافت موفق فهرست: {new Date(sourceFetchedAt).toLocaleString("fa-IR")}</small>}<div className="mp-inline-warning">۱۲ محصول آزمایشی با تصویر محلی و مشخصات در دیتابیس سوکار ذخیره می‌شوند. قیمت فقط snapshot منبع است؛ این کالاها برای فروش واقعی یا پرداخت استفاده نمی‌شوند.</div></div><button type="button" className="mp-import-submit" onClick={() => void importDemoCatalog()} disabled={importingDemo || loadingSource}>{importingDemo ? "در حال ذخیره در دیتابیس…" : "ورود ۱۲ محصول آزمایشی به سوکار"}</button></div>
+        <div className="mp-import-head"><div><h3>ورود مرجع به کاتالوگ داخلی</h3><p>ورود عادی، پیش‌نویس می‌سازد. برای بررسی ویترین و سبد خرید، کاتالوگ آزمایشی را با یک کلیک به پایگاه دادهٔ خود سوکار وارد کنید.</p>{sourceFetchedAt && <small>آخرین دریافت موفق فهرست: {new Date(sourceFetchedAt).toLocaleString("fa-IR")}</small>}<div className="mp-inline-warning">ورود کامل کاتالوگ مرجع، ذخیره تصویر و مشخصات در دیتابیس خود سوکار و ایجاد ظرفیت پیش‌فروش ۱۰ سفارش برای هر کالا. قیمت اولیه snapshot مرجع است؛ موجودی فیزیکی تأییدشده محسوب نمی‌شود.</div></div><div className="mp-import-actions"><button type="button" className="mp-import-submit" onClick={() => void importFullReferenceCatalog()} disabled={importingFullCatalog || loadingSource || !sellerId}>{importingFullCatalog ? "در حال دریافت، ذخیره تصاویر و ثبت کالاها…" : "ورود کامل کالاها و پیش‌فروش ۱۰ عددی"}</button><button type="button" className="mp-refresh" onClick={() => void importDemoCatalog()} disabled={importingDemo || loadingSource}>{importingDemo ? "در حال ذخیره در دیتابیس…" : "ورود ۱۲ محصول آزمایشی"}</button></div></div>
         <div className="mp-source-id-row">
           <label htmlFor="mp-source-product-id">شناسه یا لینک محصول دیجی‌کالا<input id="mp-source-product-id" value={sourceProductId} onChange={event => setSourceProductId(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void lookupDigikalaProduct(); } }} placeholder="شناسه یا لینک محصول؛ مثال dkp-12345678" /></label>
           <button type="button" className="mp-refresh" onClick={lookupDigikalaProduct} disabled={loadingSource || !sourceProductId.trim()}>{loadingSource ? "در حال دریافت…" : "دریافت محصول"}</button><button type="button" className="mp-refresh" onClick={() => void loadSourceCatalog()} disabled={loadingSource}>{loadingSource ? "در حال دریافت فهرست…" : "تازه‌سازی فهرست"}</button>
