@@ -148,9 +148,9 @@ jobs:
           import json, pathlib, tempfile
           workflow = pathlib.Path(".github/workflows/deploy-sookar-main.yml").read_text(encoding="utf-8")
           marker = workflow.index("# Render real saved products, category shelves, and verified discounts into HTML at deployment time.")
-          heredoc = workflow.index("python3 - <<'PY'\\n", marker) + len("python3 - <<'PY'\\n")
-          end = workflow.index("\\n          PY\\n          grep -q 'data-static-fallback", heredoc)
-          script = "\\n".join(line[10:] if line.startswith("          ") else line for line in workflow[heredoc:end].splitlines())
+          heredoc = workflow.index("python3 - <<'PY'\n", marker) + len("python3 - <<'PY'\n")
+          end = workflow.index("\n          PY\n          grep -q 'data-static-fallback", heredoc)
+          script = "\n".join(line[10:] if line.startswith("          ") else line for line in workflow[heredoc:end].splitlines())
           compile(script, "digibile-static-renderer.py", "exec")
           base = pathlib.Path("/tmp/digibile-template-package/digibile-marketplace/dist")
           base.mkdir(parents=True, exist_ok=True)
@@ -166,7 +166,7 @@ jobs:
           (base / "index.html").write_text('<div class="grid" id="productGrid"></div><div id="homeMerchandisingGrid"></div>', encoding="utf-8")
           exec(compile(script, "digibile-static-renderer.py", "exec"), {})
           rendered = (base / "index.html").read_text(encoding="utf-8")
-          for label in ("data-static-fallback=\\"true\\"", "فروش ویژه و تخفیف‌خورده‌ها", "موبایل و دیجیتال", "لپ‌تاپ و کامپیوتر", "خانه و آشپزخانه", "فهرست مرجع؛ عرضه و موجودی فروشنده تأیید نشده", "٪17 تخفیف معتبر"):
+          for label in ('data-static-fallback="true"', "فروش ویژه و تخفیف‌خورده‌ها", "موبایل و دیجیتال", "لپ‌تاپ و کامپیوتر", "خانه و آشپزخانه", "فهرست مرجع؛ عرضه و موجودی فروشنده تأیید نشده", "٪17 تخفیف معتبر"):
               if label not in rendered:
                   raise SystemExit("Static Digibile shelf fixture missing: " + label)
           if "فروشنده هنوز عرضه نکرده" in rendered:
