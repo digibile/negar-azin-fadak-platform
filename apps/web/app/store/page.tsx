@@ -266,15 +266,28 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
     ? [...new Set(sourceProducts.map(product => product.brand?.trim()).filter((brand): brand is string => Boolean(brand)))].slice(0, 12)
     : [];
   const techShelfGroups = (isTechnolife || isMarketplacePro) ? [
-    { title: "پرچمداران هوشمند", eyebrow: "گوشی موبایل و تبلت", searchTerm: "گوشی", matches: /موبایل|گوشی|تبلت|phone|mobile|tablet/i },
-    { title: "لپ‌تاپ و کامپیوتر", eyebrow: "کار، دانشگاه و بازی", searchTerm: "لپ", matches: /لپ.?تاپ|laptop|notebook/i },
-    { title: "ابزارآلات", eyebrow: "ابزار و تجهیزات", searchTerm: "ابزار", matches: /ابزارآلات|دریل|پیچ.?گوشتی|فرز|کمپرسور|tool|drill|screwdriver/i },
-    { title: "هدفون و تجهیزات صوتی", eyebrow: "صوتی و تصویری", searchTerm: "هدفون", matches: /هدفون|هندزفری|اسپیکر|صوتی|headphone|earbud|speaker|audio/i },
-    { title: "کامپیوتر و تجهیزات", eyebrow: "مانیتور، ذخیره‌سازی و شبکه", searchTerm: "کامپیوتر", matches: /مانیتور|کامپیوتر|مودم|روتر|هارد|فلش|ssd|پرینتر|monitor|computer|router|modem|storage|printer/i },
-    { title: "لوازم خانگی خانه و آشپزخانه", eyebrow: "لوازم کاربردی خانه", searchTerm: "لوازم خانگی", matches: /لوازم خانگی|خانه و آشپزخانه|جاروبرقی|یخچال|لباسشویی|چای.?ساز|قهوه.?ساز|air.?fryer|appliance|kitchen/i },
-    { title: "لوازم جانبی منتخب", eyebrow: "شارژر، پاوربانک و تجهیزات", searchTerm: "شارژر", matches: /شارژر|پاوربانک|کابل|مبدل|charger|power.?bank|cable|adapter/i },
-    { title: "گجت و پوشیدنی", eyebrow: "ساعت و ابزارهای هوشمند", searchTerm: "ساعت هوشمند", matches: /ساعت هوشمند|مچ.?بند|پوشیدنی|smart.?watch|wearable|fitness.?band/i }
-  ].map(shelf => ({ ...shelf, products: sourceProducts.filter(product => shelf.matches.test(normalizeText([product.title, product.category || "", product.description || "", product.brand || ""].join(" ")))) .slice(0, 8) }))
+    { title: "گوشی‌های اپل", eyebrow: "Apple · آیفون", searchTerm: "اپل", matches: /اپل|apple|iphone|آیفون|ایفون/i, brandOnly: true },
+    { title: "گوشی‌های سامسونگ", eyebrow: "Samsung · Galaxy", searchTerm: "سامسونگ", matches: /سامسونگ|samsung|galaxy|گلکسی/i, brandOnly: true },
+    { title: "گوشی‌های شیائومی", eyebrow: "Xiaomi · Redmi · POCO", searchTerm: "شیائومی", matches: /شیائومی|xiaomi|redmi|poco|پوکو/i, brandOnly: true },
+    { title: "موبایل و تبلت", eyebrow: "گوشی‌های ثبت‌شده در سوکار", searchTerm: "موبایل", matches: /موبایل|گوشی|تبلت|phone|mobile|tablet/i },
+    { title: "لپ‌تاپ و کامپیوتر", eyebrow: "کار، دانشگاه و بازی", searchTerm: "لپ‌تاپ", matches: /لپ.?تاپ|laptop|notebook|کامپیوتر رومیزی/i },
+    { title: "لوازم خانگی برقی", eyebrow: "خانه، نظافت و آشپزخانه", searchTerm: "لوازم خانگی", matches: /لوازم خانگی|جاروبرقی|یخچال|لباسشویی|ظرفشویی|چای.?ساز|قهوه.?ساز|سرخ.?کن|air.?fryer|appliance/i },
+    { title: "خانه و آشپزخانه", eyebrow: "لوازم کاربردی و خانه", searchTerm: "خانه و آشپزخانه", matches: /خانه و آشپزخانه|آشپزخانه|ظروف|دکور|روشنایی|خانه|kitchen|home decor/i },
+    { title: "هدفون و تجهیزات صوتی", eyebrow: "صوتی، تصویری و موسیقی", searchTerm: "هدفون", matches: /هدفون|هندزفری|اسپیکر|صوتی|headphone|earbud|speaker|audio|تلویزیون/i },
+    { title: "ساعت هوشمند و پوشیدنی", eyebrow: "گجت‌های روزمره", searchTerm: "ساعت هوشمند", matches: /ساعت هوشمند|مچ.?بند|پوشیدنی|smart.?watch|wearable|fitness.?band/i },
+    { title: "لوازم جانبی موبایل", eyebrow: "شارژر، کابل و پاوربانک", searchTerm: "لوازم جانبی موبایل", matches: /شارژر|پاوربانک|کابل|قاب موبایل|گلس|مبدل|charger|power.?bank|cable|adapter/i },
+    { title: "ابزارآلات و تجهیزات", eyebrow: "ابزار دستی و برقی", searchTerm: "ابزار", matches: /ابزارآلات|دریل|پیچ.?گوشتی|فرز|کمپرسور|tool|drill|screwdriver/i },
+    { title: "کامپیوتر، شبکه و ذخیره‌سازی", eyebrow: "مانیتور، مودم و حافظه", searchTerm: "کامپیوتر", matches: /مانیتور|کامپیوتر|مودم|روتر|هارد|فلش|ssd|پرینتر|monitor|computer|router|modem|storage|printer/i },
+    { title: "خودرو و موتورسیکلت", eyebrow: "لوازم و تجهیزات وسیله نقلیه", searchTerm: "خودرو", matches: /خودرو|موتورسیکلت|موتور سیکلت|لوازم یدکی|car|motorcycle|automotive/i },
+    { title: "مد، پوشاک و اکسسوری", eyebrow: "پوشاک و لوازم شخصی", searchTerm: "پوشاک", matches: /پوشاک|لباس|کفش|کیف|اکسسوری|fashion|clothing|shoes/i },
+    { title: "زیبایی و سلامت", eyebrow: "مراقبت و بهداشت شخصی", searchTerm: "زیبایی", matches: /آرایشی|بهداشتی|زیبایی|مراقبت پوست|مراقبت مو|عطر|cosmetic|beauty|skincare/i },
+    { title: "کتاب، کودک و سرگرمی", eyebrow: "کتاب، بازی و نوشت‌افزار", searchTerm: "کتاب", matches: /کتاب|نوشت.?افزار|اسباب.?بازی|کودک|بازی فکری|book|toy|stationery/i },
+    { title: "ورزش و سفر", eyebrow: "تجهیزات و لوازم سفر", searchTerm: "ورزش", matches: /ورزش|سفر|کمپینگ|چمدان|کوهنوردی|sport|travel|camping/i },
+    { title: "سوپرمارکت و کالاهای روزمره", eyebrow: "خوراکی و مصرفی خانه", searchTerm: "سوپرمارکت", matches: /سوپرمارکت|مواد غذایی|خوراکی|نوشیدنی|تنقلات|شوینده|grocery|food/i }
+  ].map(shelf => ({ ...shelf, products: sourceProducts.filter(product => {
+    const haystack = normalizeText([product.title, product.category || "", product.description || "", product.brand || ""].join(" "));
+    return shelf.matches.test(haystack);
+  }).slice(0, 10) }))
     : [];
 
   const sectionOrder = (theme?.sectionOrder || "hero,benefits,categories,products").split(",");
@@ -376,7 +389,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
           <article><span className="sk-benefit-icon">◷</span><div><b>پیگیری سفارش</b><small>دسترسی به مسیر سفارش‌های شما</small></div></article>
         </section>
 
-        {isTechnolife && !query && !category && techShelfGroups.map(shelf => shelf.products.length > 0 && <section className="sk-tech-shelf" key={shelf.title} aria-label={shelf.title}>
+        {(isTechnolife || isMarketplacePro) && !query && !category && techShelfGroups.map(shelf => shelf.products.length > 0 && <section className="sk-tech-shelf" key={shelf.title} aria-label={shelf.title}>
           <div className="sk-tech-shelf-heading"><div><span>{shelf.eyebrow}</span><h2>{shelf.title}</h2></div><button type="button" onClick={() => { setQuery(shelf.searchTerm); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>مشاهده همه <b>←</b></button></div>
           <div className="sk-tech-shelf-products">{shelf.products.map(product => <Link href={productHrefFor(product)} className="sk-tech-shelf-card" key={product.id}>
             <span className="sk-tech-shelf-image">{safeImageUrl(product.image_url) ? <img src={safeImageUrl(product.image_url) || ""} alt={product.title} loading="lazy" decoding="async" /> : <i>{categoryGlyph(product.category, product.title)}</i>}</span>
