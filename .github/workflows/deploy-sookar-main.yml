@@ -573,6 +573,15 @@ jobs:
           test -s apps/web/public/templates/digibile-marketplace/index.html
           test -s apps/web/public/templates/digibile-marketplace/product.html
           grep -q 'دیجی‌بایل' apps/web/public/templates/digibile-marketplace/index.html
+          grep -q 'https://sookar.ir/login?brand=digibile' apps/web/public/templates/digibile-marketplace/product.html
+          node <<'NODE'
+          const fs = require("node:fs");
+          const page = fs.readFileSync("apps/web/public/templates/digibile-marketplace/product.html", "utf8");
+          const match = page.match(/<script>([\\s\\S]*?)<\\/script>/);
+          if (!match) throw new Error("Digibile product detail script missing");
+          new Function(match[1]);
+          console.log("DIGIBILE_PRODUCT_DETAIL_SCRIPT_OK");
+          NODE
           grep -q 'دسته‌بندی‌های محبوب' apps/web/public/templates/digibile-marketplace/index.html
           mkdir -p /tmp/digibile-template-package/digibile-marketplace/dist
           # Freeze the already-persisted database catalog into the storefront release.
