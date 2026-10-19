@@ -25,7 +25,7 @@ try{
  const response=await fetch("./catalog.json",{cache:"no-store",headers:{accept:"application/json"}});
  if(!response.ok)throw new Error("catalog-http-"+response.status);
  const data=await response.json(), items=Array.isArray(data.products)?data.products:[];
- const index=Number(params.get("ref"));
+ const index=params.has("ref")?Number(params.get("ref")):NaN;
  let found=Number.isInteger(index)&&index>=0&&index<items.length?{p:items[index],i:index}:items.map((p,i)=>({p,i})).find(x=>idOf(x.p,x.i)===requested);
  if(!found){root.innerHTML='<div class="status"><h1>محصول پیدا نشد</h1><p>این کالا در کاتالوگ ذخیره‌شده وجود ندارد یا پیوند آن قدیمی است.</p><a class="btn primary" href="./">بازگشت به فروشگاه</a></div>';return;}
  const p=found.p,i=found.i,title=titleOf(p,i),image=imageOf(p),category=p.category_name??p.categoryName??(typeof p.category==="string"?p.category:p.category?.name)??p.product_type??"کالای ذخیره‌شده";
