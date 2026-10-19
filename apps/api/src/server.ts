@@ -183,7 +183,7 @@ app.post("/api/auth/register",asyncHandler(async(req,res)=>{
  const email=String(req.body?.email||"").trim().toLowerCase();
  const fullName=String(req.body?.fullName||"").trim();
  const password=String(req.body?.password||"");
- if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||email.length>320)return res.status(400).json({error:"آدرس ایمیل معتبر نیست"});
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>320)return res.status(400).json({error:"آدرس ایمیل معتبر نیست"});
  if(fullName.length<2||fullName.length>200)return res.status(400).json({error:"نام و نام خانوادگی را کامل وارد کنید"});
  if(password.length<8||password.length>200)return res.status(400).json({error:"رمز عبور باید حداقل ۸ و حداکثر ۲۰۰ نویسه باشد"});
  if(!verifyHumanCheck(String(req.body?.humanCheck||""),String(req.body?.humanAnswer||"")))return res.status(400).json({error:"تأیید انسانی نامعتبر یا منقضی شده است"});
