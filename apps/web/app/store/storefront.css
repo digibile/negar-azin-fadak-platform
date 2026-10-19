@@ -1735,3 +1735,35 @@
  .sk-store--marketplace-pro .sk-product-credit-panel{padding:12px}
  .sk-store--marketplace-pro .sk-product-credit-plans{grid-template-columns:minmax(0,1fr)}
 }
+
+
+/* Final Sookar product shelf layout: visible, aligned, and horizontally scrollable like a marketplace carousel. */
+.sk-store--marketplace-pro .sk-tech-shelf{box-sizing:border-box;width:calc(100% - 48px);max-width:1440px;margin:24px auto 30px;padding:22px 24px;overflow:hidden}
+.sk-store--marketplace-pro .sk-tech-shelf-heading{display:flex;align-items:center;justify-content:space-between;min-width:0}
+.sk-store--marketplace-pro .sk-tech-shelf-heading>div{min-width:0}
+.sk-store--marketplace-pro .sk-tech-shelf-heading h2{margin:4px 0 0;line-height:1.7}
+.sk-store--marketplace-pro .sk-shelf-view-all{display:inline-flex;align-items:center;gap:8px;flex-shrink:0;padding:9px 12px;border-radius:10px;background:#edf7f4;color:#0f766e;text-decoration:none;font-size:11px;font-weight:800}
+.sk-store--marketplace-pro .sk-tech-shelf-products{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,19%);grid-template-columns:none;grid-template-rows:1fr;align-items:stretch;gap:12px;width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;padding:2px 1px 12px;direction:rtl;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+.sk-store--marketplace-pro .sk-tech-shelf-card{box-sizing:border-box;display:flex;min-width:0;width:100%;height:100%;flex-direction:column;gap:8px;overflow:hidden;padding:12px;border:1px solid #e6ece9;border-radius:14px;background:#fff;color:#203936;text-decoration:none;scroll-snap-align:start}
+.sk-store--marketplace-pro .sk-tech-shelf-card:hover{border-color:#8fc9b9;box-shadow:0 8px 22px #173f3210;transform:translateY(-2px)}
+.sk-store--marketplace-pro .sk-tech-shelf-image{display:grid;place-items:center;width:100%;height:auto;aspect-ratio:1/1;flex-shrink:0;overflow:hidden;border-radius:10px;background:#f7f9f8}
+.sk-store--marketplace-pro .sk-tech-shelf-image img{display:block;width:100%;height:100%;max-width:100%;object-fit:contain;padding:8px;box-sizing:border-box}
+.sk-store--marketplace-pro .sk-tech-shelf-title{display:-webkit-box;min-height:42px;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2;font-size:11px;line-height:1.9;font-weight:700;overflow-wrap:anywhere}
+.sk-store--marketplace-pro .sk-tech-shelf-brand{display:block;max-width:100%;overflow:hidden;color:#71837e;text-overflow:ellipsis;white-space:nowrap;font-size:9px}
+.sk-store--marketplace-pro .sk-tech-shelf-card>strong{display:block;margin-top:auto;padding-top:8px;color:#173532;font-size:12px;line-height:1.9;overflow-wrap:anywhere}
+.sk-store--marketplace-pro .sk-featured-product-shelf{margin-top:18px;margin-bottom:34px;border-color:#d8e7e1;box-shadow:0 8px 26px #163f3508}
+.sk-store--marketplace-pro .sk-featured-product-shelf .sk-tech-shelf-products{grid-auto-columns:minmax(0,19%)}
+@media(max-width:1200px){
+ .sk-store--marketplace-pro .sk-tech-shelf-products,.sk-store--marketplace-pro .sk-featured-product-shelf .sk-tech-shelf-products{grid-auto-columns:minmax(0,23%)}
+}
+@media(max-width:760px){
+ .sk-store--marketplace-pro .sk-tech-shelf{width:calc(100% - 24px);margin:15px auto 20px;padding:14px 12px;border-radius:15px}
+ .sk-store--marketplace-pro .sk-tech-shelf-heading{align-items:flex-start;gap:8px;margin-bottom:10px}
+ .sk-store--marketplace-pro .sk-tech-shelf-heading h2{font-size:15px}
+ .sk-store--marketplace-pro .sk-tech-shelf-heading button,.sk-store--marketplace-pro .sk-shelf-view-all{padding:8px;font-size:9px;white-space:nowrap}
+ .sk-store--marketplace-pro .sk-tech-shelf-products,.sk-store--marketplace-pro .sk-featured-product-shelf .sk-tech-shelf-products{grid-auto-columns:138px;gap:8px}
+ .sk-store--marketplace-pro .sk-tech-shelf-card{padding:8px;border-radius:11px}
+ .sk-store--marketplace-pro .sk-tech-shelf-image{height:auto;aspect-ratio:1/1}
+ .sk-store--marketplace-pro .sk-tech-shelf-title{font-size:10px;min-height:40px}
+ .sk-store--marketplace-pro .sk-tech-shelf-card>strong{font-size:10px}
+}
