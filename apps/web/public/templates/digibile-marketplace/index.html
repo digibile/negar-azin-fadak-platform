@@ -2,7 +2,8 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#f8fafc">
+<meta name="theme-color" content="#ef394e">
+<meta name="color-scheme" content="light">
 <title>دیجی‌بایل | بازارگاه آنلاین خرید و انتخاب کالا</title>
 <meta name="description" content="در بازارگاه دیجی‌بایل کالاها را بررسی کنید، جزئیات محصول را ببینید، به سبد خرید اضافه کنید و پیشنهادهای تخفیف ثبت‌شده را مقایسه کنید.">
 <style>
@@ -160,10 +161,45 @@ html,body{background:#fff;color:#202124;font-family:Vazirmatn,Tahoma,sans-serif}
   .pinfo h3{font-size:10px;min-height:48px}
 }
 
+
+/* Production storefront refinement: clear hierarchy, real-data states, and responsive merchandising. */
+:root{--ink:#202733;--muted:#687385;--line:#e8eaf0;--paper:#f6f7f9;--radius:18px;--shadow:0 12px 34px #1d29390a}
+.wrap{width:min(1380px,calc(100% - 48px))}
+.topline{background:#202733;font-size:11px}
+.header{box-shadow:0 4px 18px #1c27340a}
+.nav{padding-bottom:12px}
+.hero{border:1px solid #f0dce0;box-shadow:0 16px 44px #29364a0b;min-height:390px}
+.hero p{max-width:570px;line-height:2.2}
+.eyebrow{font-weight:800}
+.benefit{background:#fff;box-shadow:0 5px 18px #24324406}
+.categories{grid-template-columns:repeat(auto-fit,minmax(125px,1fr))}
+.category{background:#fff;border:1px solid #eceef2;min-height:148px}
+.category small{display:inline-flex;align-items:center;justify-content:center;margin-top:10px;padding:4px 8px;border-radius:20px;background:#f4f6f8;color:#677184;font-size:10px;font-weight:800}
+.category[hidden],#filters [hidden]{display:none!important}
+.home-product-section{background:#fff;border:1px solid #eceef2;border-radius:22px;padding:24px;box-shadow:0 10px 30px #1f293706}
+.home-product-section .sectionhead{align-items:center}
+.home-product-section .sectionhead p{max-width:650px;font-size:12px}
+.home-product-section .grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.demo{display:inline-flex;align-items:center;gap:7px;background:#f1f3f6;color:#525d6c;border:1px solid #e5e8ed;border-radius:999px;padding:8px 12px;font-size:10px;font-weight:800;white-space:nowrap}
+#catalogStatus:before{content:"";width:7px;height:7px;border-radius:50%;background:#8a93a2}
+#productDescription{line-height:2}
+.filterrow{display:flex;flex-wrap:wrap}
+.filterrow button{font-size:12px;font-weight:800}
+.card{overflow:hidden;background:#fff}
+.photo{position:relative}
+.photo .tag{position:absolute;top:12px;right:12px;z-index:1;padding:5px 8px;font-weight:800}
+.photo img,.pinfo h3{cursor:pointer}
+.empty{background:#f9fafb;border-color:#dfe4eb}
+.band{box-shadow:0 16px 36px #d92d4214}
+.newsletter{background:#fff;border:1px solid #eceef2}
+.footer{margin-top:54px}
+@media(max-width:1000px){.wrap{width:min(calc(100% - 28px),1380px)}.home-product-section{padding:18px}.home-product-section .grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:640px){.wrap{width:calc(100% - 20px)}.topline .wrap span:last-child{display:none}.hero{min-height:unset}.categories{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.category{min-height:122px;padding:13px 8px}.category .cicon{width:48px;height:48px;border-radius:14px}.home-product-section{padding:12px;border-radius:16px;margin:22px auto}.home-product-section .sectionhead{align-items:flex-start;gap:10px}.home-product-section .sectionhead h2{font-size:18px}.home-product-section .sectionhead p{font-size:10px}.home-product-section .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.home-product-section .photo{height:150px}.demo{font-size:9px;padding:6px 8px}.filterrow{overflow:visible}.filterrow button{font-size:10px;padding:8px 10px}}
+
 </style>
 </head>
 <body>
-<div class="topline"><div class="wrap"><span>بازار انتخاب‌های هوشمند <b>·</b> کشف کن، بررسی کن، انتخاب کن</span><span>تجربه‌ای تازه برای خرید آنلاین</span></div></div>
+<div class="topline"><div class="wrap"><span>بازارگاه دیجی‌بایل <b>·</b> کاتالوگ ذخیره‌شده و دسته‌بندی هوشمند</span><span>قیمت و تخفیف فقط بر اساس دادهٔ ثبت‌شده</span></div></div>
 <header class="header"><div class="wrap"><div class="headmain">
 <a class="brand" href="#" aria-label="صفحه اصلی دیجی‌بایل"><span class="mark">d+</span><span><strong>دیجی‌بایل</strong><small>بازار انتخاب‌های هوشمند</small></span></a>
 <form class="search" id="searchForm"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="جست‌وجو در کالاها و دسته‌بندی‌ها..." aria-label="جست‌وجوی کالا"><button type="submit">جست‌وجو</button></form>
@@ -171,9 +207,9 @@ html,body{background:#fff;color:#202124;font-family:Vazirmatn,Tahoma,sans-serif}
 </div><nav class="nav" aria-label="منوی اصلی"><a href="#categories">دسته‌بندی کالاها</a><a href="#products">پیشنهادهای منتخب</a><a href="#digital">کالای دیجیتال</a><a href="#lifestyle">خانه و سبک زندگی</a><a href="#why">چرا دیجی‌بایل؟</a><span class="spacer"></span><span class="note">انتخاب آگاهانه‌تر، خرید ساده‌تر</span></nav></div></header>
 <nav class="mobile-nav" aria-label="ناوبری موبایل"><button type="button" data-mobile-nav="home" class="active"><span>⌂</span>خانه</button><button type="button" data-mobile-nav="categories"><span>▦</span>دسته‌ها</button><button type="button" data-mobile-nav="search"><span>⌕</span>جست‌وجو</button><button type="button" data-mobile-nav="cart"><span>🛒</span>سبد خرید</button></nav>
 <main class="wrap">
-<section class="hero" aria-label="پیشنهادهای فروشگاه"><div><span class="eyebrow" id="eyebrow">خریدی که به سلیقه تو نزدیکه</span><h1 id="heroTitle"><span>انتخاب‌های خوب،</span><span>همین‌جا شروع می‌شن</span></h1><p id="heroBody">دنیایی از دسته‌بندی‌ها را بگرد، گزینه‌ها را کنار هم ببین و خریدت را با خیال راحت‌تر انتخاب کن.</p><button class="cta" id="heroCta">گشت‌وگذار در فروشگاه <i>←</i></button><div class="pager" id="pager"><button class="active" aria-label="اسلاید ۱"></button><button aria-label="اسلاید ۲"></button><button aria-label="اسلاید ۳"></button><small>۱ / ۳</small></div></div>
+<section class="hero" aria-label="پیشنهادهای فروشگاه"><div><span class="eyebrow" id="eyebrow">کاتالوگ ذخیره‌شدهٔ دیجی‌بایل</span><h1 id="heroTitle"><span>کالاهای ثبت‌شده،</span><span>انتخاب شفاف‌تر</span></h1><p id="heroBody">محصولات را بر اساس دسته‌بندی مرور کن، مشخصات و قیمت ثبت‌شده را ببین و فقط تخفیف‌هایی را دنبال کن که در داده‌ها تأیید شده‌اند.</p><button class="cta" id="heroCta">گشت‌وگذار در فروشگاه <i>←</i></button><div class="pager" id="pager"><button class="active" aria-label="اسلاید ۱"></button><button aria-label="اسلاید ۲"></button><button aria-label="اسلاید ۳"></button><small>۱ / ۳</small></div></div>
 <div class="hero-art"><div class="float one"><em>✦</em><strong>تازه ببین</strong><small>انتخاب‌های بیشتر</small></div><div class="product-visual"><img src="https://images.unsplash.com/photo-1511704095947-9e7b8f6f4a2b?auto=format&fit=crop&w=700&q=85" alt="نمونه کالای دیجیتال"></div><div class="float two"><em>✓</em><strong>خرید آگاهانه</strong><small>جزئیات را مقایسه کن</small></div></div><div class="arrows"><button id="prev" aria-label="اسلاید قبلی">‹</button><button id="next" aria-label="اسلاید بعدی">›</button></div></section>
-<section class="benefits" id="why"><div class="benefit"><span class="bicon">⌕</span><span><strong>جست‌وجوی ساده</strong><small>پیدا کردن راحت‌تر انتخاب‌ها</small></span></div><div class="benefit"><span class="bicon">▤</span><span><strong>دسته‌بندی روشن</strong><small>مرتب و قابل کشف</small></span></div><div class="benefit"><span class="bicon">♡</span><span><strong>انتخاب با آگاهی</strong><small>قبل از تصمیم، بررسی کن</small></span></div><div class="benefit"><span class="bicon">↗</span><span><strong>تجربه یکپارچه</strong><small>از کشف تا انتخاب</small></span></div></section>
+<section class="benefits" id="why"><div class="benefit"><span class="bicon">⌕</span><span><strong>جست‌وجوی سریع</strong><small>در محصولات ذخیره‌شده</small></span></div><div class="benefit"><span class="bicon">▤</span><span><strong>دسته‌بندی پویا</strong><small>تعداد کالا برای هر دسته</small></span></div><div class="benefit"><span class="bicon">٪</span><span><strong>تخفیف معتبر</strong><small>بدون درصدهای ساختگی</small></span></div><div class="benefit"><span class="bicon">ⓘ</span><span><strong>شفافیت وضعیت</strong><small>مرجع و موجودی از هم جدا</small></span></div></section>
 <section class="section" id="categories"><div class="sectionhead"><div><span class="kicker">از کجا شروع کنیم؟</span><h2>دسته‌بندی‌های محبوب</h2><p>مستقیم برو سراغ چیزی که دنبالش هستی.</p></div><a class="textlink" href="#products">مشاهده محصولات ←</a></div>
 <div class="categories">
 <button class="category" data-category="موبایل و دیجیتال"><span class="cicon tone1">▣</span><strong>موبایل و دیجیتال</strong><small>گوشی و لوازم جانبی</small></button>
@@ -187,7 +223,7 @@ html,body{background:#fff;color:#202124;font-family:Vazirmatn,Tahoma,sans-serif}
 </div></section>
 <section class="section" id="homeMerchandising"><div id="homeMerchandisingGrid"></div></section>
 <section class="band"><div><span>راهنمای انتخاب</span><h2>خرید بهتر، با مقایسه و انتخاب آگاهانه</h2><p>قبل از تصمیم نهایی، جزئیات کالا را بررسی کن و انتخابی متناسب با نیازت داشته باش.</p><button id="bandCta">شروع گشت‌وگذار ←</button></div><div class="bandart"><img src="https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=700&q=85" alt="لوازم دیجیتال"></div></section>
-<section class="section" id="products"><div class="sectionhead"><div><span class="kicker">برای شروع ایده بگیر</span><h2 id="productTitle">ویترین انتخاب‌های روز</h2><p id="productDescription">در حال دریافت کالاهای واقعی، قیمت‌های منبع و پیشنهادهای ویژه؛ تخفیف فقط در صورت وجود دادهٔ معتبر منبع نمایش داده می‌شود.</p></div><span class="demo">کاتالوگ ذخیره‌شده</span></div>
+<section class="section" id="products"><div class="sectionhead"><div><span class="kicker">برای شروع ایده بگیر</span><h2 id="productTitle">ویترین انتخاب‌های روز</h2><p id="productDescription">در حال دریافت کالاهای واقعی، قیمت‌های منبع و پیشنهادهای ویژه؛ تخفیف فقط در صورت وجود دادهٔ معتبر منبع نمایش داده می‌شود.</p></div><span class="demo" id="catalogStatus" role="status" aria-live="polite">در حال دریافت کاتالوگ…</span></div>
 <div class="filterrow" id="filters"><button class="active" data-filter="همه">همه کالاها</button><button data-filter="پیشنهاد ویژه">تخفیف‌های واقعی</button><button data-filter="موبایل و دیجیتال">موبایل و دیجیتال</button><button data-filter="لپ‌تاپ و کامپیوتر">لپ‌تاپ و کامپیوتر</button><button data-filter="خانه و آشپزخانه">خانه و آشپزخانه</button><button data-filter="ساعت و اکسسوری">ساعت و اکسسوری</button></div><div class="grid" id="productGrid"></div>
 </section>
 <section class="section split" id="digital"><article class="splitcard digital"><div><span>01 / DIGITAL</span><h3>دنیای دیجیتال،<br>یک قدم نزدیک‌تر</h3><p>از لوازم جانبی تا ابزارهای هوشمند.</p><button data-jump="موبایل و دیجیتال">کشف کالای دیجیتال ←</button></div><img src="https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=500&q=85" alt="لپ‌تاپ"></article><article class="splitcard home" id="lifestyle"><div><span>02 / LIFESTYLE</span><h3>جزئیات کوچک،<br>تفاوت‌های بزرگ</h3><p>انتخاب‌هایی برای خانه و زندگی روزمره.</p><button data-jump="خانه و آشپزخانه">کشف خانه و زندگی ←</button></div><img src="https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&w=500&q=85" alt="فضای خانه"></article></section>
@@ -279,16 +315,24 @@ function renderHomeSections(){
   host.appendChild(section);
  });
  document.querySelectorAll("[data-category]").forEach(button=>{
-  const label=button.querySelector("small");if(!label)return;
-  const key=button.dataset.category;const n=products.filter(p=>categoryMatches(p,key)).length;
-  label.textContent=sourceStatus==="loading"?"در حال بارگذاری":count(n)+" کالا";
- });
+   const label=button.querySelector("small");if(!label)return;
+   const key=button.dataset.category;const n=products.filter(p=>categoryMatches(p,key)).length;
+   label.textContent=sourceStatus==="loading"?"در حال دریافت":count(n)+" کالا";
+   button.hidden=sourceStatus!=="loading"&&n===0;
+   button.disabled=sourceStatus!=="loading"&&n===0;
+  });
+  document.querySelectorAll("#filters [data-filter]").forEach(button=>{
+   const key=button.dataset.filter;
+   if(key==="همه"||key==="پیشنهاد ویژه")return;
+   const n=products.filter(p=>categoryMatches(p,key)).length;
+   button.hidden=sourceStatus!=="loading"&&n===0;
+  });
  if(!host.children.length&&sourceStatus==="loading")host.innerHTML='<div class="empty">در حال بارگذاری دسته‌بندی‌ها و پیشنهادهای ذخیره‌شده…</div>';
 }
 function render(){const grid=document.getElementById("productGrid");if(!grid)return;const shown=products.filter(p=>categoryMatches(p,filter)&&fa(p.title+" "+p.category+" "+(p.brand||"")+" "+(p.description||"")).includes(fa(query)));grid.innerHTML="";if(!shown.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1">'+(sourceStatus==="loading"?"در حال دریافت کالاها و قیمت‌های واقعی از منبع...":sourceStatus==="unavailable"?"منبع قیمت در حال حاضر پاسخ نمی‌دهد؛ برای جلوگیری از نمایش قیمت ساختگی، کالاهای نمونه نشان داده نمی‌شوند.":"کالایی با این عبارت پیدا نشد.")+'</div>';}else shown.forEach(p=>grid.appendChild(createProductCard(p)));renderHomeSections();updateCartBadge();}
 function updateCartBadge(){const button=document.getElementById("cartButton");if(!button)return;const qty=[...cart.values()].reduce((a,b)=>a+b,0);button.innerHTML='🛒 سبد خرید <b style="display:inline-grid;place-items:center;background:#0eaaa5;color:#fff;border-radius:20px;min-width:22px;height:22px;padding:0 5px;margin-right:6px">'+count(qty)+'</b>';button.onclick=openCart;}
 function setFilter(v,scroll=true){filter=v;document.getElementById("productTitle").textContent=v==="همه"?"ویترین کالاهای به‌روز":v;document.getElementById("productDescription").textContent=sourceStatus==="live"?"قیمت‌ها و مشخصات ثبت‌شده برای مشاهده و انتخاب کالا آماده‌اند.":"قیمت و موجودی بدون تأیید منبع نمایش داده نمی‌شود.";document.querySelectorAll("[data-filter]").forEach(b=>b.classList.toggle("active",b.dataset.filter===v));render();if(scroll)document.getElementById("products").scrollIntoView({behavior:"smooth",block:"start"});}
-const slides=[["خریدی که به سلیقه تو نزدیکه","کالاهای ذخیره‌شده،|انتخاب‌های تازه","کالاها را از فهرست ذخیره‌شده مرور کن و دسته‌بندی موردنظرت را انتخاب کن.","همه"],["تکنولوژی برای هر روز","محصولات دیجیتال|با قیمت ثبت‌شده","محصولات دیجیتال ذخیره‌شده را بر اساس دسته‌بندی بررسی کن.","موبایل و دیجیتال"],["خانه، استایل، زندگی","برای هر نیاز|یک انتخاب تازه","دسته‌بندی‌ها را بگرد و فقط قیمت‌هایی را ببین که از منبع دریافت شده‌اند.","خانه و آشپزخانه"]];
+const slides=[["کاتالوگ ذخیره‌شدهٔ دیجی‌بایل","کالاهای ثبت‌شده،|انتخاب شفاف‌تر","محصولات را در دسته‌بندی‌های موجود مرور کن؛ تخفیف فقط با دادهٔ معتبر نمایش داده می‌شود.","همه"],["تکنولوژی برای هر روز","موبایل و لپ‌تاپ،|در یک ویترین","فهرست ذخیره‌شدهٔ کالاهای دیجیتال را ببین و جزئیات هر محصول را بررسی کن.","موبایل و دیجیتال"],["برای خانه و زندگی","دسته‌بندی‌ها را|هدفمند بگرد","فقط دسته‌هایی را انتخاب کن که محصول ثبت‌شده دارند؛ بدون کالای نمونه و قیمت ساختگی.","خانه و آشپزخانه"]];
 function setSlide(n){slide=(n+slides.length)%slides.length;const s=slides[slide];document.getElementById("eyebrow").textContent=s[0];document.getElementById("heroTitle").innerHTML=s[1].split("|").map(x=>"<span>"+safe(x)+"</span>").join("");document.getElementById("heroBody").textContent=s[2];document.querySelectorAll("#pager button").forEach((b,i)=>b.classList.toggle("active",i===slide));const small=document.querySelector("#pager small");if(small)small.textContent=count(slide+1)+" / "+count(slides.length);document.getElementById("heroCta").onclick=()=>setFilter(s[3]);}
 async function loadCatalog(){
  sourceStatus="loading";render();let data=null;let catalogMode="owned";let ownedError=null;
@@ -329,7 +373,7 @@ async function loadCatalog(){
  const desc=document.getElementById("productDescription");
  if(desc&&!products.length)desc.textContent="کاتالوگ محصول خالی است؛ برای جلوگیری از نمایش کالای ساختگی، محصول نمونه جایگزین نمی‌کنیم.";
  if(desc)desc.textContent=sourceStatus==="live"?"کالاها از کاتالوگ داخلی منتشرشده بازارگاه دیجی‌بایل بارگذاری شده‌اند.":sourceStatus==="reference"?"کالاها از نسخهٔ ذخیره‌شدهٔ کاتالوگ بارگذاری شده‌اند؛ فروشنده و موجودی دیجی‌بایل هنوز تأیید نشده و ثبت خرید داخلی فعال نیست.":"کاتالوگ محصول در دسترس نیست؛ اطلاعات ساختگی نمایش داده نمی‌شود.";
- const title=document.getElementById("productTitle");if(title)title.textContent=sourceStatus==="reference"?"کالاهای ذخیره‌شده از فهرست مرجع":"ویترین انتخاب‌های روز";
+ const title=document.getElementById("productTitle");if(title)title.textContent=sourceStatus==="reference"?"کالاهای ذخیره‌شده از فهرست مرجع":"ویترین کالاهای منتشرشده";const status=document.getElementById("catalogStatus");if(status)status.textContent=sourceStatus==="live"?count(products.length)+" کالای منتشرشده":sourceStatus==="reference"?count(products.length)+" کالای ذخیره‌شده · کاتالوگ مرجع":"کاتالوگ در دسترس نیست";
  const badge=document.querySelector("#products .demo");if(badge)badge.textContent=sourceStatus==="reference"?"فهرست ذخیره‌شده":"کاتالوگ بازارگاه";
  render();updateCartBadge();
 }
