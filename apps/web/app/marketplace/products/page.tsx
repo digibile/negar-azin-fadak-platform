@@ -328,10 +328,19 @@ export default function ProductsPage() {
     }
     setError(""); setNotice(""); setImportingFullCatalog(true);
     try {
-      const synced = await api<{stored:number;failed:number;imagesMirrored:number;notice?:string}>(
-        "/api/marketplace/reference-catalog/sync",
-        { method: "POST", body: JSON.stringify({}) }
-      );
+      let syncedCount = 0;
+      let syncFailures = 0;
+      let totalCandidates = 0;
+      for (let offset = 0; offset === 0 || offset < totalCandidates; offset += 50) {
+        const batch = await api<{stored:number;failed:number;imagesMirrored:number;totalCandidates:number;offset:number;nextOffset:number}>(
+          "/api/marketplace/reference-catalog/sync",
+          { method: "POST", body: JSON.stringify({ offset, limit: 50 }) }
+        );
+        syncedCount += Number(batch.stored || 0);
+        syncFailures += Number(batch.failed || 0);
+        totalCandidates = Number(batch.totalCandidates || 0);
+        if (totalCandidates === 0 || batch.nextOffset >= totalCandidates) break;
+      }
       const result = await api<{
         created:number;alreadyPresent:number;skippedNoLocalImage:number;skippedUnavailable:number;
         failed:number;sourceCatalogCount:number;message:string
@@ -346,7 +355,7 @@ export default function ProductsPage() {
         result.skippedNoLocalImage.toLocaleString("fa-IR") + " مورد به‌دلیل تصویر غیرمحلی رد شد و " +
         result.skippedUnavailable.toLocaleString("fa-IR") + " مورد ناموجود در مرجع رد شد. " +
         "ظرفیت پیش‌فروش هر کالای واردشده ۱۰ سفارش است؛ موجودی فیزیکی به‌دروغ تأیید نشده. " +
-        "دریافت مرجع: " + Number(synced.stored || 0).toLocaleString("fa-IR") + " رکورد."
+        "دریافت مرجع: " + syncedCount.toLocaleString("fa-IR") + " رکورد؛ خطای تصویر/ذخیره: " + syncFailures.toLocaleString("fa-IR") + "."
       );
       await load();
     } catch (reason) {
