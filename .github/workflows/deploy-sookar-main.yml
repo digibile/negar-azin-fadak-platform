@@ -614,9 +614,9 @@ jobs:
               if image and not image.startswith("http"):
                   image = "https://sookar.ir/" + image.lstrip("/")
               raw_category = first_value(raw, ("category", "category_name", "categoryName", "category_title", "categoryTitle", "category_path", "categoryPath", "product_type", "productType", "categories", "category_id", "categoryId", "primary_category_id", "primaryCategoryId", "category_ids", "categoryIds"), first_value(attrs, ("category", "category_name", "categories", "category_id", "categoryId"), ""))
-              category_text = as_text(raw_category)
-              if not category_text and raw_category is not None:
-                  category_text = category_by_id.get(str(raw_category), "")
+              category_text = category_by_id.get(str(raw_category), "") if not isinstance(raw_category, (dict, list)) else as_text(raw_category)
+              if not category_text:
+                  category_text = as_text(raw_category)
               searchable = " ".join(str(x or "") for x in (title, category_text, raw.get("brand"), raw.get("description"), raw.get("short_description")))
               normalized = searchable.replace("ي", "ی").replace("ك", "ک").lower()
               category = next((name for name, pattern in taxonomy if re.search(pattern, normalized, re.I)), category_text or "سایر کالاها")
@@ -628,8 +628,8 @@ jobs:
           def card(p):
               discount = p["discount"]
               tag = "٪" + str(discount) + " تخفیف معتبر" if discount > 0 else "کالای ذخیره‌شده"
-              old_price = '<small style="text-decoration:line-through">' + esc(format(round(p["original"]/10, 0), ",") + " تومان") + '</small>' if p["original"] > p["price"] else ""
-              return '<article class="card"><div class="photo"><span class="tag">' + esc(tag) + '</span><img loading="lazy" alt="' + esc(p["title"]) + '" src="' + esc(p["image"]) + '"></div><div class="pinfo"><span class="cat">' + esc(p["category"]) + '</span><h3>' + esc(p["title"]) + '</h3><div class="pfoot"><div>' + old_price + '<strong>' + esc(format(round(p["price"]/10, 0), ",")) + ' تومان</strong><small>فهرست مرجع؛ عرضه و موجودی فروشنده تأیید نشده</small></div></div></div></article>'
+              old_price = '<small style="text-decoration:line-through">' + esc(format(round(p["original"]/10), ",") + " تومان") + '</small>' if p["original"] > p["price"] else ""
+              return '<article class="card"><div class="photo"><span class="tag">' + esc(tag) + '</span><img loading="lazy" alt="' + esc(p["title"]) + '" src="' + esc(p["image"]) + '"></div><div class="pinfo"><span class="cat">' + esc(p["category"]) + '</span><h3>' + esc(p["title"]) + '</h3><div class="pfoot"><div>' + old_price + '<strong>' + esc(format(round(p["price"]/10), ",")) + ' تومان</strong><small>فهرست مرجع؛ عرضه و موجودی فروشنده تأیید نشده</small></div></div></div></article>'
           cards = [card(p) for p in normalized_products[:24]]
           if not cards:
               raise SystemExit("No valid saved products can be rendered into the storefront HTML")
