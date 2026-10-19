@@ -727,7 +727,10 @@ domainMarketplaceRouter.post("/api/marketplace/reference-catalog/materialize",re
         variants:Array.isArray(product.variants)?product.variants:[],
         galleryImages,
         catalogOrigin:"internal-catalog-copy",
+        sourceName:"دیجی‌کالا",
+        sourceProductId:String(product.source_product_id),
         sourceSnapshotId:String(product.source_product_id),
+        priceSyncPolicy:"daily-source-snapshot",
         sourcePriceSnapshot:Number(product.source_price),
         originalPriceSnapshot:product.original_price===null?null:Number(product.original_price),
         discountPercentSnapshot:product.discount_percent===null?null:Number(product.discount_percent),
@@ -911,7 +914,7 @@ domainMarketplaceRouter.patch("/api/marketplace/products/:id/status",requireAuth
  const attributes=current.rows[0].attributes&&typeof current.rows[0].attributes==="object"?current.rows[0].attributes as Record<string,unknown>:{};
  if(status==="active"&&(Number(current.rows[0].price)<=0||attributes.priceReviewRequired===true))return res.status(409).json({error:"قبل از انتشار، قیمت فروش داخلی و اطلاعات محصول را بررسی و ذخیره کنید"});
  if(status==="active"&&(attributes.demoCatalog===true||attributes.sourceType==="external-reference"||attributes.sourceName==="دیجی‌کالا"))return res.status(409).json({error:"کالای مرجع یا آزمایشی قابل انتشار نیست؛ کالای متعلق به فروشنده را ثبت کنید"});
- if(status==="active"&&(attributes.inventoryVerified!==true||!Number.isInteger(Number(attributes.inventoryQuantity))||Number(attributes.inventoryQuantity)<=0||!["seller-owned","supplier-verified"].includes(String(attributes.sourceType||""))||!String(attributes.inventorySource||"").trim()))return res.status(409).json({error:"برای انتشار، منبع واقعی کالا و موجودی مثبت را ثبت و تأیید کنید"});
+ if(status==="active"&&!((attributes.catalogOrigin==="internal-catalog-copy"&&attributes.preorderEnabled===true&&attributes.inventoryMode==="preorder"&&Number.isInteger(Number(attributes.preorderLimit))&&Number(attributes.preorderLimit)>0)||(attributes.inventoryVerified===true&&Number.isInteger(Number(attributes.inventoryQuantity))&&Number(attributes.inventoryQuantity)>0&&["seller-owned","supplier-verified"].includes(String(attributes.sourceType||""))&&String(attributes.inventorySource||"").trim())))return res.status(409).json({error:"برای انتشار، موجودی واقعی را تأیید کنید یا ظرفیت پیش‌فروش داخلی معتبر تعریف شده باشد"});
  const r=await query("update products set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);
  res.json(r.rows[0]);
 }));
