@@ -653,30 +653,28 @@ domainMarketplaceRouter.get("/api/marketplace/digikala-catalog",requireAuth,requ
 domainMarketplaceRouter.post("/api/marketplace/reference-catalog/sync",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
-  const catalog=await getDigikalaCatalog(true);
-  const candidates=catalog.products.filter(p=>p.price!==null&&Number(p.price)>0&&p.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(p.image_url)&&/^https:\/\//i.test(p.source_url)).slice(0,250);
+  const catalog=await getDigikalaCatalog();
+  const allCandidates=catalog.products.filter(p=>p.price!==null&&Number(p.price)>0&&p.source_available!==false&&/^https:\/\/dkstatics-public\.digikala\.com\//i.test(p.image_url)&&/^https:\/\//i.test(p.source_url)).slice(0,250);
+  const offset=Math.max(0,Math.floor(bodyNumber(req.body?.offset)??0));
+  const limit=Math.max(1,Math.min(50,Math.floor(bodyNumber(req.body?.limit)??50)));
+  const candidates=allCandidates.slice(offset,offset+limit);
   if(!candidates.length)return res.status(503).json({error:"منبع کالا محصول دارای قیمت و تصویر معتبر برنگرداند؛ اطلاعات ذخیره‌شده تغییر نکرد.",sourceStatus:catalog.sourceStatus,stored:0});
   const fetchedAt=catalog.fetchedAt||new Date().toISOString();
   const mediaDir=path.join(process.env.MEDIA_ROOT||"/app/media","catalog",ctx.id);
   await mkdir(mediaDir,{recursive:true});
   let stored=0,imagesMirrored=0;
   const failures:Array<{sku:string;reason:string}>=[];
-  for(let i=0;i<candidates.length;i+=4){
-    const batch=candidates.slice(i,i+4);
+  for(let i=0;i<candidates.length;i+=8){
+    const batch=candidates.slice(i,i+8);
     await Promise.all(batch.map(async p=>{
       try{
         const imageUrl=await importDigikalaImage(p.image_url,mediaDir,ctx.id);
         imagesMirrored++;
         const localGallery=[imageUrl];
-        for(const galleryUrl of p.gallery_images.slice(1,12)){
-          if(localGallery.length>=12)break;
-          if(!/^https:\/\/dkstatics-public\.digikala\.com\//i.test(galleryUrl))continue;
-          try{
-            const local=await importDigikalaImage(galleryUrl,mediaDir,ctx.id);
-            if(!localGallery.includes(local))localGallery.push(local);
-          }catch(error){
-            console.warn("Reference gallery image mirror failed",p.id,error instanceof Error?error.message:"unknown");
-          }
+        const galleryResults=await Promise.allSettled(p.gallery_images.slice(1,12).filter(galleryUrl=>/^https:\/\/dkstatics-public\.digikala\.com\//i.test(galleryUrl)).map(galleryUrl=>importDigikalaImage(galleryUrl,mediaDir,ctx.id)));
+        for(const result of galleryResults){
+          if(result.status==="fulfilled"&&!localGallery.includes(result.value))localGallery.push(result.value);
+          else if(result.status==="rejected")console.warn("Reference gallery image mirror failed",p.id,result.reason instanceof Error?result.reason.message:"unknown");
         }
         await query(
           "insert into catalog_reference_products(tenant_id,source_name,source_product_id,sku,title,description,category,source_price,original_price,discount_percent,currency,image_url,source_url,brand,rating,source_available,specifications,gallery_images,variants,source_fetched_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::jsonb,$18::jsonb,$19::jsonb,$20::timestamptz) on conflict(tenant_id,source_name,source_product_id) do update set sku=excluded.sku,title=excluded.title,description=excluded.description,category=excluded.category,source_price=excluded.source_price,original_price=excluded.original_price,discount_percent=excluded.discount_percent,currency=excluded.currency,image_url=excluded.image_url,source_url=excluded.source_url,brand=excluded.brand,rating=excluded.rating,source_available=excluded.source_available,specifications=excluded.specifications,gallery_images=excluded.gallery_images,variants=excluded.variants,source_fetched_at=excluded.source_fetched_at,updated_at=now()",
@@ -687,7 +685,7 @@ domainMarketplaceRouter.post("/api/marketplace/reference-catalog/sync",requireAu
     }));
   }
   res.setHeader("Cache-Control","private, no-store");
-  res.json({tenantCode:ctx.code,source:"دیجی‌کالا",requested:candidates.length,stored,imagesMirrored,failed:failures.length,failures:failures.slice(0,20),fetchedAt,storage:"database",notice:"اطلاعات در کاتالوگ مرجع داخلی ذخیره شد؛ این کالاها هنوز موجودی یا فروشنده تأییدشده دیجی‌بایل محسوب نمی‌شوند."});
+  res.json({tenantCode:ctx.code,source:"دیجی‌کالا",requested:candidates.length,totalCandidates:allCandidates.length,offset,nextOffset:Math.min(allCandidates.length,offset+candidates.length),stored,imagesMirrored,failed:failures.length,failures:failures.slice(0,20),fetchedAt,storage:"database",notice:"اطلاعات در کاتالوگ مرجع داخلی ذخیره شد؛ این کالاها هنوز موجودی یا فروشنده تأییدشده دیجی‌بایل محسوب نمی‌شوند."});
 }));
 
 domainMarketplaceRouter.post("/api/marketplace/reference-catalog/materialize",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
