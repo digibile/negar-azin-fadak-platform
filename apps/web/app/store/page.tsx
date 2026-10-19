@@ -168,7 +168,7 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const isKipa = templateVariant === "kipa";
   const isDigibile = templateVariant === "digibile";
   const showAllProducts = pathname === "/store/shop";
-  const productHrefFor = (product:Product) => product.is_reference && product.source_url ? product.source_url : "/store/product/" + encodeURIComponent(product.sku || product.id) + "?site=" + templateVariant;
+  const productHrefFor = (product:Product) => "/store/product/" + encodeURIComponent(product.sku || product.id) + "?site=" + templateVariant;
   const [data, setData] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -205,32 +205,9 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
       if (!ownedResponse.ok) throw new Error(ownedBody.error || "دریافت کاتالوگ ناموفق بود.");
       if (!Array.isArray(ownedBody.products)) throw new Error("ساختار کاتالوگ معتبر نیست.");
 
-      // Keep seller-owned, verified inventory first. If none is published, show clearly
-      // labelled reference products and link directly to their source, never to fake checkout.
-      let body = ownedBody;
-      if (ownedBody.products.length === 0) {
-        const referenceResponse = await fetch("/api/public/marketplace/reference-catalog", {
-          headers: { accept: "application/json" },
-          cache: "no-store",
-          signal: controller.signal
-        });
-        if (referenceResponse.ok) {
-          const referenceBody = await referenceResponse.json();
-          if (Array.isArray(referenceBody.products) && referenceBody.products.length > 0) {
-            body = {
-              ...referenceBody,
-              catalogMode: "reference",
-              products: referenceBody.products.map((product: Product) => ({
-                ...product,
-                is_reference: true,
-                is_demo_product: false,
-                source_name: product.source_name || "منبع اصلی",
-                seller_name: product.source_name || "منبع اصلی"
-              }))
-            };
-          }
-        }
-      }
+      // The storefront displays only products saved in the platform's own products table.
+      // Do not fall back to external reference catalog or send shoppers away from Sookar.
+      const body = ownedBody;
       if (!controller.signal.aborted) {
         setData({
           ...body,
