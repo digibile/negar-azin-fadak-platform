@@ -240,6 +240,8 @@ function restoreCart(){try{const raw=JSON.parse(sessionStorage.getItem("digibile
 function checkout(){const selected=[...cart.entries()].map(([id])=>products.find(p=>p.id===id)).filter(Boolean);if(!selected.length)return;const urls=[...new Set(selected.map(p=>p.source_url).filter(u=>/^https:\/\/www\.digikala\.com\//.test(u)))];if(!urls.length){alert("پیوند خرید معتبر برای کالاهای انتخاب‌شده در دسترس نیست.");return;}urls.forEach((url,i)=>setTimeout(()=>window.open(url,"_blank","noopener,noreferrer"),i*180));}
 function render(){
  const grid=document.getElementById("productGrid");if(!grid)return;
+ // Keep deployment-rendered catalog cards visible while the client refreshes data or if its API request fails.
+ if(sourceStatus==="loading"&&grid.children.length>0)return;
  const shown=products.filter(p=>(filter==="همه"||(filter==="پیشنهاد ویژه"&&(Number(p.discount_percent)>0||(Number(p.original_price)>Number(p.price)&&Number(p.price)>0)))||(filter!=="پیشنهاد ویژه"&&(fa(p.category).includes(fa(filter))||fa(filter).includes(fa(p.category)))))&&fa(p.title+" "+p.category+" "+(p.brand||"")+" "+(p.description||"")).includes(fa(query)));
  grid.innerHTML="";
  if(!shown.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1">'+(sourceStatus==="loading"?"در حال دریافت کالاها و قیمت‌های واقعی از منبع...":sourceStatus==="unavailable"?"منبع قیمت در حال حاضر پاسخ نمی‌دهد؛ برای جلوگیری از نمایش قیمت ساختگی، کالاهای نمونه نشان داده نمی‌شوند.":"کالایی با این عبارت پیدا نشد.")+'</div>';return;}
