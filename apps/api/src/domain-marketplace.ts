@@ -678,6 +678,65 @@ domainMarketplaceRouter.post("/api/marketplace/reference-catalog/sync",requireAu
   res.json({tenantCode:ctx.code,source:"دیجی‌کالا",requested:candidates.length,stored,imagesMirrored,failed:failures.length,failures:failures.slice(0,20),fetchedAt,storage:"database",notice:"اطلاعات در کاتالوگ مرجع داخلی ذخیره شد؛ این کالاها هنوز موجودی یا فروشنده تأییدشده دیجی‌بایل محسوب نمی‌شوند."});
 }));
 
+domainMarketplaceRouter.post("/api/marketplace/reference-catalog/materialize",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const requestedSellerId=bodyString(req.body?.sellerId,100);
+  let sellerId=requestedSellerId;
+  if(sellerId){
+    const seller=await query("select id,status from sellers where id=$1 and tenant_id=$2",[sellerId,ctx.id]);
+    if(!seller.rowCount)return res.status(404).json({error:"فروشنده در این محدوده سازمانی پیدا نشد"});
+    if(seller.rows[0].status!=="active")return res.status(409).json({error:"برای ثبت محصولات، فروشنده باید فعال باشد"});
+  }else{
+    const sellers=await query("select id from sellers where tenant_id=$1 and status='active' order by created_at limit 2",[ctx.id]);
+    if(sellers.rowCount!==1)return res.status(409).json({error:"برای جلوگیری از انتساب اشتباه، شناسه فروشنده فعال را در sellerId ارسال کنید",activeSellerCount:sellers.rowCount});
+    sellerId=sellers.rows[0].id;
+  }
+  const catalog=await query(
+    "select source_product_id,sku,title,description,category,source_price,currency,image_url,brand,rating,specifications,gallery_images from catalog_reference_products where tenant_id=$1 and source_price>0 order by category,title limit 500",
+    [ctx.id]
+  );
+  if(!catalog.rowCount)return res.status(409).json({error:"کاتالوگ داخلی ذخیره‌شده خالی است؛ ابتدا کالاها و تصاویر را وارد پایگاه داده داخلی کنید",materialized:0});
+  let created=0,alreadyPresent=0,skippedNoLocalImage=0;
+  const failures:Array<{sku:string;reason:string}>=[];
+  for(const product of catalog.rows){
+    const imageUrl=typeof product.image_url==="string"?product.image_url:"";
+    // Only copy records whose primary image is already on our own media host.
+    // No source URL, source price, or source link is needed at runtime after materialization.
+    if(!imageUrl.startsWith("/api/public/media/catalog/")){skippedNoLocalImage++;continue;}
+    const sku=("LOCAL-"+String(product.sku||product.source_product_id)).slice(0,120);
+    try{
+      const attributes={
+        imageUrl,
+        brand:product.brand||null,
+        rating:product.rating||null,
+        specifications:Array.isArray(product.specifications)?product.specifications:[],
+        galleryImages:Array.isArray(product.gallery_images)?product.gallery_images.filter((url:string)=>typeof url==="string"&&url.startsWith("/api/public/media/catalog/")):[],
+        catalogOrigin:"internal-catalog-copy",
+        sourceSnapshotId:String(product.source_product_id),
+        priceReviewRequired:true,
+        inventoryVerified:false,
+        inventoryQuantity:0,
+        inventorySource:"",
+        listingNote:"اطلاعات و تصویر در پایگاه داده داخلی ذخیره شده‌اند؛ قیمت فروش و موجودی باید توسط فروشنده تعیین و تأیید شود."
+      };
+      const saved=await query(
+        "insert into products(tenant_id,seller_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,0,$7,'draft',$8::jsonb) on conflict(tenant_id,sku) do nothing returning id,sku",
+        [ctx.id,sellerId,sku,product.title,product.description,canonicalMarketplaceCategory(product.category),product.currency,JSON.stringify(attributes)]
+      );
+      if(saved.rowCount)created++;else alreadyPresent++;
+    }catch(error){
+      failures.push({sku,reason:error instanceof Error?error.message:"ذخیره محصول ناموفق بود"});
+    }
+  }
+  res.setHeader("Cache-Control","private, no-store");
+  res.json({
+    tenantCode:ctx.code,sellerId,sourceCatalogCount:catalog.rowCount,created,alreadyPresent,skippedNoLocalImage,
+    failed:failures.length,failures:failures.slice(0,20),storage:"products-table",
+    message:"کالاها و تصاویر محلی در جدول محصولات داخلی کپی شدند و برای کار در زمان اجرا به منبع مرجع نیاز ندارند. همه موارد جدید پیش‌نویس‌اند؛ قیمت فروش و موجودی باید قبل از انتشار تأیید شود."
+  });
+}));
+
 domainMarketplaceRouter.get("/api/marketplace/digikala-catalog",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
