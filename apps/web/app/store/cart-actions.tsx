@@ -13,6 +13,8 @@ export type StoreCartProduct = {
   store_id?: string | null;
   image_url?: string | null;
   is_demo_product?: boolean;
+  is_preorder?: boolean;
+  preorder_limit?: number;
   source_url?: string | null;
   site?: string;
 };
@@ -61,22 +63,32 @@ export function CartCount() {
 
 export function AddToCartButton({ product, compact = false }: { product: StoreCartProduct; compact?: boolean }) {
   const [added, setAdded] = useState(false);
+  const [notice, setNotice] = useState("");
   function add() {
     const cart = readCart();
     const existing = cart.find(item => item.id === product.id);
+    const limit = product.is_preorder ? Math.max(1, Number(product.preorder_limit) || 10) : Number.POSITIVE_INFINITY;
+    if ((existing?.quantity || 0) >= limit) {
+      setNotice("سقف پیش‌فروش این کالا " + limit.toLocaleString("fa-IR") + " عدد است.");
+      window.setTimeout(() => setNotice(""), 2400);
+      return;
+    }
     if (existing) existing.quantity += 1;
     else cart.push({ ...product, quantity: 1 });
     writeCart(cart);
     setAdded(true);
+    setNotice("");
     window.setTimeout(() => setAdded(false), 1600);
   }
   return <button type="button" className={compact ? "sk-add-cart sk-add-cart-compact" : "sk-add-cart"} onClick={add} aria-live="polite">
-    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4h2l2.1 10.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg><span>{added ? "به سبد اضافه شد" : compact ? "افزودن به سبد" : "افزودن به سبد خرید"}</span>
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4h2l2.1 10.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg><span>{added ? "به سبد اضافه شد" : product.is_preorder ? (compact ? "پیش‌فروش این کالا" : "افزودن به پیش‌فروش") : compact ? "افزودن به سبد" : "افزودن به سبد خرید"}</span>
+    {notice && <small role="status">{notice}</small>}
   </button>;
 }
 
 export function CartView() {
   const [items, setItems] = useState<StoreCartItem[]>([]);
+  const [cartNotice, setCartNotice] = useState("");
   useEffect(() => {
     const refresh = () => setItems(readCart());
     refresh();
@@ -91,9 +103,16 @@ export function CartView() {
   const total = items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
   const count = items.reduce((sum, item) => sum + item.quantity, 0);
   function update(id: string, delta: number) {
-    const next = readCart().map(item => item.id === id ? { ...item, quantity: item.quantity + delta } : item).filter(item => item.quantity > 0);
+    const current = readCart();
+    const selected = current.find(item => item.id === id);
+    if (selected && delta > 0 && selected.is_preorder && selected.quantity >= Math.max(1, Number(selected.preorder_limit) || 10)) {
+      setCartNotice("سقف پیش‌فروش «" + selected.title + "» " + Math.max(1, Number(selected.preorder_limit) || 10).toLocaleString("fa-IR") + " عدد است.");
+      return;
+    }
+    const next = current.map(item => item.id === id ? { ...item, quantity: item.quantity + delta } : item).filter(item => item.quantity > 0);
     writeCart(next);
     setItems(next);
+    setCartNotice("");
   }
   function remove(id: string) {
     const next = readCart().filter(item => item.id !== id);
@@ -114,11 +133,12 @@ export function CartView() {
     </div></header>
     <div className="sk-wrap sk-cart-layout">
       <section className="sk-cart-items">
+        {cartNotice && <p className="sk-cart-notice" role="status">{cartNotice}</p>}
         <div className="sk-cart-heading"><div className="sk-cart-heading-title"><span className="sk-cart-heading-icon" aria-hidden="true">▣</span><div><h2>محصولات انتخاب‌شده</h2><p>{count.toLocaleString("fa-IR")} قلم در سبد</p></div></div>{items.length > 0 && <button type="button" onClick={clear} className="sk-cart-clear">حذف همه کالاها</button>}</div>
         {items.length === 0 ? <div className="sk-cart-empty"><span>🛒</span><h2>سبد خرید شما هنوز خالی است</h2><p>محصولات موردنظر را از کاتالوگ انتخاب کنید و دوباره به این صفحه برگردید.</p><Link href="/store/shop" className="sk-primary-btn"><span aria-hidden="true">⌕</span> مشاهده کالاها</Link></div> :
           <div className="sk-cart-list">{items.map(item => <article className="sk-cart-item" key={item.id}>
             <div className="sk-cart-thumb">{item.image_url ? <img src={item.image_url} alt={item.title} /> : <span>▧</span>}</div>
-            <div className="sk-cart-item-main"><Link href={"/store/product/" + encodeURIComponent(item.sku || item.id) + "?site=" + encodeURIComponent(item.site || "default")} className="sk-cart-item-title">{item.title}</Link><small>فروشنده: {item.seller_name || "فروشنده ثبت‌شده"}</small>{item.is_demo_product && <small className="sk-demo-cart-note">نمونهٔ آزمایشی سوکار · قیمت مرجع، نه قیمت فروش</small>}<strong>{money(Number(item.price), item.currency)}</strong>
+            <div className="sk-cart-item-main"><Link href={"/store/product/" + encodeURIComponent(item.sku || item.id) + "?site=" + encodeURIComponent(item.site || "default")} className="sk-cart-item-title">{item.title}</Link><small>فروشنده: {item.seller_name || "فروشنده ثبت‌شده"}</small>{item.is_demo_product && <small className="sk-demo-cart-note">نمونهٔ آزمایشی سوکار · قیمت مرجع، نه قیمت فروش</small>}{item.is_preorder && <small className="sk-demo-cart-note">پیش‌فروش · حداکثر {Math.max(1, Number(item.preorder_limit) || 10).toLocaleString("fa-IR")} عدد · موجودی فیزیکی تأیید نشده</small>}<strong>{money(Number(item.price), item.currency)}</strong>
               <div className="sk-cart-controls"><div className="sk-quantity" aria-label={"تعداد "+item.title}><button type="button" onClick={() => update(item.id, -1)} aria-label={"کاهش تعداد "+item.title}>−</button><span aria-live="polite">{item.quantity.toLocaleString("fa-IR")}</span><button type="button" onClick={() => update(item.id, 1)} aria-label={"افزایش تعداد "+item.title}>＋</button></div><button type="button" onClick={() => remove(item.id)} className="sk-cart-remove"><span aria-hidden="true">×</span> حذف کالا</button></div>
             </div>
             <strong className="sk-cart-line-total">{money(Number(item.price) * item.quantity, item.currency)}</strong>
