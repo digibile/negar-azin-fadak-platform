@@ -377,6 +377,16 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
           </div>
         </section>
 
+        {!query && !category && sourceProducts.length > 0 && <section className="sk-tech-shelf sk-featured-product-shelf" aria-label="محصولات منتخب سوکار">
+          <div className="sk-tech-shelf-heading"><div><span>از کاتالوگ داخلی سوکار</span><h2>محصولات منتخب</h2></div><Link href="/store/shop" className="sk-shelf-view-all">مشاهده همه کالاها <b>←</b></Link></div>
+          <div className="sk-tech-shelf-products">{sourceProducts.slice(0, 10).map(product => <Link href={productHrefFor(product)} className="sk-tech-shelf-card" key={product.id}>
+            <span className="sk-tech-shelf-image">{safeImageUrl(product.image_url) ? <img src={safeImageUrl(product.image_url) || ""} alt={product.title} loading="lazy" decoding="async" /> : <i>{categoryGlyph(product.category, product.title)}</i>}</span>
+            <span className="sk-tech-shelf-title">{product.title}</span>
+            <span className="sk-tech-shelf-brand">{product.brand || product.seller_name || "کالای ثبت‌شده"}</span>
+            <strong>{money(product.price, product.currency)}</strong>
+          </Link>)}</div>
+        </section>}
+
         {isTechnolife && techBrands.length > 0 && !query && !category && <section className="sk-tech-brands" aria-label="برندهای موجود در کاتالوگ">
           <div className="sk-tech-brands-heading"><b>برندهای منتخب</b><span>بر اساس برندهای ثبت‌شده در کاتالوگ</span></div>
           <div className="sk-tech-brand-list">{techBrands.map(brand => <button type="button" key={brand} onClick={() => { setQuery(brand); document.getElementById("sk-products")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>{brand}<span>←</span></button>)}</div>
