@@ -118,3 +118,6 @@
 .mp-edit-actions button:disabled{opacity:.55;cursor:not-allowed}
 .mp-row-actions>small{flex-basis:100%;color:#946526;font-size:10px;line-height:1.8}
 @media(max-width:760px){.mp-product-edit-form{grid-template-columns:1fr;padding:13px}.mp-product-edit-form .mp-edit-description,.mp-edit-actions{grid-column:auto}.mp-edit-actions{flex-direction:column}.mp-edit-actions button{width:100%}}
+
+.mp-import-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-block:14px}
+@media(max-width:760px){.mp-import-actions{align-items:stretch;flex-direction:column}.mp-import-actions button{width:100%}}
