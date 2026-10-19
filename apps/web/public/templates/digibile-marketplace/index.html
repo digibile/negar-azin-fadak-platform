@@ -276,15 +276,30 @@ function persistCart(){try{sessionStorage.setItem("digibile-live-cart",JSON.stri
 function restoreCart(){try{const raw=JSON.parse(sessionStorage.getItem("digibile-live-cart")||"[]");if(Array.isArray(raw))raw.forEach(x=>{if(Array.isArray(x)&&typeof x[0]==="string"&&Number.isInteger(x[1])&&x[1]>0)cart.set(x[0],Math.min(20,x[1]));});}catch{}}
 function checkout(){const selected=[...cart.entries()].map(([id])=>products.find(p=>p.id===id)).filter(Boolean);if(!selected.length)return;const urls=[...new Set(selected.map(p=>p.source_url).filter(u=>/^https:\/\/www\.digikala\.com\//.test(u)))];if(!urls.length){alert("پیوند خرید معتبر برای کالاهای انتخاب‌شده در دسترس نیست.");return;}urls.forEach((url,i)=>setTimeout(()=>window.open(url,"_blank","noopener,noreferrer"),i*180));}
 function categoryMatches(p,v){
- if(v==="همه")return true;
- const f=fa(v);
- if(f==="پیشنهاد ویژه")return Number(p.discount_percent)>0||(Number(p.original_price)>Number(p.price)&&Number(p.price)>0);
- const aliases={"موبایل و تبلت":"موبایل و دیجیتال","موبایل":"موبایل و دیجیتال","گوشی":"موبایل و دیجیتال","لپتاپ":"لپ‌تاپ و کامپیوتر","لپ تاپ":"لپ‌تاپ و کامپیوتر","کامپیوتر":"لپ‌تاپ و کامپیوتر","ساعت":"ساعت و اکسسوری"};
- const canonical=aliases[f]||v, c=fa(p.category), cf=fa(canonical);
- if(c&&(c===cf||c.includes(cf)||cf.includes(c)))return true;
- const text=fa([p.title,p.category,p.brand,p.description,p.short_description].filter(Boolean).join(" "));
- const rx={"موبایل و دیجیتال":/موبایل|گوشی|تلفن همراه|smart.?phone|mobile|tablet|تبلت|iphone|آیفون|تلفن/,"لپ‌تاپ و کامپیوتر":/لپ.?تاپ|laptop|notebook|کامپیوتر|computer|desktop|\bpc\b|کروم.?بوک/,"خانه و آشپزخانه":/خانه|آشپزخانه|یخچال|جاروبرقی|مبلمان|home|kitchen|appliance/,"ساعت و اکسسوری":/ساعت|اکسسوری|watch|bracelet|جواهر|زیور/,"مد و پوشاک":/پوشاک|لباس|کفش|fashion|clothing|apparel|shoes/,"زیبایی و سلامت":/زیبایی|سلامت|آرایشی|بهداشتی|beauty|health|skincare/,"ورزش و سفر":/ورزش|سفر|camping|sport|travel/,"خودرو و ابزار":/خودرو|ابزار|automotive|tool/};
- return !!rx[canonical]&&rx[canonical].test(text);
+ if(fa(v)==="همه")return true;
+ const compact=s=>fa(s).replace(/[\\s\\u200c\\-_]/g,"");
+ const f=compact(v);
+ if(f==="پیشنهادویژه")return Number(p.discount_percent)>0||(Number(p.original_price)>Number(p.price)&&Number(p.price)>0);
+ const groups=[
+  {name:"موبایل و دیجیتال",keys:["موبایل و دیجیتال","موبایل","گوشی","تبلت","موبایل و تبلت"],rx:/موبایل|گوشی|تلفن همراه|smart.?phone|mobile|tablet|تبلت|iphone|آیفون|ipad|آیپد|galaxy|گلکسی|redmi|ردمی|poco|پوکو|pixel phone|تلفن/},
+  {name:"لپ‌تاپ و کامپیوتر",keys:["لپ‌تاپ و کامپیوتر","لپتاپ","لپ تاپ","کامپیوتر","رایانه"],rx:/لپ.?تاپ|laptop|notebook|macbook|مک.?بوک|thinkpad|vivobook|ideapad|chromebook|کروم.?بوک|کامپیوتر|computer|desktop|\\bpc\\b|ultrabook|mini.?pc/},
+  {name:"خانه و آشپزخانه",keys:["خانه و آشپزخانه","خانه","آشپزخانه"],rx:/خانه|آشپزخانه|یخچال|جاروبرقی|مبلمان|home|kitchen|appliance|microwave|مایکروویو|اجاق|ظرفشویی/},
+  {name:"ساعت و اکسسوری",keys:["ساعت و اکسسوری","ساعت","اکسسوری"],rx:/ساعت|اکسسوری|watch|bracelet|جواهر|زیور|smart.?watch|هوشمند/},
+  {name:"مد و پوشاک",keys:["مد و پوشاک","پوشاک","لباس"],rx:/پوشاک|لباس|کفش|fashion|clothing|apparel|shoes|sneaker|مانتو|شلوار/},
+  {name:"زیبایی و سلامت",keys:["زیبایی و سلامت","زیبایی","سلامت"],rx:/زیبایی|سلامت|آرایشی|بهداشتی|beauty|health|skincare|عطر|ادکلن/},
+  {name:"ورزش و سفر",keys:["ورزش و سفر","ورزش","سفر"],rx:/ورزش|سفر|camping|sport|travel|دوچرخه|کوهنوردی/},
+  {name:"خودرو و ابزار",keys:["خودرو و ابزار","خودرو","ابزار"],rx:/خودرو|ابزار|automotive|tool|لوازم یدکی|موتور سیکلت|موتورسیکلت/}
+ ];
+ const group=groups.find(g=>g.keys.some(k=>compact(k)===f));
+ const values=[p.title,p.category,p.brand,p.description,p.short_description,p.category_name,p.categoryName,p.category_title,p.categoryTitle,p.category_path,p.categoryPath,p.product_type,p.productType,p.categories,p.tags];
+ const text=fa(values.flatMap(x=>Array.isArray(x)?x.map(y=>typeof y==="object"?Object.values(y||{}).join(" "):y):x&&typeof x==="object"?Object.values(x).join(" "):x).filter(Boolean).join(" "));
+ if(group){
+  const c=compact(p.category||"");
+  if(c&&c!=="سایرکالاها"&&(c===compact(group.name)||compact(group.name).includes(c)))return true;
+  return group.rx.test(text);
+ }
+ const c=compact(p.category||"");
+ return !!c&&(c===f||c.includes(f)||f.includes(c));
 }
 function createProductCard(p){const c=document.createElement("article");c.className="card";const unavailable=sourceStatus!=="live"||p.source_available===false||!p.price;const original=Number(p.original_price)>Number(p.price)?Number(p.original_price):0;const discount=Number(p.discount_percent)>0?Math.min(100,Math.round(Number(p.discount_percent))):(original>0?Math.round((original-Number(p.price))/original*100):0);c.innerHTML='<div class="photo"><span class="tag">'+(discount>0?("٪"+count(discount)+" تخفیف"):p.source_available===false?"ناموجود":"قیمت ثبت‌شده")+'</span><button class="fav '+(favorites.has(p.id)?"active":"")+'" aria-label="افزودن به علاقه‌مندی‌ها" aria-pressed="'+favorites.has(p.id)+'">'+(favorites.has(p.id)?"♥":"♡")+'</button><img loading="lazy" alt="'+safe(p.title)+'" src="'+safe(p.image_url)+'" onerror="this.style.opacity=.2"></div><div class="pinfo"><span class="cat">'+safe(p.category)+(p.brand?" · "+safe(p.brand):"")+'</span><h3>'+safe(p.title)+'</h3><div class="pfoot"><div>'+(original>Number(p.price)?'<small style="text-decoration:line-through">'+money(original)+'</small>':'')+'<strong>'+money(p.price)+'</strong><small>'+(p.source_available===false?"وضعیت عرضه تأیید نشده":"قیمت ثبت‌شده")+'</small></div><button class="add" '+(unavailable?'disabled':'')+'>افزودن به سبد</button></div><button class="dg-view" type="button">مشاهده محصول</button></div>';c.querySelector(".fav").onclick=()=>{favorites.has(p.id)?favorites.delete(p.id):favorites.add(p.id);render();};const view=c.querySelector(".dg-view");view.onclick=()=>openDetail(p.id);c.querySelector(".photo img").onclick=()=>openDetail(p.id);c.querySelector("h3").onclick=()=>openDetail(p.id);const add=c.querySelector(".add");add.onclick=()=>{cart.set(p.id,Math.min(20,(cart.get(p.id)||0)+1));persistCart();updateCartBadge();add.textContent="اضافه شد ✓";setTimeout(()=>{if(add.isConnected)add.textContent="افزودن به سبد"},1000);};return c;}
 function syncHomeVisuals(){const pick=(key)=>products.find(p=>categoryMatches(p,key))||null;const hero=products[0],digital=pick("موبایل و دیجیتال")||pick("لپ‌تاپ و کامپیوتر"),home=pick("خانه و آشپزخانه");const set=(selector,p)=>{const img=document.querySelector(selector);if(!img||!p||!p.image_url)return;img.src=p.image_url;img.alt=p.title;img.onerror=()=>{img.onerror=null;};};set(".product-visual img",hero);set(".bandart img",digital||hero);set("#digital .splitcard img",digital||hero);set("#lifestyle img",home||digital||hero);}
