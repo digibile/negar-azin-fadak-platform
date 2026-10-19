@@ -556,6 +556,113 @@ jobs:
           grep -q "تکمیل خرید آزمایشی" /tmp/sookar-demo-checkout.html
           echo "SOOKAR_STOREFRONT_ROUTES_OK"
 
+
+      - name: Materialize local Sookar catalog products from persistent database
+        if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Seed the tenant-scoped reference table once, then copy only rows with local media
+          # into the independent products table. No source URL is copied to product attributes.
+          curl -fSs --connect-timeout 10 --max-time 180 'https://sookar.ir/api/public/marketplace/reference-catalog' -o /tmp/sookar-reference-catalog.json
+          tenant_code="$(node -e 'const d=require("/tmp/sookar-reference-catalog.json");const p=Array.isArray(d.products)?d.products:[];const local=p.filter(x=>typeof x.image_url==="string"&&x.image_url.startsWith("/api/public/media/catalog/"));console.log("REFERENCE_CATALOG_TENANT="+(d.tenant?.code||"unknown"));console.log("REFERENCE_CATALOG_PRODUCTS="+p.length);console.log("REFERENCE_CATALOG_LOCAL_IMAGES="+local.length);if(!d.tenant?.code||p.length===0||local.length===0)process.exit(2);process.stdout.write(String(d.tenant.code))')"
+          if ! [[ "$tenant_code" =~ ^[A-Za-z0-9_-]{1,80}$ ]]; then
+            echo "Invalid tenant code returned by the public catalog; stopping."
+            exit 1
+          fi
+          HOST='${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}'
+          PORT='${{ secrets.DEPLOY_PORT }}'
+          ssh -i ~/.deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "TENANT_CODE='$tenant_code' bash -s" <<'REMOTE'
+          set -euo pipefail
+          BASE=/home/sookar/domains/sookar.ir/negar-platform
+          cd "$BASE/current"
+          test "$(docker compose -p naf-sookar -f docker-compose.production.yml ps --status running --services | grep -Fx postgres)" = "postgres"
+          docker compose -p naf-sookar -f docker-compose.production.yml exec -T -e CATALOG_TENANT_CODE="$TENANT_CODE" postgres sh -lc 'exec psql -v ON_ERROR_STOP=1 -v tenant_code="$CATALOG_TENANT_CODE" -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+          BEGIN;
+          WITH tenant AS (
+            SELECT id FROM tenants WHERE code = :'tenant_code' AND status = 'active' LIMIT 1
+          )
+          INSERT INTO sellers(tenant_id,legal_name,display_name,status,commission_rate)
+          SELECT tenant.id,'سوکار - کاتالوگ داخلی مستقل','سوکار · کاتالوگ داخلی','active',0
+          FROM tenant
+          WHERE NOT EXISTS (
+            SELECT 1 FROM sellers s
+            WHERE s.tenant_id=tenant.id AND s.display_name='سوکار · کاتالوگ داخلی'
+          );
+          WITH tenant AS (
+            SELECT id FROM tenants WHERE code = :'tenant_code' AND status = 'active' LIMIT 1
+          ),
+          seller AS (
+            SELECT s.id,s.tenant_id
+            FROM sellers s JOIN tenant t ON t.id=s.tenant_id
+            WHERE s.display_name='سوکار · کاتالوگ داخلی' AND s.status='active'
+            ORDER BY s.created_at
+            LIMIT 1
+          ),
+          eligible AS (
+            SELECT c.*,
+              left('LOCAL-' || coalesce(nullif(c.sku,''),c.source_product_id),120) AS local_sku
+            FROM catalog_reference_products c
+            JOIN tenant t ON t.id=c.tenant_id
+            WHERE c.source_price>0
+              AND c.source_available IS DISTINCT FROM false
+              AND c.image_url LIKE '/api/public/media/catalog/' || t.id::text || '/%'
+          )
+          INSERT INTO products(tenant_id,seller_id,sku,title,description,category,price,currency,status,attributes)
+          SELECT e.tenant_id,s.id,e.local_sku,e.title,e.description,e.category,e.source_price,e.currency,'active',
+            jsonb_build_object(
+              'imageUrl',e.image_url,
+              'brand',e.brand,
+              'rating',e.rating,
+              'specifications',coalesce(e.specifications,'[]'::jsonb),
+              'variants',coalesce(e.variants,'[]'::jsonb),
+              'galleryImages',jsonb_build_array(e.image_url),
+              'catalogOrigin','internal-catalog-copy',
+              'sourceProductId',e.source_product_id,
+              'sourceSnapshotId',e.source_product_id,
+              'priceSyncPolicy','manual',
+              'sourcePriceSnapshot',e.source_price,
+              'originalPriceSnapshot',e.original_price,
+              'discountPercentSnapshot',e.discount_percent,
+              'sourceAvailable',e.source_available,
+              'sourceCheckedAt',e.source_fetched_at,
+              'priceReviewRequired',false,
+              'inventoryMode','preorder',
+              'preorderEnabled',true,
+              'preorderLimit',10,
+              'inventoryVerified',false,
+              'inventoryQuantity',0,
+              'inventorySource','',
+              'sourceType','catalog-preorder',
+              'listingNote','نسخه محلی کالا در پایگاه داده سوکار؛ تصویر و مشخصات محلی هستند. ظرفیت پیش‌فروش حداکثر ۱۰ سفارش است و موجودی فیزیکی تأیید نشده است.'
+            )
+          FROM eligible e CROSS JOIN seller s
+          ON CONFLICT(tenant_id,sku) DO NOTHING;
+          COMMIT;
+          SELECT 'LOCAL_CATALOG_COPY_COUNT=' || count(*)
+          FROM products p
+          JOIN tenants t ON t.id=p.tenant_id
+          WHERE t.code=:'tenant_code'
+            AND p.attributes->>'catalogOrigin'='internal-catalog-copy';
+          SQL
+          REMOTE
+          curl -fSs --connect-timeout 10 --max-time 30 'https://sookar.ir/api/public/marketplace' -o /tmp/sookar-public-catalog-after-materialize.json
+          node -e '
+            const d=require("/tmp/sookar-public-catalog-after-materialize.json");
+            const p=Array.isArray(d.products)?d.products:[];
+            const local=p.filter(x=>typeof x.image_url==="string"&&x.image_url.startsWith("/api/public/media/catalog/"));
+            const copied=p.filter(x=>x.attributes?.catalogOrigin==="internal-catalog-copy");
+            const linked=copied.filter(x=>typeof x.source_url==="string"&&x.source_url.length>0);
+            const categories=[...new Set(p.map(x=>x.category).filter(Boolean))];
+            console.log("LIVE_LOCAL_CATALOG_PRODUCTS="+p.length);
+            console.log("LIVE_LOCAL_CATALOG_COPIES="+copied.length);
+            console.log("LIVE_LOCAL_IMAGES="+local.length);
+            console.log("LIVE_LOCAL_CATEGORIES="+categories.length);
+            console.log("LIVE_LOCAL_REFERENCE_URLS="+linked.length);
+            if(p.length===0||copied.length===0||local.length===0||categories.length===0||linked.length>0)process.exit(1);
+          '
+          echo "SOOKAR_LOCAL_CATALOG_MATERIALIZED_AND_VERIFIED"
+
   publish-digibile-template:
     if: ${{ (github.event_name == 'workflow_dispatch' && inputs.deploy_to_digibile) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-digibile]')) }}
     runs-on: ubuntu-latest
