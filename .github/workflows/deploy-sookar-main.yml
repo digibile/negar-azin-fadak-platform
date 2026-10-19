@@ -616,11 +616,21 @@ jobs:
               'rating',e.rating,
               'specifications',coalesce(e.specifications,'[]'::jsonb),
               'variants',coalesce(e.variants,'[]'::jsonb),
-              'galleryImages',jsonb_build_array(e.image_url),
+              'galleryImages',coalesce((
+                SELECT jsonb_agg(DISTINCT gallery.url)
+                FROM (
+                  SELECT e.image_url AS url
+                  UNION ALL
+                  SELECT gallery_image AS url
+                  FROM jsonb_array_elements_text(coalesce(e.gallery_images,'[]'::jsonb)) AS gallery(gallery_image)
+                  WHERE gallery_image LIKE '/api/public/media/catalog/' || e.tenant_id::text || '/%'
+                ) gallery
+              ),jsonb_build_array(e.image_url)),
               'catalogOrigin','internal-catalog-copy',
+              'sourceName','دیجی‌کالا',
               'sourceProductId',e.source_product_id,
               'sourceSnapshotId',e.source_product_id,
-              'priceSyncPolicy','manual',
+              'priceSyncPolicy','daily-source-snapshot',
               'sourcePriceSnapshot',e.source_price,
               'originalPriceSnapshot',e.original_price,
               'discountPercentSnapshot',e.discount_percent,
