@@ -858,6 +858,7 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
   const publicProducts:any[]=catalogProducts;
   const categories=[...new Set([
     ...categoryRows.rows.map((row:any)=>typeof row.name==="string"?row.name.trim():"").filter(Boolean),
+    ...catalogProducts.map((item:any)=>typeof item.category==="string"?item.category.trim():"").filter(Boolean),
     ...referenceCategories
   ])].sort((a,b)=>a.localeCompare(b,"fa"));
   res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
