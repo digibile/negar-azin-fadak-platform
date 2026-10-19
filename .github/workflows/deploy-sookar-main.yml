@@ -166,7 +166,7 @@ jobs:
           (base / "index.html").write_text('<div class="grid" id="productGrid"></div><div id="homeMerchandisingGrid"></div>', encoding="utf-8")
           exec(compile(script, "digibile-static-renderer.py", "exec"), {})
           rendered = (base / "index.html").read_text(encoding="utf-8")
-          for label in ('data-static-fallback="true"', "فروش ویژه و تخفیف‌خورده‌ها", "موبایل و دیجیتال", "لپ‌تاپ و کامپیوتر", "خانه و آشپزخانه", "فهرست مرجع؛ عرضه و موجودی فروشنده تأیید نشده", "٪17 تخفیف معتبر"):
+          for label in ('data-static-fallback="true"', "فروش ویژه و تخفیف‌خورده‌ها", "موبایل و دیجیتال", "لپ‌تاپ و کامپیوتر", "خانه و آشپزخانه", "فهرست مرجع؛ عرضه و موجودی فروشنده تأیید نشده", "٪17 تخفیف معتبر", "product.html?id=digibile-ref-1"):
               if label not in rendered:
                   raise SystemExit("Static Digibile shelf fixture missing: " + label)
           if "فروشنده هنوز عرضه نکرده" in rendered:
@@ -571,7 +571,17 @@ jobs:
         run: |
           set -euo pipefail
           test -s apps/web/public/templates/digibile-marketplace/index.html
+          test -s apps/web/public/templates/digibile-marketplace/product.html
           grep -q 'دیجی‌بایل' apps/web/public/templates/digibile-marketplace/index.html
+          grep -q 'https://sookar.ir/login?brand=digibile' apps/web/public/templates/digibile-marketplace/product.html
+          node <<'NODE'
+          const fs = require("node:fs");
+          const page = fs.readFileSync("apps/web/public/templates/digibile-marketplace/product.html", "utf8");
+          const match = page.match(/<script>([\s\S]*?)<\/script>/);
+          if (!match) throw new Error("Digibile product detail script missing");
+          new Function(match[1]);
+          console.log("DIGIBILE_PRODUCT_DETAIL_SCRIPT_OK");
+          NODE
           grep -q 'دسته‌بندی‌های محبوب' apps/web/public/templates/digibile-marketplace/index.html
           mkdir -p /tmp/digibile-template-package/digibile-marketplace/dist
           # Freeze the already-persisted database catalog into the storefront release.
@@ -579,10 +589,12 @@ jobs:
           curl -fSs --connect-timeout 10 --max-time 150 'https://sookar.ir/api/public/marketplace/reference-catalog?tenantCode=digibile' -o /tmp/digibile-template-package/digibile-marketplace/dist/catalog.json
           node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync("/tmp/digibile-template-package/digibile-marketplace/dist/catalog.json","utf8"));const p=Array.isArray(d.products)?d.products:[];const priced=p.filter(x=>Number(x.price)>0);console.log("DIGIBILE_STATIC_CATALOG_PRODUCTS="+p.length);console.log("DIGIBILE_STATIC_CATALOG_PRICED="+priced.length);if(d.tenant?.code!=="digibile"||priced.length===0)process.exit(1);'
           cp apps/web/public/templates/digibile-marketplace/index.html /tmp/digibile-template-package/digibile-marketplace/dist/index.html
+          cp apps/web/public/templates/digibile-marketplace/product.html /tmp/digibile-template-package/digibile-marketplace/dist/product.html
           # Render real saved products, category shelves, and verified discounts into HTML at deployment time.
           # This gives the homepage meaningful product sections before JavaScript starts and keeps the reference inventory honest.
           python3 - <<'PY'
           import html, json, pathlib, re
+          from urllib.parse import quote
           catalog_path = pathlib.Path("/tmp/digibile-template-package/digibile-marketplace/dist/catalog.json")
           index_path = pathlib.Path("/tmp/digibile-template-package/digibile-marketplace/dist/index.html")
           data = json.loads(catalog_path.read_text(encoding="utf-8"))
@@ -656,13 +668,14 @@ jobs:
               raw_discount = first_value(raw, ("discount_percent", "discountPercent", "discount_percentage", "discountPercentage", "discount_rate", "discountRate"), first_value(attrs, ("discount_percent", "discountPercent", "discount_rate"), 0))
               discount_value = number(raw_discount)
               discount = min(100, round(discount_value if discount_value > 1 else discount_value * 100)) if discount_value > 0 else (round((original-price)/original*100) if original > price > 0 else 0)
-              return {"title": str(title), "price": price, "original": original, "discount": discount, "image": image, "category": category, "raw": raw}
+              return {"id": str(first_value(raw, ("id", "product_id", "productId", "sku", "slug"), "digibile-ref-" + str(index + 1))), "title": str(title), "price": price, "original": original, "discount": discount, "image": image, "category": category, "raw": raw}
           normalized_products = [p for i, raw in enumerate(products) if (p := normalize_product(raw, i)) and p["title"] and p["image"] and p["price"] > 0]
           def card(p):
               discount = p["discount"]
               tag = "٪" + str(discount) + " تخفیف معتبر" if discount > 0 else "کالای ذخیره‌شده"
               old_price = '<small style="text-decoration:line-through">' + esc(format(round(p["original"]/10), ",") + " تومان") + '</small>' if p["original"] > p["price"] else ""
-              return '<article class="card"><div class="photo"><span class="tag">' + esc(tag) + '</span><img loading="lazy" alt="' + esc(p["title"]) + '" src="' + esc(p["image"]) + '"></div><div class="pinfo"><span class="cat">' + esc(p["category"]) + '</span><h3>' + esc(p["title"]) + '</h3><div class="pfoot"><div>' + old_price + '<strong>' + esc(format(round(p["price"]/10), ",")) + ' تومان</strong><small>فهرست مرجع؛ عرضه و موجودی فروشنده تأیید نشده</small></div></div></div></article>'
+              product_url = "./product.html?id=" + quote(p["id"], safe="")
+              return '<article class="card"><a class="dg-static-product" href="' + esc(product_url) + '"><div class="photo"><span class="tag">' + esc(tag) + '</span><img loading="lazy" alt="' + esc(p["title"]) + '" src="' + esc(p["image"]) + '"></div><div class="pinfo"><span class="cat">' + esc(p["category"]) + '</span><h3>' + esc(p["title"]) + '</h3><div class="pfoot"><div>' + old_price + '<strong>' + esc(format(round(p["price"]/10), ",")) + ' تومان</strong><small>فهرست مرجع؛ عرضه و موجودی فروشنده تأیید نشده</small></div></div><span class="dg-view">مشاهده محصول ←</span></div></a></article>'
           cards = [card(p) for p in normalized_products[:24]]
           if not cards:
               raise SystemExit("No valid saved products can be rendered into the storefront HTML")
@@ -693,6 +706,8 @@ jobs:
           grep -q 'data-static-fallback="true"' /tmp/digibile-template-package/digibile-marketplace/dist/index.html
           grep -q 'id="homeMerchandisingGrid">' /tmp/digibile-template-package/digibile-marketplace/dist/index.html
           grep -q 'فهرست مرجع؛ عرضه و موجودی فروشنده تأیید نشده' /tmp/digibile-template-package/digibile-marketplace/dist/index.html
+          grep -q 'product.html?id=' /tmp/digibile-template-package/digibile-marketplace/dist/index.html
+          test -s /tmp/digibile-template-package/digibile-marketplace/dist/product.html
           echo DIGIBILE_STATIC_PRODUCT_HTML_OK
           echo DIGIBILE_STATIC_PRODUCT_HTML_OK
           tar -czf /tmp/digibile-template.tar.gz -C /tmp/digibile-template-package digibile-marketplace
