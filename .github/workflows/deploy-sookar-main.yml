@@ -444,6 +444,27 @@ jobs:
           grep -q "بازارگاه" /tmp/sookar-marketplace-preview-legacy.html
           echo "MARKETPLACE_PREVIEW_ROUTES_OK"
 
+      - name: Verify shared login and customer registration endpoints
+        if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in 'login?brand=digibile' 'register?brand=digibile'; do
+            code="$(curl -L --connect-timeout 5 --max-time 25 -sS -o /tmp/auth-page.html -w '%{http_code}' "https://sookar.ir/$path")"
+            echo "AUTH_PAGE_HTTP=$code"
+            test "$code" = "200"
+            grep -qi '<html' /tmp/auth-page.html
+          done
+          challenge_code="$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/auth-challenge.json -w '%{http_code}' https://sookar.ir/api/auth/human-check)"
+          echo "AUTH_HUMAN_CHECK_HTTP=$challenge_code"
+          test "$challenge_code" = "200"
+          node -e 'const d=require("/tmp/auth-challenge.json");if(!d.challenge||!d.question)process.exit(1);console.log("AUTH_HUMAN_CHECK_OK")'
+          register_code="$(curl -L --connect-timeout 5 --max-time 20 -sS -o /tmp/auth-register-validation.json -w '%{http_code}' -H 'content-type: application/json' -d '{}' https://sookar.ir/api/auth/register)"
+          echo "AUTH_REGISTER_VALIDATION_HTTP=$register_code"
+          test "$register_code" = "400"
+          node -e 'const d=require("/tmp/auth-register-validation.json");if(!d.error)process.exit(1);console.log("AUTH_REGISTER_ROUTE_OK")'
+          echo "AUTH_LOGIN_REGISTER_ENDPOINTS_OK"
+
       - name: Verify live Sookar catalog and shopping flow
         if: ${{ inputs.deploy_to_server || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-sookar]')) }}
         shell: bash
