@@ -120,13 +120,19 @@ jobs:
             ["mobile category navigation", 'action==="categories"'],
             ["homepage category merchandising", "function renderHomeSections()"],
             ["verified special-offer section", "فروش ویژه و تخفیف‌خورده‌ها"],
-            ["discount data validation", "Number(p.discount_percent)>0"]
+            ["discount data validation", "Number(p.discount_percent)>0"],
+            ["reference products are not purchasable", 'sourceStatus==="unavailable"||sourceStatus==="reference"||p.source_available===false'],
+            ["reference inventory is not fabricated", 'stock_quantity:catalogMode==="reference"?0'],
+            ["reference product disclosure", "فروشنده هنوز عرضه نکرده"]
           ];
           for (const [label, snippet] of required) {
             if (!source.includes(snippet)) throw new Error("Digibile storefront check failed: " + label);
           }
           if (source.includes(String.raw`replace(/[\\s\\u200c\\-_]/g,"")`)) {
             throw new Error("Category normalization regex is double-escaped.");
+          }
+          if (source.includes("موجودی موقت ۱۰") || source.includes("p.discount??") || source.includes("??10")) {
+            throw new Error("Reference inventory or discount fallback is misleading.");
           }
           const compact = s => String(s ?? "").replace(/[ي]/g,"ی").replace(/[ك]/g,"ک").replace(/[\s\u200c\-_]/g,"").toLocaleLowerCase("fa-IR");
           for (const [a,b] of [["لپ تاپ","لپ‌تاپ"],["موبایل و دیجیتال","موبایل-و-دیجیتال"],["PC","pc"]]) {
