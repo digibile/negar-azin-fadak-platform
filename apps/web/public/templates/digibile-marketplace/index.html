@@ -277,12 +277,12 @@ function restoreCart(){try{const raw=JSON.parse(sessionStorage.getItem("digibile
 function checkout(){const selected=[...cart.entries()].map(([id])=>products.find(p=>p.id===id)).filter(Boolean);if(!selected.length)return;const urls=[...new Set(selected.map(p=>p.source_url).filter(u=>/^https:\/\/www\.digikala\.com\//.test(u)))];if(!urls.length){alert("پیوند خرید معتبر برای کالاهای انتخاب‌شده در دسترس نیست.");return;}urls.forEach((url,i)=>setTimeout(()=>window.open(url,"_blank","noopener,noreferrer"),i*180));}
 function categoryMatches(p,v){
  if(fa(v)==="همه")return true;
- const compact=s=>fa(s).replace(/[\\s\\u200c\\-_]/g,"");
+ const compact=s=>fa(s).replace(/[\s\u200c\-_]/g,"");
  const f=compact(v);
  if(f==="پیشنهادویژه")return Number(p.discount_percent)>0||(Number(p.original_price)>Number(p.price)&&Number(p.price)>0);
  const groups=[
   {name:"موبایل و دیجیتال",keys:["موبایل و دیجیتال","موبایل","گوشی","تبلت","موبایل و تبلت"],rx:/موبایل|گوشی|تلفن همراه|smart.?phone|mobile|tablet|تبلت|iphone|آیفون|ipad|آیپد|galaxy|گلکسی|redmi|ردمی|poco|پوکو|pixel phone|تلفن/},
-  {name:"لپ‌تاپ و کامپیوتر",keys:["لپ‌تاپ و کامپیوتر","لپتاپ","لپ تاپ","کامپیوتر","رایانه"],rx:/لپ.?تاپ|laptop|notebook|macbook|مک.?بوک|thinkpad|vivobook|ideapad|chromebook|کروم.?بوک|کامپیوتر|computer|desktop|\\bpc\\b|ultrabook|mini.?pc/},
+  {name:"لپ‌تاپ و کامپیوتر",keys:["لپ‌تاپ و کامپیوتر","لپتاپ","لپ تاپ","کامپیوتر","رایانه"],rx:/لپ.?تاپ|laptop|notebook|macbook|مک.?بوک|thinkpad|vivobook|ideapad|chromebook|کروم.?بوک|کامپیوتر|computer|desktop|\bpc\b|ultrabook|mini.?pc/},
   {name:"خانه و آشپزخانه",keys:["خانه و آشپزخانه","خانه","آشپزخانه"],rx:/خانه|آشپزخانه|یخچال|جاروبرقی|مبلمان|home|kitchen|appliance|microwave|مایکروویو|اجاق|ظرفشویی/},
   {name:"ساعت و اکسسوری",keys:["ساعت و اکسسوری","ساعت","اکسسوری"],rx:/ساعت|اکسسوری|watch|bracelet|جواهر|زیور|smart.?watch|هوشمند/},
   {name:"مد و پوشاک",keys:["مد و پوشاک","پوشاک","لباس"],rx:/پوشاک|لباس|کفش|fashion|clothing|apparel|shoes|sneaker|مانتو|شلوار/},

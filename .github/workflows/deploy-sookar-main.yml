@@ -105,6 +105,35 @@ jobs:
           unzip -oq "$ARCHIVE" -d public/digibile-template
           test -s public/digibile-template/src/index.html
           echo "DIGIBILE_TEMPLATE_EXTRACTED"
+      - name: Validate Digibile storefront category interactions
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync("public/templates/digibile-marketplace/index.html", "utf8");
+          const required = [
+            ["normalized category regex", String.raw`replace(/[\s\u200c\-_]/g,"")`],
+            ["PC word boundary regex", String.raw`|\bpc\b|`],
+            ["category click binding", 'document.querySelectorAll("[data-category]").forEach(b=>b.onclick=()=>setFilter(b.dataset.category))'],
+            ["mobile category navigation", 'action==="categories"'],
+            ["homepage category merchandising", "function renderHomeSections()"],
+            ["verified special-offer section", "فروش ویژه و تخفیف‌خورده‌ها"],
+            ["discount data validation", "Number(p.discount_percent)>0"]
+          ];
+          for (const [label, snippet] of required) {
+            if (!source.includes(snippet)) throw new Error("Digibile storefront check failed: " + label);
+          }
+          if (source.includes(String.raw`replace(/[\\s\\u200c\\-_]/g,"")`)) {
+            throw new Error("Category normalization regex is double-escaped.");
+          }
+          const compact = s => String(s ?? "").replace(/[ي]/g,"ی").replace(/[ك]/g,"ک").replace(/[\s\u200c\-_]/g,"").toLocaleLowerCase("fa-IR");
+          for (const [a,b] of [["لپ تاپ","لپ‌تاپ"],["موبایل و دیجیتال","موبایل-و-دیجیتال"],["PC","pc"]]) {
+            if (compact(a) !== compact(b)) throw new Error("Category normalization fixture failed: " + a + " / " + b);
+          }
+          console.log("DIGIBILE_STOREFRONT_INTERACTIONS_STATIC_CHECK_OK");
+          NODE
       - name: Web build
         working-directory: apps/web
         run: pnpm build
