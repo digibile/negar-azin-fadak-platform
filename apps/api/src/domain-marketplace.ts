@@ -750,11 +750,13 @@ domainMarketplaceRouter.post("/api/marketplace/reference-catalog/materialize",re
         sourceType:"catalog-preorder",
         listingNote:"این کالا به‌صورت پیش‌فروش با سقف ۱۰ سفارش ثبت شده است؛ موجودی فیزیکی تأیید نشده. قیمت اولیه از snapshot مرجع آمده و باید طبق سیاست فروش سوکار بازبینی شود."
       };
+      const prior=await query("select id from products where tenant_id=$1 and sku=$2",[ctx.id,sku]);
       const saved=await query(
-        "insert into products(tenant_id,seller_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,'active',$9::jsonb) on conflict(tenant_id,sku) do nothing returning id,sku",
+        "insert into products(tenant_id,seller_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,'active',$9::jsonb) on conflict(tenant_id,sku) do update set attributes=products.attributes||jsonb_build_object('imageUrl',excluded.attributes->'imageUrl','brand',excluded.attributes->'brand','rating',excluded.attributes->'rating','specifications',excluded.attributes->'specifications','variants',excluded.attributes->'variants','galleryImages',excluded.attributes->'galleryImages','sourceName',excluded.attributes->'sourceName','sourceProductId',excluded.attributes->'sourceProductId','sourceSnapshotId',excluded.attributes->'sourceSnapshotId','priceSyncPolicy',excluded.attributes->'priceSyncPolicy','sourcePriceSnapshot',excluded.attributes->'sourcePriceSnapshot','originalPriceSnapshot',excluded.attributes->'originalPriceSnapshot','discountPercentSnapshot',excluded.attributes->'discountPercentSnapshot','sourceAvailable',excluded.attributes->'sourceAvailable','sourceCheckedAt',excluded.attributes->'sourceCheckedAt'),updated_at=now() returning id,sku",
         [ctx.id,sellerId,sku,product.title,product.description,canonicalMarketplaceCategory(product.category),Number(product.source_price),product.currency,JSON.stringify(attributes)]
       );
-      if(saved.rowCount)created++;else alreadyPresent++;
+      if(!saved.rowCount)throw new Error("محصول پس از ورود یا به‌روزرسانی پیدا نشد");
+      if(prior.rowCount)alreadyPresent++;else created++;
     }catch(error){
       failures.push({sku,reason:error instanceof Error?error.message:"ذخیره محصول ناموفق بود"});
     }
