@@ -147,7 +147,7 @@ jobs:
           python3 - <<'PY'
           import json, pathlib
           workflow = pathlib.Path(".github/workflows/deploy-sookar-main.yml").read_text(encoding="utf-8")
-          marker = workflow.index("# Render real saved products, category shelves, and verified discounts into HTML at deployment time.")
+          marker = workflow.index("# Render real saved products, category shelves, and verified discounts into HTML at deployment time.", workflow.index("publish-digibile-template:"))
           heredoc = workflow.index("python3 - <<'PY'\n", marker) + len("python3 - <<'PY'\n")
           end = workflow.index("\n          PY\n          grep -q 'data-static-fallback", heredoc)
           script = "\n".join(line[10:] if line.startswith("          ") else line for line in workflow[heredoc:end].splitlines())
