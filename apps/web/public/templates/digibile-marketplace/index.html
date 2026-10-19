@@ -245,7 +245,7 @@ function categoryMatches(p,v){
  if(f==="پیشنهاد ویژه")return Number(p.discount_percent)>0||(Number(p.original_price)>Number(p.price)&&Number(p.price)>0);
  const aliases={"موبایل و تبلت":"موبایل و دیجیتال","موبایل":"موبایل و دیجیتال","گوشی":"موبایل و دیجیتال","لپتاپ":"لپ‌تاپ و کامپیوتر","لپ تاپ":"لپ‌تاپ و کامپیوتر","کامپیوتر":"لپ‌تاپ و کامپیوتر","ساعت":"ساعت و اکسسوری"};
  const canonical=aliases[f]||v, c=fa(p.category), cf=fa(canonical);
- if(c===cf||c.includes(cf)||cf.includes(c))return true;
+ if(c&&(c===cf||c.includes(cf)||cf.includes(c)))return true;
  const text=fa([p.title,p.category,p.brand,p.description,p.short_description].filter(Boolean).join(" "));
  const rx={"موبایل و دیجیتال":/موبایل|گوشی|تلفن همراه|smart.?phone|mobile|tablet|تبلت|iphone|آیفون|تلفن/,"لپ‌تاپ و کامپیوتر":/لپ.?تاپ|laptop|notebook|کامپیوتر|computer|desktop|\bpc\b|کروم.?بوک/,"خانه و آشپزخانه":/خانه|آشپزخانه|یخچال|جاروبرقی|مبلمان|home|kitchen|appliance/,"ساعت و اکسسوری":/ساعت|اکسسوری|watch|bracelet|جواهر|زیور/,"مد و پوشاک":/پوشاک|لباس|کفش|fashion|clothing|apparel|shoes/,"زیبایی و سلامت":/زیبایی|سلامت|آرایشی|بهداشتی|beauty|health|skincare/,"ورزش و سفر":/ورزش|سفر|camping|sport|travel/,"خودرو و ابزار":/خودرو|ابزار|automotive|tool/};
  return !!rx[canonical]&&rx[canonical].test(text);
