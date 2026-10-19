@@ -705,7 +705,7 @@ domainMarketplaceRouter.post("/api/marketplace/reference-catalog/materialize",re
     sellerId=sellers.rows[0].id;
   }
   const catalog=await query(
-    "select source_product_id,sku,title,description,category,source_price,original_price,discount_percent,currency,image_url,brand,rating,source_available,specifications,gallery_images,source_fetched_at from catalog_reference_products where tenant_id=$1 and source_price>0 order by category,title limit 500",
+    "select source_product_id,sku,title,description,category,source_price,original_price,discount_percent,currency,image_url,brand,rating,source_available,specifications,gallery_images,variants,source_fetched_at from catalog_reference_products where tenant_id=$1 and source_price>0 order by category,title limit 500",
     [ctx.id]
   );
   if(!catalog.rowCount)return res.status(409).json({error:"کاتالوگ داخلی ذخیره‌شده خالی است؛ ابتدا کالاها و تصاویر را وارد پایگاه داده داخلی کنید",materialized:0});
