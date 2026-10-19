@@ -565,7 +565,7 @@ jobs:
           # Seed the tenant-scoped reference table once, then copy only rows with local media
           # into the independent products table. No source URL is copied to product attributes.
           curl -fSs --connect-timeout 10 --max-time 180 'https://sookar.ir/api/public/marketplace/reference-catalog' -o /tmp/sookar-reference-catalog.json
-          tenant_code="$(node -e 'const d=require("/tmp/sookar-reference-catalog.json");const p=Array.isArray(d.products)?d.products:[];const local=p.filter(x=>typeof x.image_url==="string"&&x.image_url.startsWith("/api/public/media/catalog/"));console.log("REFERENCE_CATALOG_TENANT="+(d.tenant?.code||"unknown"));console.log("REFERENCE_CATALOG_PRODUCTS="+p.length);console.log("REFERENCE_CATALOG_LOCAL_IMAGES="+local.length);if(!d.tenant?.code||p.length===0||local.length===0)process.exit(2);process.stdout.write(String(d.tenant.code))')"
+          tenant_code="$(node -e 'const d=require("/tmp/sookar-reference-catalog.json");const p=Array.isArray(d.products)?d.products:[];const local=p.filter(x=>typeof x.image_url==="string"&&x.image_url.startsWith("/api/public/media/catalog/"));console.error("REFERENCE_CATALOG_TENANT="+(d.tenant?.code||"unknown"));console.error("REFERENCE_CATALOG_PRODUCTS="+p.length);console.error("REFERENCE_CATALOG_LOCAL_IMAGES="+local.length);if(!d.tenant?.code||p.length===0||local.length===0)process.exit(2);process.stdout.write(String(d.tenant.code))')"
           if ! [[ "$tenant_code" =~ ^[A-Za-z0-9_-]{1,80}$ ]]; then
             echo "Invalid tenant code returned by the public catalog; stopping."
             exit 1
