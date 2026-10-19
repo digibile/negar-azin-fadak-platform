@@ -526,6 +526,8 @@ jobs:
           index_path.write_text(source, encoding="utf-8")
           print("DIGIBILE_STATIC_RENDERED_CARDS=" + str(len(cards)))
           PY
+          grep -q 'data-static-fallback="true"' /tmp/digibile-template-package/digibile-marketplace/dist/index.html
+          echo DIGIBILE_STATIC_PRODUCT_HTML_OK
           tar -czf /tmp/digibile-template.tar.gz -C /tmp/digibile-template-package digibile-marketplace
           sha256sum /tmp/digibile-template.tar.gz
 
