@@ -353,6 +353,51 @@ body{background:#f5f7fa}
  .category small{font-size:9px}
 }
 
+
+/* Premium marketplace merchandising: keep each category as a horizontal product rail. */
+#homeMerchandisingGrid .home-product-section>.grid,
+#homeMerchandisingGrid .home-product-section .home-shelf-grid{
+ display:flex;
+ flex-flow:row nowrap;
+ align-items:stretch;
+ gap:14px;
+ overflow-x:auto;
+ overflow-y:hidden;
+ padding:4px 2px 16px;
+ scroll-snap-type:x proximity;
+ overscroll-behavior-inline:contain;
+ scrollbar-width:thin;
+ scrollbar-color:#b8cbd6 transparent;
+}
+#homeMerchandisingGrid .home-product-section .grid>.card,
+#homeMerchandisingGrid .home-product-section .home-shelf-grid>.card{
+ flex:0 0 clamp(220px,22%,265px);
+ width:clamp(220px,22%,265px);
+ max-width:265px;
+ scroll-snap-align:start;
+}
+#homeMerchandisingGrid .home-product-section .grid>.empty,
+#homeMerchandisingGrid .home-product-section .home-shelf-grid>.empty{
+ flex:1 0 100%;
+ min-width:100%;
+}
+#homeMerchandisingGrid .home-product-section .grid::-webkit-scrollbar,
+#homeMerchandisingGrid .home-product-section .home-shelf-grid::-webkit-scrollbar{height:7px}
+#homeMerchandisingGrid .home-product-section .grid::-webkit-scrollbar-thumb,
+#homeMerchandisingGrid .home-product-section .home-shelf-grid::-webkit-scrollbar-thumb{background:#b8cbd6;border-radius:20px}
+#homeMerchandisingGrid .home-product-section .grid::-webkit-scrollbar-track,
+#homeMerchandisingGrid .home-product-section .home-shelf-grid::-webkit-scrollbar-track{background:#eef3f6;border-radius:20px}
+@media(max-width:760px){
+ #homeMerchandisingGrid>.home-product-section{padding:18px;margin:16px auto;border-radius:20px}
+ #homeMerchandisingGrid .home-product-section .grid>.card,
+ #homeMerchandisingGrid .home-product-section .home-shelf-grid>.card{flex-basis:clamp(205px,42vw,245px);width:clamp(205px,42vw,245px)}
+}
+@media(max-width:480px){
+ #homeMerchandisingGrid .home-product-section .grid>.card,
+ #homeMerchandisingGrid .home-product-section .home-shelf-grid>.card{flex-basis:74vw;width:74vw;max-width:245px}
+ #homeMerchandisingGrid .home-product-section .photo{height:190px}
+}
+
 </style>
 </head>
 <body>
