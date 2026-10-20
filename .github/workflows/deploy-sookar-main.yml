@@ -703,6 +703,7 @@ jobs:
           console.log("DIGIBILE_PRODUCT_DETAIL_SCRIPT_OK");
           NODE
           grep -q 'دسته‌بندی‌های محبوب' apps/web/public/templates/digibile-marketplace/index.html
+          grep -q 'name="digibile-release" content="marketplace-2026-10-20-v3"' apps/web/public/templates/digibile-marketplace/index.html
           mkdir -p /tmp/digibile-template-package/digibile-marketplace/dist
           # Freeze the already-persisted database catalog into the storefront release.
           # This is a deployment-time import, not a runtime dependency on the source API.
@@ -971,19 +972,25 @@ jobs:
           fi
           # Some template switchers copy only index.html into the document root.
           # Publish the same-origin snapshot explicitly so the browser never needs CORS or the source API.
+          test -s "$REGISTRY/$ID/dist/index.html" || { echo "Generated Digibile homepage missing from release"; exit 32; }
+          test -s "$REGISTRY/$ID/dist/product.html" || { echo "Generated Digibile product detail missing from release"; exit 32; }
           test -s "$REGISTRY/$ID/dist/catalog.json" || { echo "Persisted catalog snapshot missing from release"; exit 32; }
+          # Do not trust the legacy switcher's partial copy: activate the exact generated release files explicitly.
+          cp -f "$REGISTRY/$ID/dist/index.html" "$PUBLIC/index.html"
+          cp -f "$REGISTRY/$ID/dist/product.html" "$PUBLIC/product.html"
           cp -f "$REGISTRY/$ID/dist/catalog.json" "$PUBLIC/catalog.json"
-          chown digibile:digibile "$PUBLIC/catalog.json"
+          chown digibile:digibile "$PUBLIC/index.html" "$PUBLIC/product.html" "$PUBLIC/catalog.json"
           code=000
           for i in $(seq 1 12); do
-              code="$(curl -L --connect-timeout 5 --max-time 15 -sS -o /tmp/digibile-live-check.html -w '%{http_code}' https://digibile.ir/ || true)"
-              if [ "$code" = "200" ] && grep -q 'دیجی‌بایل' /tmp/digibile-live-check.html && grep -q 'دسته‌بندی‌های محبوب' /tmp/digibile-live-check.html; then
+              code="$(curl -L --connect-timeout 5 --max-time 15 -sS -o /tmp/digibile-live-check.html -w '%{http_code}' 'https://digibile.ir/?release=marketplace-2026-10-20-v3' || true)"
+              if [ "$code" = "200" ] && grep -q 'دیجی‌بایل' /tmp/digibile-live-check.html && grep -q 'name="digibile-release" content="marketplace-2026-10-20-v3"' /tmp/digibile-live-check.html && grep -q 'فروش ویژه و تخفیف‌خورده‌ها' /tmp/digibile-live-check.html && grep -q 'فهرست مرجع؛ عرضه و موجودی فروشنده تأیید نشده' /tmp/digibile-live-check.html && grep -q 'homeMerchandisingGrid' /tmp/digibile-live-check.html; then
                   echo DIGIBILE_LIVE_TEMPLATE_OK
+                  echo DIGIBILE_LIVE_HOME_SHELVES_OK
                   break
               fi
               sleep 3
           done
-          if [ "$code" != "200" ] || ! grep -q 'دسته‌بندی‌های محبوب' /tmp/digibile-live-check.html; then
+          if [ "$code" != "200" ] || ! grep -q 'name="digibile-release" content="marketplace-2026-10-20-v3"' /tmp/digibile-live-check.html || ! grep -q 'فروش ویژه و تخفیف‌خورده‌ها' /tmp/digibile-live-check.html || ! grep -q 'فهرست مرجع؛ عرضه و موجودی فروشنده تأیید نشده' /tmp/digibile-live-check.html; then
               PREVIOUS="$(cat "$BACKUP/previous-active-id" 2>/dev/null || true)"
               if [ -n "$PREVIOUS" ] && [ -d "$REGISTRY/$PREVIOUS/dist" ]; then "$SCRIPT" "$PREVIOUS" || true; fi
               find "$PUBLIC" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
