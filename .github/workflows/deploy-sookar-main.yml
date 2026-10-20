@@ -956,7 +956,7 @@ jobs:
           import json,sys,os,tempfile
           path,tid,sha=sys.argv[1:]
           with open(path,encoding="utf-8") as f: data=json.load(f)
-          item={"id":tid,"template_id":tid,"slug":tid,"name":"دیجی‌بایل | بازارگاه حرفه‌ای","type":"marketplace","version":"1.0.0","description":"قالب فروشگاهی اختصاصی دیجی‌بایل؛ راست‌چین و واکنش‌گرا.","domain":"digibile.ir","dist":"digibile-marketplace/dist","path":"digibile-marketplace/dist","folder":"digibile-marketplace","entrypoint":"index.html","preview_url":"https://digibile.ir/","source_sha":sha,"status":"published"}
+          item={"id":tid,"template_id":tid,"slug":tid,"name":"دیجی‌کالا | قالب فروشگاهی","type":"marketplace","version":"1.1.0","description":"قالب فروشگاهی راست‌چین با صفحه محصول سه‌ستونه و گالری تصاویر مطابق مرجع طراحی.","domain":"digibile.ir","dist":"digibile-marketplace/dist","path":"digibile-marketplace/dist","folder":"digibile-marketplace","entrypoint":"index.html","preview_url":"https://digibile.ir/","source_sha":sha,"status":"published"}
           if isinstance(data,list):
               data=[x for x in data if not (isinstance(x,dict) and (x.get("id")==tid or x.get("template_id")==tid or x.get("slug")==tid))]
               data.append(item)
