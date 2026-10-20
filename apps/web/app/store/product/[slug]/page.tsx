@@ -59,7 +59,7 @@ export default async function Product({params,searchParams}:{params:Promise<{slu
  const cashPrice=Number(product.price);
  const attributes=product.attributes||{};
  const gallery=Array.isArray(attributes.galleryImages)?attributes.galleryImages.filter((url):url is string=>typeof url==="string"&&(url.startsWith("https://")||(url.startsWith("/")&&!url.startsWith("//")))).slice(0,8):[];
- const images=[...new Set([product.image_url,...gallery].filter((url):url is string=>typeof url==="string"&&(url.startsWith("/")&&!url.startsWith("//"))))].slice(0,9);
+ const images=[...new Set([product.image_url,...gallery].filter((url):url is string=>typeof url==="string"&&(url.startsWith("https://")||(url.startsWith("/")&&!url.startsWith("//")))))].slice(0,9);
  const specifications=Array.isArray(attributes.specifications)?attributes.specifications as Array<{group?:string;items?:Array<{name?:string;values?:string[]}>}>:[];
  const variants=Array.isArray(attributes.variants)?attributes.variants as Array<{id?:string|null;sku?:string|null;title?:string|null;price?:number|null;currency?:string;available?:boolean|null;color?:string|null;size?:string|null;attributes?:Record<string,string>}>:[];
  const jsonLd={
