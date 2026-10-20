@@ -805,6 +805,8 @@ jobs:
                   shelves.append('<section class="section home-product-section"><div class="sectionhead"><div><span class="kicker">' + ("پیشنهادهای تخفیف" if title.startswith("فروش ویژه") else "دسته‌بندی محصولات") + '</span><h2>' + esc(title) + '</h2><p>' + ("فقط تخفیف‌های دارای دادهٔ ثبت‌شده؛ بدون قیمت‌سازی." if title.startswith("فروش ویژه") else "کالاهای ذخیره‌شده در این دسته، با وضعیت عرضهٔ شفاف.") + '</p></div><a class="textlink" href="#products">مشاهده همه ←</a></div><div class="grid">' + "".join(card(p) for p in items[:8]) + '</div></section>')
               elif title.startswith("فروش ویژه"):
                   shelves.append('<section class="section home-product-section"><div class="sectionhead"><div><span class="kicker">پیشنهادهای تخفیف</span><h2>' + esc(title) + '</h2><p>فقط تخفیف‌های دارای دادهٔ ثبت‌شده؛ بدون قیمت‌سازی.</p></div></div><div class="empty">در فهرست ذخیره‌شده هنوز تخفیف معتبر ثبت نشده است؛ برای نمایش تخفیف ساختگی نمی‌سازیم.</div></section>')
+              else:
+                  shelves.append('<section class="section home-product-section"><div class="sectionhead"><div><span class="kicker">دسته‌بندی محصولات</span><h2>' + esc(title) + '</h2><p>کالاهای ذخیره‌شده در این دسته، با وضعیت عرضهٔ شفاف.</p></div></div><div class="empty">در کاتالوگ ذخیره‌شده هنوز محصولی در این دسته ثبت نشده است؛ به‌محض ثبت کالای واقعی، این بخش خودکار تکمیل می‌شود.</div></section>')
           source = index_path.read_text(encoding="utf-8")
           grid_placeholder = '<div class="grid" id="productGrid"></div>'
           if grid_placeholder not in source:
