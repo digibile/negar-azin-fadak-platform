@@ -718,6 +718,11 @@ jobs:
           NODE
           grep -q 'دسته‌بندی‌های محبوب' apps/web/public/templates/digibile-marketplace/index.html
           grep -q 'name="digibile-release" content="marketplace-2026-10-20-v3"' apps/web/public/templates/digibile-marketplace/index.html
+          grep -q 'data-tab="reviews"' apps/web/public/templates/digibile-marketplace/product.html
+          grep -q 'data-image-index' apps/web/public/templates/digibile-marketplace/product.html
+          grep -q 'id="relatedProducts"' apps/web/public/templates/digibile-marketplace/product.html
+          grep -q 'id="mobileBuy"' apps/web/public/templates/digibile-marketplace/product.html
+          grep -q -- '--red:#ef4056' apps/web/public/templates/digibile-marketplace/product.html
           mkdir -p /tmp/digibile-template-package/digibile-marketplace/dist
           # Freeze the already-persisted database catalog into the storefront release.
           # This is a deployment-time import, not a runtime dependency on the source API.
@@ -1035,6 +1040,16 @@ jobs:
           test "$catalog_code" = "200"
           node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync("/tmp/digibile-public-catalog.json","utf8"));const p=Array.isArray(d.products)?d.products:[];const priced=p.filter(x=>Number(x.price)>0);const images=p.filter(x=>typeof x.image_url==="string"&&x.image_url.length>0);console.log("DIGIBILE_PUBLIC_PRODUCTS="+p.length);console.log("DIGIBILE_PUBLIC_PRICED_PRODUCTS="+priced.length);console.log("DIGIBILE_PUBLIC_IMAGE_PRODUCTS="+images.length);if(d.tenant?.code!=="digibile"||priced.length===0||images.length===0)process.exit(1);'
           echo DIGIBILE_STATIC_CATALOG_VISIBLE_OK
+          product_id="$(node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync("/tmp/digibile-public-catalog.json","utf8"));const p=(d.products||[])[0]||{};process.stdout.write(String(p.id??p.product_id??p.productId??p.sku??""));' )"
+          test -n "$product_id" || { echo "Digibile product detail cannot be checked: no product identifier in saved catalog"; exit 1; }
+          product_code="$(curl -L --connect-timeout 5 --max-time 25 -sS -o /tmp/digibile-product-page.html -w '%{http_code}' "https://digibile.ir/product.html?id=$(python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=""))' "$product_id")")"
+          echo "DIGIBILE_PRODUCT_DETAIL_HTTP=$product_code"
+          test "$product_code" = "200"
+          grep -q 'data-tab="reviews"' /tmp/digibile-product-page.html
+          grep -q 'data-image-index' /tmp/digibile-product-page.html
+          grep -q 'id="relatedProducts"' /tmp/digibile-product-page.html
+          grep -q 'id="mobileBuy"' /tmp/digibile-product-page.html
+          echo DIGIBILE_PRODUCT_DETAIL_PAGE_OK
 
       - name: Inspect Digibile-owned live catalog
         shell: bash
