@@ -985,6 +985,23 @@ jobs:
           os.replace(tmp,path)
           PY
           chown digibile:digibile "$REGISTRY/templates.json"
+          python3 - "$REGISTRY/templates.json" "$ID" <<'PY'
+          import json,sys
+          path,tid=sys.argv[1:]
+          with open(path,encoding="utf-8") as f: data=json.load(f)
+          found=[]
+          def walk(x):
+              if isinstance(x,dict):
+                  if x.get("id")==tid or x.get("template_id")==tid or x.get("slug")==tid:
+                      found.append(x)
+                  for v in x.values(): walk(v)
+              elif isinstance(x,list):
+                  for v in x: walk(v)
+          walk(data)
+          item=next((x for x in found if x.get("name")=="دیجی کالا" and x.get("dist")=="digikala/dist"),None)
+          if not item: raise SystemExit("Independent Digikala template was not registered correctly")
+          print("DIGIKALA_TEMPLATE_REGISTRY_OK")
+          PY
           if ! "$SCRIPT" "$ID"; then
               echo "Activation command failed; restoring previous document root and registry."
               find "$PUBLIC" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
