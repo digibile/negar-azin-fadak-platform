@@ -722,7 +722,7 @@ jobs:
           grep -q 'data-image-index' apps/web/public/templates/digibile-marketplace/product.html
           grep -q 'id="relatedProducts"' apps/web/public/templates/digibile-marketplace/product.html
           grep -q 'id="mobileBuy"' apps/web/public/templates/digibile-marketplace/product.html
-          grep -q '--red:#ef4056' apps/web/public/templates/digibile-marketplace/product.html
+          grep -q -- '--red:#ef4056' apps/web/public/templates/digibile-marketplace/product.html
           mkdir -p /tmp/digibile-template-package/digibile-marketplace/dist
           # Freeze the already-persisted database catalog into the storefront release.
           # This is a deployment-time import, not a runtime dependency on the source API.
