@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import StorePage from "../page";
 
 export const metadata: Metadata = {
-  title: "پیش‌نمایش قالب فروشگاهی قرمز",
-  description: "پیش‌نمایش قالب فروشگاهی الهام‌گرفته از الگوهای رایج بازارگاه‌های بزرگ؛ بدون وابستگی رسمی به برندهای دیگر.",
+  title: "قالب فروشگاهی دیجی‌کالا | صفحه اصلی و جزئیات محصول",
+  description: "قالب فروشگاهی مستقل با دسته‌بندی‌ها، کاتالوگ محصولات و صفحه جزئیات محصول واکنش‌گرا؛ بدون وابستگی رسمی به برندهای دیگر.",
   robots: { index: false, follow: false }
 };
 
