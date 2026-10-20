@@ -179,6 +179,20 @@ jobs:
       - name: Web build
         working-directory: apps/web
         run: pnpm build
+      - name: Validate product detail gallery URL filtering
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const source = fs.readFileSync("apps/web/app/store/product/[slug]/page.tsx", "utf8");
+          const imagesLine = source.split("\n").find(line => line.includes("const images="));
+          if (!imagesLine || !imagesLine.includes('url.startsWith("https://")') ||
+              !imagesLine.includes('url.startsWith("/")&&!url.startsWith("//")')) {
+            throw new Error("Product gallery must preserve HTTPS and safe root-relative image URLs.");
+          }
+          console.log("PRODUCT_GALLERY_SAFE_URL_FILTER_OK");
+          NODE
       - name: Package exact SHA
         shell: bash
         run: |
