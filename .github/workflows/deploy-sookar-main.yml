@@ -852,7 +852,11 @@ jobs:
           test -s /tmp/digibile-template-package/digibile-marketplace/dist/product.html
           echo DIGIBILE_STATIC_PRODUCT_HTML_OK
           echo DIGIBILE_STATIC_PRODUCT_HTML_OK
-          tar -czf /tmp/digibile-template.tar.gz -C /tmp/digibile-template-package digibile-marketplace
+          rm -rf /tmp/digibile-template-package/digikala
+          cp -a /tmp/digibile-template-package/digibile-marketplace /tmp/digibile-template-package/digikala
+          test -s /tmp/digibile-template-package/digikala/dist/index.html
+          test -s /tmp/digibile-template-package/digikala/dist/product.html
+          tar -czf /tmp/digibile-template.tar.gz -C /tmp/digibile-template-package digibile-marketplace digikala
           sha256sum /tmp/digibile-template.tar.gz
 
       - name: Prepare SSH
@@ -931,9 +935,9 @@ jobs:
           DOMAIN=/home/digibile/domains/digibile.ir
           REGISTRY="$DOMAIN/ui/negar-templates"
           PUBLIC="$DOMAIN/public_html"
-          ID=digibile-marketplace
+          ID=digikala
           STAMP="$(date +%Y%m%d-%H%M%S)"
-          BACKUP="$DOMAIN/ui/backups/digibile-marketplace-$STAMP"
+          BACKUP="$DOMAIN/ui/backups/digikala-$STAMP"
           SCRIPT="$(find "$DOMAIN/ui" "$DOMAIN" -maxdepth 4 -type f -name 'switch-template.sh' -print -quit)"
           mkdir -p "$BACKUP" "$REGISTRY/$ID"
           cp -a "$REGISTRY/templates.json" "$BACKUP/templates.json"
@@ -956,12 +960,12 @@ jobs:
           print(ids[0] if ids else "")
           PY
           tar -xzf /tmp/digibile-template.tar.gz -C "$REGISTRY"
-          chown -R digibile:digibile "$REGISTRY/$ID"
+          chown -R digibile:digibile "$REGISTRY/$ID" "$REGISTRY/digibile-marketplace"
           python3 - "$REGISTRY/templates.json" "$ID" "$RELEASE_SHA" <<'PY'
           import json,sys,os,tempfile
           path,tid,sha=sys.argv[1:]
           with open(path,encoding="utf-8") as f: data=json.load(f)
-          item={"id":tid,"template_id":tid,"slug":tid,"name":"دیجی‌بایل | بازارگاه حرفه‌ای","type":"marketplace","version":"1.0.0","description":"قالب فروشگاهی اختصاصی دیجی‌بایل؛ راست‌چین و واکنش‌گرا.","domain":"digibile.ir","dist":"digibile-marketplace/dist","path":"digibile-marketplace/dist","folder":"digibile-marketplace","entrypoint":"index.html","preview_url":"https://digibile.ir/","source_sha":sha,"status":"published"}
+          item={"id":tid,"template_id":tid,"slug":tid,"name":"دیجی کالا","type":"marketplace","version":"1.0.0","description":"قالب فروشگاهی مستقل با چیدمان الهام‌گرفته از تجربه خرید بازارگاه‌های بزرگ؛ راست‌چین، واکنش‌گرا و متصل به کاتالوگ ثبت‌شده.","domain":"digibile.ir","dist":"digikala/dist","path":"digikala/dist","folder":"digikala","entrypoint":"index.html","preview_url":"https://digibile.ir/","source_sha":sha,"status":"published"}
           if isinstance(data,list):
               data=[x for x in data if not (isinstance(x,dict) and (x.get("id")==tid or x.get("template_id")==tid or x.get("slug")==tid))]
               data.append(item)
@@ -981,6 +985,23 @@ jobs:
           os.replace(tmp,path)
           PY
           chown digibile:digibile "$REGISTRY/templates.json"
+          python3 - "$REGISTRY/templates.json" "$ID" <<'PY'
+          import json,sys
+          path,tid=sys.argv[1:]
+          with open(path,encoding="utf-8") as f: data=json.load(f)
+          found=[]
+          def walk(x):
+              if isinstance(x,dict):
+                  if x.get("id")==tid or x.get("template_id")==tid or x.get("slug")==tid:
+                      found.append(x)
+                  for v in x.values(): walk(v)
+              elif isinstance(x,list):
+                  for v in x: walk(v)
+          walk(data)
+          item=next((x for x in found if x.get("name")=="دیجی کالا" and x.get("dist")=="digikala/dist"),None)
+          if not item: raise SystemExit("Independent Digikala template was not registered correctly")
+          print("DIGIKALA_TEMPLATE_REGISTRY_OK")
+          PY
           if ! "$SCRIPT" "$ID"; then
               echo "Activation command failed; restoring previous document root and registry."
               find "$PUBLIC" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
