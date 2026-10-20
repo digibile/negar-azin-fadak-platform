@@ -102,7 +102,7 @@ export default async function Product({params,searchParams}:{params:Promise<{slu
        {variants.length>0&&<div className="sk-dk-variants"><b>انتخاب مدل</b><div>{variants.slice(0,6).map((variant,index)=><span key={(variant.id||variant.sku||"variant")+index} title={variant.title||variant.color||variant.size||"تنوع محصول"}>{variant.color||variant.title||variant.size||"مدل "+(index+1)}</span>)}</div></div>}
        {specifications.length>0&&<div className="sk-dk-key-specs"><b>ویژگی‌های اصلی</b><div>{specifications.flatMap(group=>group.items||[]).slice(0,4).map((item,index)=><div key={(item.name||"ویژگی")+index}><span>{item.name||"ویژگی"}</span><strong>{Array.isArray(item.values)?item.values.join("، "):"ثبت نشده"}</strong></div>)}</div></div>}
        {attributes.preorderEnabled===true&&<div className="sk-product-demo-notice"><strong>پیش‌فروش</strong><span>سقف ثبت‌شده: {Math.max(1,Number(attributes.preorderLimit)||10).toLocaleString("fa-IR")} سفارش. این مقدار به‌معنای تأیید موجودی فیزیکی نیست.</span></div>}
-       {product.is_demo_product&&<div className="sk-product-demo-notice">این کالا در کاتالوگ داخلی ثبت شده است؛ سفارش نهایی و پرداخت واقعی تا تأیید فروشنده فعال نیست.</div>}
+       {product.is_demo_product&&<div className="sk-product-demo-notice">این کالا در کاتالوگ داخلی ثبت شده است؛ سفارش نهایی و پرداخت واقعی غیرفعال‌اند تا تأیید فروشنده و فعال بودن مسیر پرداخت.</div>}
      </div>
      <aside className="sk-dk-buybox">
        <div className="sk-dk-seller-title"><strong>فروشنده</strong><Link href={identity.path}>فروشندگان دیگر ←</Link></div>
