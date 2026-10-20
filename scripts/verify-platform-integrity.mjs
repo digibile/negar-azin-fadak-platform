@@ -199,7 +199,7 @@ const productDetailPage=fs.readFileSync(path.join(root,"apps/web/app/store/produ
 if(!productDetailPage.includes("product.is_demo_product")||!productDetailPage.includes("!product.is_reference")||!productDetailPage.includes("سفارش نهایی و پرداخت واقعی غیرفعال‌اند"))throw new Error("Product detail must keep demo items local and prevent reference-only items from entering the cart");
 const digikalaReferenceProductPage=fs.readFileSync(path.join(root,"apps/web/public/templates/digibile-marketplace/product.html"),"utf8");
 if(!digikalaReferenceProductPage.includes("grid-template-columns:minmax(275px,300px)")||!digikalaReferenceProductPage.includes('class="gallery"')||!digikalaReferenceProductPage.includes('class="buybox"')||!digikalaReferenceProductPage.includes("class=\"thumb")||!digikalaReferenceProductPage.includes("دیجی‌کالا"))throw new Error("Static Digikala product page must preserve the supplied screenshot's RTL three-column gallery/details/seller composition");
-const staticProductScript=digikalaReferenceProductPage.match(/<script>([\\s\\S]*?)<\\/script>/);
+const staticProductScript=digikalaReferenceProductPage.match(/<script>([\s\S]*?)<\/script>/);
 if(!staticProductScript)throw new Error("Static product detail script missing");
 new Function(staticProductScript[1]);
 if(!digikalaReferenceProductPage.includes("galleryFallback")||!digikalaReferenceProductPage.includes("thumbs.addEventListener")||!digikalaReferenceProductPage.includes("https://sookar.ir/login?brand=digibile"))throw new Error("Static product gallery, missing-image fallback, and existing login route must remain available");
