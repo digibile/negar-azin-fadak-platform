@@ -158,7 +158,8 @@ const brandIdentity:Record<StoreVariant,{name:string;mark:string;tagline:string;
 export default function StorePage({ variant = "default" }: { variant?: StoreVariant }) {
   const pathname = usePathname();
   const [theme, setTheme] = useState<StoreTheme | null>(null);
-  const templateVariant: StoreVariant = pathname === "/" || pathname === "/store/marketplace-pro" ? variant : theme?.key === "technolife-store" ? "technolife" : theme?.key === "digibile-commerce" ? "digibile" : theme?.key === "kipa-store" ? "kipa" : variant;
+  const [routeSite, setRouteSite] = useState<StoreVariant | null>(null);
+  const templateVariant: StoreVariant = pathname === "/" || pathname === "/store/marketplace-pro" ? variant : routeSite || (theme?.key === "technolife-store" ? "technolife" : theme?.key === "digibile-commerce" ? "digibile" : theme?.key === "kipa-store" ? "kipa" : variant);
   const identity = brandIdentity[templateVariant];
   const isTechnolife = templateVariant === "technolife";
   const isMarketplacePro = templateVariant === "marketplace-pro";
@@ -177,6 +178,14 @@ export default function StorePage({ variant = "default" }: { variant?: StoreVari
   const [activeNavCategory, setActiveNavCategory] = useState(activeStoreNavigation[0]?.name || "موبایل");
   const [sortBy, setSortBy] = useState<"newest" | "price-asc" | "price-desc" | "title">("newest");
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const initialQuery = params.get("q") || "";
+    const requestedSite = params.get("site");
+    setQuery(initialQuery);
+    setRouteSite(requestedSite && ["digikala", "digibile", "technolife", "ava", "kipa", "marketplace-pro"].includes(requestedSite) ? requestedSite as StoreVariant : null);
+  }, [pathname]);
 
   useEffect(() => {
     // The public Sookar homepage owns its visual identity. Never let the shared
