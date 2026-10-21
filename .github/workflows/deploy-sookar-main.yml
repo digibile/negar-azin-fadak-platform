@@ -179,6 +179,32 @@ jobs:
       - name: Web build
         working-directory: apps/web
         run: pnpm build
+      - name: Validate Digibile product detail template against reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const html = fs.readFileSync("apps/web/public/templates/digibile-marketplace/product.html", "utf8");
+          const scripts = [...html.matchAll(/<script[^>]*>([\\s\\S]*?)<\\/script>/gi)].map(match => match[1]).filter(source => source.trim());
+          if (!scripts.length) throw new Error("Digibile product page has no interactive script.");
+          for (const source of scripts) new Function(source);
+          const required = [
+            ["Digikala product header", 'aria-label="دیجی‌کالا، صفحه اصلی"'],
+            ["product action rail", 'class="product-tools"'],
+            ["selectable product variants", 'class="variant color-swatch"'],
+            ["catalog-backed insurance options", "insuranceItems.length"],
+            ["reference RTL three-column layout", "grid-template-columns:minmax(330px,.95fr) minmax(0,1.2fr) minmax(285px,.7fr)"],
+            ["responsive mobile layout", "@media(max-width:700px)"],
+            ["catalog-backed ratings", "positive(rating)"],
+            ["share interaction", 'id="shareProduct"']
+          ];
+          for (const [label, token] of required) {
+            if (!html.includes(token)) throw new Error("Digibile product reference check failed: " + label);
+          }
+          console.log("DIGIBILE_PRODUCT_REFERENCE_LAYOUT_OK");
+          console.log("DIGIBILE_PRODUCT_INLINE_SCRIPT_SYNTAX_OK=" + scripts.length);
+          NODE
       - name: Validate product detail gallery URL filtering
         shell: bash
         run: |
