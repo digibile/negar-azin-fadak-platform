@@ -81,7 +81,28 @@ export default async function Product({params,searchParams}:{params:Promise<{slu
  };
  return <main className={"sk-store sookar-store sk-product-site--"+site} dir="rtl">
    <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd)}} />
-   <header className="sk-product-header"><div className="sk-wrap"><Link href={identity.path} className="sk-product-header-brand"><span className="sk-product-header-mark">{identity.mark}</span><span><strong>{identity.name}</strong><small>{identity.tagline}</small></span></Link><div className="sk-product-header-label"><span>{site==="digikala"?"قالب فروشگاهی دیجی‌کالا":"کاتالوگ داخلی سوکار"}</span><b>جزئیات محصول</b></div><div className="sk-product-header-actions"><Link href="/store/cart" className="sk-product-header-cart" aria-label="مشاهده سبد خرید"><span aria-hidden="true">🛒</span><span>سبد خرید</span><CartCount /></Link><Link href={identity.path} className="sk-product-header-back">ادامه خرید <span aria-hidden="true">←</span></Link></div></div></header>
+   {site==="digikala" ? <header className="sk-dk-site-header">
+     <div className="sk-dk-header-main">
+       <div className="sk-dk-header-actions">
+         <Link href="/store/cart" className="sk-dk-header-icon" aria-label="سبد خرید"><span aria-hidden="true">🛒</span><CartCount /></Link>
+         <Link href="/login?brand=digibile" className="sk-dk-header-login">ورود | ثبت‌نام <span aria-hidden="true">↪</span></Link>
+         <Link href="/login?brand=digibile" className="sk-dk-header-icon" aria-label="اعلان‌ها">♧</Link>
+         <Link href={identity.path} className="sk-dk-address-pill"><span aria-hidden="true">⌖</span> انتخاب آدرس</Link>
+       </div>
+       <form className="sk-dk-header-search" action="/store/shop" method="get" role="search">
+         <input type="search" name="q" placeholder="جستجو در محصولات" aria-label="جستجو در محصولات" /><input type="hidden" name="site" value="digikala" />
+         <button type="submit" aria-label="جستجو">⌕</button>
+       </form>
+       <Link href={identity.path} className="sk-dk-logo" aria-label="صفحه اصلی قالب فروشگاهی">
+         <strong>دیجی‌کالا</strong><span className="sk-dk-logo-mark" aria-hidden="true">◒</span>
+       </Link>
+     </div>
+     <nav className="sk-dk-header-nav" aria-label="منوی فروشگاه">
+       <Link href={identity.path} className="sk-dk-nav-category"><span aria-hidden="true">☰</span> دسته‌بندی کالاها</Link>
+       <Link href={identity.path}>شگفت‌انگیزها</Link><Link href={identity.path}>سوپرمارکت</Link><Link href={identity.path}>طلا و نقره دیجیتال</Link><Link href={identity.path}>پرفروش‌ترین‌ها</Link><Link href={identity.path}>دیجی‌پی</Link><Link href={identity.path}>در دیجی‌کالا بفروشید</Link>
+     </nav>
+   </header> : <header className="sk-product-header"><div className="sk-wrap"><Link href={identity.path} className="sk-product-header-brand"><span className="sk-product-header-mark">{identity.mark}</span><span><strong>{identity.name}</strong><small>{identity.tagline}</small></span></Link><div className="sk-product-header-label"><span>کاتالوگ داخلی سوکار</span><b>جزئیات محصول</b></div><div className="sk-product-header-actions"><Link href="/store/cart" className="sk-product-header-cart" aria-label="مشاهده سبد خرید"><span aria-hidden="true">🛒</span><span>سبد خرید</span><CartCount /></Link><Link href={identity.path} className="sk-product-header-back">ادامه خرید <span aria-hidden="true">←</span></Link></div></div></header>}
+   {site==="digikala"&&<div className="sk-dk-product-breadcrumb"><span>⌂</span><Link href={identity.path}>دیجی‌کالا</Link><span>/</span><Link href={identity.path}>{product.category||"کالای دیجیتال"}</Link><span>/</span><span>{product.category||"محصول"}</span><small>فروش در دیجی‌کالا</small></div>}
    <section className="sk-product-detail" aria-label="جزئیات محصول">
      <ProductGallery images={images} title={product.title} />
      <div className="sk-product-detail-copy">
@@ -92,13 +113,15 @@ export default async function Product({params,searchParams}:{params:Promise<{slu
          {product.sku&&<span>شناسه کالا: <strong>{product.sku}</strong></span>}
          {typeof attributes.model==="string"&&attributes.model.trim()&&<span>مدل: <strong>{attributes.model}</strong></span>}
        </div>
+       {(typeof attributes.rating==="number"||typeof attributes.reviewCount==="number")&&<div className="sk-dk-rating-row">{typeof attributes.rating==="number"&&<strong><span aria-hidden="true">★</span> {attributes.rating.toLocaleString("fa-IR")}</strong>}{typeof attributes.reviewCount==="number"&&<span>{attributes.reviewCount.toLocaleString("fa-IR")} دیدگاه ثبت‌شده</span>}</div>}
        <p className="sk-product-description">{product.description||"توضیحات تکمیلی این محصول هنوز توسط فروشنده ثبت نشده است."}</p>
+       {variants.some(variant=>variant.color)&&<div className="sk-dk-color-picker"><b>رنگ: {variants.find(variant=>variant.color)?.color}</b><div>{variants.filter(variant=>variant.color).map((variant,index)=>{const raw=(variant.color||"").trim();const palette:Record<string,string>={"نارنجی":"#f28c28","آبی":"#17266e","سرمه‌ای":"#17266e","مشکی":"#222222","سفید":"#f5f5f5","خاکستری":"#d5d5d5","نقره‌ای":"#d6d6d6","سبز":"#2b8b57","طلایی":"#d6a31d","صورتی":"#e7a2b2"};const swatch=raw.startsWith("#")?raw:(palette[raw]||"#d5d5d5");return variant.sku?<Link key={variant.id||variant.sku||index} href={"/store/product/"+encodeURIComponent(variant.sku)+"?site=digikala"} className={"sk-dk-color-swatch"+(variant.sku===product.sku?" is-active":"")} title={raw} aria-label={"انتخاب رنگ "+raw} style={{backgroundColor:swatch}} />:<span key={variant.id||index} className="sk-dk-color-swatch" title={raw} style={{backgroundColor:swatch}} />;})}</div></div>}
        {specifications.length>0&&<div className="sk-product-quick-specs"><h2>نگاه سریع به مشخصات</h2>{specifications.slice(0,2).flatMap((group,groupIndex)=>(group.items||[]).slice(0,3).map((item,itemIndex)=><div key={(group.group||"spec")+groupIndex+"-"+(item.name||"item")+itemIndex}><span>{item.name||"ویژگی"}</span><strong>{Array.isArray(item.values)&&item.values.length?item.values.join("، "):"ثبت نشده"}</strong></div>))}</div>}
        <nav className="sk-product-section-links" aria-label="بخش‌های صفحه"><a href="#product-specifications">مشخصات فنی</a>{!product.is_demo_product&&options&&(options.financingPrograms.length>0||options.deliveryMethods.length>0)&&<a href="#product-buying-options">روش‌های خرید و تحویل</a>}</nav>
      </div>
      <aside className="sk-product-buy-box" aria-label="اطلاعات خرید">
        <div className="sk-product-buy-box-heading"><span aria-hidden="true">✓</span><strong>اطلاعات خرید</strong></div>
-       <div className="sk-product-seller-line"><span>فروشنده</span><strong>{product.seller_name||"فروشنده ثبت‌شده"}</strong></div>
+       <div className="sk-product-seller-line"><span>فروشنده</span><strong className="sk-dk-seller-brand"><i aria-hidden="true">◒</i>{product.seller_name||"فروشنده ثبت‌شده"}</strong></div>{typeof attributes.sellerRating==="number"&&<div className="sk-dk-seller-rating"><span>امتیاز فروشنده</span><b>★ {attributes.sellerRating.toLocaleString("fa-IR")}</b></div>}{typeof attributes.stockQuantity==="number"&&<div className="sk-dk-stock-status"><span aria-hidden="true">●</span>{attributes.stockQuantity>0?("تنها "+attributes.stockQuantity.toLocaleString("fa-IR")+" عدد در انبار باقی مانده"):"در حال حاضر ناموجود"}</div>}
        <div className="sk-product-detail-price"><small>{product.is_demo_product ? "قیمت آزمایشی" : "قیمت ثبت‌شده در کاتالوگ"}</small><strong>{cashPrice.toLocaleString("fa-IR")} {product.currency}</strong></div>
        {options?.deliveryMethods?.[0]&&!product.is_demo_product&&<div className="sk-product-delivery-summary"><span aria-hidden="true">🚚</span><div><b>{options.deliveryMethods[0].title}</b><small>{options.deliveryMethods[0].business_days_min} تا {options.deliveryMethods[0].business_days_max} روز کاری · هزینه ثبت‌شده {options.deliveryMethods[0].cost.toLocaleString("fa-IR")} {product.currency}</small></div></div>}
        {!product.is_demo_product&&!product.is_reference&&<aside className="sk-product-credit-panel"><div className="sk-product-credit-panel-head"><span aria-hidden="true">▦</span><div><b>خرید اعتباری</b><small>طرح‌های ثبت‌شده سامانه برای این کالا</small></div></div>{options?.financingPrograms?.length ? <div className="sk-product-credit-plans">{options.financingPrograms.slice(0,2).map(program=><div className="sk-product-credit-plan" key={program.id}><b>{program.title}</b><span>{program.min_term_months&&program.max_term_months?(`${program.min_term_months} تا ${program.max_term_months} ماه`):program.max_term_months?(`تا ${program.max_term_months} ماه`):"مدت طبق طرح"}</span><small>نرخ/کارمزد ثبت‌شده: {program.rate_percent}%</small></div>)}</div> : <p className="sk-product-credit-empty">طرح اعتباری فعالی برای این کالا از API دریافت نشد؛ مبلغ قسط ساختگی نمایش داده نمی‌شود.</p>}<Link href="/pay" className="sk-product-credit-panel-link">بررسی شرایط اعتبار <span aria-hidden="true">←</span></Link></aside>}

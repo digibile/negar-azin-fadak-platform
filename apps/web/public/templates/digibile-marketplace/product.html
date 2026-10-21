@@ -12,16 +12,163 @@
 @media(max-width:1100px){.detail{grid-template-columns:minmax(220px,.8fr) minmax(0,1.2fr);gap:18px}.buybox{position:static;grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}.buy-title,.legal-note{grid-column:1/-1}.buy-actions{align-self:start}.head{gap:13px}.assurances{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){html{scroll-padding-top:70px}.wrap{width:calc(100% - 20px)}.head{min-height:unset;grid-template-columns:1fr auto;gap:10px;padding:10px 0}.brand b{font-size:17px}.brand small{font-size:9px}.mark{width:38px;height:38px}.search{grid-column:1/-1;grid-row:2}.actions .back{display:none}.nav{min-height:38px;gap:17px;font-size:10px}.nav .spacer,.nav-note{display:none}.crumb{padding:12px 0;font-size:10px}.detail{grid-template-columns:minmax(0,1fr);gap:15px;width:100%;padding:13px;border-radius:4px}.gallery{order:0}.main-image,.main-image button{min-height:260px}.main-image img{height:255px;max-width:100%}.info{order:1}.buybox{order:2;grid-column:auto;display:block;padding:13px}.info h1{font-size:17px;line-height:1.9}.description{font-size:11px}.buy-title{font-size:12px}.price{font-size:21px}.assurances{gap:7px;margin:12px 0 18px}.assurance{padding:9px;gap:6px}.assurance span{font-size:16px}.assurance b{font-size:9px}.assurance small{font-size:8px}.panel{padding:15px;margin-bottom:13px}.panel-head h2{font-size:16px}.tabs{gap:18px}.tabs button{font-size:10px}.spec-group dl div{grid-template-columns:minmax(90px,.75fr) minmax(0,1.25fr);gap:9px;font-size:10px}.related-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.related-card{padding:8px}.related-card img{height:125px}.related-card b{font-size:10px;height:37px}.related-card strong{font-size:11px}.mobile-buy{position:fixed;z-index:40;bottom:0;right:0;left:0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 18px #0000000a}.mobile-buy[hidden]{display:none}.mobile-buy strong{font-size:12px;color:var(--red)}.mobile-buy small{display:block;color:var(--muted);font-size:9px}.mobile-buy .btn{min-width:145px;min-height:42px}.footer{padding-bottom:90px}.footer .wrap{display:block}.footer nav{margin-top:12px}.review-summary{gap:12px}.review-score{font-size:28px}}
 @media(max-width:360px){.actions .login{font-size:9px;padding:8px}.thumbs button{width:51px;height:51px}.mobile-buy .btn{min-width:125px;padding:8px;font-size:10px}}
+
+/* Match the supplied Digikala product screenshot: compact two-row header, image right,
+   product details centered, seller and purchase card left. */
+:root{background:#fff;color:#3f4064;--red:#ef4056;--ink:#3f4064;--muted:#81858b;--line:#e0e0e2}
+html,body{background:#fff;color:#3f4064;font-family:Vazirmatn,Tahoma,sans-serif}
+.wrap{width:min(1480px,calc(100% - 48px));margin-inline:auto}
+.top{position:relative;background:#fff;border-bottom:1px solid #e6e6e8;box-shadow:0 2px 8px #00000004}
+.head{min-height:68px;grid-template-columns:auto minmax(280px,1fr) auto;gap:24px}
+.dk-brand{display:flex;align-items:center;gap:8px;direction:ltr;white-space:nowrap}
+.dk-brand .mark,.dk-brand .dk-logo-word~.mark{display:none}
+.dk-logo-word{direction:rtl}
+.dk-logo-word b{display:block;color:#ef4056;font-size:25px;font-weight:900;letter-spacing:-1px}
+.dk-logo-swoosh{display:block;width:37px;height:21px;border-bottom:8px solid #ef4056;border-radius:0 0 28px 28px;transform:rotate(-10deg);margin-top:-7px}
+.actions{gap:9px;justify-content:flex-start;flex-wrap:wrap}
+.actions .btn{min-height:36px;padding:7px 10px;border-radius:7px;font-size:10px}
+.actions .icon{min-width:34px;min-height:34px;padding:5px;border-color:transparent;font-size:19px}
+.actions .location{background:#fff4ed;border-color:#fff4ed;color:#ef6c00;font-size:9px}
+.nav{min-height:42px;gap:20px;padding:0 0 0;color:#62666d;font-size:10px}
+.nav a:first-child{color:#3f4064;font-weight:900}
+.nav a:hover{color:#ef4056}
+.nav .spacer{flex:1}
+.nav .nav-note{color:#00a66c}
+.crumb{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px 0 12px;color:#81858b;font-size:10px}
+.crumb-path{display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;white-space:nowrap}
+.crumb-path a{color:#81858b}
+.crumb-path span:last-child{overflow:hidden;text-overflow:ellipsis}
+.crumb>small{flex-shrink:0;color:#81858b;font-size:10px}
+.crumb>small a{color:#81858b}
+.detail{direction:rtl;grid-template-columns:minmax(330px,.95fr) minmax(0,1.2fr) minmax(285px,.7fr);gap:24px;align-items:start;width:100%;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.gallery,.info,.buybox{min-width:0}
+.gallery{position:relative;display:flex;flex-direction:column;gap:12px;padding:0;overflow:visible}
+.main-image{min-height:430px;background:#fff}
+.main-image button{min-height:430px}
+.main-image img{width:100%;max-width:380px;height:420px;object-fit:contain}
+.zoom-icon{top:12px;left:12px;width:29px;height:29px;color:#81858b}
+.thumbs{gap:7px}
+.thumbs button{width:66px;height:66px;border-radius:5px}
+.thumbs button.active{border:2px solid #ef4056}
+.gallery-note{font-size:9px}
+.product-tools{position:absolute;top:8px;right:-32px;z-index:5;display:flex;flex-direction:column;align-items:center;gap:13px}
+.product-tools a,.product-tools button{display:grid;place-items:center;width:25px;height:28px;padding:0;border:0;background:transparent;color:#424242;text-decoration:none;font-size:22px;line-height:1;cursor:pointer}
+.product-tools a:hover,.product-tools button:hover{color:#ef4056}
+.info{padding:26px 0 0}
+.eyebrow{gap:8px;margin-bottom:10px;font-size:10px}
+.info h1{font-size:16px;line-height:2;color:#3f4064;margin:0 0 8px;font-weight:800}
+.latin{font-size:10px;line-height:1.9}
+.ratings{gap:10px;padding:10px 0 12px;border-bottom:0;font-size:10px}
+.rating-stars{font-size:13px}
+.product-links{gap:7px;margin:10px 0 15px}
+.product-links button{padding:5px 9px;border:1px solid #f0f0f1;border-radius:20px;background:#f7f7f8;font-size:10px}
+.description{font-size:11px;line-height:2;margin:0 0 14px}
+.key-specs{padding:0;margin:16px 0;border:0}
+.key-specs h2{font-size:12px;margin:0 0 9px}
+.key-specs ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:0;padding:0;list-style:none;font-size:10px;line-height:1.8}
+.key-specs li{display:flex;flex-direction:column;gap:4px;min-width:0;padding:10px;border-radius:5px;background:#f1f2f4}
+.key-specs li::marker{content:""}
+.key-specs li strong{color:#3f4064}
+.colors{align-items:center;gap:12px;margin:12px 0}
+.variant{border-radius:20px}
+.variant.color-swatch{position:relative;width:31px;height:31px;min-width:31px;padding:0;border:3px solid #fff;border-radius:50%;background:var(--swatch);box-shadow:0 0 0 1px #d6d6d8;color:transparent}
+.variant.color-swatch[aria-pressed=true]{outline:3px solid #0088ff;outline-offset:1px;border-color:#fff}
+.variant.color-swatch .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.buybox{position:relative;top:auto;align-self:start;margin-top:18px;padding:0 12px 12px;border:1px solid #f0f0f1;border-radius:5px;background:#fff}
+.buy-title{display:none}
+.seller{justify-content:flex-start;gap:9px;padding:13px 0;font-size:10px}
+.seller strong{display:flex;align-items:center;gap:8px}
+.seller strong:before{content:"◒";display:grid;place-items:center;width:34px;height:34px;border-radius:4px;background:#ef4056;color:#fff;font-size:19px;font-weight:900}
+.stock{margin-top:9px;padding:7px 9px;border-radius:5px;background:#fff8f0;color:#f57c00;font-size:10px}
+.stock.unavailable{background:#fff0f2;color:#d32f45}
+.price-block{padding:10px 0 9px;border-bottom:0}
+.price{font-size:19px;color:#3f4064}
+.discount{border-radius:20px}
+.currency{font-size:9px;color:#81858b}
+.delivery{gap:8px;padding:9px 0;border-bottom:0}
+.delivery-icon{font-size:16px;color:#ef4056}
+.delivery b{font-size:10px}
+.delivery small{font-size:9px;line-height:1.8}
+.buy-note{margin-top:7px;padding:8px;font-size:9px}
+.buy-actions{margin-top:10px;gap:7px}
+.buy-actions .btn{min-height:42px}
+.buy-actions .btn.primary{background:#ef4056;border-color:#ef4056}
+.legal-note{font-size:8px}
+.assurances{margin-top:22px}
+.panel{box-shadow:none;border-color:#e6e6e8}
+.panel-head small{color:#ef4056}
+.tabs button.active{border-color:#ef4056;color:#ef4056}
+.related-card:hover{border-color:#ef9eaa}
+.mobile-buy{border-top-color:#e0e0e2}
+@media(max-width:1100px){
+ .detail{grid-template-columns:minmax(250px,.9fr) minmax(0,1.1fr);gap:20px}
+ .gallery{grid-column:1;grid-row:1}
+ .info{grid-column:2;grid-row:1}
+ .buybox{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;margin-top:0}
+ .buybox .seller,.buybox .stock,.buybox .price-block,.buybox .delivery{align-self:start}
+ .buy-actions,.legal-note,.buy-note{grid-column:1/-1}
+ .product-tools{right:-24px}
+}
+@media(max-width:700px){
+ .wrap{width:calc(100% - 24px)}
+ .head{grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:10px 0}
+ .dk-brand{grid-column:1;grid-row:1;gap:5px}
+ .dk-logo-word b{font-size:21px}
+ .dk-logo-swoosh{width:29px;height:17px;border-bottom-width:6px}
+ .search{grid-column:1/-1;grid-row:2}
+ .actions{grid-column:1/-1;grid-row:3;justify-content:space-between;gap:6px}
+ .actions .btn{font-size:9px;padding:6px 8px}
+ .actions .location{display:none}
+ .nav{gap:16px;min-height:38px;font-size:10px}
+ .nav .spacer{display:none}
+ .crumb{padding:10px 0}
+ .crumb>small{display:none}
+ .detail{grid-template-columns:minmax(0,1fr);gap:14px;width:100%;margin:0;padding:0}
+ .gallery{grid-column:1;grid-row:1}
+ .main-image,.main-image button{min-height:300px}
+ .main-image img{height:300px;max-width:100%}
+ .product-tools{right:0;top:8px;gap:8px}
+ .product-tools a,.product-tools button{width:26px;height:26px;font-size:20px}
+ .thumbs button{width:55px;height:55px}
+ .info{grid-column:1;grid-row:2;padding:3px 0}
+ .info h1{font-size:15px}
+ .buybox{grid-column:1;grid-row:3;display:block;margin-top:0;padding:0 12px 12px}
+ .key-specs ul{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .assurances{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .panel{padding:15px}
+ .related-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .footer{padding-bottom:90px}
+}
+@media(max-width:360px){
+ .actions .login{display:none}
+ .thumbs button{width:50px;height:50px}
+ .product-tools{right:0}
+}
+
+
+.seller-rating{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0f1;color:#62666d;font-size:10px}
+.seller-rating strong{color:#f5a623;font-size:11px}
+.insurance-row{margin:14px 0;padding:12px;border:1px solid #e6e6e8;border-radius:5px;background:#fff}
+.insurance-row h2{margin:0 0 10px;color:#3f4064;font-size:12px}
+.insurance-option{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:9px;padding:9px 0;border-top:1px solid #f0f0f1}
+.insurance-check{display:grid;place-items:center;width:17px;height:17px;border:1px solid #a1a3aa;border-radius:4px;color:#81858b;font-size:12px}
+.insurance-option b,.insurance-option small{display:block}
+.insurance-option b{font-size:10px;color:#3f4064}
+.insurance-option small{margin-top:3px;color:#81858b;font-size:9px;line-height:1.7}
+.insurance-option>strong{color:#3f4064;font-size:10px;white-space:nowrap}
+@media(max-width:1100px){.insurance-row{grid-column:1/-1}}
+@media(max-width:700px){.insurance-row{margin:10px 0;padding:10px}.insurance-option{grid-template-columns:auto minmax(0,1fr)}.insurance-option>strong{grid-column:2}}
+
 </style>
 </head>
 <body>
 <header class="top"><div class="wrap head">
-<a class="brand" href="./" aria-label="دیجی‌بایل، صفحه اصلی"><span class="mark">د</span><span><b>دیجی‌بایل</b><small>بازارگاه خرید و انتخاب کالا</small></span></a>
+<a class="brand dk-brand" href="./" aria-label="دیجی‌کالا، صفحه اصلی"><span class="dk-logo-word"><b>دیجی‌کالا</b></span><span class="dk-logo-swoosh" aria-hidden="true"></span></a>
 <form class="search" id="searchForm" role="search"><input id="searchInput" type="search" placeholder="جست‌وجوی نام کالا، برند یا دسته‌بندی…" aria-label="جست‌وجو"><button type="submit">جست‌وجو</button></form>
-<div class="actions"><a class="btn login" href="https://sookar.ir/login?brand=digibile">ورود / ثبت‌نام</a><a class="btn back" href="./">بازگشت به فروشگاه</a></div>
-</div><nav class="wrap nav" aria-label="ناوبری اصلی"><a href="./">صفحه اصلی</a><a href="./#categories">دسته‌بندی کالاها</a><a href="./#products">همه محصولات</a><a href="https://sookar.ir/marketplace/directory">فروشندگان</a><span class="spacer"></span><span class="nav-note">قیمت و مشخصات بر پایه داده‌های ثبت‌شده</span></nav></header>
+<div class="actions"><a class="btn icon" href="./#cartButton" aria-label="سبد خرید">🛒</a><a class="btn login" href="https://sookar.ir/login?brand=digibile">ورود | ثبت‌نام ↪</a><a class="btn icon" href="https://sookar.ir/login?brand=digibile" aria-label="اعلان‌ها">♧</a><a class="btn location" href="./" aria-label="انتخاب آدرس">⌖ انتخاب آدرس</a></div>
+</div><nav class="wrap nav" aria-label="ناوبری اصلی"><a href="./#categories">☰ دسته‌بندی کالاها</a><a href="./#homeMerchandisingGrid">شگفت‌انگیزها</a><a href="./#categories">سوپرمارکت</a><a href="./#categories">طلا و نقره دیجیتال</a><a href="./#products">پرفروش‌ترین‌ها</a><a href="./#categories">دیجی‌پی</a><span class="spacer"></span><a href="https://sookar.ir/marketplace/directory">در دیجی‌کالا بفروشید</a></nav></header>
 <main class="wrap">
-<div class="crumb"><a href="./">خانه</a> / <a href="./#categories">دسته‌بندی‌ها</a> / <span id="crumbTitle">جزئیات محصول</span></div>
+<div class="crumb"><div class="crumb-path"><a href="./">دیجی‌کالا</a><span>/</span><a href="./#categories" id="crumbCategory">دسته‌بندی کالاها</a><span>/</span><span id="crumbTitle">جزئیات محصول</span></div><small><a href="https://sookar.ir/marketplace/directory">فروش در دیجی‌کالا</a></small></div>
 <div id="productRoot" class="state" aria-live="polite">در حال بارگذاری اطلاعات کالا از کاتالوگ ذخیره‌شده…</div>
 <div id="assurances" class="assurances" hidden>
 <div class="assurance"><span>✓</span><div><b>اطلاعات شفاف کالا</b><small>قیمت و مشخصات ثبت‌شده</small></div></div>
@@ -70,6 +217,7 @@ const stockOf=p=>{const a=attr(p);const n=p.stock_quantity??p.stockQuantity??p.i
 const originalOf=p=>Number(p.original_price??p.originalPrice??p.regular_price??p.regularPrice??p.list_price??p.old_price??p.mrp??0);
 const availableOf=(p,mode)=>{const s=stockOf(p);return mode==="owned"&&positive(priceOf(p))&&s!==null&&s>0&&p.source_available!==false&&p.is_published!==false&&p.isPublished!==false&&p.status!=="draft"&&p.status!=="inactive"};
 const safeUrl=(u)=>/^https:\/\//i.test(String(u||""))?String(u):"#";
+const colorHex=value=>{const v=String(value||"").trim();if(/^#[0-9a-f]{3,8}$/i.test(v))return v;const map={"نارنجی":"#f28c28","orange":"#f28c28","سرمه‌ای":"#17266e","آبی":"#17266e","blue":"#17266e","مشکی":"#222222","black":"#222222","سفید":"#f5f5f5","white":"#f5f5f5","خاکستری":"#d5d5d5","gray":"#d5d5d5","نقره‌ای":"#d6d6d6","silver":"#d6d6d6","سبز":"#2b8b57","green":"#2b8b57","طلایی":"#d6a31d","gold":"#d6a31d"};return map[v.toLowerCase()]||"#d5d5d5"};
 function renderSpecs(groups){if(!groups.length)return '<div class="empty-inline">مشخصات فنی تفصیلی برای این کالا ثبت نشده است.</div>';return groups.map((g,i)=>'<section class="spec-group"><h3>'+esc(g.group||"مشخصات")+'</h3><dl>'+((g.items||[]).map((it,j)=>{const name=it.name??it.title??it.key??"ویژگی";let value=it.values??it.value??it.description??it.label??"";if(Array.isArray(value))value=value.join("، ");if(value&&typeof value==="object")value=JSON.stringify(value);if(!String(value).trim())return"";return'<div><dt>'+esc(name)+'</dt><dd>'+esc(value)+'</dd></div>'}).join("")||'<div><dt>اطلاعات</dt><dd>مقداری ثبت نشده است.</dd></div>')+'</dl></section>').join("")}
 function renderReviewList(items,emptyText){if(!Array.isArray(items)||!items.length)return '<div class="empty-inline">'+emptyText+'</div>';return '<div class="review-list">'+items.slice(0,12).map(r=>'<article class="review"><b>'+esc(r.author??r.user_name??r.name??"خریدار")+'</b>'+(positive(r.rating)?'<span class="rating-stars"> '+("★".repeat(Math.min(5,Math.round(Number(r.rating)))))+'</span>':'')+'<p>'+esc(r.text??r.body??r.comment??r.question??"")+'</p><small>'+esc(r.created_at??r.date??"")+'</small></article>').join("")+'</div>'}
 function setTab(name){document.querySelectorAll("[data-tab]").forEach(b=>{const active=b.dataset.tab===name;b.classList.toggle("active",active);b.setAttribute("aria-selected",String(active))});document.querySelectorAll("[data-pane]").forEach(p=>p.hidden=p.dataset.pane!==name)}
@@ -80,8 +228,8 @@ try{
  const index=params.has("ref")?Number(params.get("ref")):NaN;
  const found=Number.isInteger(index)&&index>=0&&index<items.length?{p:items[index],i:index}:items.map((p,i)=>({p,i})).find(x=>idOf(x.p,x.i)===requested);
  if(!found){root.innerHTML='<div class="state"><h1>محصول پیدا نشد</h1><p>این کالا در کاتالوگ ذخیره‌شده وجود ندارد یا پیوند آن قدیمی است.</p><a class="btn primary" href="./">بازگشت به فروشگاه</a></div>';return}
- const p=found.p,i=found.i,title=titleOf(p,i),images=imagesOf(p),category=categoryOf(p),price=priceOf(p),original=originalOf(p),description=String(p.description??p.short_description??p.shortDescription??attr(p).description??"توضیحات تکمیلی این کالا در داده‌های ثبت‌شده موجود نیست."),brand=String(p.brand??attr(p).brand??""),seller=String(p.seller_name??p.sellerName??p.store_name??p.storeName??attr(p).seller_name??"فروشنده در داده‌های این کالا مشخص نشده است"),stock=stockOf(p),discount=Number(p.discount_percent)>0?Math.min(100,Math.round(Number(p.discount_percent))):(original>price&&original>0?Math.round((original-price)/original*100):0),specs=specsOf(p),mode=data.catalogMode??data.tenant?.catalogMode??data.source??"reference",canBuy=availableOf(p,mode),reviews=Array.isArray(p.reviews)?p.reviews:Array.isArray(attr(p).reviews)?attr(p).reviews:[],questions=Array.isArray(p.questions)?p.questions:Array.isArray(attr(p).questions)?attr(p).questions:[];
- document.title=title+" | دیجی‌بایل";document.getElementById("crumbTitle").textContent=title;
+ const p=found.p,i=found.i,title=titleOf(p,i),images=imagesOf(p),category=categoryOf(p),price=priceOf(p),original=originalOf(p),description=String(p.description??p.short_description??p.shortDescription??attr(p).description??"توضیحات تکمیلی این کالا در داده‌های ثبت‌شده موجود نیست."),brand=String(p.brand??attr(p).brand??""),seller=String(p.seller_name??p.sellerName??p.store_name??p.storeName??attr(p).seller_name??"فروشنده در داده‌های این کالا مشخص نشده است"),stock=stockOf(p),discount=Number(p.discount_percent)>0?Math.min(100,Math.round(Number(p.discount_percent))):(original>price&&original>0?Math.round((original-price)/original*100):0),specs=specsOf(p),mode=data.catalogMode??data.tenant?.catalogMode??data.source??"reference",canBuy=availableOf(p,mode),reviews=Array.isArray(p.reviews)?p.reviews:Array.isArray(attr(p).reviews)?attr(p).reviews:[],questions=Array.isArray(p.questions)?p.questions:Array.isArray(attr(p).questions)?attr(p).questions:[],rating=Number(p.rating??p.average_rating??attr(p).rating??0),sellerRating=Number(p.seller_rating??p.sellerRating??attr(p).seller_rating??attr(p).sellerRating??0),warranty=String(p.warranty??p.guarantee??p.warranty_title??attr(p).warranty??attr(p).guarantee??"").trim(),returns=String(p.return_policy??p.returnPolicy??attr(p).return_policy??attr(p).returnPolicy??"").trim();
+ document.title=title+" | دیجی‌کالا";document.getElementById("crumbTitle").textContent=title;document.getElementById("crumbCategory").textContent=category;
  const categoryLink="./#products";
  const mainImage=images[0]||"";
  const sellerLabel=canBuy?seller:"عرضه‌کننده هنوز تأیید نشده";
@@ -89,10 +237,11 @@ try{
  const galleryHtml=mainImage?'<div class="main-image">'+(discount>0?'<span class="product-badge">'+new Intl.NumberFormat("fa-IR").format(discount)+'٪ تخفیف</span>':"")+'<button type="button" id="mainImageButton" aria-label="بزرگ‌نمایی تصویر محصول"><img id="mainImage" src="'+esc(mainImage)+'" alt="'+esc(title)+'"><span class="zoom-icon">⌕</span></button></div>' : '<div class="no-image"><span style="font-size:36px">▧</span><b>تصویر این کالا ثبت نشده است</b><small>تصویر اصلی پس از ثبت فایل معتبر نمایش داده می‌شود.</small></div>';
  const quick=specs.flatMap(g=>(g.items||[]).slice(0,3).map(it=>({name:it.name??it.title??it.key,value:it.values??it.value??it.description??it.label}))).filter(x=>x.name&&x.value!==undefined&&x.value!==null&&String(Array.isArray(x.value)?x.value.join("، "):x.value).trim()).slice(0,6);
  const variants=Array.isArray(attr(p).variants)?attr(p).variants:[];
+ const insuranceRaw=p.insurance_plans??p.insurancePlans??p.insurance??attr(p).insurance_plans??attr(p).insurancePlans??attr(p).insurance;const insuranceItems=Array.isArray(insuranceRaw)?insuranceRaw:insuranceRaw&&typeof insuranceRaw==="object"?[insuranceRaw]:typeof insuranceRaw==="string"&&insuranceRaw.trim()?[{title:insuranceRaw}]:[];
  root.className="detail";
- root.innerHTML='<section class="gallery" aria-label="تصاویر محصول">'+galleryHtml+(images.length>1?'<div class="thumbs" aria-label="انتخاب تصویر">'+images.map((u,j)=>'<button type="button" class="'+(j===0?"active":"")+'" data-image-index="'+j+'" aria-label="نمایش تصویر '+(j+1)+'"><img loading="lazy" src="'+esc(u)+'" alt="'+esc(title+" - تصویر "+(j+1))+'"></button>').join("")+'</div>':"")+'<div class="gallery-note">'+(images.length>1?"برای مشاهده تصاویر دیگر، تصویر کوچک را انتخاب کنید":"تصویر محصول در صورت ثبت در کاتالوگ نمایش داده می‌شود")+'</div></section>'+
- '<section class="info"><div class="eyebrow"><a href="./">خانه</a><span>/</span><a href="'+categoryLink+'">'+esc(category)+'</a><span>/</span><span>جزئیات محصول</span></div><h1>'+esc(title)+'</h1>'+(p.title_en||attr(p).title_en?'<div class="latin">'+esc(p.title_en??attr(p).title_en)+'</div>':"")+'<div class="ratings">'+(brand?'<span>برند: <strong>'+esc(brand)+'</strong></span>':"")+(p.sku?'<span>شناسه: '+esc(p.sku)+'</span>':"")+'<a href="#product-reviews">'+(reviews.length?new Intl.NumberFormat("fa-IR").format(reviews.length)+" دیدگاه ثبت‌شده":"مشاهده دیدگاه‌ها")+'</a></div><div class="product-links"><button type="button" data-scroll="product-specifications">مشخصات فنی</button><button type="button" data-scroll="product-reviews">دیدگاه‌ها</button><button type="button" data-scroll="product-questions">پرسش و پاسخ</button></div><p class="description">'+esc(description)+'</p>'+(quick.length?'<div class="key-specs"><h2>نگاه سریع به مشخصات</h2><ul>'+quick.map(x=>'<li>'+esc(x.name)+': <strong>'+esc(Array.isArray(x.value)?x.value.join("، "):x.value)+'</strong></li>').join("")+'</ul></div>':"")+(variants.length?'<div class="key-specs"><h2>مدل‌ها و تنوع‌ها</h2><div class="colors">'+variants.slice(0,8).map((v,j)=>'<button type="button" class="variant" aria-pressed="'+(j===0)+'" data-variant-index="'+j+'">'+esc(v.title??v.name??[v.color,v.size].filter(Boolean).join(" · ")??("گزینه "+(j+1)))+'</button>').join("")+'</div><div id="variantInfo" class="empty-inline">قیمت و موجودی هر تنوع باید از داده معتبر همان گزینه تأیید شود.</div></div>':"")+'</section>'+
- '<aside class="buybox" aria-label="پنل خرید"><div class="buy-title"><span class="check">✓</span><strong>اطلاعات خرید</strong></div><div class="seller"><span>فروشنده</span><strong>'+esc(sellerLabel)+'</strong></div><div class="stock '+(canBuy?"":"unavailable")+'"><span class="stock-dot"></span><b>'+(canBuy?"موجود و قابل بررسی برای خرید":stock===0?"موجودی ثبت‌شده: صفر":"وضعیت موجودی تأیید نشده")+'</b></div><div class="price-block">'+(original>price&&positive(price)?'<span class="old-price">'+money(original)+'</span>':"")+'<div>'+(discount>0?'<span class="discount">'+new Intl.NumberFormat("fa-IR").format(discount)+'٪</span>':"")+'<strong class="price">'+money(price)+'</strong></div><small class="currency">قیمت نمایش‌داده‌شده از داده ثبت‌شده</small></div><div class="delivery"><span class="delivery-icon">♧</span><div><b>روش و زمان ارسال</b><small>زمان تحویل و هزینه ارسال فقط پس از ثبت اطلاعات معتبر نمایش داده می‌شود.</small></div></div><div class="delivery"><span class="delivery-icon">◇</span><div><b>ضمانت و خدمات</b><small>جزئیات ضمانت در اطلاعات این کالا ثبت نشده است.</small></div></div><div class="delivery"><span class="delivery-icon">↻</span><div><b>شرایط بازگشت کالا</b><small>شرایط مرجوعی این کالا در کاتالوگ ثبت نشده است؛ پیش از سفارش باید از فروشنده استعلام شود.</small></div></div><div class="buy-note">'+(canBuy?"اطلاعات عرضه در کاتالوگ ثبت شده است؛ قیمت و موجودی پیش از نهایی‌سازی سفارش باید دوباره بررسی شود.":"این کالا از فهرست مرجع ذخیره‌شده نمایش داده شده است. تا تأیید فروشنده و موجودی واقعی، سفارش داخلی فعال نیست.")+'</div><div class="buy-actions">'+(canBuy?'<button type="button" id="addToCart" class="btn primary">افزودن به سبد خرید</button>':'<a class="btn primary" href="https://sookar.ir/login?brand=digibile">بررسی امکان خرید</a>')+'<a class="btn" href="./">بازگشت به کالاها</a></div><p class="legal-note">قیمت و موجودی ممکن است تغییر کند. اطلاعات تأییدنشده به‌عنوان واقعیت نمایش داده نمی‌شود.</p></aside>';
+ root.innerHTML='<section class="gallery" aria-label="تصاویر محصول">'+galleryHtml+'<nav class="product-tools" aria-label="ابزارهای محصول"><a href="https://sookar.ir/login?brand=digibile" aria-label="افزودن به علاقه‌مندی‌ها" title="علاقه‌مندی‌ها">♡</a><button type="button" id="shareProduct" aria-label="اشتراک‌گذاری محصول" title="اشتراک‌گذاری">⌯</button><a href="https://sookar.ir/login?brand=digibile" aria-label="اعلان موجودی و قیمت" title="اعلان موجودی و قیمت">♧</a><a href="#product-specifications" aria-label="مشخصات محصول" title="مشخصات محصول">▣</a><a href="#relatedSection" aria-label="محصولات مشابه" title="محصولات مشابه">☷</a></nav>'+(images.length>1?'<div class="thumbs" aria-label="انتخاب تصویر">'+images.map((u,j)=>'<button type="button" class="'+(j===0?"active":"")+'" data-image-index="'+j+'" aria-label="نمایش تصویر '+(j+1)+'"><img loading="lazy" src="'+esc(u)+'" alt="'+esc(title+" - تصویر "+(j+1))+'"></button>').join("")+'</div>':"")+'<div class="gallery-note">'+(images.length>1?"برای مشاهده تصاویر دیگر، تصویر کوچک را انتخاب کنید":"تصویر محصول در صورت ثبت در کاتالوگ نمایش داده می‌شود")+'</div></section>'+
+ '<section class="info"><div class="eyebrow"><a href="./">خانه</a><span>/</span><a href="'+categoryLink+'">'+esc(category)+'</a><span>/</span><span>جزئیات محصول</span></div><h1>'+esc(title)+'</h1>'+(p.title_en||attr(p).title_en?'<div class="latin">'+esc(p.title_en??attr(p).title_en)+'</div>':"")+'<div class="ratings">'+(brand?'<span>برند: <strong>'+esc(brand)+'</strong></span>':"")+(p.sku?'<span>شناسه: '+esc(p.sku)+'</span>':"")+(positive(rating)?'<span class="rating-stars">★ '+new Intl.NumberFormat("fa-IR",{maximumFractionDigits:1}).format(rating)+'</span>':"")+'<a href="#product-reviews">'+(reviews.length?new Intl.NumberFormat("fa-IR").format(reviews.length)+" دیدگاه ثبت‌شده":"مشاهده دیدگاه‌ها")+'</a></div><div class="product-links"><button type="button" data-scroll="product-specifications">مشخصات فنی</button><button type="button" data-scroll="product-reviews">دیدگاه‌ها</button><button type="button" data-scroll="product-questions">پرسش و پاسخ</button></div><p class="description">'+esc(description)+'</p>'+(quick.length?'<div class="key-specs"><h2>نگاه سریع به مشخصات</h2><ul>'+quick.map(x=>'<li>'+esc(x.name)+': <strong>'+esc(Array.isArray(x.value)?x.value.join("، "):x.value)+'</strong></li>').join("")+'</ul></div>':"")+(variants.length?'<div class="key-specs"><h2>مدل‌ها و تنوع‌ها</h2><div class="colors">'+variants.slice(0,8).map((v,j)=>v.color?'<button type="button" class="variant color-swatch" style="--swatch:'+colorHex(v.color)+'" title="'+esc(v.color)+'" aria-label="انتخاب رنگ '+esc(v.color)+'" aria-pressed="'+(j===0)+'" data-variant-index="'+j+'"><span class="sr-only">'+esc(v.color)+'</span></button>':'<button type="button" class="variant" aria-pressed="'+(j===0)+'" data-variant-index="'+j+'">'+esc(v.title??v.name??[v.color,v.size].filter(Boolean).join(" · ")??("گزینه "+(j+1)))+'</button>').join("")+'</div><div id="variantInfo" class="empty-inline">قیمت و موجودی هر تنوع باید از داده معتبر همان گزینه تأیید شود.</div></div>':"")+(insuranceItems.length?'<div class="insurance-row"><h2>بیمه</h2>'+insuranceItems.slice(0,2).map((plan,j)=>'<div class="insurance-option"><span class="insurance-check">□</span><span><b>'+esc(plan.title??plan.name??plan.provider??"بیمه کالا")+'</b><small>'+esc(plan.provider??plan.description??"")+'</small></span><strong>'+(positive(plan.price??plan.amount)?money(plan.price??plan.amount):"جزئیات")+'</strong></div>').join("")+'</div>':"")+'</section>'+
+ '<aside class="buybox" aria-label="پنل خرید"><div class="buy-title"><span class="check">✓</span><strong>اطلاعات خرید</strong></div><div class="seller"><span>فروشنده</span><strong>'+esc(sellerLabel)+'</strong></div>'+(positive(sellerRating)?'<div class="seller-rating"><span>امتیاز فروشنده</span><strong>★ '+new Intl.NumberFormat("fa-IR",{maximumFractionDigits:1}).format(sellerRating)+'</strong></div>':"")+'<div class="stock '+(canBuy?"":"unavailable")+'"><span class="stock-dot"></span><b>'+(canBuy?(stock!==null&&stock<=3?"تنها "+new Intl.NumberFormat("fa-IR").format(stock)+" عدد در انبار باقی مانده":"موجود و قابل بررسی برای خرید"):stock===0?"موجودی ثبت‌شده: صفر":"وضعیت موجودی تأیید نشده")+'</b></div><div class="price-block">'+(original>price&&positive(price)?'<span class="old-price">'+money(original)+'</span>':"")+'<div>'+(discount>0?'<span class="discount">'+new Intl.NumberFormat("fa-IR").format(discount)+'٪</span>':"")+'<strong class="price">'+money(price)+'</strong></div><small class="currency">قیمت نمایش‌داده‌شده از داده ثبت‌شده</small></div><div class="delivery"><span class="delivery-icon">♧</span><div><b>روش و زمان ارسال</b><small>زمان تحویل و هزینه ارسال فقط پس از ثبت اطلاعات معتبر نمایش داده می‌شود.</small></div></div>'+(warranty?'<div class="delivery"><span class="delivery-icon">◇</span><div><b>ضمانت و خدمات</b><small>'+esc(warranty)+'</small></div></div>':"")+''+(returns?'<div class="delivery"><span class="delivery-icon">↻</span><div><b>شرایط بازگشت کالا</b><small>'+esc(returns)+'</small></div></div>':"")+'<div class="buy-note">'+(canBuy?"اطلاعات عرضه در کاتالوگ ثبت شده است؛ قیمت و موجودی پیش از نهایی‌سازی سفارش باید دوباره بررسی شود.":"این کالا از فهرست مرجع ذخیره‌شده نمایش داده شده است. تا تأیید فروشنده و موجودی واقعی، سفارش داخلی فعال نیست.")+'</div><div class="buy-actions">'+(canBuy?'<button type="button" id="addToCart" class="btn primary">افزودن به سبد خرید</button>':'<a class="btn primary" href="https://sookar.ir/login?brand=digibile">بررسی امکان خرید</a>')+'<a class="btn" href="./">بازگشت به کالاها</a></div><p class="legal-note">قیمت و موجودی ممکن است تغییر کند. اطلاعات تأییدنشده به‌عنوان واقعیت نمایش داده نمی‌شود.</p></aside>';
  document.getElementById("assurances").hidden=false;document.getElementById("detailPanels").hidden=false;
  document.getElementById("fullDescription").textContent=description;
  document.getElementById("expertReview").innerHTML='<p>این بخش فقط از توضیحات و مشخصات ثبت‌شده همین کالا تشکیل می‌شود؛ بررسی یا ادعای آزمایشی به‌عنوان نظر تخصصی منتشر نمی‌شود.</p>'+(brand?'<p><strong>برند:</strong> '+esc(brand)+'</p>':"")+(specs.length?renderSpecs(specs):'<div class="empty-inline">برای بررسی دقیق‌تر، مشخصات فنی معتبر این محصول باید در کاتالوگ ثبت شود.</div>');
@@ -106,6 +255,7 @@ try{
  document.getElementById("mainImageButton")?.addEventListener("click",()=>{const img=document.getElementById("mainImage");if(img){lightboxImage.src=img.src;lightboxImage.alt=title;lightbox.classList.add("open");document.body.style.overflow="hidden"}});
  function closeLightbox(){lightbox.classList.remove("open");document.body.style.overflow=""}
  document.getElementById("lightboxClose").addEventListener("click",closeLightbox);lightbox.addEventListener("click",e=>{if(e.target===lightbox)closeLightbox()});document.addEventListener("keydown",e=>{if(e.key==="Escape")closeLightbox()});
+ document.getElementById("shareProduct")?.addEventListener("click",async()=>{try{if(navigator.share)await navigator.share({title,url:location.href});else{await navigator.clipboard.writeText(location.href);document.getElementById("shareProduct").textContent="✓"}}catch(error){console.warn("Product share cancelled or unavailable",error)}});
  document.querySelectorAll("[data-variant-index]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-variant-index]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));const v=variants[Number(b.dataset.variantIndex)]||{};const info=document.getElementById("variantInfo");info.textContent=[v.title??v.name??v.color??v.size??"",positive(v.price)?money(v.price):"قیمت مستقل ثبت نشده",v.available===true?"وضعیت ثبت‌شده: موجود":v.available===false?"وضعیت ثبت‌شده: ناموجود":"موجودی این تنوع تأیید نشده"].filter(Boolean).join(" · ")}));
  const hasCategory=Boolean(p.category_name??p.categoryName??p.category??p.product_type);const related=items.map((x,j)=>({p:x,i:j})).filter(x=>x.i!==i&&hasCategory&&categoryOf(x.p)===category&&titleOf(x.p,x.i)!==title).slice(0,4);
  if(related.length){document.getElementById("relatedSection").hidden=false;document.getElementById("relatedProducts").innerHTML=related.map(x=>{const im=imagesOf(x.p)[0],pr=priceOf(x.p);return'<article class="related-card">'+(im?'<a href="product.html?id='+encodeURIComponent(idOf(x.p,x.i))+'"><img loading="lazy" src="'+esc(im)+'" alt="'+esc(titleOf(x.p,x.i))+'"></a>':'<div class="no-image">تصویر ثبت نشده</div>')+'<b>'+esc(titleOf(x.p,x.i))+'</b><strong>'+money(pr)+'</strong><small>'+esc(categoryOf(x.p))+'</small><a class="btn" href="product.html?id='+encodeURIComponent(idOf(x.p,x.i))+'">مشاهده محصول</a></article>'}).join("")}
