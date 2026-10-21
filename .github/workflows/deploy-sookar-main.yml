@@ -186,7 +186,7 @@ jobs:
           node <<'NODE'
           const fs = require("node:fs");
           const html = fs.readFileSync("apps/web/public/templates/digibile-marketplace/product.html", "utf8");
-          const scripts = [...html.matchAll(/<script[^>]*>([\\s\\S]*?)<\\/script>/gi)].map(match => match[1]).filter(source => source.trim());
+          const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)].map(match => match[1]).filter(source => source.trim());
           if (!scripts.length) throw new Error("Digibile product page has no interactive script.");
           for (const source of scripts) new Function(source);
           const required = [
