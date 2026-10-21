@@ -12,6 +12,139 @@
 @media(max-width:1100px){.detail{grid-template-columns:minmax(220px,.8fr) minmax(0,1.2fr);gap:18px}.buybox{position:static;grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}.buy-title,.legal-note{grid-column:1/-1}.buy-actions{align-self:start}.head{gap:13px}.assurances{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){html{scroll-padding-top:70px}.wrap{width:calc(100% - 20px)}.head{min-height:unset;grid-template-columns:1fr auto;gap:10px;padding:10px 0}.brand b{font-size:17px}.brand small{font-size:9px}.mark{width:38px;height:38px}.search{grid-column:1/-1;grid-row:2}.actions .back{display:none}.nav{min-height:38px;gap:17px;font-size:10px}.nav .spacer,.nav-note{display:none}.crumb{padding:12px 0;font-size:10px}.detail{grid-template-columns:minmax(0,1fr);gap:15px;width:100%;padding:13px;border-radius:4px}.gallery{order:0}.main-image,.main-image button{min-height:260px}.main-image img{height:255px;max-width:100%}.info{order:1}.buybox{order:2;grid-column:auto;display:block;padding:13px}.info h1{font-size:17px;line-height:1.9}.description{font-size:11px}.buy-title{font-size:12px}.price{font-size:21px}.assurances{gap:7px;margin:12px 0 18px}.assurance{padding:9px;gap:6px}.assurance span{font-size:16px}.assurance b{font-size:9px}.assurance small{font-size:8px}.panel{padding:15px;margin-bottom:13px}.panel-head h2{font-size:16px}.tabs{gap:18px}.tabs button{font-size:10px}.spec-group dl div{grid-template-columns:minmax(90px,.75fr) minmax(0,1.25fr);gap:9px;font-size:10px}.related-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.related-card{padding:8px}.related-card img{height:125px}.related-card b{font-size:10px;height:37px}.related-card strong{font-size:11px}.mobile-buy{position:fixed;z-index:40;bottom:0;right:0;left:0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 18px #0000000a}.mobile-buy[hidden]{display:none}.mobile-buy strong{font-size:12px;color:var(--red)}.mobile-buy small{display:block;color:var(--muted);font-size:9px}.mobile-buy .btn{min-width:145px;min-height:42px}.footer{padding-bottom:90px}.footer .wrap{display:block}.footer nav{margin-top:12px}.review-summary{gap:12px}.review-score{font-size:28px}}
 @media(max-width:360px){.actions .login{font-size:9px;padding:8px}.thumbs button{width:51px;height:51px}.mobile-buy .btn{min-width:125px;padding:8px;font-size:10px}}
+
+/* Match the supplied Digikala product screenshot: compact two-row header, image right,
+   product details centered, seller and purchase card left. */
+:root{background:#fff;color:#3f4064;--red:#ef4056;--ink:#3f4064;--muted:#81858b;--line:#e0e0e2}
+html,body{background:#fff;color:#3f4064;font-family:Vazirmatn,Tahoma,sans-serif}
+.wrap{width:min(1480px,calc(100% - 48px));margin-inline:auto}
+.top{position:relative;background:#fff;border-bottom:1px solid #e6e6e8;box-shadow:0 2px 8px #00000004}
+.head{min-height:68px;grid-template-columns:auto minmax(280px,1fr) auto;gap:24px}
+.dk-brand{display:flex;align-items:center;gap:8px;direction:ltr;white-space:nowrap}
+.dk-brand .mark,.dk-brand .dk-logo-word~.mark{display:none}
+.dk-logo-word{direction:rtl}
+.dk-logo-word b{display:block;color:#ef4056;font-size:25px;font-weight:900;letter-spacing:-1px}
+.dk-logo-swoosh{display:block;width:37px;height:21px;border-bottom:8px solid #ef4056;border-radius:0 0 28px 28px;transform:rotate(-10deg);margin-top:-7px}
+.actions{gap:9px;justify-content:flex-start;flex-wrap:wrap}
+.actions .btn{min-height:36px;padding:7px 10px;border-radius:7px;font-size:10px}
+.actions .icon{min-width:34px;min-height:34px;padding:5px;border-color:transparent;font-size:19px}
+.actions .location{background:#fff4ed;border-color:#fff4ed;color:#ef6c00;font-size:9px}
+.nav{min-height:42px;gap:20px;padding:0 0 0;color:#62666d;font-size:10px}
+.nav a:first-child{color:#3f4064;font-weight:900}
+.nav a:hover{color:#ef4056}
+.nav .spacer{flex:1}
+.nav .nav-note{color:#00a66c}
+.crumb{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px 0 12px;color:#81858b;font-size:10px}
+.crumb-path{display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;white-space:nowrap}
+.crumb-path a{color:#81858b}
+.crumb-path span:last-child{overflow:hidden;text-overflow:ellipsis}
+.crumb>small{flex-shrink:0;color:#81858b;font-size:10px}
+.crumb>small a{color:#81858b}
+.detail{direction:rtl;grid-template-columns:minmax(330px,.95fr) minmax(0,1.2fr) minmax(285px,.7fr);gap:24px;align-items:start;width:100%;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.gallery,.info,.buybox{min-width:0}
+.gallery{position:relative;display:flex;flex-direction:column;gap:12px;padding:0;overflow:visible}
+.main-image{min-height:430px;background:#fff}
+.main-image button{min-height:430px}
+.main-image img{width:100%;max-width:380px;height:420px;object-fit:contain}
+.zoom-icon{top:12px;left:12px;width:29px;height:29px;color:#81858b}
+.thumbs{gap:7px}
+.thumbs button{width:66px;height:66px;border-radius:5px}
+.thumbs button.active{border:2px solid #ef4056}
+.gallery-note{font-size:9px}
+.product-tools{position:absolute;top:8px;right:-32px;z-index:5;display:flex;flex-direction:column;align-items:center;gap:13px}
+.product-tools a,.product-tools button{display:grid;place-items:center;width:25px;height:28px;padding:0;border:0;background:transparent;color:#424242;text-decoration:none;font-size:22px;line-height:1;cursor:pointer}
+.product-tools a:hover,.product-tools button:hover{color:#ef4056}
+.info{padding:26px 0 0}
+.eyebrow{gap:8px;margin-bottom:10px;font-size:10px}
+.info h1{font-size:16px;line-height:2;color:#3f4064;margin:0 0 8px;font-weight:800}
+.latin{font-size:10px;line-height:1.9}
+.ratings{gap:10px;padding:10px 0 12px;border-bottom:0;font-size:10px}
+.rating-stars{font-size:13px}
+.product-links{gap:7px;margin:10px 0 15px}
+.product-links button{padding:5px 9px;border:1px solid #f0f0f1;border-radius:20px;background:#f7f7f8;font-size:10px}
+.description{font-size:11px;line-height:2;margin:0 0 14px}
+.key-specs{padding:0;margin:16px 0;border:0}
+.key-specs h2{font-size:12px;margin:0 0 9px}
+.key-specs ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:0;padding:0;list-style:none;font-size:10px;line-height:1.8}
+.key-specs li{display:flex;flex-direction:column;gap:4px;min-width:0;padding:10px;border-radius:5px;background:#f1f2f4}
+.key-specs li::marker{content:""}
+.key-specs li strong{color:#3f4064}
+.colors{align-items:center;gap:12px;margin:12px 0}
+.variant{border-radius:20px}
+.variant.color-swatch{position:relative;width:31px;height:31px;min-width:31px;padding:0;border:3px solid #fff;border-radius:50%;background:var(--swatch);box-shadow:0 0 0 1px #d6d6d8;color:transparent}
+.variant.color-swatch[aria-pressed=true]{outline:3px solid #0088ff;outline-offset:1px;border-color:#fff}
+.variant.color-swatch .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.buybox{position:relative;top:auto;align-self:start;margin-top:18px;padding:0 12px 12px;border:1px solid #f0f0f1;border-radius:5px;background:#fff}
+.buy-title{display:none}
+.seller{justify-content:flex-start;gap:9px;padding:13px 0;font-size:10px}
+.seller strong{display:flex;align-items:center;gap:8px}
+.seller strong:before{content:"◒";display:grid;place-items:center;width:34px;height:34px;border-radius:4px;background:#ef4056;color:#fff;font-size:19px;font-weight:900}
+.stock{margin-top:9px;padding:7px 9px;border-radius:5px;background:#fff8f0;color:#f57c00;font-size:10px}
+.stock.unavailable{background:#fff0f2;color:#d32f45}
+.price-block{padding:10px 0 9px;border-bottom:0}
+.price{font-size:19px;color:#3f4064}
+.discount{border-radius:20px}
+.currency{font-size:9px;color:#81858b}
+.delivery{gap:8px;padding:9px 0;border-bottom:0}
+.delivery-icon{font-size:16px;color:#ef4056}
+.delivery b{font-size:10px}
+.delivery small{font-size:9px;line-height:1.8}
+.buy-note{margin-top:7px;padding:8px;font-size:9px}
+.buy-actions{margin-top:10px;gap:7px}
+.buy-actions .btn{min-height:42px}
+.buy-actions .btn.primary{background:#ef4056;border-color:#ef4056}
+.legal-note{font-size:8px}
+.assurances{margin-top:22px}
+.panel{box-shadow:none;border-color:#e6e6e8}
+.panel-head small{color:#ef4056}
+.tabs button.active{border-color:#ef4056;color:#ef4056}
+.related-card:hover{border-color:#ef9eaa}
+.mobile-buy{border-top-color:#e0e0e2}
+@media(max-width:1100px){
+ .detail{grid-template-columns:minmax(250px,.9fr) minmax(0,1.1fr);gap:20px}
+ .gallery{grid-column:1;grid-row:1}
+ .info{grid-column:2;grid-row:1}
+ .buybox{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;margin-top:0}
+ .buybox .seller,.buybox .stock,.buybox .price-block,.buybox .delivery{align-self:start}
+ .buy-actions,.legal-note,.buy-note{grid-column:1/-1}
+ .product-tools{right:-24px}
+}
+@media(max-width:700px){
+ .wrap{width:calc(100% - 24px)}
+ .head{grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:10px 0}
+ .dk-brand{grid-column:2;grid-row:1;gap:5px}
+ .dk-logo-word b{font-size:21px}
+ .dk-logo-swoosh{width:29px;height:17px;border-bottom-width:6px}
+ .search{grid-column:1/-1;grid-row:2}
+ .actions{grid-column:1/-1;grid-row:3;justify-content:space-between;gap:6px}
+ .actions .btn{font-size:9px;padding:6px 8px}
+ .actions .location{display:none}
+ .nav{gap:16px;min-height:38px;font-size:10px}
+ .nav .spacer{display:none}
+ .crumb{padding:10px 0}
+ .crumb>small{display:none}
+ .detail{grid-template-columns:minmax(0,1fr);gap:14px;width:100%;margin:0;padding:0}
+ .gallery{grid-column:1;grid-row:1}
+ .main-image,.main-image button{min-height:300px}
+ .main-image img{height:300px;max-width:100%}
+ .product-tools{right:0;top:8px;gap:8px}
+ .product-tools a,.product-tools button{width:26px;height:26px;font-size:20px}
+ .thumbs button{width:55px;height:55px}
+ .info{grid-column:1;grid-row:2;padding:3px 0}
+ .info h1{font-size:15px}
+ .buybox{grid-column:1;grid-row:3;display:block;margin-top:0;padding:0 12px 12px}
+ .key-specs ul{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .assurances{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .panel{padding:15px}
+ .related-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .footer{padding-bottom:90px}
+}
+@media(max-width:360px){
+ .actions .login{display:none}
+ .thumbs button{width:50px;height:50px}
+ .product-tools{right:0}
+}
+
 </style>
 </head>
 <body>
