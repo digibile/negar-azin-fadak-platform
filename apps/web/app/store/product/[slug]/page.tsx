@@ -90,7 +90,7 @@ export default async function Product({params,searchParams}:{params:Promise<{slu
          <Link href={identity.path} className="sk-dk-address-pill"><span aria-hidden="true">⌖</span> انتخاب آدرس</Link>
        </div>
        <form className="sk-dk-header-search" action="/store/shop" method="get" role="search">
-         <input type="search" name="q" placeholder="جستجو در محصولات" aria-label="جستجو در محصولات" />
+         <input type="search" name="q" placeholder="جستجو در محصولات" aria-label="جستجو در محصولات" /><input type="hidden" name="site" value="digikala" />
          <button type="submit" aria-label="جستجو">⌕</button>
        </form>
        <Link href={identity.path} className="sk-dk-logo" aria-label="صفحه اصلی قالب فروشگاهی">
