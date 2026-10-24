@@ -403,3 +403,7 @@
 .sk-product-site--digikala .sk-dk-warranty-row>span:last-child{display:flex;flex-direction:column;gap:3px}
 .sk-product-site--digikala .sk-dk-warranty-row b{font-size:10px;font-weight:600}
 .sk-product-site--digikala .sk-dk-warranty-row small{font-size:9px;color:#81858b}
+
+.sk-product-site--digikala .sk-dk-insurance-option input:disabled{opacity:.45;cursor:not-allowed}
+.sk-product-site--digikala .sk-dk-insurance-total{display:flex;justify-content:space-between;gap:10px;padding:9px 10px;border-radius:4px;background:#fff8f9;color:#62666d;font-size:10px}
+.sk-product-site--digikala .sk-dk-insurance-total strong{color:#ef4056}
