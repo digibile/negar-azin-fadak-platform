@@ -266,3 +266,11 @@
  .sk-product-site--digikala .sk-product-detail-media .sk-dk-gallery-main,.sk-product-site--digikala .sk-product-detail-media .sk-dk-gallery-zoom{min-height:280px}
  .sk-product-site--digikala .sk-product-detail-media .sk-product-main-image{height:280px}
 }
+
+.sk-product-site--digikala .sk-dk-capacity-picker{display:grid;gap:9px;margin:12px 0 17px;color:#3f4064;font-size:11px}
+.sk-product-site--digikala .sk-dk-capacity-picker>div{display:flex;flex-wrap:wrap;gap:8px}
+.sk-product-site--digikala .sk-dk-capacity-option{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:6px 12px;border:1px solid #e0e0e2;border-radius:5px;background:#fff;color:#62666d;font-size:11px;text-decoration:none}
+.sk-product-site--digikala a.sk-dk-capacity-option:hover,.sk-product-site--digikala .sk-dk-capacity-option.is-active{border-color:#ef4056;color:#ef4056;background:#fff8f9}
+.sk-product-site--digikala .sk-dk-old-price{display:flex;align-items:center;gap:9px;color:#a1a3aa;font-size:10px}
+.sk-product-site--digikala .sk-dk-old-price b{padding:3px 6px;border-radius:3px;background:#ef4056;color:#fff;font-size:10px}
+.sk-product-site--digikala .sk-product-credit-plan>span{line-height:1.8}
