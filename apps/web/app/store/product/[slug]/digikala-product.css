@@ -378,3 +378,28 @@
     height:280px;
   }
 }
+
+
+/* Reference details: delivery row and optional insurance choices in the middle column. */
+.sk-product-site--digikala .sk-dk-delivery-banner{
+  display:flex;align-items:center;gap:9px;min-height:42px;margin:15px 0;padding:9px 12px;
+  border-radius:5px;background:#f4f5f7;color:#62666d;font-size:10px
+}
+.sk-product-site--digikala .sk-dk-delivery-icon{color:#ef4056;font-size:17px}
+.sk-product-site--digikala .sk-dk-delivery-banner>span:nth-child(2){display:flex;flex:1;flex-direction:column;gap:4px;min-width:0}
+.sk-product-site--digikala .sk-dk-delivery-banner b{color:#3f4064;font-size:10px}
+.sk-product-site--digikala .sk-dk-delivery-banner small{color:#81858b;font-size:9px;line-height:1.8}
+.sk-product-site--digikala .sk-dk-fast-delivery{padding:4px 7px;border-radius:3px;background:#304ffe;color:#fff;font-size:9px;white-space:nowrap}
+.sk-product-site--digikala .sk-dk-insurance-section{display:grid;gap:8px;margin:14px 0 18px}
+.sk-product-site--digikala .sk-dk-insurance-section> b{font-size:11px;color:#3f4064}
+.sk-product-site--digikala .sk-dk-insurance-option{display:flex;align-items:center;gap:9px;padding:10px;border:1px solid #e0e0e2;border-radius:5px;background:#fff;cursor:pointer}
+.sk-product-site--digikala .sk-dk-insurance-option input{width:15px;height:15px;accent-color:#ef4056;flex:0 0 auto}
+.sk-product-site--digikala .sk-dk-insurance-option>span:nth-of-type(1){display:flex;flex:1;flex-direction:column;gap:4px;min-width:0}
+.sk-product-site--digikala .sk-dk-insurance-option strong{font-size:10px;color:#3f4064}
+.sk-product-site--digikala .sk-dk-insurance-option small{font-size:9px;color:#81858b}
+.sk-product-site--digikala .sk-dk-insurance-price{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-size:10px;color:#62666d;white-space:nowrap}
+.sk-product-site--digikala .sk-dk-warranty-row{display:flex;align-items:center;gap:9px;padding:11px 0;border-bottom:1px solid #f0f0f1;color:#62666d}
+.sk-product-site--digikala .sk-dk-warranty-row>span:first-child{display:grid;place-items:center;width:24px;height:24px;border:1px solid #e0e0e2;border-radius:4px;color:#62666d}
+.sk-product-site--digikala .sk-dk-warranty-row>span:last-child{display:flex;flex-direction:column;gap:3px}
+.sk-product-site--digikala .sk-dk-warranty-row b{font-size:10px;font-weight:600}
+.sk-product-site--digikala .sk-dk-warranty-row small{font-size:9px;color:#81858b}
