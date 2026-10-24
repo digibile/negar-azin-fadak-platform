@@ -274,3 +274,107 @@
 .sk-product-site--digikala .sk-dk-old-price{display:flex;align-items:center;gap:9px;color:#a1a3aa;font-size:10px}
 .sk-product-site--digikala .sk-dk-old-price b{padding:3px 6px;border-radius:3px;background:#ef4056;color:#fff;font-size:10px}
 .sk-product-site--digikala .sk-product-credit-plan>span{line-height:1.8}
+
+
+/* Final match to the supplied Digikala product screenshot:
+   full-size gallery on the right, horizontal thumbnails underneath,
+   product facts in the center and seller/buy panel on the left. */
+.sk-product-site--digikala .sk-product-detail{
+  direction:rtl;
+  grid-template-columns:minmax(390px,1fr) minmax(420px,1.12fr) minmax(285px,.65fr);
+}
+.sk-product-site--digikala .sk-product-detail-media{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:10px;
+}
+.sk-product-site--digikala .sk-product-detail-media .sk-dk-gallery-stage{
+  grid-column:auto;
+  grid-row:auto;
+  order:0;
+  width:100%;
+}
+.sk-product-site--digikala .sk-product-detail-media .sk-product-gallery-thumbs{
+  display:flex;
+  grid-column:auto;
+  grid-row:auto;
+  order:1;
+  flex-direction:row;
+  justify-content:center;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-top:0;
+}
+.sk-product-site--digikala .sk-product-detail-media .sk-product-gallery-thumbs button{
+  flex:0 0 58px;
+  width:58px;
+  height:58px;
+}
+.sk-product-site--digikala .sk-product-detail-media .sk-dk-gallery-hint{
+  grid-column:auto;
+  grid-row:auto;
+  order:2;
+}
+.sk-product-site--digikala .sk-product-detail-media .sk-dk-gallery-main,
+.sk-product-site--digikala .sk-product-detail-media .sk-dk-gallery-zoom{
+  min-height:420px;
+}
+.sk-product-site--digikala .sk-product-detail-media .sk-product-main-image{
+  width:100%;
+  max-width:390px;
+  height:410px;
+  object-fit:contain;
+}
+@media(max-width:1200px){
+  .sk-product-site--digikala .sk-product-detail{
+    grid-template-columns:minmax(300px,.9fr) minmax(340px,1.05fr) minmax(260px,.8fr);
+  }
+}
+@media(max-width:900px){
+  .sk-product-site--digikala .sk-product-detail{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  }
+  .sk-product-site--digikala .sk-product-detail-media{
+    display:flex;
+    flex-direction:column;
+    grid-column:1;
+    grid-row:1;
+  }
+  .sk-product-site--digikala .sk-product-detail-media .sk-dk-gallery-stage{
+    grid-column:auto;
+    grid-row:auto;
+  }
+  .sk-product-site--digikala .sk-product-detail-media .sk-product-gallery-thumbs{
+    grid-column:auto;
+    grid-row:auto;
+    flex-direction:row;
+    justify-content:center;
+    flex-wrap:wrap;
+  }
+  .sk-product-site--digikala .sk-product-detail-media .sk-dk-gallery-main,
+  .sk-product-site--digikala .sk-product-detail-media .sk-dk-gallery-zoom{
+    min-height:300px;
+  }
+  .sk-product-site--digikala .sk-product-detail-media .sk-product-main-image{
+    max-width:100%;
+    height:300px;
+  }
+}
+@media(max-width:620px){
+  .sk-product-site--digikala .sk-product-detail{
+    grid-template-columns:minmax(0,1fr);
+  }
+  .sk-product-site--digikala .sk-product-detail-media{
+    grid-column:1;
+    grid-row:1;
+  }
+  .sk-product-site--digikala .sk-product-detail-media .sk-dk-gallery-main,
+  .sk-product-site--digikala .sk-product-detail-media .sk-dk-gallery-zoom{
+    min-height:280px;
+  }
+  .sk-product-site--digikala .sk-product-detail-media .sk-product-main-image{
+    height:280px;
+  }
+}
