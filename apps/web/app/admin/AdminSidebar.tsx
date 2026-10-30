@@ -20,7 +20,6 @@ type MenuNode={
  is_shared?:boolean;
 };
 
-type ModuleItem={code:string;title:string;is_active?:boolean;route?:string|null};
 
 function SearchIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m16 16 4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
 function ChevronIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -59,7 +58,6 @@ function TreeNode({node,href,pathname,closeMobile,depth}:{node:MenuNode;href:str
 export default function AdminSidebar(){
  const pathname=usePathname();
  const [menuItems,setMenuItems]=useState<MenuNode[]>([]);
- const [modules,setModules]=useState<ModuleItem[]>([]);
  const [query,setQuery]=useState("");
  const [error,setError]=useState("");
  const [open,setOpen]=useState<Record<string,boolean>>({});
@@ -68,14 +66,9 @@ export default function AdminSidebar(){
 
  useEffect(()=>{
   let alive=true;
-  Promise.all([
-   api<{items:MenuNode[]}>("/api/dashboard/menu-tree?panel=admin"),
-   api<{items:ModuleItem[]}>("/api/platform/modules")
-  ]).then(([tree,mods])=>{
-   if(!alive)return;
-   setMenuItems(normalize(tree.items||[]));
-   setModules(mods.items||[]);
-  }).catch(e=>{if(alive)setError(e instanceof Error?e.message:"خطا در دریافت ساختار منوی مرکزی")});
+  api<{items:MenuNode[]}>("/api/dashboard/menu-tree?panel=admin")
+   .then(tree=>{if(alive)setMenuItems(normalize(tree.items||[]))})
+   .catch(e=>{if(alive)setError(e instanceof Error?e.message:"خطا در دریافت ساختار منوی مرکزی")});
   api<{updateAvailable?:boolean}>("/api/platform/update-status")
    .then(x=>{if(alive)setUpdateAvailable(Boolean(x.updateAvailable))}).catch(()=>{});
   const timer=window.setInterval(async()=>{
