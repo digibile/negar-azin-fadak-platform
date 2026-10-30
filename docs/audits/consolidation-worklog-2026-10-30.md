@@ -1,10 +1,34 @@
-# Consolidation worklog — 2026-10-30
+# گزارش کار یکپارچه‌سازی — ۱۴۰۵/۰۸/۰۸
 
-- Audited 10 visible repositories and primary branch trees.
-- Identified overlapping files across Vamcity, Digibail and Sarajon; wholesale import would duplicate code.
-- Preserved selected source files from MASTER-MOTHER, Digibail contracts and Tejarhstore in integrations/dotnet-reference.
-- Preserved the Vamcity SQL Server migration guide.
-- Preserved the accounting ZIP for later isolated extraction and inventory.
-- No source repository was deleted or modified.
-- No runtime wiring, production database migration, server/DNS change or deployment was performed.
-- Canonical runtime remains the existing TypeScript/Next.js + Express/PostgreSQL application on Sookar.ir.
+## هسته مقصد
+- مخزن canonical: `digibile/negar-azin-fadak-platform`
+- runtime حفظ‌شده: Next.js 16 + React 19 + TypeScript، Express 5، PostgreSQL 16، pnpm و Docker.
+- دامنه هدف: `https://sookar.ir`
+- مسیر شناخته‌شده سرور: `/home/sookar/domains/sookar.ir/negar-platform`
+
+## قابلیت‌های منتقل‌شده به runtime
+- موتور قالب قرارداد Digibail به TypeScript در `apps/api/src/contract-engine.ts` منتقل شده است.
+- تست‌های واحد موتور قرارداد در `apps/api/src/contract-engine.test.ts` اضافه شده‌اند.
+- endpoint محاسبه پیش‌فاکتور اقساط در `apps/api/src/lendtech.ts` اضافه شده است: `POST /api/lendtech/installment-quote`.
+- endpoint به احراز هویت، مجوز `modules:lendtech:read` و محدوده Tenant موجود متصل است؛ هیچ رکورد مالی یا قرارداد را ثبت نمی‌کند.
+
+## ممیزی فایل حسابداری
+- ZIP موسوم به حسابداری استخراج و بررسی شد.
+- محتوای آن یک فایل HTML پیش‌نمایش و یک پروژه React/Vite با 81 فایل منبع قابل استخراج بود.
+- README منبع تصریح می‌کند پروژه فقط UI/UX نمایشی است و Backend، Database، API واقعی، RBAC و منطق مالی ندارد؛ داده‌ها Mock/Static هستند.
+- بنابراین هیچ mock یا برنامه دوم Vite به runtime منتقل نشد.
+
+## پاک‌سازی مخزن مقصد
+- فایل‌های مرجع C#، کپی‌های TejarhStore، راهنمای مهاجرت Vamcity، ZIP خام UI و اسکریپت موقت استخراج از شاخه ادغام حذف شدند.
+- پوشه `integrations/` در runtime باقی نمانده است.
+- فقط کد TypeScript قابل اجرا، تست‌ها و مستندات ممیزی نگهداری می‌شوند.
+- مخازن منبع دست‌نخورده باقی مانده‌اند؛ پاک‌سازی یا حذف مخازن اصلی منبع بدون تحویل و تأیید مستقل انجام نمی‌شود.
+
+## موارد باز
+- بررسی کامل و استخراج مدل‌های دیتابیس واقعی Vamcity از بکاپ معتبر؛ راهنمای مهاجرت به‌تنهایی جایگزین inventory دیتابیس نیست.
+- بررسی کامل تاریخچه و قابلیت‌های یکتای Sarajon و MASTER-MOTHER و نگاشت آن‌ها به API/schema موجود.
+- تطبیق نهایی ماژول‌های حسابداری، تجارت خارجی، اسناد، احراز هویت و بازارگاه با قراردادهای فعلی.
+- اجرای Build، تست‌ها و migrationهای آزمایشی روی شاخه نهایی؛ سپس بررسی پذیرش و استقرار دستی Sookar.ir.
+
+## ایمنی انتشار
+هیچ استقرار تولیدی، تغییر DNS، اجرای migration روی دیتابیس زنده یا حذف مخازن منبع در این مرحله انجام نشده است.
