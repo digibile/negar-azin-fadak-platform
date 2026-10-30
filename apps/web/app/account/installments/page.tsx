@@ -6,7 +6,7 @@ type Declaration={id:string;contract_id:string;amount:string;method:string;payme
 const API=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
 const csrf=()=>typeof document==="undefined"?"":document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
 const money=(v:unknown)=>Number(v||0).toLocaleString("fa-IR")+" ریال";
-const date=(v:string)=>{try{return new Date(v).toLocaleDateString("fa-IR")}catch{return v}};
+const date=(v:string)=>{try{return new Date(/^\\d{4}-\\d{2}-\\d{2}$/.test(v)?v+"T12:00:00":v).toLocaleDateString("fa-IR")}catch{return v}};
 export default function Installments(){
  const [contracts,setContracts]=useState<Contract[]>([]),[declarations,setDeclarations]=useState<Declaration[]>([]);
  const [contractId,setContractId]=useState(""),[amount,setAmount]=useState(""),[method,setMethod]=useState("BankTransfer"),[reference,setReference]=useState(""),[paidAt,setPaidAt]=useState(new Date().toISOString().slice(0,10)),[note,setNote]=useState("");
