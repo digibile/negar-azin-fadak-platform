@@ -3,6 +3,7 @@ import {query,pool} from "./db.js";
 import {requireAuth,requirePermission,requireCsrf} from "./auth.js";
 import {resolveTenant} from "./tenant-context.js";
 import {normalizeAndValidateIranianIban} from "./iranian-iban.js";
+import {normalizeNationalId} from "./canonical-party.js";
 
 const router=Router();
 const tenantOf=async(req:any)=>resolveTenant(req,req.user);
@@ -269,8 +270,8 @@ router.post("/api/accounting-finance/party-links/:registry/:id",requireAuth,requ
   if(!party.rowCount){await c.query("rollback");return deny(res,404,"طرف‌حساب مرکزی در همین سازمان پیدا نشد")}
   if(source.rows[0].party_id&&source.rows[0].party_id!==partyId){await c.query("rollback");return deny(res,409,"این رکورد قبلاً به طرف‌حساب دیگری متصل شده است")}
   if(method==="national_id"){
-   const sourceCode=String(source.rows[0].national_id||"").replace(/[^0-9]/g,"");
-   const partyCode=String(party.rows[0].national_id||"").replace(/[^0-9]/g,"");
+   const sourceCode=normalizeNationalId(source.rows[0].national_id);
+   const partyCode=normalizeNationalId(party.rows[0].national_id);
    if(!sourceCode||!partyCode||sourceCode!==partyCode){await c.query("rollback");return deny(res,409,"شناسه ملی دو رکورد یکسان نیست؛ تطبیق دستی و مستند لازم است")}
   }
   const duplicate=await c.query(`select id from ${registry.table} where tenant_id=$1 and party_id=$2 and id<>$3 limit 1`,[t.id,partyId,registryId]);

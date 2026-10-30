@@ -3,15 +3,27 @@ import {randomUUID} from "node:crypto";
 type SqlClient={query:(sql:string,params?:unknown[])=>Promise<{rows:any[]}>};
 export type CanonicalPartyKind="customer"|"supplier"|"other";
 
+export function normalizeNationalId(value:unknown):string{
+ return String(value??"").trim()
+  .replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-0x06f0))
+  .replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-0x0660))
+  .replace(/[\s-]/g,"");
+}
+
 /** Tenant-scoped exact-identifier resolver. Must run inside the caller's transaction. */
 export async function ensureCanonicalParty(client:SqlClient,input:{
  tenantId:string; kind:CanonicalPartyKind; title:string; nationalId?:string|null;
  taxId?:string|null; phone?:string|null; email?:string|null; sourceSystem:string;
 }):Promise<string>{
- const nationalId=String(input.nationalId||"").trim()||null;
+ const rawNationalId=String(input.nationalId||"").trim();
+ const nationalId=rawNationalId?normalizeNationalId(rawNationalId):null;
+ if(rawNationalId&&(!nationalId||!/^\d+$/.test(nationalId)))throw Object.assign(new Error("شناسه ملی باید فقط شامل رقم باشد"),{statusCode:400});
  if(nationalId){
   await client.query("select pg_advisory_xact_lock(hashtext($1),hashtext($2))",[input.tenantId,nationalId]);
-  const matches=await client.query("select id from accounting_parties where tenant_id=$1 and national_id=$2 order by created_at for update",[input.tenantId,nationalId]);
+  const matches=await client.query(
+   "select id from accounting_parties where tenant_id=$1 and regexp_replace(translate(coalesce(national_id,''),'۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩','01234567890123456789'),'[^0-9]','','g')=$2 order by created_at for update",
+   [input.tenantId,nationalId]
+  );
   if(matches.rows.length>1)throw Object.assign(new Error("برای این شناسه ملی چند طرف‌حساب وجود دارد؛ ابتدا تطبیق هویت باید تعیین تکلیف شود"),{statusCode:409});
   if(matches.rows.length===1)return String(matches.rows[0].id);
  }
