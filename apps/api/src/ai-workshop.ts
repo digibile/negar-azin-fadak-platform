@@ -164,8 +164,8 @@ aiWorkshopRouter.post("/api/ai/workshop/save",requireAuth,asyncHandler(async(req
   const saved=await query("insert into form_definitions(tenant_id,code,name,slug,module_key,schema,category,validation_mode,access_level,submit_mode,notes,status,version) values($1,$2,$3,$4,'frontend',$5::jsonb,'هوشمند','قابل تنظیم','کاربران مجاز','ثبت مستقیم','پیش‌نویس تولیدشده با هوش مصنوعی','draft',1) returning id,name,slug,status,version",[t.id,code,name,slug,JSON.stringify(schema)]);
   return res.status(201).json({kind:"form-draft",item:saved.rows[0],message:"فرم در وضعیت پیش‌نویس ذخیره شد و منتشر نشده است."});
  }
- const slug=slugify(artifact.slug)+"-"+Date.now();
+ const recordSlug=slugify(artifact.slug)+"-"+Date.now();
  const definition={aiGenerated:true,artifactType:key,framework,artifact,publicationStatus:"draft",note:"خروجی هوش مصنوعی پیش‌نویس است و تا تأیید مدیر روی سایت فعال نمی‌شود."};
- const saved=await query("insert into page_definitions(tenant_id,name,slug,module_key,definition) values($1,$2,$3,'frontend',$4::jsonb) returning id,name,slug,version,updated_at",[t.id,name,slug,JSON.stringify(definition)]);
+ const saved=await query("insert into page_definitions(tenant_id,name,slug,module_key,definition) values($1,$2,$3,'frontend',$4::jsonb) returning id,name,slug,version,updated_at",[t.id,name,recordSlug,JSON.stringify(definition)]);
  res.status(201).json({kind:key+"-draft",item:saved.rows[0],message:"خروجی در صفحه‌ساز مرکزی ذخیره شد؛ هنوز منتشر نشده است."});
 }));
