@@ -966,10 +966,16 @@ domainMarketplaceRouter.patch("/api/marketplace/products/:id",requireAuth,requir
  const price=bodyNumber(req.body?.price);
  const description=bodyString(req.body?.description,5000);
  const category=bodyString(req.body?.category,200);
+ const categoryId=req.body?.categoryId===undefined?null:(bodyString(req.body?.categoryId,100)||null);
+ const brandId=req.body?.brandId===undefined?null:(bodyString(req.body?.brandId,100)||null);
+ const discountPrice=req.body?.discountPrice===undefined||req.body?.discountPrice===null||req.body?.discountPrice===""?null:bodyNumber(req.body.discountPrice);
  if(!title||price===null||price<=0)return res.status(400).json({error:"عنوان و قیمت فروش داخلی باید معتبر و قیمت بیشتر از صفر باشد"});
+ if(discountPrice!==null&&(discountPrice<0||discountPrice>price))return res.status(400).json({error:"قیمت تخفیف باید بین صفر و قیمت اصلی باشد"});
+ if(categoryId){const categoryRow=await query("select id from marketplace_categories where id=$1 and tenant_id=$2 and status='active'",[categoryId,ctx.id]);if(!categoryRow.rowCount)return res.status(400).json({error:"دسته‌بندی فعال در این سازمان پیدا نشد"});}
+ if(brandId){const brandRow=await query("select id from brands where id=$1 and tenant_id=$2 and status='active'",[brandId,ctx.id]);if(!brandRow.rowCount)return res.status(400).json({error:"برند فعال در این سازمان پیدا نشد"});}
  const result=await query(
-  "update products set title=$1,description=$2,category=$3,price=$4,attributes=jsonb_set(coalesce(attributes,'{}'::jsonb),'{priceReviewRequired}','false'::jsonb,true),updated_at=now() where id=$5 and tenant_id=$6 returning id,sku,title,description,category,price,currency,status,seller_id,attributes",
-  [title,description||null,category||null,price,req.params.id,ctx.id]
+  "update products set title=$1,description=$2,category=$3,category_id=case when $4::boolean then $5::uuid else category_id end,brand_id=case when $6::boolean then $7::uuid else brand_id end,discount_price=$8,price=$9,attributes=jsonb_set(coalesce(attributes,'{}'::jsonb),'{priceReviewRequired}','false'::jsonb,true),updated_at=now() where id=$10 and tenant_id=$11 returning id,sku,title,description,category,category_id,brand_id,discount_price,price,currency,status,seller_id,attributes",
+  [title,description||null,category||null,req.body?.categoryId!==undefined,categoryId,req.body?.brandId!==undefined,brandId,discountPrice,price,req.params.id,ctx.id]
  );
  if(!result.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});
  res.json({item:result.rows[0],message:"قیمت فروش و مشخصات در کاتالوگ داخلی ذخیره شد"});
