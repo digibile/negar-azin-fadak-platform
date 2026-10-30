@@ -1,12 +1,11 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
+import {api} from "../../lib/api";
 import styles from "./TreasuryChecksWorkspace.module.css";
 
 type Check={id:string;check_type:string;check_no:string;issuer_name:string;beneficiary_name?:string;bank_name?:string;due_date:string;amount:string;status:string;linked_bank_name?:string};
 type Event={id:number;check_no:string;check_type:string;from_status?:string;to_status:string;event_type:string;reason?:string;created_at:string};
-const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
-const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
-async function req(path:string,opt:RequestInit={}){const r=await fetch(api+path,{credentials:"include",...opt,headers:{"Content-Type":"application/json","X-CSRF-Token":csrf(),...(opt.headers||{})}});const b=await r.json().catch(()=>null);if(!r.ok)throw Error(b?.error||"عملیات ناموفق بود");return b}
+const req=(path:string,opt:RequestInit={})=>api<any>(path,opt);
 
 const labels:Record<string,string>={registered:"ثبت‌شده",awaiting_collection:"در انتظار وصول",deposited:"واگذار شده به بانک",assigned:"واگذار شده",issued:"صادر شده",in_transit:"در جریان",collected:"وصول‌شده",returned:"برگشتی",protested:"واخواست‌شده",refunded:"مسترد",cancelled:"باطل",settled:"تسویه‌شده"};
 
