@@ -21,13 +21,14 @@ const audit=async(tenantId:string,userId:string,checkId:string,fromStatus:string
 
 router.get("/api/treasury-checks/overview",requireAuth,async(req,res)=>{
  const t=await tenantOf(req); if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const [checks,events,parties,partyBankAccounts]=await Promise.all([
+ const [checks,events,parties,partyBankAccounts,bankAccounts]=await Promise.all([
   query("select c.*,b.bank_name as linked_bank_name,p.title as canonical_counterparty_title,p.party_code as canonical_counterparty_code,pba.bank_name as counterparty_bank_name,pba.iban as counterparty_iban from treasury_checks c left join treasury_bank_accounts b on b.id=c.bank_account_id left join accounting_parties p on p.id=c.counterparty_party_id and p.tenant_id=c.tenant_id left join accounting_party_bank_accounts pba on pba.id=c.counterparty_bank_account_id and pba.tenant_id=c.tenant_id and pba.party_id=c.counterparty_party_id where c.tenant_id=$1 order by c.due_date asc,c.created_at desc limit 500",[t.id]),
   query("select e.*,c.check_no,c.check_type from treasury_check_events e join treasury_checks c on c.id=e.check_id where e.tenant_id=$1 order by e.created_at desc limit 300",[t.id]),
   query("select id,party_code,title,party_type,national_id from accounting_parties where tenant_id=$1 and status='active' order by title",[t.id]),
-  query("select id,party_id,account_title,bank_name,iban from accounting_party_bank_accounts where tenant_id=$1 and status='active' and verification_status='verified' order by bank_name,iban",[t.id])
+  query("select id,party_id,account_title,bank_name,iban from accounting_party_bank_accounts where tenant_id=$1 and status='active' and verification_status='verified' order by bank_name,iban",[t.id]),
+  query("select id,bank_name,account_title,status from treasury_bank_accounts where tenant_id=$1 and status='active' order by bank_name,account_title",[t.id])
  ]);
- res.json({checks:checks.rows,events:events.rows,parties:parties.rows,partyBankAccounts:partyBankAccounts.rows});
+ res.json({checks:checks.rows,events:events.rows,parties:parties.rows,partyBankAccounts:partyBankAccounts.rows,bankAccounts:bankAccounts.rows});
 });
 
 router.post("/api/treasury-checks",requireAuth,requirePermission("treasury-bank.write"),requireCsrf,async(req,res)=>{

@@ -7,16 +7,17 @@ import styles from "./TreasuryChecksWorkspace.module.css";
 type Check={id:string;check_type:string;check_no:string;issuer_name:string;beneficiary_name?:string;bank_name?:string;due_date:string;amount:string;status:string;linked_bank_name?:string;counterparty_party_id?:string|null;canonical_counterparty_title?:string|null;counterparty_iban?:string|null};
 type Party={id:string;party_code:string;title:string;party_type:string};
 type PartyBankAccount={id:string;party_id:string;account_title:string;bank_name:string;iban:string};
+type TreasuryBankAccount={id:string;bank_name:string;account_title:string;status:string};
 type Event={id:number;check_no:string;check_type:string;from_status?:string;to_status:string;event_type:string;reason?:string;created_at:string};
 const req=(path:string,opt:RequestInit={})=>api<any>(path,opt);
 
 const labels:Record<string,string>={registered:"ثبت‌شده",awaiting_collection:"در انتظار وصول",deposited:"واگذار شده به بانک",assigned:"واگذار شده",issued:"صادر شده",in_transit:"در جریان",collected:"وصول‌شده",returned:"برگشتی",protested:"واخواست‌شده",refunded:"مسترد",cancelled:"باطل",settled:"تسویه‌شده"};
 
 export default function TreasuryChecksWorkspace(){
- const [checks,setChecks]=useState<Check[]>([]),[events,setEvents]=useState<Event[]>([]),[parties,setParties]=useState<Party[]>([]),[partyBankAccounts,setPartyBankAccounts]=useState<PartyBankAccount[]>([]),[status,setStatus]=useState(""),[q,setQ]=useState(""),[error,setError]=useState(""),[saving,setSaving]=useState(false);
+ const [checks,setChecks]=useState<Check[]>([]),[events,setEvents]=useState<Event[]>([]),[parties,setParties]=useState<Party[]>([]),[partyBankAccounts,setPartyBankAccounts]=useState<PartyBankAccount[]>([]),[bankAccounts,setBankAccounts]=useState<TreasuryBankAccount[]>([]),[status,setStatus]=useState(""),[q,setQ]=useState(""),[error,setError]=useState(""),[saving,setSaving]=useState(false);
  const today=new Date().toISOString().slice(0,10);
- const [form,setForm]=useState({checkType:"received",checkNo:"",seriesNo:"",bankName:"",branchName:"",accountNo:"",issuerName:"",beneficiaryName:"",issueDate:"",dueDate:today,amount:"",description:"",counterpartyReference:"",counterpartyPartyId:"",counterpartyBankAccountId:""});
- const load=async()=>{try{setError("");const x=await req("/api/treasury-checks/overview");setChecks(x.checks||[]);setEvents(x.events||[]);setParties(x.parties||[]);setPartyBankAccounts(x.partyBankAccounts||[])}catch(e){setError(e instanceof Error?e.message:"خطا")}};
+ const [form,setForm]=useState({checkType:"received",checkNo:"",seriesNo:"",bankName:"",branchName:"",accountNo:"",issuerName:"",beneficiaryName:"",issueDate:"",dueDate:today,amount:"",description:"",counterpartyReference:"",counterpartyPartyId:"",counterpartyBankAccountId:"",bankAccountId:""});
+ const load=async()=>{try{setError("");const x=await req("/api/treasury-checks/overview");setChecks(x.checks||[]);setEvents(x.events||[]);setParties(x.parties||[]);setPartyBankAccounts(x.partyBankAccounts||[]);setBankAccounts(x.bankAccounts||[])}catch(e){setError(e instanceof Error?e.message:"خطا")}};
  useEffect(()=>{load()},[]);
  const submit=async()=>{if(!form.counterpartyPartyId){setError("برای ثبت چک، طرف‌حساب مرکزی را انتخاب کنید.");return}setSaving(true);try{await req("/api/treasury-checks",{method:"POST",body:JSON.stringify(form)});setForm({...form,checkNo:"",amount:"",issuerName:"",beneficiaryName:"",counterpartyPartyId:"",counterpartyBankAccountId:""});await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}finally{setSaving(false)}};
  const transition=async(id:string,next:string)=>{try{await req("/api/treasury-checks/"+id+"/status",{method:"PATCH",body:JSON.stringify({status:next})});await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}};
@@ -33,7 +34,8 @@ export default function TreasuryChecksWorkspace(){
     <label>سریال<input value={form.seriesNo} onChange={e=>setForm({...form,seriesNo:e.target.value})}/></label>
     <label>بانک<input value={form.bankName} onChange={e=>setForm({...form,bankName:e.target.value})}/></label>
     <label>شعبه<input value={form.branchName} onChange={e=>setForm({...form,branchName:e.target.value})}/></label>
-    <label>شماره حساب<input value={form.accountNo} onChange={e=>setForm({...form,accountNo:e.target.value})}/></label>
+    <label>شماره حساب روی چک<input value={form.accountNo} onChange={e=>setForm({...form,accountNo:e.target.value})}/></label>
+    <label>حساب بانکی سازمان<select value={form.bankAccountId} onChange={e=>setForm({...form,bankAccountId:e.target.value})}><option value="">بدون اتصال به حساب سازمان</option>{bankAccounts.map(a=><option key={a.id} value={a.id}>{a.bank_name} · {a.account_title}</option>)}</select></label>
     {form.checkType==="payable"&&<label>صادرکننده چک<input value={form.issuerName} onChange={e=>setForm({...form,issuerName:e.target.value})}/></label>}
     <label>{form.checkType==="received"?"صادرکننده / طرف‌حساب مرکزی":"ذی‌نفع / طرف‌حساب مرکزی"}<select required value={form.counterpartyPartyId} onChange={e=>setForm({...form,counterpartyPartyId:e.target.value,counterpartyBankAccountId:""})}><option value="">انتخاب طرف‌حساب</option>{parties.map(p=><option key={p.id} value={p.id}>{p.title} · {p.party_code}</option>)}</select></label>
     <label>حساب بانکی تأییدشده طرف‌حساب<select value={form.counterpartyBankAccountId} onChange={e=>setForm({...form,counterpartyBankAccountId:e.target.value})}><option value="">بدون اتصال حساب بانکی</option>{selectedPartyAccounts.map(a=><option key={a.id} value={a.id}>{a.bank_name} · {a.iban} · {a.account_title}</option>)}</select></label>

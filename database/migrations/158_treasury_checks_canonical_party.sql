@@ -18,6 +18,17 @@ begin
   end if;
   if not exists (
     select 1 from pg_constraint
+    where conname='treasury_checks_own_bank_tenant_fk'
+      and conrelid='public.treasury_checks'::regclass
+  ) then
+    alter table public.treasury_checks
+      add constraint treasury_checks_own_bank_tenant_fk
+      foreign key(tenant_id,bank_account_id)
+      references public.treasury_bank_accounts(tenant_id,id)
+      on delete restrict not valid;
+  end if;
+  if not exists (
+    select 1 from pg_constraint
     where conname='treasury_checks_counterparty_party_fk'
       and conrelid='public.treasury_checks'::regclass
   ) then
