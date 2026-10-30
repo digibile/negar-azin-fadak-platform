@@ -81,14 +81,14 @@ lendtechContractRouter.post("/api/lendtech/contract-templates",requireAuth,requi
 
 lendtechContractRouter.get("/api/lendtech/contract-templates/:id",requireAuth,requirePermission("modules:lendtech:contract:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("select * from lendtech_contract_templates where tenant_ref=$1 and id=$2",[t.id,req.params.id]);
+ const r=await query("select * from lendtech_contract_templates where tenant_ref=$1 and id=$2",[t.id,String(req.params.id)]);
  if(!r.rowCount)return res.status(404).json({error:"قالب قرارداد پیدا نشد"});
  res.json({item:r.rows[0]});
 }));
 
 lendtechContractRouter.patch("/api/lendtech/contract-templates/:id",requireAuth,requirePermission("modules:lendtech:contract:manage"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const old=await query("select * from lendtech_contract_templates where tenant_ref=$1 and id=$2",[t.id,req.params.id]);
+ const old=await query("select * from lendtech_contract_templates where tenant_ref=$1 and id=$2",[t.id,String(req.params.id)]);
  if(!old.rowCount)return res.status(404).json({error:"قالب قرارداد پیدا نشد"});
  if(old.rows[0].status!=="draft")return res.status(409).json({error:"فقط پیش‌نویس قابل ویرایش است؛ برای تغییر نسخه جدید بسازید"});
  const current=old.rows[0],title=req.body?.title===undefined?current.title:s(req.body.title,160);
@@ -96,13 +96,13 @@ lendtechContractRouter.patch("/api/lendtech/contract-templates/:id",requireAuth,
  const header=req.body?.headerHtml===undefined?current.header_html:cleanHtml(req.body.headerHtml);
  const footer=req.body?.footerHtml===undefined?current.footer_html:cleanHtml(req.body.footerHtml);
  if(!title||!body.replace(/<[^>]*>/g,"").trim())return res.status(400).json({error:"عنوان و متن قرارداد الزامی است"});
- const r=await query("update lendtech_contract_templates set title=$1,issuer_party=$2,parties=$3::jsonb,description=$4,usage_conditions=$5,counter_party_ref=$6,restricted=$7,header_html=$8,body_html=$9,footer_html=$10,change_note=$11,valid_from=$12,valid_to=$13 where tenant_ref=$14 and id=$15 returning *",[title,req.body?.issuerParty===undefined?current.issuer_party:s(req.body.issuerParty,160),JSON.stringify(Array.isArray(req.body?.parties)?req.body.parties.slice(0,10).map((x:unknown)=>s(x,80)):current.parties),req.body?.description===undefined?current.description:s(req.body.description,600),req.body?.usageConditions===undefined?current.usage_conditions:s(req.body.usageConditions,600),req.body?.counterPartyRef===undefined?current.counter_party_ref:s(req.body.counterPartyRef,100)||null,req.body?.restricted===undefined?current.restricted:req.body.restricted===true,header,body,footer,req.body?.changeNote===undefined?current.change_note:s(req.body.changeNote,300),req.body?.validFrom===undefined?current.valid_from:req.body.validFrom,req.body?.validTo===undefined?current.valid_to:req.body.validTo,t.id,req.params.id]);
+ const r=await query("update lendtech_contract_templates set title=$1,issuer_party=$2,parties=$3::jsonb,description=$4,usage_conditions=$5,counter_party_ref=$6,restricted=$7,header_html=$8,body_html=$9,footer_html=$10,change_note=$11,valid_from=$12,valid_to=$13 where tenant_ref=$14 and id=$15 returning *",[title,req.body?.issuerParty===undefined?current.issuer_party:s(req.body.issuerParty,160),JSON.stringify(Array.isArray(req.body?.parties)?req.body.parties.slice(0,10).map((x:unknown)=>s(x,80)):current.parties),req.body?.description===undefined?current.description:s(req.body.description,600),req.body?.usageConditions===undefined?current.usage_conditions:s(req.body.usageConditions,600),req.body?.counterPartyRef===undefined?current.counter_party_ref:s(req.body.counterPartyRef,100)||null,req.body?.restricted===undefined?current.restricted:req.body.restricted===true,header,body,footer,req.body?.changeNote===undefined?current.change_note:s(req.body.changeNote,300),req.body?.validFrom===undefined?current.valid_from:req.body.validFrom,req.body?.validTo===undefined?current.valid_to:req.body.validTo,t.id,String(req.params.id)]);
  res.json({item:r.rows[0]});
 }));
 
 lendtechContractRouter.post("/api/lendtech/contract-templates/:id/validate",requireAuth,requirePermission("modules:lendtech:contract:manage"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("select body_html,header_html,footer_html from lendtech_contract_templates where tenant_ref=$1 and id=$2",[t.id,req.params.id]);
+ const r=await query("select body_html,header_html,footer_html from lendtech_contract_templates where tenant_ref=$1 and id=$2",[t.id,String(req.params.id)]);
  if(!r.rowCount)return res.status(404).json({error:"قالب قرارداد پیدا نشد"});
  await ensureDefaults(t.id);const {defs}=await definitions(t.id);
  const problems=validateHtmlSet(r.rows[0].body_html,r.rows[0].header_html,r.rows[0].footer_html,defs);
@@ -111,7 +111,7 @@ lendtechContractRouter.post("/api/lendtech/contract-templates/:id/validate",requ
 
 lendtechContractRouter.post("/api/lendtech/contract-templates/:id/new-version",requireAuth,requirePermission("modules:lendtech:contract:manage"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const old=await query("select * from lendtech_contract_templates where tenant_ref=$1 and id=$2",[t.id,req.params.id]);
+ const old=await query("select * from lendtech_contract_templates where tenant_ref=$1 and id=$2",[t.id,String(req.params.id)]);
  if(!old.rowCount)return res.status(404).json({error:"قالب قرارداد پیدا نشد"});
  const source=old.rows[0],draft=await query("select id from lendtech_contract_templates where tenant_ref=$1 and group_key=$2 and status='draft' limit 1",[t.id,source.group_key]);
  if(draft.rowCount)return res.status(409).json({error:"برای این قالب پیش‌نویس باز وجود دارد"});
@@ -123,26 +123,26 @@ lendtechContractRouter.post("/api/lendtech/contract-templates/:id/new-version",r
 lendtechContractRouter.post("/api/lendtech/contract-templates/:id/approve",requireAuth,requirePermission("modules:lendtech:contract:manage"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  await ensureDefaults(t.id);const {defs}=await definitions(t.id);
- const r=await query("select * from lendtech_contract_templates where tenant_ref=$1 and id=$2",[t.id,req.params.id]);
+ const r=await query("select * from lendtech_contract_templates where tenant_ref=$1 and id=$2",[t.id,String(req.params.id)]);
  if(!r.rowCount)return res.status(404).json({error:"قالب قرارداد پیدا نشد"});
  const row=r.rows[0];if(row.status!=="draft")return res.status(409).json({error:"فقط پیش‌نویس تأیید می‌شود"});
  if(row.created_by===actor(req)&&req.user?.role!=="admin")return res.status(403).json({error:"تأیید باید توسط کاربر دیگری انجام شود"});
  const problems=validateHtmlSet(row.body_html,row.header_html,row.footer_html,defs);
  if(problems.length)return res.status(422).json({error:"قالب قرارداد ایراد دارد",problems});
- const saved=await query("update lendtech_contract_templates set status='approved',approved_by=$1,approved_at=now() where tenant_ref=$2 and id=$3 returning id,status,approved_by,approved_at",[actor(req),t.id,req.params.id]);
+ const saved=await query("update lendtech_contract_templates set status='approved',approved_by=$1,approved_at=now() where tenant_ref=$2 and id=$3 returning id,status,approved_by,approved_at",[actor(req),t.id,String(req.params.id)]);
  res.json({item:saved.rows[0]});
 }));
 
 lendtechContractRouter.post("/api/lendtech/contract-templates/:id/publish",requireAuth,requirePermission("modules:lendtech:contract:manage"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("update lendtech_contract_templates set status='published',published_at=now() where tenant_ref=$1 and id=$2 and status='approved' and (valid_from is null or valid_from<=current_date) and (valid_to is null or valid_to>=current_date) returning id,group_key,version,status,published_at",[t.id,req.params.id]);
+ const r=await query("update lendtech_contract_templates set status='published',published_at=now() where tenant_ref=$1 and id=$2 and status='approved' and (valid_from is null or valid_from<=current_date) and (valid_to is null or valid_to>=current_date) returning id,group_key,version,status,published_at",[t.id,String(req.params.id)]);
  if(!r.rowCount)return res.status(409).json({error:"قالب باید تأیید شده و در بازه اعتبار باشد"});
  res.json({item:r.rows[0]});
 }));
 
 lendtechContractRouter.post("/api/lendtech/contract-templates/:id/archive",requireAuth,requirePermission("modules:lendtech:contract:manage"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("update lendtech_contract_templates set status='archived' where tenant_ref=$1 and id=$2 and status='published' returning id,status",[t.id,req.params.id]);
+ const r=await query("update lendtech_contract_templates set status='archived' where tenant_ref=$1 and id=$2 and status='published' returning id,status",[t.id,String(req.params.id)]);
  if(!r.rowCount)return res.status(409).json({error:"فقط قالب منتشرشده قابل بایگانی است"});
  res.json({item:r.rows[0]});
 }));
@@ -170,25 +170,25 @@ lendtechContractRouter.post("/api/lendtech/contract-variables",requireAuth,requi
 
 lendtechContractRouter.patch("/api/lendtech/contract-variables/:id",requireAuth,requirePermission("modules:lendtech:contract:manage"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("update lendtech_contract_variable_defs set label=coalesce($1,label),data_type=coalesce($2,data_type),source=coalesce($3,source),path=coalesce($4,path),required=coalesce($5,required),format=coalesce($6,format),sensitivity=coalesce($7,sensitivity),default_value=coalesce($8,default_value),updated_at=now() where tenant_ref=$9 and id=$10 returning *",[req.body?.label===undefined?null:s(req.body.label,120),req.body?.dataType===undefined?null:s(req.body.dataType,12),req.body?.source===undefined?null:s(req.body.source,12),req.body?.path===undefined?null:s(req.body.path,60),req.body?.required===undefined?null:req.body.required===true,req.body?.format===undefined?null:s(req.body.format,40),req.body?.sensitivity===undefined?null:req.body.sensitivity==="Sensitive"?"Sensitive":"Normal",req.body?.defaultValue===undefined?null:s(req.body.defaultValue,300),t.id,req.params.id]);
+ const r=await query("update lendtech_contract_variable_defs set label=coalesce($1,label),data_type=coalesce($2,data_type),source=coalesce($3,source),path=coalesce($4,path),required=coalesce($5,required),format=coalesce($6,format),sensitivity=coalesce($7,sensitivity),default_value=coalesce($8,default_value),updated_at=now() where tenant_ref=$9 and id=$10 returning *",[req.body?.label===undefined?null:s(req.body.label,120),req.body?.dataType===undefined?null:s(req.body.dataType,12),req.body?.source===undefined?null:s(req.body.source,12),req.body?.path===undefined?null:s(req.body.path,60),req.body?.required===undefined?null:req.body.required===true,req.body?.format===undefined?null:s(req.body.format,40),req.body?.sensitivity===undefined?null:req.body.sensitivity==="Sensitive"?"Sensitive":"Normal",req.body?.defaultValue===undefined?null:s(req.body.defaultValue,300),t.id,String(req.params.id)]);
  if(!r.rowCount)return res.status(404).json({error:"متغیر قرارداد پیدا نشد"});
  res.json({item:r.rows[0]});
 }));
 
 lendtechContractRouter.delete("/api/lendtech/contract-variables/:id",requireAuth,requirePermission("modules:lendtech:contract:manage"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const found=await query("select key from lendtech_contract_variable_defs where tenant_ref=$1 and id=$2",[t.id,req.params.id]);
+ const found=await query("select key from lendtech_contract_variable_defs where tenant_ref=$1 and id=$2",[t.id,String(req.params.id)]);
  if(!found.rowCount)return res.status(404).json({error:"متغیر قرارداد پیدا نشد"});
  const token="%{{"+found.rows[0].key+"}}%";
  const used=await query("select 1 from lendtech_contract_templates where tenant_ref=$1 and status<>'archived' and (body_html like $2 or header_html like $2 or footer_html like $2) limit 1",[t.id,token]);
  if(used.rowCount)return res.status(409).json({error:"این متغیر در قالب فعال استفاده شده است"});
- await query("delete from lendtech_contract_variable_defs where tenant_ref=$1 and id=$2",[t.id,req.params.id]);
+ await query("delete from lendtech_contract_variable_defs where tenant_ref=$1 and id=$2",[t.id,String(req.params.id)]);
  res.json({deleted:true});
 }));
 
 lendtechContractRouter.get("/api/lendtech/products/:productCode/contract-templates",requireAuth,requirePermission("modules:lendtech:contract:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("select m.*,x.title as template_title,x.version as published_version from lendtech_product_contract_templates m left join lateral (select title,version from lendtech_contract_templates t where t.tenant_ref=m.tenant_ref and t.group_key=m.group_key and t.status='published' order by version desc limit 1)x on true where m.tenant_ref=$1 and m.product_code=$2 order by m.stage,m.sort_order",[t.id,req.params.productCode]);
+ const r=await query("select m.*,x.title as template_title,x.version as published_version from lendtech_product_contract_templates m left join lateral (select title,version from lendtech_contract_templates t where t.tenant_ref=m.tenant_ref and t.group_key=m.group_key and t.status='published' order by version desc limit 1)x on true where m.tenant_ref=$1 and m.product_code=$2 order by m.stage,m.sort_order",[t.id,String(req.params.productCode)]);
  res.json({items:r.rows,total:r.rowCount});
 }));
 
@@ -205,8 +205,8 @@ lendtechContractRouter.put("/api/lendtech/products/:productCode/contract-templat
  const client=await pool.connect();
  try{
   await client.query("begin");
-  await client.query("delete from lendtech_product_contract_templates where tenant_ref=$1 and product_code=$2",[t.id,req.params.productCode]);
-  for(const item of items)await client.query("insert into lendtech_product_contract_templates(tenant_ref,product_code,group_key,stage,required,condition,requires_review,sort_order) values($1,$2,$3,$4,$5,$6,$7,$8)",[t.id,req.params.productCode,s(item.groupKey,80),s(item.stage,20)||"signature",item.required!==false,s(item.condition,300),item.requiresReview!==false,Number.isInteger(Number(item.sortOrder))?Number(item.sortOrder):0]);
+  await client.query("delete from lendtech_product_contract_templates where tenant_ref=$1 and product_code=$2",[t.id,String(req.params.productCode)]);
+  for(const item of items)await client.query("insert into lendtech_product_contract_templates(tenant_ref,product_code,group_key,stage,required,condition,requires_review,sort_order) values($1,$2,$3,$4,$5,$6,$7,$8)",[t.id,String(req.params.productCode),s(item.groupKey,80),s(item.stage,20)||"signature",item.required!==false,s(item.condition,300),item.requiresReview!==false,Number.isInteger(Number(item.sortOrder))?Number(item.sortOrder):0]);
   await client.query("commit");
  }catch(error){await client.query("rollback");throw error;}finally{client.release();}
  res.json({saved:true,count:items.length});
@@ -214,7 +214,7 @@ lendtechContractRouter.put("/api/lendtech/products/:productCode/contract-templat
 
 lendtechContractRouter.post("/api/lendtech/contracts/:id/render",requireAuth,requirePermission("modules:lendtech:contract:manage"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const c=await query("select c.*,f.application_id,a.application_no,a.customer_ref,a.product_code from lendtech_contracts c join lendtech_facilities f on f.id=c.facility_id and f.tenant_ref=c.tenant_ref join lendtech_applications a on a.id=f.application_id and a.tenant_ref=f.tenant_ref where c.id=$1 and c.tenant_ref=$2",[req.params.id,t.id]);
+ const c=await query("select c.*,f.application_id,a.application_no,a.customer_ref,a.product_code from lendtech_contracts c join lendtech_facilities f on f.id=c.facility_id and f.tenant_ref=c.tenant_ref join lendtech_applications a on a.id=f.application_id and a.tenant_ref=f.tenant_ref where c.id=$1 and c.tenant_ref=$2",[String(req.params.id),t.id]);
  if(!c.rowCount)return res.status(404).json({error:"قرارداد تسهیلات پیدا نشد"});
  const contract=c.rows[0];
  if(contract.status!=="draft")return res.status(409).json({error:"فقط قرارداد پیش‌نویس قابل تولید سند است"});
@@ -279,7 +279,7 @@ lendtechContractRouter.get("/api/lendtech/contract-documents",requireAuth,requir
 
 lendtechContractRouter.get("/api/lendtech/contracts/:id/documents",requireAuth,requirePermission("modules:lendtech:contract:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("select id,document_no,title,stage,status,template_version,requires_review,created_at,presented_at,signed_at from lendtech_contract_documents where tenant_ref=$1 and contract_id=$2 order by created_at desc",[t.id,req.params.id]);
+ const r=await query("select id,document_no,title,stage,status,template_version,requires_review,created_at,presented_at,signed_at from lendtech_contract_documents where tenant_ref=$1 and contract_id=$2 order by created_at desc",[t.id,String(req.params.id)]);
  res.json({items:r.rows,total:r.rowCount});
 }));
 
@@ -288,11 +288,11 @@ lendtechContractRouter.post("/api/lendtech/contract-documents/:id/present",requi
  const client=await pool.connect();
  try{
   await client.query("begin");
-  const d=await client.query("select id,status,contract_id from lendtech_contract_documents where tenant_ref=$1 and id=$2 for update",[t.id,req.params.id]);
+  const d=await client.query("select id,status,contract_id from lendtech_contract_documents where tenant_ref=$1 and id=$2 for update",[t.id,String(req.params.id)]);
   if(!d.rowCount){await client.query("rollback");return res.status(404).json({error:"سند قرارداد پیدا نشد"});}
   if(d.rows[0].status!=="draft"){await client.query("rollback");return res.status(409).json({error:"فقط سند پیش‌نویس قابل ارائه است"});}
-  await client.query("update lendtech_contract_documents set status='presented',reviewed_by=$1,reviewed_at=now(),presented_at=now(),expires_at=now()+interval '7 days' where tenant_ref=$2 and id=$3",[actor(req),t.id,req.params.id]);
-  await event(client,t.id,req.params.id,req,"document.presented");
+  await client.query("update lendtech_contract_documents set status='presented',reviewed_by=$1,reviewed_at=now(),presented_at=now(),expires_at=now()+interval '7 days' where tenant_ref=$2 and id=$3",[actor(req),t.id,String(req.params.id)]);
+  await event(client,t.id,String(req.params.id),req,"document.presented");
   await client.query("commit");
  }catch(error){await client.query("rollback");throw error;}finally{client.release();}
  res.json({presented:true});
@@ -306,7 +306,7 @@ lendtechContractRouter.get("/api/lendtech/my-contract-documents",requireAuth,asy
 
 lendtechContractRouter.get("/api/lendtech/contract-documents/:id/html",requireAuth,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("select d.id,d.html,d.document_no,d.title,d.status,a.customer_ref from lendtech_contract_documents d join lendtech_applications a on a.id=d.application_id and a.tenant_ref=d.tenant_ref where d.tenant_ref=$1 and d.id=$2",[t.id,req.params.id]);
+ const r=await query("select d.id,d.html,d.document_no,d.title,d.status,a.customer_ref from lendtech_contract_documents d join lendtech_applications a on a.id=d.application_id and a.tenant_ref=d.tenant_ref where d.tenant_ref=$1 and d.id=$2",[t.id,String(req.params.id)]);
  if(!r.rowCount)return res.status(404).json({error:"سند قرارداد پیدا نشد"});
  const isAdmin=req.user?.role==="admin"||req.user?.role==="manager";
  if(!isAdmin&&r.rows[0].customer_ref!==req.user!.id)return res.status(403).json({error:"این سند متعلق به حساب شما نیست"});
@@ -315,7 +315,7 @@ lendtechContractRouter.get("/api/lendtech/contract-documents/:id/html",requireAu
 
 lendtechContractRouter.get("/api/lendtech/contract-documents/:id/events",requireAuth,requirePermission("modules:lendtech:contract:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("select action,note,actor_ref,ip,created_at from lendtech_contract_events where tenant_ref=$1 and document_id=$2 order by created_at",[t.id,req.params.id]);
+ const r=await query("select action,note,actor_ref,ip,created_at from lendtech_contract_events where tenant_ref=$1 and document_id=$2 order by created_at",[t.id,String(req.params.id)]);
  res.json({items:r.rows});
 }));
 
@@ -325,7 +325,7 @@ lendtechContractRouter.post("/api/lendtech/contract-documents/:id/sign",requireA
  const client=await pool.connect();
  try{
   await client.query("begin");
-  const d=await client.query("select d.*,a.customer_ref from lendtech_contract_documents d join lendtech_applications a on a.id=d.application_id and a.tenant_ref=d.tenant_ref where d.tenant_ref=$1 and d.id=$2 for update of d",[t.id,req.params.id]);
+  const d=await client.query("select d.*,a.customer_ref from lendtech_contract_documents d join lendtech_applications a on a.id=d.application_id and a.tenant_ref=d.tenant_ref where d.tenant_ref=$1 and d.id=$2 for update of d",[t.id,String(req.params.id)]);
   if(!d.rowCount){await client.query("rollback");return res.status(404).json({error:"سند قرارداد پیدا نشد"});}
   const row=d.rows[0];
   if(row.customer_ref!==req.user!.id){await client.query("rollback");return res.status(403).json({error:"این قرارداد متعلق به حساب شما نیست"});}
@@ -341,7 +341,7 @@ lendtechContractRouter.post("/api/lendtech/contract-documents/:id/sign",requireA
 lendtechContractRouter.post("/api/lendtech/contract-documents/:id/reject",requireAuth,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const note=s(req.body?.note,300);
- const r=await query("update lendtech_contract_documents d set status='rejected',rejection_note=$1 where d.tenant_ref=$2 and d.id=$3 and d.status='presented' and exists(select 1 from lendtech_applications a where a.id=d.application_id and a.tenant_ref=d.tenant_ref and a.customer_ref=$4) returning d.id,d.contract_id",[note,t.id,req.params.id,req.user!.id]);
+ const r=await query("update lendtech_contract_documents d set status='rejected',rejection_note=$1 where d.tenant_ref=$2 and d.id=$3 and d.status='presented' and exists(select 1 from lendtech_applications a where a.id=d.application_id and a.tenant_ref=d.tenant_ref and a.customer_ref=$4) returning d.id,d.contract_id",[note,t.id,String(req.params.id),req.user!.id]);
  if(!r.rowCount)return res.status(404).json({error:"سند قابل رد متعلق به حساب شما پیدا نشد"});
  await query("insert into lendtech_contract_events(tenant_ref,document_id,actor_ref,action,note,ip) values($1,$2,$3,'document.rejected',$4,$5::inet)",[t.id,r.rows[0].id,actor(req),note,req.ip||null]);
  res.json({rejected:true});
