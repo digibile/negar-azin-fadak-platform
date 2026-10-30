@@ -10,7 +10,7 @@ const deny=(res:any,n:number,error:string)=>res.status(n).json({error});
 const actor=(req:any)=>req.user.id;
 const date=(v:any)=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v);
 const validIranianIban=(value:any)=>{
- const iban=String(value||"").replace(/[\\s-]/g,"").toUpperCase();
+ const iban=String(value||"").replace(/\\s|-/g,"").toUpperCase();
  if(!/^IR[0-9]{24}$/.test(iban))return null;
  const rearranged=iban.slice(4)+iban.slice(0,4);
  const numeric=rearranged.replace(/[A-Z]/g,ch=>String(ch.charCodeAt(0)-55));
