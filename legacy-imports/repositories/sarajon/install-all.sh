@@ -1,0 +1,12 @@
+#!/bin/bash
+# نصب پشت‌سرهم همه‌ی ماژول‌های بک‌اند. هر مرحله بکاپ می‌گیرد و با خطا متوقف می‌شود.
+# استفاده: bash install-all.sh [مسیر_پروژه]
+set -e
+ROOT="${1:-/home/ghestine/domains/ghestine.ir/Ghestine}"; H="$(cd "$(dirname "$0")" && pwd)"
+echo "### 1/4 چندمستاجری"; bash "$H/backend/tenancy/install.sh" "$ROOT"
+echo "### 2/4 هسته (طرح‌ها، کارت مجازی، درگاه، مدارک)"; bash "$H/backend/core/install.sh" "$ROOT"
+echo "### 3/4 امنیت ورود (کپچا، OTP)"; bash "$H/backend/security/install.sh" "$ROOT"
+echo "### 4/4 عملیات (اعلام واریز، طرف‌حساب‌ها، بازاریاب‌ها، تنظیمات اپ)"; bash "$H/backend/ops/install.sh" "$ROOT"
+echo "همه‌ی ماژول‌ها ساخته شدند. حالا یک مایگریشن واحد بزنید (بعد از بکاپ دیتابیس):"
+echo "  dotnet ef migrations add AddDigibilePayCore -p src/Ghestine.Infrastructure -s src/Ghestine.API"
+echo "  dotnet ef database update -p src/Ghestine.Infrastructure -s src/Ghestine.API"

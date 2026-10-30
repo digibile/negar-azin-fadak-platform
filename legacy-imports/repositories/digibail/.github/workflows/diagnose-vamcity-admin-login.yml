@@ -1,0 +1,51 @@
+name: Diagnose VamCity admin login and database wiring
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/diagnose-vamcity-admin-login.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diagnose active app and database mappings without changing data
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -eu
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; else D='docker'; fi
+            APP="vamcity-stage-app"; SQLC="vamcity-stage-sql"
+            echo "=== DEPLOYED APP CONFIG: SAFE FIELDS ONLY ==="
+            $D exec "$APP" sh -lc 'find /app -maxdepth 3 -type f \( -name "appsettings.json" -o -name "appsettings.Production.json" \) -print 2>/dev/null' | while read -r f; do
+              echo "CONFIG_FILE=$f"
+              $D exec "$APP" cat "$f" | python3 -c 'import json,sys; d=json.load(sys.stdin); c=d.get("ConnectionStrings",{}); print("CONNECTION_NAMES="+",".join(c.keys())); [(lambda v: print("CONNECTION_DB="+k+":"+str(__import__("re").search(r"(?i)(?:Initial Catalog|Database)\s*=\s*([^;]+)",v).group(1).strip() if __import__("re").search(r"(?i)(?:Initial Catalog|Database)\s*=\s*([^;]+)",v) else "not-explicit"))(v) for k,v in c.items() if isinstance(v,str))'
+            done
+            echo "=== APP ROUTE RESPONSE FINGERPRINTS ==="
+            TMP="$(mktemp -d /tmp/vamcity-route.XXXXXX)"; trap 'rm -rf "$TMP"' EXIT
+            for path in / /login.html /register.html /panel.html /api/v1/health /api/v1/security/login /api/v1/admin/summary; do
+              code="$(curl -sS -o "$TMP/body" -w '%{http_code}' --max-time 10 "http://127.0.0.1:5187$path" || true)"
+              bytes="$(wc -c < "$TMP/body" 2>/dev/null || echo 0)"
+              title="$(grep -oiE '<title[^>]*>[^<]+' "$TMP/body" 2>/dev/null | head -n 1 | sed 's/<[^>]*>//g' | cut -c1-100 || true)"
+              echo "PATH=$path HTTP=$code BYTES=$bytes TITLE=$title"
+            done
+            echo "=== RECENT APP LOGS ==="
+            ($D logs --tail 120 "$APP" 2>&1 || true) | sed -E 's/((PASSWORD|PASS|TOKEN|SECRET|KEY|CONNECTIONSTRING)[^= :]*[=:])[[:space:]]*[^[:space:]]+/\1[REDACTED]/Ig' | tail -n 80
+            echo "=== SQL DATABASE/TABLE COUNTS ==="
+            SQLCMD="$($D exec "$SQLC" sh -lc 'command -v /opt/mssql-tools18/bin/sqlcmd || command -v /opt/mssql-tools/bin/sqlcmd || command -v sqlcmd' 2>/dev/null | head -n 1)"
+            SA_PASS="$($D exec "$SQLC" printenv MSSQL_SA_PASSWORD 2>/dev/null || true)"
+            [ -n "$SQLCMD" ] && [ -n "$SA_PASS" ] || { echo "SQL_DIAGNOSTIC_ACCESS_UNAVAILABLE"; exit 6; }
+            Q="SET NOCOUNT ON; SELECT DB_NAME() AS db; DECLARE @db sysname; DECLARE c CURSOR FOR SELECT name FROM sys.databases WHERE name IN ('vamcity_stage','vamcityc_vamcity','vamcityc_bluvamdb','vamcityc_transferDb'); OPEN c; FETCH NEXT FROM c INTO @db; WHILE @@FETCH_STATUS=0 BEGIN DECLARE @sql nvarchar(max)=N'USE '+QUOTENAME(@db)+N'; SELECT DB_NAME() AS dbname, s.name AS schemaname, t.name AS tablename, SUM(p.rows) AS rowcount FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id JOIN sys.partitions p ON p.object_id=t.object_id AND p.index_id IN (0,1) GROUP BY s.name,t.name'; EXEC sp_executesql @sql; FETCH NEXT FROM c INTO @db; END; CLOSE c; DEALLOCATE c;"
+            $D exec "$SQLC" "$SQLCMD" -S localhost -U sa -P "$SA_PASS" -C -W -s '|' -Q "$Q" 2>&1 | tail -n 180
+            unset SA_PASS
+            echo "VAMCITY_LOGIN_DIAGNOSIS_COMPLETE=1"

@@ -1,0 +1,9 @@
+# Private database credentials and migration checkpoints
+database/migration/config.php
+database/migration/*.log
+database/migration/*.tmp
+database/migration/*.json
+*.sql.gz
+*.bak
+*.mdf
+*.ldf

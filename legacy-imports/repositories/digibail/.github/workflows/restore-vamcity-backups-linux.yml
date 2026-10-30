@@ -1,0 +1,94 @@
+name: Restore VamCity Windows backups into isolated Linux SQL databases
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/restore-vamcity-backups-linux.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restore-vamcity-backups-linux
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Verify archives and restore into isolated databases without touching existing databases
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 40m
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; elif docker info >/dev/null 2>&1; then D='docker'; else echo "BLOCKED: Docker unavailable"; exit 20; fi
+            SQLC="vamcity-stage-sql"
+            SQLCMD="$($D exec "$SQLC" sh -lc 'command -v /opt/mssql-tools18/bin/sqlcmd || command -v /opt/mssql-tools/bin/sqlcmd || command -v sqlcmd' 2>/dev/null | head -n 1)"
+            SA_PASS="$($D exec "$SQLC" printenv MSSQL_SA_PASSWORD 2>/dev/null || true)"
+            [ -n "$SQLCMD" ] && [ -n "$SA_PASS" ] || { echo "BLOCKED: SQL Server access unavailable"; exit 21; }
+            TMP="$(mktemp -d /tmp/vamcity-restore.XXXXXX)"
+            trap 'rm -rf "$TMP"; unset SA_PASS' EXIT
+            df -h "$ROOT" /tmp
+            for f in "$ROOT/vamcityc_bluvamdb_2026-10-29_19-19-45.zip" "$ROOT/vamcityc_transferDb_2026-10-29_19-19-51.zip" "$ROOT/vamcityc_vamcity_2026-10-29_19-20-04.zip"; do
+              [ -s "$f" ] && unzip -t "$f" >/dev/null || { echo "BLOCKED: missing or invalid archive $f"; exit 22; }
+              sha256sum "$f"
+            done
+            $D exec -u 0 "$SQLC" mkdir -p /var/opt/mssql/backup/legacy-import
+            $D exec -u 0 "$SQLC" chown -R mssql:mssql /var/opt/mssql/backup/legacy-import
+            restore_one() {
+              ZIP="$1"; SOURCE_DB="$2"; TARGET_DB="$3"
+              echo "=== RESTORE SOURCE=$SOURCE_DB TARGET=$TARGET_DB ==="
+              INNER="$(unzip -Z1 "$ZIP" | head -n 1)"
+              BAK="$TMP/$SOURCE_DB.bak"
+              unzip -p "$ZIP" "$INNER" > "$BAK"
+              test -s "$BAK"
+              file "$BAK"
+              BAK_CONTAINER="/var/opt/mssql/backup/legacy-import/$SOURCE_DB.bak"
+              $D cp "$BAK" "$SQLC:$BAK_CONTAINER"
+              $D exec -u 0 "$SQLC" chown mssql:mssql "$BAK_CONTAINER"
+              $D exec -u 0 "$SQLC" chmod 640 "$BAK_CONTAINER"
+              HEADER="$($D exec "$SQLC" "$SQLCMD" -S localhost -U sa -P "$SA_PASS" -C -W -s '|' -Q "RESTORE HEADERONLY FROM DISK = N'$BAK_CONTAINER';" 2>&1)"
+              printf '%s\n' "$HEADER" | grep -F "$SOURCE_DB" >/dev/null || { echo "BLOCKED: backup header mismatch"; printf '%s\n' "$HEADER" | tail -n 10; exit 23; }
+              FILELIST="$($D exec "$SQLC" "$SQLCMD" -S localhost -U sa -P "$SA_PASS" -C -h -1 -W -s '|' -Q "RESTORE FILELISTONLY FROM DISK = N'$BAK_CONTAINER';" 2>&1)"
+              MOVES=""
+              DN=0; LN=0; ON=0
+              while IFS='|' read -r logical physical type rest; do
+                logical="$(printf '%s' "$logical" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+                type="$(printf '%s' "$type" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+                [ -n "$logical" ] || continue
+                case "$type" in
+                  D) DN=$((DN+1)); if [ "$DN" -eq 1 ]; then EXT=mdf; else EXT=ndf; fi; DEST="/var/opt/mssql/data/"$TARGET_DB"_data_"$DN"."$EXT ;;
+                  L) LN=$((LN+1)); DEST="/var/opt/mssql/data/"$TARGET_DB"_log_"$LN".ldf" ;;
+                  F) ON=$((ON+1)); DEST="/var/opt/mssql/data/"$TARGET_DB"_other_"$ON".ndf" ;;
+                  *) continue ;;
+                esac
+                LOGICAL_SQL="$(printf '%s' "$logical" | sed "s/'/''/g")"
+                MOVES="$MOVES MOVE N'"$LOGICAL_SQL"' TO N'"$DEST"',"
+              done <<EOF
+            $FILELIST
+            EOF
+              [ "$DN" -gt 0 ] && [ "$LN" -gt 0 ] || { echo "BLOCKED: unexpected backup file layout"; printf '%s\n' "$FILELIST" | tail -n 15; exit 24; }
+              MOVES="$(printf '%s' "$MOVES" | sed 's/,$//')"
+              RESTORE_SQL="RESTORE DATABASE ["$TARGET_DB"] FROM DISK = N'"$BAK_CONTAINER"' WITH REPLACE, RECOVERY, $MOVES;"
+              $D exec "$SQLC" "$SQLCMD" -S localhost -U sa -P "$SA_PASS" -C -b -Q "$RESTORE_SQL"
+              $D exec "$SQLC" "$SQLCMD" -S localhost -U sa -P "$SA_PASS" -C -W -s '|' -Q "SET NOCOUNT ON; SELECT name,state_desc FROM sys.databases WHERE name=N'$TARGET_DB';"
+              echo "RESTORE_VERIFIED=$TARGET_DB"
+            }
+            restore_one "$ROOT/vamcityc_vamcity_2026-10-29_19-20-04.zip" "vamcityc_vamcity" "vamcityc_vamcity_import_20261028"
+            restore_one "$ROOT/vamcityc_bluvamdb_2026-10-29_19-19-45.zip" "vamcityc_bluvamdb" "vamcityc_bluvamdb_import_20261028"
+            restore_one "$ROOT/vamcityc_transferDb_2026-10-29_19-19-51.zip" "vamcityc_transferDb" "vamcityc_transferDb_import_20261028"
+            echo "=== Verified source table counts ==="
+            for DBNAME in vamcityc_vamcity_import_20261028 vamcityc_bluvamdb_import_20261028 vamcityc_transferDb_import_20261028; do
+              echo "DATABASE=$DBNAME"
+              $D exec "$SQLC" "$SQLCMD" -S localhost -U sa -P "$SA_PASS" -C -W -s '|' -d "$DBNAME" -Q "SET NOCOUNT ON; SELECT s.name+'.'+t.name AS table_name, SUM(p.rows) AS row_count FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id JOIN sys.partitions p ON p.object_id=t.object_id AND p.index_id IN (0,1) GROUP BY s.name,t.name ORDER BY s.name,t.name;" 2>&1 | tail -n 100
+            done
+            echo "VAMCITY_BACKUPS_RESTORED_TO_ISOLATED_LINUX_DATABASES=1"

@@ -1,0 +1,49 @@
+name: Inspect legacy loan definition source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-loan-data.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate SSH settings
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing repository secret: $name"
+              exit 1
+            fi
+          done
+      - name: Inspect loan source schema and safe terms only
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            cd "$ROOT"
+            if sudo -n docker info >/dev/null 2>&1; then D="sudo -n docker"; elif docker info >/dev/null 2>&1; then D="docker"; else echo "BLOCKED: Docker access unavailable"; exit 20; fi
+            DB_USER="$(sed -n 's/^POSTGRES_USER=//p' .env | head -1)"
+            DB_NAME="$(sed -n 's/^POSTGRES_DB=//p' .env | head -1)"
+            test -n "$DB_USER" && test -n "$DB_NAME"
+            echo "=== candidate legacy loan tables and row counts ==="
+            $D compose exec -T db psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -Atc "SELECT source_table || '|' || COUNT(*)::text FROM legacy_source_data WHERE source_table ~* '(\\.dbo\\.(Loans|AgentLoans|LoanRequestStatuses|UserLoanRequests|UserLoanProduct|CustomerPurchasePlan)|loan.?product|loan.?type|loan.?plan|loan.?definition|loan.?configuration)' GROUP BY source_table ORDER BY source_table;"
+            echo "=== field names only, no personal values ==="
+            $D compose exec -T db psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -Atc "SELECT source_table || '|' || string_agg(DISTINCT k, ', ' ORDER BY k) FROM legacy_source_data s CROSS JOIN LATERAL jsonb_object_keys(s.payload) AS x(k) WHERE source_table ~* '\\.dbo\\.(Loans|AgentLoans|LoanRequestStatuses|UserLoanRequests|UserLoanProduct|CustomerPurchasePlan)$' GROUP BY source_table ORDER BY source_table;"
+            echo "=== sample definition terms only (names, rates, ranges, duration; no customer identifiers) ==="
+                        $D compose exec -T db psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -Atc "SELECT legacy_id || '|title=' || COALESCE(payload->>'Title','') || '|plan=' || COALESCE(payload->>'PlanTitle','') || '|rate=' || COALESCE(payload->>'ProfitPercent','') || '|profitType=' || COALESCE(payload->>'LoanProfitType','') || '|max=' || COALESCE(payload->>'MaxAmount','') || '|installments=' || COALESCE(payload->>'AllowedInstallments','') || '|maxGap=' || COALESCE(payload->>'MaxMonthGap','') || '|delay=' || COALESCE(payload->>'DelayPercent','') || '|early=' || COALESCE(payload->>'EarlyPercent','') || '|disabled=' || COALESCE(payload->>'Disable','') || '|includePlan=' || COALESCE(payload->>'IncludePlan','') FROM legacy_source_data WHERE source_table='vamcityc_vamcity_import_20261028.dbo.Loans' ORDER BY legacy_id LIMIT 25;"

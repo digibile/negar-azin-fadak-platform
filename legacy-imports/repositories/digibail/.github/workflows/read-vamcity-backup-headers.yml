@@ -1,0 +1,54 @@
+name: Read VamCity SQL backup headers safely
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/read-vamcity-backup-headers.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read backup metadata from SQL Server without restoring
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; elif docker info >/dev/null 2>&1; then D='docker'; else echo "DOCKER_ACCESS=UNAVAILABLE"; exit 2; fi
+            SQLC="vamcity-stage-sql"
+            if ! $D inspect "$SQLC" >/dev/null 2>&1; then SQLC="public_html-db-1"; fi
+            echo "SQL_CONTAINER=$SQLC"
+            SQLCMD="$($D exec "$SQLC" sh -lc 'command -v /opt/mssql-tools18/bin/sqlcmd || command -v /opt/mssql-tools/bin/sqlcmd || command -v sqlcmd' 2>/dev/null | head -n 1)"
+            [ -n "$SQLCMD" ] || { echo "SQLCMD_NOT_FOUND"; exit 3; }
+            SA_PASS="$($D exec "$SQLC" printenv MSSQL_SA_PASSWORD 2>/dev/null || true)"
+            [ -n "$SA_PASS" ] || { echo "SQL_PASSWORD_ENV_NOT_FOUND"; exit 4; }
+            TMP="$(mktemp -d /tmp/vamcity-backup-headers.XXXXXX)"
+            trap 'rm -rf "$TMP"; unset SA_PASS' EXIT
+            for spec in \
+              "vamcityc_bluvamdb_2026-10-29_19-19-45.zip:bluvamdb" \
+              "vamcityc_transferDb_2026-10-29_19-19-51.zip:transferDb" \
+              "vamcityc_vamcity_2026-10-29_19-20-04.zip:vamcity"; do
+              ZIP="${spec%%:*}"; LABEL="${spec#*:}"; ENTRY="${ZIP%.zip}"
+              echo "=== BACKUP_HEADER=$LABEL ==="
+              unzip -p "$ROOT/$ZIP" "$ENTRY" > "$TMP/$LABEL.bak"
+              test -s "$TMP/$LABEL.bak" || { echo "EMPTY_BACKUP_FILE=$LABEL"; exit 5; }
+              $D cp "$TMP/$LABEL.bak" "$SQLC:/var/opt/mssql/data/vamcity_inspect_$LABEL.bak"
+              $D exec "$SQLC" "$SQLCMD" -S localhost -U sa -P "$SA_PASS" -C -W -s '|' -Q "RESTORE HEADERONLY FROM DISK=N'/var/opt/mssql/data/vamcity_inspect_$LABEL.bak';" 2>&1 | tail -n 8
+              $D exec "$SQLC" "$SQLCMD" -S localhost -U sa -P "$SA_PASS" -C -W -s '|' -Q "RESTORE FILELISTONLY FROM DISK=N'/var/opt/mssql/data/vamcity_inspect_$LABEL.bak';" 2>&1 | tail -n 8
+              $D exec "$SQLC" rm -f "/var/opt/mssql/data/vamcity_inspect_$LABEL.bak"
+            done
+            echo "=== EXISTING DATABASE NAMES ONLY ==="
+            $D exec "$SQLC" "$SQLCMD" -S localhost -U sa -P "$SA_PASS" -C -W -s '|' -Q "SET NOCOUNT ON; SELECT name,state_desc FROM sys.databases ORDER BY name;" 2>&1 | tail -n 30
+            unset SA_PASS
+            echo "BACKUP_HEADER_INSPECTION_COMPLETE=1"

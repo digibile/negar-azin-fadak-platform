@@ -1,0 +1,55 @@
+name: Check VamCity migration export tools
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/inspect-vamcity-export-tools.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check isolated SQL Server export capabilities
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; else D='docker'; fi
+            SQLC="vamcity-stage-sql"
+            echo "=== HOST CAPABILITIES ==="
+            for x in python3 python3-pip mysql mariadb mysqldump bcp sqlcmd 7z unzip gzip; do command -v "$x" 2>/dev/null || true; done
+            echo "=== SQL CONTAINER CAPABILITIES ==="
+            $D exec "$SQLC" sh -lc 'for x in bcp sqlcmd python3 python mysql mariadb; do command -v "$x" 2>/dev/null || true; done; ls -l /opt/mssql-tools18/bin /opt/mssql-tools/bin 2>/dev/null || true'
+            echo "=== BCP HELP OPTIONS ==="
+            $D exec "$SQLC" /opt/mssql-tools18/bin/bcp -? 2>&1 | head -n 90 || true
+            echo "=== SQL SERVER VERSION ==="
+            SQLCMD="$($D exec "$SQLC" sh -lc 'command -v /opt/mssql-tools18/bin/sqlcmd || command -v /opt/mssql-tools/bin/sqlcmd || command -v sqlcmd' 2>/dev/null | head -n 1)"
+            PASS="$($D exec "$SQLC" printenv MSSQL_SA_PASSWORD 2>/dev/null || true)"
+            [ -n "$PASS" ] || PASS="$($D exec "$SQLC" printenv SA_PASSWORD 2>/dev/null || true)"
+            $D exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -Q "SELECT @@VERSION;" 2>&1 | tail -n 8
+            echo "=== DATABASE FILE SIZES AND LARGEST TABLES ==="
+            for DB in vamcityc_vamcity_import_20261028 vamcityc_bluvamdb_import_20261028 vamcityc_transferDb_import_20261028; do
+              echo "-- DATABASE=$DB --"
+              $D exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; SELECT DB_NAME(database_id),SUM(size)*8.0/1024 AS allocated_mb FROM sys.master_files WHERE database_id=DB_ID(N'$DB') GROUP BY database_id;" 2>&1 | tail -n 5
+              $D exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -d "$DB" -Q "SET NOCOUNT ON; SELECT TOP 15 s.name+'.'+t.name AS table_name,SUM(ps.row_count) AS rows_count,SUM(ps.reserved_page_count)*8.0/1024 AS reserved_mb,SUM(ps.used_page_count)*8.0/1024 AS used_mb FROM sys.dm_db_partition_stats ps JOIN sys.tables t ON t.object_id=ps.object_id JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE ps.index_id IN (0,1) GROUP BY s.name,t.name ORDER BY SUM(ps.reserved_page_count) DESC;" 2>&1 | tail -n 22
+            done
+            echo "=== SQLCMD UNTRUNCATED JSON STREAM TEST ==="
+            $D exec "$SQLC" "$SQLCMD" -S localhost -U sa -C -b -y 0 -w 65535 -s '|' -Q "SET NOCOUNT ON; SELECT * FROM [vamcityc_vamcity_import_20261028].dbo.[__EFMigrationsHistory] FOR JSON PATH, INCLUDE_NULL_VALUES;" -o /tmp/vamcity-sqlcmd-test.out
+            $D exec "$SQLC" cat /tmp/vamcity-sqlcmd-test.out | python3 -c 'import sys,json; lines=sys.stdin.read().splitlines(); payload="".join(lines[2:]).strip(); x=json.loads(payload); assert len(x)==225; print("SQLCMD_JSON_PARSE_OK rows="+str(len(x))+" lines="+str(len(lines)))'
+            $D exec "$SQLC" rm -f /tmp/vamcity-sqlcmd-test.out
+            unset PASS
+            echo "=== SPACE ==="
+            df -h /home /tmp
+            echo "=== MYSQL DESTINATION EXISTENCE ONLY ==="
+            if command -v mysql >/dev/null 2>&1; then mysql --version; else echo "MYSQL_CLIENT_NOT_INSTALLED"; fi
+            echo "EXPORT_TOOL_INSPECTION_COMPLETE=1"

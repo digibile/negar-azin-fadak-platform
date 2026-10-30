@@ -1,0 +1,68 @@
+name: Inspect VamCity database archives and live deployment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/inspect-vamcity-server-archives.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate SSH secrets
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then echo "::error::Missing repository secret: $name"; exit 1; fi
+          done
+      - name: Inspect archive contents and app health without changing production
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            echo "=== ARCHIVE FILES ==="
+            for f in \
+              "$ROOT/vamcityc_bluvamdb_2026-10-29_19-19-45.zip" \
+              "$ROOT/vamcityc_transferDb_2026-10-29_19-19-51.zip" \
+              "$ROOT/vamcityc_vamcity_2026-10-29_19-20-04.zip"; do
+              if [ -f "$f" ]; then
+                echo "FOUND=$(basename "$f")"
+                stat -c 'SIZE_BYTES=%s MODIFIED=%y' "$f"
+                sha256sum "$f" | awk '{print "SHA256="$1}'
+                echo "ARCHIVE_ENTRIES_BEGIN"
+                unzip -Z1 "$f" 2>/dev/null | head -n 35 || true
+                echo "ARCHIVE_ENTRIES_END"
+              else
+                echo "MISSING=$(basename "$f")"
+              fi
+            done
+            echo "=== RELEVANT LIVE CONTAINERS (names/images/ports only) ==="
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; elif docker info >/dev/null 2>&1; then D='docker'; else D=''; fi
+            if [ -n "$D" ]; then
+              $D ps -a --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' | grep -Ei 'NAMES|vamcity|ghestine|digibail|sql|postgres|mssql' || true
+              echo "=== COMPOSE FILE LOCATIONS ==="
+              find "$ROOT" -maxdepth 4 -type f \( -name 'compose.yml' -o -name 'compose.yaml' -o -name 'docker-compose.yml' -o -name 'docker-compose.yaml' \) -print 2>/dev/null | head -n 50
+            else
+              echo "DOCKER_ACCESS=UNAVAILABLE"
+            fi
+            echo "=== DOMAIN ROOTS ==="
+            for p in /home/roofixo/domains/roofixo.ir /home/digibail/domains/digebail.ir; do
+              [ -d "$p" ] && { echo "ROOT=$p"; ls -ld "$p" "$p/public_html" 2>/dev/null || true; }
+            done
+            echo "INSPECTION_COMPLETE=1"

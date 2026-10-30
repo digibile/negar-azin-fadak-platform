@@ -1,0 +1,114 @@
+name: Audit legacy Digibail data for safe migration
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/audit-legacy-digibail.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate SSH settings
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing repository secret: $name"
+              exit 1
+            fi
+          done
+      - name: Inspect old and new databases without changing data
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            OLD="$ROOT/public_html"
+            cd "$ROOT"
+            if sudo -n docker info >/dev/null 2>&1; then DOCKER="sudo -n docker"; elif docker info >/dev/null 2>&1; then DOCKER="docker"; else echo "DOCKER_ACCESS=UNAVAILABLE"; exit 20; fi
+            echo "=== containers (names/status only) ==="
+            $DOCKER ps -a --format '{{.Names}} {{.Status}}' | grep -Ei 'digibail|public_html|mssql|sqlserver|postgres' || true
+            echo "=== old application files ==="
+            for f in "$OLD/appsettings.json" "$OLD/appsettings.Production.json" "$OLD/LoanSystemAvizhe.Site.runtimeconfig.json"; do
+              if [ -f "$f" ]; then echo "FOUND_FILE=$f"; fi
+            done
+            echo "=== old app setting key names only (values hidden) ==="
+            find "$OLD" -type f \( -iname 'appsettings*.json' -o -iname 'web.config' \) -size -2M -print0 2>/dev/null | xargs -0 -r grep -Eho '"[^"]*(Sms|Kavenegar|ApiKey|Template|OTP|Otp|Phone|ConnectionString|Admin|User)[^"]*"[[:space:]]*:' 2>/dev/null | sort -fu | head -100 || true
+            echo "=== candidate SQL Server containers ==="
+            SQLC=""
+            for c in public_html-db-1 public_html-db digibail-sql digibail-db-legacy; do
+              if $DOCKER inspect "$c" >/dev/null 2>&1; then SQLC="$c"; break; fi
+            done
+            if [ -z "$SQLC" ]; then
+              SQLC="$($DOCKER ps -a --format '{{.Names}}' | grep -Ei 'public_html-db|mssql|sqlserver' | head -1 || true)"
+            fi
+            if [ -n "$SQLC" ]; then
+              echo "LEGACY_SQL_CONTAINER=$SQLC"
+              SQLCMD=""
+              for p in /opt/mssql-tools18/bin/sqlcmd /opt/mssql-tools/bin/sqlcmd; do
+                if $DOCKER exec "$SQLC" test -x "$p" >/dev/null 2>&1; then SQLCMD="$p"; break; fi
+              done
+              SA_PASS="$($DOCKER inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$SQLC" | sed -n -E 's/^(MSSQL_SA_PASSWORD|SA_PASSWORD)=(.*)$/\2/p' | head -1)"
+              if [ -n "$SQLCMD" ] && [ -n "$SA_PASS" ]; then
+                echo "=== SQL Server database names (no credentials) ==="
+                $DOCKER exec -e SQLCMDPASSWORD="$SA_PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -b -h -1 -W -Q "SET NOCOUNT ON; SELECT name FROM sys.databases WHERE database_id > 4 ORDER BY name" | tr -d '\r'
+                echo "=== SQL Server table names and row counts ==="
+                SQL="SET NOCOUNT ON; SELECT s.name AS schema_name, t.name AS table_name, SUM(p.rows) AS row_count FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id JOIN sys.partitions p ON p.object_id=t.object_id AND p.index_id IN (0,1) GROUP BY s.name,t.name ORDER BY t.name;"
+                $DOCKER exec -e SQLCMDPASSWORD="$SA_PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -b -W -d Digibail -Q "$SQL" | tr -d '\r' | head -250
+                echo "=== SQL Server table columns (for migration mapping) ==="
+                SQL="SET NOCOUNT ON; SELECT t.name AS table_name, c.name AS column_name, TYPE_NAME(c.user_type_id) AS data_type, c.max_length, c.is_nullable FROM sys.tables t JOIN sys.columns c ON c.object_id=t.object_id ORDER BY t.name,c.column_id;"
+                $DOCKER exec -e SQLCMDPASSWORD="$SA_PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -b -W -d Digibail -Q "$SQL" | tr -d '\r' | head -350
+                echo "=== focused identity, SMS, and settings columns ==="
+                SQL="SET NOCOUNT ON; SELECT t.name AS table_name, c.name AS column_name, TYPE_NAME(c.user_type_id) AS data_type FROM sys.tables t JOIN sys.columns c ON c.object_id=t.object_id WHERE t.name IN ('AspNetUsers','AspNetRoles','AspNetUserRoles','Customers','SmsPatterns','AppSms','AppSettings','ThirdPartySettings') ORDER BY t.name,c.column_id;"
+                $DOCKER exec -e SQLCMDPASSWORD="$SA_PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -b -W -d Digibail -Q "$SQL" | tr -d '\r' | head -260
+                echo "=== account migration eligibility counts (no personal values) ==="
+                SQL="SET NOCOUNT ON; SELECT 'AspNetUsers' AS source, COUNT(*) AS total, SUM(CASE WHEN COALESCE(NULLIF(LTRIM(RTRIM(Mobile)),''),NULLIF(LTRIM(RTRIM(PhoneNumber)),''),NULLIF(LTRIM(RTRIM(Phone)),'')) IS NULL THEN 1 ELSE 0 END) AS missing_phone, SUM(CASE WHEN PasswordHash IS NULL OR LTRIM(RTRIM(PasswordHash))='' THEN 1 ELSE 0 END) AS missing_password FROM AspNetUsers; SELECT 'Customers' AS source, COUNT(*) AS total, SUM(CASE WHEN NULLIF(LTRIM(RTRIM(Mobile)),'') IS NULL THEN 1 ELSE 0 END) AS missing_phone, SUM(CASE WHEN NULLIF(LTRIM(RTRIM(InitPassword)),'') IS NULL THEN 1 ELSE 0 END) AS missing_password FROM Customers;"
+                $DOCKER exec -e SQLCMDPASSWORD="$SA_PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -b -W -d Digibail -Q "$SQL" | tr -d '\r' | head -40
+                echo "=== user role counts only ==="
+                SQL="SET NOCOUNT ON; SELECT r.Name AS role_name, COUNT(*) AS account_count FROM AspNetUserRoles ur JOIN AspNetRoles r ON r.Id=ur.RoleId GROUP BY r.Name ORDER BY r.Name;"
+                $DOCKER exec -e SQLCMDPASSWORD="$SA_PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -b -W -d Digibail -Q "$SQL" | tr -d '\r' || true
+                echo "=== SMS implementation source excerpts ==="
+                for f in \
+                  "$OLD/recovered-source/LoanSystemAvizhe.Data/LoanSystem.Data.Entities/SmsPattern.cs" \
+                  "$OLD/recovered-source/LoanSystemAvizhe.Data/LoanSystem.Data.Entities/AppSms.cs" \
+                  "$OLD/recovered-source/LoanSystemAvizhe.Services/LoanSystem.Services.Models/SmsPatternModel.cs" \
+                  "$OLD/recovered-source/LoanSystemAvizhe.Services/LoanSystemAvizhe.Services.Sms.Models.KaveNegar/KaveNegarConfig.cs" \
+                  "$OLD/recovered-source/LoanSystemAvizhe.Services/LoanSystemAvizhe.Services.Sms.Models.KaveNegar/SendKaveNegar.cs" \
+                  "$OLD/recovered-source/LoanSystemAvizhe.Services/LoanSystem.Services.Base/IntegratedSmsSenderService.cs"; do
+                  if [ -f "$f" ]; then echo "--- ${f#"$OLD/"}"; sed -n '1,140p' "$f"; fi
+                done
+                unset SA_PASS
+              else
+                echo "SQL_SERVER_INSPECTION=BLOCKED (sqlcmd or local container password unavailable; no secrets printed)"
+              fi
+            else
+              echo "LEGACY_SQL_CONTAINER=NOT_FOUND"
+            fi
+            echo "=== legacy SMS-related source filenames ==="
+            find "$OLD" -type f \( -iname '*sms*' -o -iname '*kavenegar*' -o -iname '*message*' \) -printf '%P\n' 2>/dev/null | head -100 || true
+            echo "=== old app container config key names only ==="
+            if $DOCKER inspect public_html-web-1 >/dev/null 2>&1; then
+              $DOCKER exec public_html-web-1 sh -lc 'for f in /app/appsettings*.json; do [ -f "$f" ] || continue; echo "CONFIG_FILE=$f"; grep -Eho '"'"'"[^"]*(Sms|Kavenegar|ApiKey|Template|OTP|Otp|Phone|ConnectionString|Admin|User)[^"]*"[[:space:]]*:'"'"' "$f" 2>/dev/null || true; done' || true
+              echo "OLD_APP_ENV_KEY_NAMES="
+              $DOCKER inspect --format '{{range .Config.Env}}{{println .}}{{end}}' public_html-web-1 | sed 's/=.*//' | grep -Ei 'sms|kavenegar|otp|connection|string|admin|user|phone|api' | sort -fu || true
+            fi
+            echo "=== target PostgreSQL tables ==="
+            if [ -f docker-compose.yml ] && $DOCKER compose ps --services 2>/dev/null | grep -qx db; then
+              $DOCKER compose exec -T db sh -lc 'export PGPASSWORD="$POSTGRES_PASSWORD"; psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "\\dt"' || echo "TARGET_SCHEMA_QUERY=FAILED"
+            else
+              echo "TARGET_POSTGRES_SERVICE=NOT_FOUND"
+            fi
+            echo "=== audit complete; no data modified ==="

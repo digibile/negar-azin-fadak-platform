@@ -1,0 +1,41 @@
+name: Inspect legacy SMS source and provider settings
+on:
+  push:
+    paths:
+      - .github/workflows/inspect-sms-source.yml
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find SMS providers and legacy settings schema without exposing values
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            cd "$ROOT"
+            if sudo -n docker info >/dev/null 2>&1; then D="sudo -n docker"; else D="docker"; fi
+            echo "=== files containing known SMS provider identifiers (paths only) ==="
+            grep -RIlEi --include='*.cs' --include='*.json' --include='*.config' --include='*.xml' --include='*.dll.config' 'Kavenegar|Melipayamak|SmsPanel|SmsPatternPanel' "$ROOT/public_html" 2>/dev/null | head -80 || true
+            echo "=== configuration files present (names only) ==="
+            find "$ROOT/public_html" -type f \( -iname 'appsettings*.json' -o -iname 'web.config' -o -iname '*.runtimeconfig.json' -o -iname '*.deps.json' -o -iname '*.config' \) -printf '%p\n' 2>/dev/null | head -100
+            echo "=== provider-related variable names only ==="
+            grep -RhoEi --include='*.json' --include='*.config' --include='*.xml' --include='*.yml' --include='*.yaml' 'KAVENEGAR_[A-Z_]+|MELIPAYAMAK_[A-Z_]+|SMSIR_[A-Z_]+|IPPANEL_[A-Z_]+|GHASEDAK_[A-Z_]+|FARAZSMS_[A-Z_]+' "$ROOT/public_html" 2>/dev/null | sort -u | head -80 || true
+            echo "=== SQL Server tables/columns related to SMS and settings ==="
+            SQLC="public_html-db-1"
+            if $D inspect "$SQLC" >/dev/null 2>&1; then
+              SQLCMD="/opt/mssql-tools18/bin/sqlcmd"; $D exec "$SQLC" test -x "$SQLCMD" || SQLCMD="/opt/mssql-tools/bin/sqlcmd"
+              PASS="$($D inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$SQLC" | sed -n -E 's/^(MSSQL_SA_PASSWORD|SA_PASSWORD)=(.*)$/\\2/p' | head -1)"
+              if [ -n "$PASS" ] && $D exec "$SQLC" test -x "$SQLCMD"; then
+                Q="SET NOCOUNT ON; SELECT s.name+'.'+t.name+'.'+c.name FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id JOIN sys.columns c ON c.object_id=t.object_id WHERE t.name LIKE '%Sms%' OR t.name LIKE '%Setting%' OR t.name LIKE '%Panel%' OR c.name LIKE '%Sms%' OR c.name LIKE '%Provider%' OR c.name LIKE '%Panel%' ORDER BY t.name,c.column_id;"
+                $D exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -b -h -1 -d Digibail -Q "$Q" | head -150
+                unset PASS
+              else echo "LEGACY_SQL_SCHEMA=UNAVAILABLE"; fi
+            else echo "LEGACY_SQL_CONTAINER=UNAVAILABLE"; fi
+            echo "SMS_SOURCE_INSPECTION_COMPLETED=1"

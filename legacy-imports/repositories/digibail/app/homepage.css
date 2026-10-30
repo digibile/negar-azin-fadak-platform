@@ -1,0 +1,237 @@
+/* Digibail homepage-only refinement. Kept separate from shared application styles. */
+.db-home { overflow: clip; background:#f5f8fb; color:#102f43; }
+.db-home .top { min-height:78px; padding:14px clamp(18px,5vw,76px); background:#fff; border-bottom:1px solid #e4edf2; box-shadow:0 4px 22px #173b5010; }
+.db-home .brand { font-size:1.55rem; letter-spacing:-.7px; font-weight:950; color:#123c55; }
+.db-home .brand span { display:inline-grid; place-items:center; margin-right:5px; width:27px; height:27px; border-radius:8px; color:#14394b; background:#c9f36b; font-size:.8rem; }
+.db-home .top nav { gap:clamp(14px,2vw,30px); }
+.db-home .top nav a { color:#4d6878; font-weight:800; font-size:.83rem; transition:color .18s ease; }
+.db-home .top nav a:hover { color:#087f8c; }
+.db-home .login { border-radius:11px; padding:12px 17px; background:#0a526a; color:#fff; font-weight:900; }
+.db-home .hero { position:relative; grid-template-columns:minmax(0,.88fr) minmax(0,1.12fr); gap:clamp(28px,4vw,68px); padding:clamp(48px,6vw,88px) clamp(18px,5vw,76px); min-height:650px; background:radial-gradient(ellipse at 76% 30%,#155c70 0%,#0b354c 43%,#08283d 100%); color:#fff; }
+.db-home .hero:before { content:""; position:absolute; inset:0; pointer-events:none; opacity:.18; background-image:radial-gradient(#b5e9ed 1px,transparent 1px); background-size:24px 24px; mask-image:linear-gradient(90deg,transparent,black); }
+.db-home .hero-copy,.db-home .visual { position:relative; z-index:1; }
+.db-home .hero-copy { align-self:center; }
+.db-home .eyebrow { color:#c9f36b; font-size:.78rem; font-weight:900; letter-spacing:.1px; }
+.db-home .hero-copy h1 { margin:18px 0; font-size:clamp(2.45rem,4.4vw,4.5rem); line-height:1.3; letter-spacing:-1.7px; font-weight:950; }
+.db-home .hero-copy h1 em { color:#c9f36b; font-style:normal; }
+.db-home .hero-copy p { max-width:54ch; color:#d4e7ed; font-size:1rem; line-height:2.1; }
+.db-home .hero-actions { margin-top:26px; }
+.db-home .hero-actions .primary,.db-home .primary { background:#c9f36b; color:#15384a; border-radius:12px; padding:14px 20px; font-weight:950; box-shadow:0 10px 28px #061f2d35; }
+.db-home .hero-actions .secondary,.db-home .secondary { border:1px solid #ffffff50; border-radius:12px; padding:13px 18px; color:#fff; background:#ffffff0b; }
+.db-home .trust { margin-top:24px; gap:9px; }
+.db-home .trust span { padding:8px 11px; border:1px solid #ffffff24; border-radius:9px; color:#d8eaf0; background:#ffffff08; font-size:.72rem; }
+.db-home .hero-stage { grid-template-columns:minmax(0,1fr) minmax(290px,.88fr); gap:16px; }
+.db-home .hero-photo-grid { min-height:460px; grid-template-columns:1.12fr .88fr; grid-template-rows:repeat(2,minmax(180px,1fr)); gap:12px; }
+.db-home .hero-photo { border:1px solid #ffffff35; border-radius:19px; box-shadow:0 20px 45px #00152145; }
+.db-home .hero-photo img,.db-home .category-tile img,.db-home .promo-image img { object-fit:cover; }
+.db-home .hero-calc-panel { border:1px solid #e0ecee; border-radius:20px; box-shadow:0 28px 65px #00152155; }
+.db-home .hero-calc-mark { background:#e5f6d0; color:#315f35; }
+.db-home .hero-calc-button { background:#0a6578; border-radius:12px; }
+.db-home .benefits { border-bottom:1px solid #e1eaef; }
+.db-home .category-showcase,.db-home .steps-section { padding-inline:clamp(18px,5vw,76px); }
+.db-home .category-tile { border-radius:18px; box-shadow:0 15px 36px #102f4318; }
+.db-home .category-tile:after { background:linear-gradient(0deg,#061c2bed 0%,#061c2b4a 48%,transparent 80%); }
+.db-home .brand-promo { background:#e7f2f4; border:1px solid #d8e8eb; }
+.db-home .promo-copy { padding:clamp(24px,4vw,52px); }
+.db-home .steps-grid article { border-radius:17px; }
+.db-home .site-footer { background:#082b40; }
+.db-home .mobile-dock { border:1px solid #d6e5e8; box-shadow:0 12px 36px #062d3c30; }
+.db-home a:focus-visible,.db-home button:focus-visible,.db-home input:focus-visible,.db-home select:focus-visible { outline:3px solid #b5e85b; outline-offset:3px; }
+@media(max-width:1180px) {
+ .db-home .hero { grid-template-columns:minmax(0,1fr); }
+ .db-home .hero-stage { grid-template-columns:minmax(0,1fr) minmax(290px,.85fr); }
+ .db-home .hero-photo-grid { min-height:390px; }
+}
+@media(max-width:900px) {
+ .db-home .hero-stage { grid-template-columns:minmax(0,1fr); }
+ .db-home .hero-photo-grid { min-height:390px; }
+ .db-home .hero { padding:48px 22px; }
+}
+@media(max-width:700px) {
+ .db-home .top { padding:12px 15px; }
+ .db-home .hero { padding:36px 15px 42px; }
+ .db-home .hero-copy h1 { font-size:clamp(2.25rem,10vw,3.2rem); letter-spacing:-.8px; }
+ .db-home .hero-copy p { font-size:.9rem; }
+ .db-home .hero-photo-grid { min-height:290px; grid-template-rows:repeat(2,minmax(120px,1fr)); gap:8px; }
+ .db-home .hero-calc-panel { padding:17px; }
+ .db-home .category-showcase,.db-home .steps-section { padding-inline:15px; }
+ .db-home .category-grid { gap:10px; }
+ .db-home .category-tile { height:205px; min-height:205px; }
+ .db-home .brand-promo { margin:24px 12px; }
+ .db-home .footer-main { gap:24px 14px; }
+ .db-home .mobile-dock { z-index:60; }
+}
+@media(max-width:380px) {
+ .db-home .hero-photo-grid { min-height:245px; }
+ .db-home .hero-calc-total { grid-template-columns:minmax(0,1fr); }
+}
+@media(prefers-reduced-motion:reduce) {
+ .db-home *, .db-home *:before, .db-home *:after { scroll-behavior:auto!important; animation:none!important; transition:none!important; }
+}
+
+
+/* Premium visual pass: stronger editorial hierarchy, product photography and mobile controls. */
+.db-home .top { position:relative; z-index:20; display:flex; align-items:center; justify-content:space-between; gap:22px; }
+.db-home .brand { display:inline-flex; align-items:center; gap:3px; white-space:nowrap; text-decoration:none; }
+.db-home .top nav { display:flex; align-items:center; flex-wrap:wrap; }
+.db-home .login { white-space:nowrap; transition:transform .2s ease,background .2s ease; }
+.db-home .login:hover { background:#08788a; transform:translateY(-1px); }
+.db-home .hero { isolation:isolate; }
+.db-home .hero-copy { max-width:650px; }
+.db-home .hero-copy h1 { text-wrap:balance; }
+.db-home .hero-copy p { max-width:48ch; }
+.db-home .visual { min-width:0; }
+.db-home .hero-stage { align-items:stretch; }
+.db-home .hero-photo-grid { grid-template-areas:"main phone" "main laptop"; }
+.db-home .hero-photo-main { grid-area:main; }
+.db-home .hero-photo:nth-child(2) { grid-area:phone; }
+.db-home .hero-photo:nth-child(3) { grid-area:laptop; }
+.db-home .hero-photo:nth-child(4) { display:none; }
+.db-home .hero-photo { position:relative; overflow:hidden; min-width:0; background:#163f52; }
+.db-home .hero-photo img { width:100%; height:100%; min-height:0; display:block; transition:transform .55s cubic-bezier(.2,.7,.2,1); }
+.db-home .hero-photo:hover img,.db-home .category-tile:hover img { transform:scale(1.055); }
+.db-home .hero-photo:after { content:""; position:absolute; inset:35% 0 0; background:linear-gradient(transparent,#031923bd); pointer-events:none; }
+.db-home .hero-photo span { z-index:2; font-size:.86rem; font-weight:900; }
+.db-home .hero-calc-panel { align-self:center; min-width:0; background:#fff; color:#14384a; }
+.db-home .hero-calc-title { gap:11px; }
+.db-home .hero-calc-status { white-space:nowrap; }
+.db-home .hero-calc-field input[type=range] { accent-color:#087f8c; cursor:pointer; }
+.db-home .hero-calc-field select { width:100%; min-height:44px; border:1px solid #d9e6eb; border-radius:10px; padding:8px 12px; color:#173d4e; background:#f8fbfc; font:inherit; }
+.db-home .hero-calc-total > div { min-width:0; }
+.db-home .hero-calc-total b { overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.db-home .benefits { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; padding:22px clamp(18px,5vw,76px); background:#fff; }
+.db-home .benefits>div { min-width:0; }
+.db-home .benefit-icon { display:grid; place-items:center; width:42px; height:42px; border-radius:13px; background:#e9f7f6; color:#087f8c; font-size:1.2rem; }
+.db-home .category-showcase { padding-block:76px; }
+.db-home .showcase-heading { align-items:end; gap:20px; }
+.db-home .showcase-heading h2,.db-home .steps-section h2,.db-home .home-plan-entry h2 { letter-spacing:-.6px; }
+.db-home .category-grid { grid-template-columns:repeat(6,minmax(0,1fr)); gap:16px; }
+.db-home .category-tile { grid-column:span 2; min-width:0; height:260px; }
+.db-home .category-tile:first-child,.db-home .category-tile:nth-child(4) { grid-column:span 3; }
+.db-home .category-tile img { width:100%; height:100%; display:block; transition:transform .55s cubic-bezier(.2,.7,.2,1); }
+.db-home .category-tile span { z-index:2; }
+.db-home .category-tile b { font-size:1.08rem; }
+.db-home .brand-promo { overflow:hidden; border-radius:26px; }
+.db-home .promo-image img { width:100%; height:100%; min-height:300px; display:block; }
+.db-home .steps-grid article { border:1px solid #e2edf0; box-shadow:0 12px 28px #10394a0a; transition:transform .2s ease,box-shadow .2s ease; }
+.db-home .steps-grid article:hover { transform:translateY(-4px); box-shadow:0 18px 34px #10394a16; }
+.db-home .site-footer a { text-underline-offset:4px; }
+.db-home .mobile-dock { display:none; }
+@media(max-width:1180px) {
+ .db-home .top nav { gap:12px; }
+ .db-home .top nav a { font-size:.78rem; }
+ .db-home .benefits { grid-template-columns:repeat(3,minmax(0,1fr)); }
+ .db-home .category-grid { grid-template-columns:repeat(6,minmax(0,1fr)); }
+}
+@media(max-width:900px) {
+ .db-home .top nav { display:none; }
+ .db-home .hero-stage { grid-template-columns:minmax(0,1fr); }
+ .db-home .hero-photo-grid { min-height:340px; grid-template-rows:minmax(220px,1fr) minmax(150px,.7fr); }
+ .db-home .hero-calc-panel { width:100%; }
+ .db-home .benefits { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .db-home .category-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .db-home .category-tile,.db-home .category-tile:first-child,.db-home .category-tile:nth-child(4) { grid-column:span 1; height:230px; }
+ .db-home .category-tile:first-child { grid-column:span 2; }
+}
+@media(max-width:700px) {
+ .db-home { padding-bottom:88px; }
+ .db-home .top { min-height:64px; }
+ .db-home .login { padding:10px 12px; font-size:.78rem; }
+ .db-home .hero { gap:28px; }
+ .db-home .hero-copy h1 { line-height:1.35; }
+ .db-home .hero-stage { gap:14px; }
+ .db-home .hero-photo-grid { min-height:300px; grid-template-columns:1.1fr .9fr; grid-template-rows:repeat(2,minmax(130px,1fr)); }
+ .db-home .hero-photo-main { grid-row:span 2; }
+ .db-home .hero-photo:nth-child(2),.db-home .hero-photo:nth-child(3) { grid-column:auto; grid-row:auto; }
+ .db-home .hero-photo span { inset:auto 10px 10px; font-size:.72rem; }
+ .db-home .hero-calc-panel { padding:16px; border-radius:18px; }
+ .db-home .hero-calc-title { align-items:flex-start; }
+ .db-home .hero-calc-status { font-size:.65rem; }
+ .db-home .hero-calc-total { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+ .db-home .hero-calc-total b { font-size:1rem; }
+ .db-home .benefits { padding:20px 15px; gap:10px; }
+ .db-home .benefits>div { display:grid; grid-template-columns:38px minmax(0,1fr); column-gap:10px; align-items:center; }
+ .db-home .benefit-icon { grid-row:span 2; width:38px; height:38px; }
+ .db-home .benefits b { font-size:.78rem; }
+ .db-home .benefits small { font-size:.68rem; line-height:1.6; }
+ .db-home .category-showcase { padding-block:48px; }
+ .db-home .showcase-heading { align-items:start; flex-direction:column; }
+ .db-home .category-grid { gap:10px; }
+ .db-home .category-tile,.db-home .category-tile:first-child,.db-home .category-tile:nth-child(4) { height:185px; min-height:185px; }
+ .db-home .category-tile:first-child { height:220px; }
+ .db-home .category-tile b { font-size:.9rem; }
+ .db-home .category-tile small { font-size:.72rem; }
+ .db-home .brand-promo { display:grid; grid-template-columns:minmax(0,1fr); }
+ .db-home .promo-image { order:-1; max-height:230px; overflow:hidden; }
+ .db-home .promo-image img { min-height:230px; max-height:230px; }
+ .db-home .steps-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .db-home .mobile-dock { position:fixed; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); inset:auto 10px max(10px,env(safe-area-inset-bottom)); padding:8px 5px; gap:2px; background:#fff; border-radius:20px; box-shadow:0 10px 35px #052b3d35; backdrop-filter:blur(18px); }
+ .db-home .mobile-dock a { display:flex; min-width:0; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:#597482; text-decoration:none; border-radius:13px; padding:5px 2px; }
+ .db-home .mobile-dock a>span { display:grid; place-items:center; width:32px; height:30px; border-radius:10px; }
+ .db-home .mobile-dock svg { width:22px; height:22px; display:block; }
+ .db-home .mobile-dock small { font-size:.65rem; font-weight:800; white-space:nowrap; }
+ .db-home .mobile-dock a.dock-main { color:#fff; }
+ .db-home .mobile-dock a.dock-main>span { width:42px; height:38px; margin-top:-17px; background:#087f8c; box-shadow:0 5px 14px #087f8c45; border:3px solid #fff; }
+ .db-home .mobile-dock a.dock-main small { color:#087f8c; }
+ .db-home .footer-bottom { padding-bottom:10px; }
+}
+@media(max-width:380px) {
+ .db-home .hero-calc-status { display:none; }
+ .db-home .category-tile,.db-home .category-tile:first-child,.db-home .category-tile:nth-child(4) { height:165px; min-height:165px; }
+ .db-home .steps-grid { grid-template-columns:minmax(0,1fr); }
+}
+
+
+/* Final approved reference match: richer product collage and more usable mobile navigation. */
+.db-home .hero-photo-grid {
+  grid-template-areas: "main phone" "main laptop" "main watch";
+  grid-template-rows: repeat(3, minmax(125px, 1fr));
+  min-height: 510px;
+  gap: 12px;
+}
+.db-home .hero-photo-main { grid-area: main; }
+.db-home .hero-photo:nth-child(2) { grid-area: phone; }
+.db-home .hero-photo:nth-child(3) { grid-area: laptop; }
+.db-home .hero-photo:nth-child(4) { display: block; grid-area: watch; }
+.db-home .hero-photo span { padding: 8px 10px; border-radius: 9px; background: #0625369c; backdrop-filter: blur(8px); }
+.db-home .hero-photo img { object-position: center; }
+.db-home .hero-calc-panel { border-top: 4px solid #c9f36b; }
+.db-home .hero-calc-title { align-items: center; }
+.db-home .hero-calc-mark { width: 44px; height: 44px; flex-basis: 44px; }
+.db-home .category-tile { isolation: isolate; }
+.db-home .category-tile:focus-visible { outline: 3px solid #087f8c; outline-offset: 3px; }
+.db-home .mobile-dock { padding: 9px 7px; border: 1px solid #d8e7e9; }
+.db-home .mobile-dock a { min-height: 54px; touch-action: manipulation; }
+.db-home .mobile-dock a:not(.dock-main):active { background: #eaf7f6; color: #087f8c; }
+.db-home .mobile-dock a.dock-main > span { width: 46px; height: 43px; border-radius: 14px; }
+.db-home .mobile-dock svg { stroke-linecap: round; stroke-linejoin: round; }
+@media (min-width: 1200px) {
+  .db-home .hero { grid-template-columns: minmax(0,.84fr) minmax(0,1.16fr); gap: clamp(34px,4vw,68px); }
+  .db-home .hero-stage { grid-template-columns: minmax(0,1fr) minmax(310px,.82fr); gap: 20px; }
+  .db-home .hero-photo-grid { min-height: 540px; }
+  .db-home .hero-copy h1 { font-size: clamp(3.1rem,4.6vw,4.8rem); }
+}
+@media (max-width: 900px) {
+  .db-home .hero-photo-grid { min-height: 430px; }
+}
+@media (max-width: 700px) {
+  .db-home .hero-photo-grid {
+    min-height: 340px;
+    grid-template-areas: "main phone" "main laptop" "main watch";
+    grid-template-rows: repeat(3, minmax(95px,1fr));
+    gap: 8px;
+  }
+  .db-home .hero-photo-main { grid-area: main; grid-row: auto; }
+  .db-home .hero-photo:nth-child(2) { grid-area: phone; }
+  .db-home .hero-photo:nth-child(3) { grid-area: laptop; }
+  .db-home .hero-photo:nth-child(4) { display: block; grid-area: watch; }
+  .db-home .hero-photo span { right: 7px; bottom: 7px; font-size: .66rem; padding: 5px 7px; }
+  .db-home .mobile-dock { inset: auto 8px max(8px,env(safe-area-inset-bottom)); grid-template-columns: repeat(5,minmax(0,1fr)); }
+  .db-home .mobile-dock small { font-size: .67rem; }
+  .db-home .mobile-dock svg { width: 23px; height: 23px; }
+  .db-home .hero-calc-total b { font-size: clamp(.76rem,3.3vw,1rem); }
+}
+@media (max-width: 380px) {
+  .db-home .hero-photo-grid { min-height: 300px; grid-template-rows: repeat(3,minmax(82px,1fr)); }
+  .db-home .mobile-dock small { font-size: .59rem; }
+}

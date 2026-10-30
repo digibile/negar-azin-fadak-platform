@@ -1,0 +1,45 @@
+name: Validate VamCity JSON streaming export
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/validate-vamcity-streaming.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validate row-safe SQL Server JSON streaming without writing data files
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; else D='docker'; fi
+            C=vamcity-stage-sql
+            BCP="$($D exec "$C" sh -lc 'command -v /opt/mssql-tools18/bin/bcp')"
+            PASS="$($D exec "$C" printenv MSSQL_SA_PASSWORD 2>/dev/null || true)"
+            [ -n "$PASS" ] || PASS="$($D exec "$C" printenv SA_PASSWORD 2>/dev/null || true)"
+            echo "=== METADATA JSON OUTPUT ==="
+            $D exec -e SQLCMDPASSWORD="$PASS" "$C" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -d vamcityc_vamcity_import_20261028 -h -1 -w 65535 -Q "SET NOCOUNT ON; SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMNPROPERTY(OBJECT_ID(QUOTENAME(TABLE_SCHEMA)+'.'+QUOTENAME(TABLE_NAME)),COLUMN_NAME,'IsIdentity') AS is_identity FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='__EFMigrationsHistory' FOR JSON PATH;" 2>&1 | tail -n 5
+            echo "=== BCP ONE JSON OBJECT PER ROW ==="
+            $D exec -e BCP_PASS="$PASS" "$C" sh -c 'exec 3>&1; exec /opt/mssql-tools18/bin/bcp "SELECT (SELECT * FROM dbo.__EFMigrationsHistory t FOR JSON PATH, INCLUDE_NULL_VALUES)" queryout /dev/fd/3 -c -C 65001 -u -S localhost -U sa -P "$BCP_PASS" -d vamcityc_vamcity_import_20261028 1>&2' 2>&1 | head -n 10 || true
+            echo "=== BCP EXIT AND JSON VALIDATION ==="
+            set +e
+            OUT="$($D exec -e BCP_PASS="$PASS" "$C" sh -c 'exec 3>&1; exec /opt/mssql-tools18/bin/bcp "SELECT (SELECT * FROM dbo.__EFMigrationsHistory t FOR JSON PATH, INCLUDE_NULL_VALUES)" queryout /dev/fd/3 -c -C 65001 -u -S localhost -U sa -P "$BCP_PASS" -d vamcityc_vamcity_import_20261028 1>&2' 2>/dev/null)"
+            RC=$?
+            set -e
+            printf '%s' "$OUT" | python3 -c 'import sys,json; s=sys.stdin.read(); print("BYTES",len(s),"LINES",[(len(x),x[:24],x[-24:]) for x in s.splitlines()]); z="".join(s.splitlines()); rows=json.loads(z); print("JSON_ARRAY_VALID",isinstance(rows,list),"ROWS",len(rows))'
+            echo "BCP_RC=$RC"
+            unset PASS OUT
+            echo "STREAMING_EXPORT_VALIDATION_COMPLETE=1"

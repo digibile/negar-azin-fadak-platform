@@ -1,0 +1,61 @@
+name: Activate VamCity real databases with rollback
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/activate-vamcity-real-databases.yml
+
+permissions:
+  contents: read
+
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout VamCity migration script
+        uses: actions/checkout@v4
+        with:
+          repository: digibile/vamcity
+          ref: main
+          path: vamcity-source
+          fetch-depth: 1
+
+      - name: Prepare secure remote directory
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 2m
+          script: |
+            set -eu
+            mkdir -p /tmp/vamcity-activate
+            chmod 700 /tmp/vamcity-activate
+
+      - name: Copy migration script to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "vamcity-source/database/activate-real-databases.sh"
+          target: "/tmp/vamcity-activate/"
+          strip_components: 2
+          overwrite: true
+
+      - name: Validate and activate real databases
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+            SCRIPT="/tmp/vamcity-activate/activate-real-databases.sh"
+            test -f "$SCRIPT"
+            chmod 700 "$SCRIPT"
+            bash -n "$SCRIPT"
+            echo "MIGRATION_SCRIPT_SYNTAX=OK"
+            bash "$SCRIPT"

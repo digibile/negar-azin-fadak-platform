@@ -1,0 +1,100 @@
+name: CI - Digibail port 1631
+on:
+  push:
+    branches: [main, setup/ci-port-1631]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: digibail_test
+          POSTGRES_USER: digibail_test
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U digibail_test -d digibail_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://digibail_test:ci-only-password@localhost:5432/digibail_test
+      JWT_SECRET: ci-only-jwt-secret-at-least-32-characters-long
+      OTP_PEPPER: ci-only-otp-pepper-at-least-32-characters
+      CAPTCHA_PEPPER: ci-only-captcha-pepper-at-least-32-characters
+      BRAND_NAME: دیجی‌بایل پی
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Verify required source files
+        run: |
+          test -s web/template-v3.html
+          test -s web/customer-panel.html
+          test -s frontend/login.html
+          test -s frontend/register.html
+          test -s web/documents.html
+          test -s web/contracts.html
+          test -s web/loan-definition.html
+          test -s web/loan-requests.html
+          test -s web/customers.html
+          test -s web/agents.html
+          test -s backend/core/panel.html
+          test -s backend/db/001_init.sql
+      - name: Validate inline JavaScript in live pages
+        run: |
+          node -e 'const fs=require("node:fs"),vm=require("node:vm"); for (const file of ["web/template-v3.html","web/admin.html","web/documents.html","web/contracts.html","web/loan-definition.html","web/loan-requests.html","web/customers.html","web/agents.html","backend/core/panel.html"]) { const html=fs.readFileSync(file,"utf8"); const scripts=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]; scripts.forEach((m,i)=>new vm.Script(m[1],{filename:file+".inline-"+i+".js"})); console.log(file+": "+scripts.length+" inline scripts OK"); }'
+      - name: Validate migration scripts syntax
+        run: |
+          node --check scripts/backfill-legacy-customers.mjs
+          node --check scripts/import-vamcity-real-data.mjs
+          node --check scripts/migrate-legacy-digibail.js
+      - name: Validate shell installers and sample configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do bash -n "$file"; done < <(find . -type f -name '*.sh' -print0)
+          node -e "JSON.parse(require('node:fs').readFileSync('config/appsettings.sample.json','utf8')); console.log('Sample JSON is valid')"
+      - name: Run route and API tests
+        run: npm test
+      - name: Build Next.js production UI
+        run: npm run build
+      - name: Apply migrations and start app on port 1631
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm start > /tmp/digibail-app.log 2>&1 &
+          echo $! > /tmp/digibail-app.pid
+          trap 'kill "$(cat /tmp/digibail-app.pid)" 2>/dev/null || true' EXIT
+          for i in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:1631/healthz >/tmp/health.json; then break; fi
+            sleep 1
+          done
+          cat /tmp/health.json
+          grep -q '"database":"ok"' /tmp/health.json
+          curl --fail --silent http://127.0.0.1:1631/ | grep -q '<html'
+          curl --fail --silent http://127.0.0.1:1631/login.html | grep -q '<html'
+          curl --fail --silent http://127.0.0.1:1631/api/v1/tenant/config | grep -q 'دیجی‌بایل'
+          curl --fail --silent http://127.0.0.1:1631/api/v1/security/captcha | grep -q '"id"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:1631/unknown)" = "404"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:1631/panel.html)" = "302"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:1631/loan-definition.html)" = "302"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:1631/loan-requests.html)" = "302"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:1631/customers.html)" = "302"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:1631/agents.html)" = "302"
+      - name: Build Docker image
+        run: docker build -t digibail-app:${{ github.sha }} .
