@@ -201,6 +201,13 @@ if(!centralSettingsUi.includes('"mobile-app":"تنظیمات اپلیکیشن م
 
 
 
+const purchasingApi=fs.readFileSync(path.join(root,"apps/api/src/purchasing-supply.ts"),"utf8");
+const marketplaceApi=fs.readFileSync(path.join(root,"apps/api/src/domain-marketplace.ts"),"utf8");
+const purchasingUi=fs.readFileSync(path.join(root,"apps/web/app/modules/PurchasingSupplyWorkspace.tsx"),"utf8");
+const sellerUi=fs.readFileSync(path.join(root,"apps/web/app/marketplace/sellers/page.tsx"),"utf8");
+if(!purchasingApi.includes("ensureCanonicalParty")||!purchasingApi.includes("party_id,code,name")||!purchasingUi.includes("nationalId")||!purchasingUi.includes("canonical_party_title"))throw new Error("Purchasing suppliers must use and display canonical party identity");
+if(!marketplaceApi.includes("ensureCanonicalParty")||!marketplaceApi.includes("party_id,legal_name")||!sellerUi.includes("nationalId")||!sellerUi.includes("canonical_party_title"))throw new Error("Marketplace sellers must use and display canonical party identity");
+
 const lendtech=fs.readFileSync(path.join(root,"apps/api/src/lendtech.ts"),"utf8");
 const paymentDeclarations=fs.readFileSync(path.join(root,"database/migrations/149_vamcity_payment_declarations.sql"),"utf8");
 if(!server.includes("lendtechRouter"))throw new Error("Canonical lendtech router is not mounted");
