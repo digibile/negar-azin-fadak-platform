@@ -611,7 +611,7 @@ lendtechRouter.get("/api/lendtech/my-documents/:id/file",requireAuth,asyncHandle
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const r=await query("select f.id,f.original_name,f.stored_mime_type,f.binary_data from platform_attachments f join platform_attachment_links l on l.attachment_id=f.id and l.tenant_id=f.tenant_id join lendtech_applications a on a.id::text=l.entity_id and a.tenant_ref=l.tenant_id where f.id=$1 and f.tenant_id=$2 and a.customer_ref=$3 and l.entity_type='lendtech_application' and l.relation_type='identity-document'",[fileId,t.id,actor(req)]);
  if(!r.rowCount)return res.status(404).json({error:"فایل متعلق به حساب شما پیدا نشد"});
- const f=r.rows[0];res.setHeader("Content-Type",f.stored_mime_type);res.setHeader("Content-Disposition","attachment; filename*=UTF-8''"+encodeURIComponent(f.original_name));res.send(f.binary_data);
+ const f=r.rows[0];res.setHeader("Content-Type",f.stored_mime_type);res.setHeader("X-Content-Type-Options","nosniff");res.setHeader("Cache-Control","private, no-store");res.setHeader("Content-Disposition","attachment; filename*=UTF-8''"+encodeURIComponent(f.original_name));res.send(f.binary_data);
 }));
 
 lendtechRouter.get("/api/lendtech/applications/:id/documents",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
@@ -628,5 +628,5 @@ lendtechRouter.get("/api/lendtech/application-documents/:id/file",requireAuth,re
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const r=await query("select f.original_name,f.stored_mime_type,f.binary_data from platform_attachments f join platform_attachment_links l on l.attachment_id=f.id and l.tenant_id=f.tenant_id join lendtech_applications a on a.id::text=l.entity_id and a.tenant_ref=l.tenant_id where f.id=$1 and f.tenant_id=$2 and l.entity_type='lendtech_application' and l.relation_type='identity-document'",[fileId,t.id]);
  if(!r.rowCount)return res.status(404).json({error:"فایل پرونده پیدا نشد"});
- const f=r.rows[0];res.setHeader("Content-Type",f.stored_mime_type);res.setHeader("Content-Disposition","attachment; filename*=UTF-8''"+encodeURIComponent(f.original_name));res.send(f.binary_data);
+ const f=r.rows[0];res.setHeader("Content-Type",f.stored_mime_type);res.setHeader("X-Content-Type-Options","nosniff");res.setHeader("Cache-Control","private, no-store");res.setHeader("Content-Disposition","attachment; filename*=UTF-8''"+encodeURIComponent(f.original_name));res.send(f.binary_data);
 }));
