@@ -284,6 +284,8 @@ for(const marker of ["unique(tenant_id,id)","foreign key(tenant_id,bank_account_
 for(const marker of ["verification_status='verified'","status='active'","for update","current_balance)<Number(old.amount)","party_bank_account_id"])if(!treasuryBankApi.includes(marker))throw new Error("Treasury outgoing payments must enforce verified beneficiary accounts and safe settlement");
 if(!treasuryBankApi.includes("beneficiaryBankAccounts:beneficiaryBankAccounts.rows")||!treasuryBankApi.includes("canonical_party_title")||!treasuryBankUi.includes("شبای تأییدشده ذی‌نفع")||!treasuryBankUi.includes("طرف‌حساب مرکزی"))throw new Error("Treasury workspace must display and select canonical payment beneficiaries");
  
+const treasuryReceiptMigration=fs.readFileSync(path.join(root,"database/migrations/157_treasury_receipts_canonical_payer.sql"),"utf8");
+if(!treasuryReceiptMigration.includes("foreign key(tenant_id,party_id)")||!treasuryReceiptMigration.includes("foreign key(tenant_id,bank_account_id)")||!treasuryBankApi.includes("party.title as canonical_party_title")||!treasuryBankApi.includes("for update")||!treasuryBankUi.includes("طرف‌حساب مرکزی"))throw new Error("Treasury receipts must preserve payer history and use tenant-safe canonical payer links");
 const verificationFoundation=fs.readFileSync(path.join(root,"database/migrations/112_verification_and_insurance_foundation.sql"),"utf8");
 const lendtechInquiryUi=fs.readFileSync(path.join(root,"apps/web/app/admin/lendtech/page.tsx"),"utf8");
 for(const route of [
