@@ -139,6 +139,8 @@ aiWorkshopRouter.post("/api/ai/workshop/save",requireAuth,asyncHandler(async(req
  const artifact=normalizeArtifact(req.body?.artifact);
  const name=textValue(req.body?.name,180)||artifact.title;
  const framework=textValue(req.body?.framework,100)||"Next.js + TypeScript";
+ const slug=slugify(artifact.slug),webPrefix=(framework==="React + TypeScript"?"apps/web/components/ai-generated/":"apps/web/app/ai-generated/")+slug+"/",apiPrefix="apps/api/src/ai-generated/"+slug+"/";
+ if(artifact.sourceFiles.some((file:any)=>!((framework==="Python + FastAPI"?file.path.startsWith(apiPrefix):file.path.startsWith(webPrefix)||file.path.startsWith(apiPrefix))&&!file.path.includes("..")&&!file.path.startsWith("/")&&/\\.(tsx|ts|css|py)$/.test(file.path))))return res.status(400).json({error:"مسیر یکی از فایل‌های منبع خارج از محدوده مجاز است."});
  if(key==="menu"){
   const rootKey="ai-"+slugify(artifact.slug)+"-"+randomUUID().slice(0,8);
   const root=await query("insert into menu_items(menu_key,parent_id,title,path,icon,sort_order,permission,is_active,children) values($1,null,$2,'#','layout-grid',900,null,false,'[]'::jsonb) returning id,menu_key,title",[rootKey,name]);
@@ -148,9 +150,9 @@ aiWorkshopRouter.post("/api/ai/workshop/save",requireAuth,asyncHandler(async(req
    const menuKey=rootKey+"-"+i;
    const parent=await query("insert into menu_items(menu_key,parent_id,title,path,icon,sort_order,permission,is_active,children) values($1,$2,$3,'#','folder',"+(i+1)*10+",null,false,'[]'::jsonb) returning id",[menuKey,root.rows[0].id,title]);
    for(const [j,child] of list(item.children,12).entries()){
-    const childTitle=textValue(child.title,120),path=textValue(child.path,300);
+    const childTitle=textValue(child.title,120),path=textValue(child.path,300),permission=textValue(child.permission,100);
     if(!childTitle||!path.startsWith("/")||path.startsWith("//"))continue;
-    await query("insert into menu_items(menu_key,parent_id,title,path,icon,sort_order,permission,is_active,children) values($1,$2,$3,$4,$5,$6,$7,false,'[]'::jsonb)",[menuKey+"-"+(j+1),parent.rows[0].id,childTitle,path,textValue(child.icon,40)||null,(j+1)*10,textValue(child.permission,100)||null]);
+    await query("insert into menu_items(menu_key,parent_id,title,path,icon,sort_order,permission,is_active,children) values($1,$2,$3,$4,$5,$6,$7,false,'[]'::jsonb)",[menuKey+"-"+(j+1),parent.rows[0].id,childTitle,path,textValue(child.icon,40)||null,(j+1)*10,/^[a-z0-9:_-]+$/i.test(permission)?permission:null]);
    }
    created.push({id:parent.rows[0].id,title});
   }
