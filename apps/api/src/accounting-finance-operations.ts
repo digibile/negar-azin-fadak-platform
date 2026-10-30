@@ -76,7 +76,8 @@ router.patch("/api/accounting-finance/counterparties/:id",requireAuth,requirePer
   const old=await c.query("select * from accounting_parties where id=$1 and tenant_id=$2 for update",[id,t.id]);
   if(!old.rowCount){await c.query("rollback");return deny(res,404,"طرف حساب پیدا نشد")}
   const status=b.isActive===undefined?old.rows[0].status:(b.isActive===false?"inactive":"active");
-  const p=await c.query("update accounting_parties set title=$1,status=$2,updated_at=now() where id=$3 and tenant_id=$4 returning *",[name,status,id,t.id]);
+  const partyType=["customer","supplier","employee","agent","bank","other"].includes(b.partyType)?b.partyType:old.rows[0].party_type;
+  const p=await c.query("update accounting_parties set title=$1,party_type=$2,status=$3,updated_at=now() where id=$4 and tenant_id=$5 returning *",[name,partyType,status,id,t.id]);
   let bankAccount=null;
   if(iban){
    const current=await c.query("select id,iban,status from accounting_party_bank_accounts where tenant_id=$1 and party_id=$2 order by (iban=$3) desc,created_at desc limit 1",[t.id,id,iban]);
