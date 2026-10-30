@@ -1,6 +1,6 @@
 import {Router} from "express";
 import {query,pool} from "./db.js";
-import {requireAuth,requirePermission} from "./auth.js";
+import {requireAuth,requirePermission,requireCsrf} from "./auth.js";
 import {resolveTenant} from "./tenant-context.js";
 
 const router=Router();
@@ -47,7 +47,7 @@ router.post("/api/accounting-finance/parties",requireAuth,requirePermission("acc
 
 
 
-router.post("/api/accounting-finance/counterparties",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.post("/api/accounting-finance/counterparties",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const b=req.body||{},name=String(b.name||"").trim(),iban=validIranianIban(b.iban);
  if(!name||name.length>120)return deny(res,400,"نام طرف تسویه الزامی است و حداکثر ۱۲۰ نویسه دارد");
@@ -64,7 +64,7 @@ router.post("/api/accounting-finance/counterparties",requireAuth,requirePermissi
  }catch(e:any){await c.query("rollback");if(e?.statusCode)return deny(res,e.statusCode,e.message);throw e}finally{c.release()}
 });
 
-router.patch("/api/accounting-finance/counterparties/:id",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.patch("/api/accounting-finance/counterparties/:id",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const b=req.body||{},id=idOf(req,"id"),name=String(b.name||"").trim();
  if(!name||name.length>120)return deny(res,400,"نام طرف تسویه الزامی است و حداکثر ۱۲۰ نویسه دارد");
@@ -117,7 +117,7 @@ router.get("/api/accounting-finance/parties/:partyId/bank-accounts",requireAuth,
  res.json({items:r.rows});
 });
 
-router.post("/api/accounting-finance/parties/:partyId/bank-accounts",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.post("/api/accounting-finance/parties/:partyId/bank-accounts",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const b=req.body||{},partyId=idOf(req,"partyId"),iban=validIranianIban(b.iban);
  if(!iban)return deny(res,400,"شماره شبای ایران معتبر نیست");
@@ -128,7 +128,7 @@ router.post("/api/accounting-finance/parties/:partyId/bank-accounts",requireAuth
  await audit(t.id,actor(req),"party_bank_account",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
 });
 
-router.patch("/api/accounting-finance/parties/:partyId/bank-accounts/:id/verification",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.patch("/api/accounting-finance/parties/:partyId/bank-accounts/:id/verification",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const status=req.body?.verificationStatus,note=String(req.body?.verificationNote||"").trim();
  if(!["pending","verified","rejected"].includes(status))return deny(res,400,"وضعیت احراز شبا نامعتبر است");
