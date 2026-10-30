@@ -195,6 +195,12 @@ app.post("/api/auth/register",asyncHandler(async(req,res)=>{
  res.status(201).json({user:{id:user.id,email:user.email,fullName:user.full_name,role:user.role}});
 }));
  
+app.get("/api/tenants/available",requireAuth,asyncHandler(async(req,res)=>{
+ const user=(req as any).user;
+ if(!["admin","super_admin"].includes(user.role))return res.status(403).json({error:"دسترسی انتخاب سازمان فقط برای مدیرکل مجاز است"});
+ const result=await query("select id,code,name from tenants where status='active' order by created_at asc,id asc");
+ res.json({items:result.rows});
+}));
 app.get("/api/auth/me",requireAuth,(req,res)=>res.json({user:(req as any).user}));
 app.post("/api/auth/logout",requireAuth,asyncHandler(async(req,res)=>{const user=(req as any).user;if(user.sessionId)await query("update security_sessions set revoked_at=now() where id=$1 and user_id=$2 and revoked_at is null",[user.sessionId,user.id]);clearSession(res);res.status(204).end();}));
 
