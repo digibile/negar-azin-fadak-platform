@@ -4,7 +4,7 @@ import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
-import {evaluateContractCondition,renderContractTemplate,validateContractTemplate,type ContractInstallment,type ContractVariable} from "./contract-engine.js";
+import {evaluateContractCondition,renderContractTemplate,validateContractTemplate,maskContractValue,type ContractInstallment,type ContractVariable} from "./contract-engine.js";
 
 export const lendtechContractRouter=Router();
 const s=(v:unknown,max=500)=>typeof v==="string"?v.trim().slice(0,max):"";
@@ -258,7 +258,7 @@ lendtechContractRouter.post("/api/lendtech/contracts/:id/render",requireAuth,req
    const missing=[...header.missing,...body.missing,...footer.missing],errors=[...header.errors,...body.errors,...footer.errors];
    if(missing.length||errors.length)throw new Error("متغیرهای الزامی یا ساختار قالب کامل نیست: "+[...missing.map(x=>x.label),...errors].join("، "));
    const html=page(row.title,header.html,body.html,footer.html),number="CT-"+Date.now()+"-"+randomUUID().slice(0,8).toUpperCase();
-   const saved=await client.query("insert into lendtech_contract_documents(tenant_ref,application_id,contract_id,template_id,group_key,template_version,document_no,title,stage,status,requires_review,html,body_hash,values_json,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11,$12,$13::jsonb,$14) returning id,document_no,title,stage,status,template_version",[t.id,contract.application_id,contract.id,row.id,row.group_key,row.version,number,row.title,mapping.stage,mapping.requires_review,html,createHash("sha256").update(html).digest("hex"),JSON.stringify(Object.fromEntries(variableRows.map((d:any)=>[d.key,get(d.key)]))),actor(req)]);
+   const saved=await client.query("insert into lendtech_contract_documents(tenant_ref,application_id,contract_id,template_id,group_key,template_version,document_no,title,stage,status,requires_review,html,body_hash,values_json,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11,$12,$13::jsonb,$14) returning id,document_no,title,stage,status,template_version",[t.id,contract.application_id,contract.id,row.id,row.group_key,row.version,number,row.title,mapping.stage,mapping.requires_review,html,createHash("sha256").update(html).digest("hex"),JSON.stringify(Object.fromEntries(variableRows.map((d:any)=>{const value=get(d.key);return [d.key,d.sensitivity==='Sensitive'&&value!=null?maskContractValue(String(value)):value];}))),actor(req)]);
    created.push(saved.rows[0]);
    await event(client,t.id,saved.rows[0].id,req,"document.generated","نسخه "+row.version);
   }
@@ -330,8 +330,11 @@ lendtechContractRouter.post("/api/lendtech/contract-documents/:id/sign",requireA
   const row=d.rows[0];
   if(row.customer_ref!==req.user!.id){await client.query("rollback");return res.status(403).json({error:"این قرارداد متعلق به حساب شما نیست"});}
   if(row.status!=="presented"||!row.expires_at||new Date(row.expires_at).getTime()<Date.now()){await client.query("rollback");return res.status(409).json({error:"سند ارائه‌شده معتبر نیست یا مهلت آن پایان یافته است"});}
-  await client.query("update lendtech_contract_documents set status='signed',signed_at=now(),signed_ip=$1::inet,signed_ua=$2,signature_method='authenticated_account_acceptance' where tenant_ref=$3 and id=$4",[req.ip||null,String(req.headers["user-agent"]||"").slice(0,200)||"",t.id,row.id]);
-  await client.query("update lendtech_contracts set status='signed',signed_at=now(),updated_at=now() where tenant_ref=$1 and id=$2 and status='draft'",[t.id,row.contract_id]);
+  const actualHash=createHash("sha256").update(String(row.html)).digest("hex");
+  if(actualHash!==row.body_hash){await client.query("rollback");return res.status(409).json({error:"تمامیت سند تغییر کرده است؛ امضا متوقف شد"});}
+  const contractUpdate=await client.query("update lendtech_contracts set status='signed',signed_at=now(),updated_at=now() where tenant_ref=$1 and id=$2 and status='draft'",[t.id,row.contract_id]);
+  if(!contractUpdate.rowCount){await client.query("rollback");return res.status(409).json({error:"وضعیت قرارداد پایه اجازه امضا نمی‌دهد"});}
+  await client.query("update lendtech_contract_documents set status='signed',signed_at=now(),signed_ip=$1::inet,signed_ua=$2,signature_method='authenticated_account_acceptance',signed_body_hash=body_hash where tenant_ref=$3 and id=$4",[req.ip||null,String(req.headers["user-agent"]||"").slice(0,200)||"",t.id,row.id]);
   await event(client,t.id,row.id,req,"document.signed","پذیرش صریح در نشست کاربری");
   await client.query("commit");
  }catch(error){await client.query("rollback");throw error;}finally{client.release();}
