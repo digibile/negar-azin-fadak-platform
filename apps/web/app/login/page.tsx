@@ -103,7 +103,7 @@ export default function Login(){
      <input type="hidden" name="humanCheck" value={check.challenge}/>
      <div className="naf-captcha"><div className="naf-captcha-head"><span>تأیید انسانی</span><b>CAPTCHA</b></div><div className="naf-captcha-body"><strong>{check.question}</strong><input name="humanAnswer" inputMode="numeric" pattern="[0-9]+" autoComplete="off" aria-label="پاسخ تأیید انسانی" placeholder="پاسخ" value={answer} onChange={e=>setAnswer(e.target.value)} required/></div></div>
      <button className="naf-primary" type="submit" disabled={loading}>{loading?"در حال پردازش...":authMode==="otp"?(otpSent?"تأیید کد و ورود":"ارسال کد یکبارمصرف"):"ورود امن"}</button>
-     {authMode==="otp"&&otpSent&&<button className="naf-password-toggle" type="button" disabled={loading} onClick={()=>{setOtpSent(false);setOtpCode("");setMessage("");setError("");}}>تغییر شماره یا دریافت کد جدید</button>}
+     {authMode==="otp"&&otpSent&&<button className="naf-otp-reset" type="button" disabled={loading} onClick={()=>{setOtpSent(false);setOtpCode("");setMessage("");setError("");}}>تغییر شماره یا دریافت کد جدید</button>}
     </form>
     <p className="naf-foot">پس از ورود، بر اساس نقش کاربری به داشبورد اختصاصی هدایت می‌شوید · نسخه ۲۰۲۶</p>
     <p className="naf-foot">حساب کاربری ندارید؟ <a href={"/register?brand="+brandKey}>ایجاد حساب یا ثبت درخواست</a></p>
