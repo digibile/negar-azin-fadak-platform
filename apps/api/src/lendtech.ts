@@ -5,6 +5,7 @@ import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
 import {calculateContractInstallments} from "./contract-engine.js";
+import {calculateLendtechScore} from "./lendtech-scoring.js";
 import {addMonthsClamped} from "./lendtech-schedule.js";
 
 export const lendtechRouter=Router();
