@@ -53,6 +53,8 @@ import {enterpriseInteractionRouter} from "./enterprise-interaction.js";
 import {commerceIntelligenceRouter} from "./commerce-intelligence.js";
 import {merchantRouter} from "./merchant-management.js";
 import {formBuilderRouter} from "./form-builder.js";
+import {aiTemplateStudioRouter} from "./ai-template-studio.js";
+import {aiWorkshopRouter} from "./ai-workshop.js";
 import {issueHumanCheck,verifyHumanCheck} from "./human-check.js";
 import "./payment-provider.js";
 
@@ -68,7 +70,7 @@ const requireModulePermission=async(user:any,moduleId:number,action:"read"|"writ
  );
  return Boolean(p.rowCount);
 };
-const allowedOrigins=[...new Set([...(process.env.CORS_ORIGIN||"http://localhost:3000").split(",").map(x=>x.trim()).filter(Boolean),"https://digibile.ir","https://www.digibile.ir"])];
+const allowedOrigins=[...new Set([...(process.env.CORS_ORIGIN||"http://localhost:3000").split(",").map(x=>x.trim()).filter(Boolean),"https://digibile.ir","https://www.digibile.ir","https://sookar.ir","https://www.sookar.ir"])];
 app.disable("x-powered-by");
 app.use(cors({origin:(origin,callback)=>{if(!origin||allowedOrigins.includes(origin))return callback(null,true);callback(new Error("مبدأ درخواست مجاز نیست"))},credentials:true}));
 app.use(express.json({limit:"12mb",verify:(req,_,buf)=>{(req as any).rawBody=Buffer.from(buf)}}));
@@ -144,6 +146,8 @@ app.use("/api/domain",domainCommandPlatformRouter);
 app.use(domainMarketplaceRouter);
 app.use(merchantRouter);
 app.use(formBuilderRouter);
+app.use(aiTemplateStudioRouter);
+app.use(aiWorkshopRouter);
 app.use(sellerSurfaceRouter);
 app.use("/api/content",tenantContentRouter);
 app.use(checkoutRouter);
