@@ -28,13 +28,13 @@ This document records the first-pass integration decisions for the preserved sou
 | User identity, roles and permissions | Central IAM workspace and identity API | Unified workspace; no parallel legacy security workspace |
 | Navigation | Database menu tree served by `/api/dashboard/menu-tree` | Admin dashboard and sidebar read the backend tree; legacy hardcoded menu registry removed |
 | API transport | `apps/web/lib/api.ts` | Customer 360, Sales, Purchasing, Merchant Management, Treasury Bank and Treasury Checks use the same same-origin client for credentials, CSRF and error handling; duplicate per-workspace fetch clients removed |
-| Shared party reference UI | `apps/web/components/CanonicalPartyReference.tsx` | Customer 360, Sales customers, Purchasing suppliers, payment merchants and Treasury receipts and payments render one consistent linked/unlinked identity indicator |
-| Customer/party identity | `accounting_parties` plus `ensureCanonicalParty` | Shared resolver used by Customer 360, Sales, Purchasing, payment merchants and marketplace sellers |
+| Shared party reference UI | `apps/web/components/CanonicalPartyReference.tsx` | Customer 360, Sales customers, Purchasing suppliers, payment merchants, Treasury receipts, payments and checks render one consistent linked/unlinked identity indicator |
+| Customer/party identity | `accounting_parties` plus `ensureCanonicalParty` | Shared resolver used by Customer 360, Sales, Purchasing, payment merchants, marketplace sellers and LendTech borrower applications |
 | Customer and supplier registries | `crm_customers`, `sales_partners`, `purchase_suppliers` | Separate operational records linked to canonical party; reconciliation queue includes all three; no destructive row merge |
 | Payment merchants and marketplace sellers | `payment_merchants`, `sellers` | Separate operational records linked to canonical party |
-| Legacy party reconciliation | Accounting Finance > registry reconciliation | Exact normalized national-ID match or evidence-backed manual review; ambiguous identity matches fail closed |
-| Finance and accounting | Accounting Finance workspace and central ledger/treasury APIs | Existing destination retained; treasury receipts/payments now reference the central payer/payee and verified beneficiary accounts; treasury mutations enforce CSRF; no frontend financial calculation introduced |
-| Lending and repayments | Central LendTech modules and repayment workflow | Legacy rules are inputs for mapping, not a second live loan engine |
+| Legacy party reconciliation | Accounting Finance > registry reconciliation | Exact normalized national-ID match or evidence-backed manual review; includes customers, suppliers, merchants, sellers, treasury receipts and treasury checks. Transaction ledgers allow multiple records per party |
+| Finance and accounting | Accounting Finance workspace and central ledger/treasury APIs | Existing destination retained; receipts and payments reference canonical payer/payee identities; payments can use verified beneficiary accounts; checks reference canonical counterparties and tenant-owned treasury accounts; no frontend financial calculation introduced |
+| Lending and repayments | Central LendTech modules and repayment workflow | Borrower applications carry an optional tenant-safe canonical party link while preserving customer_ref; legacy rules remain inputs for mapping, not a second live loan engine |
 | Documents and OCR | Central document governance and Persian OCR worker | Legacy OCR code requires provider/accuracy review before reuse |
 | Storefront and marketplace | Sookar marketplace and shared catalog/cart APIs | Keep public storefront separate from admin product/catalog management |
 
