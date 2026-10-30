@@ -201,7 +201,7 @@ lendtechRouter.post("/api/lendtech/applications/:id/committee",requireAuth,requi
   const created=await client.query(`insert into lendtech_facilities(tenant_ref,application_id,decision_id,facility_no,approved_amount,available_amount)
    values($1,$2,$3,$4,$5,$5) returning *`,[t.id,a.rows[0].id,d.id,facilityNo(),d.approved_amount]);
   await client.query("update lendtech_applications set status='approved',updated_at=now() where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
-  await event(client,t.id,req.params.id,null,"facility.approved",actor(req),{facilityId:created.rows[0].id,decisionId:d.id});
+  await event(client,t.id,a.rows[0].id,null,"facility.approved",actor(req),{facilityId:created.rows[0].id,decisionId:d.id});
   await client.query("commit");
   res.status(201).json(created.rows[0]);
  }catch(error){await client.query("rollback");throw error;}finally{client.release();}
