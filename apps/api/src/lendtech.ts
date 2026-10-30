@@ -297,7 +297,7 @@ lendtechRouter.get("/api/lendtech/my-payment-declarations",requireAuth,asyncHand
 }));
 lendtechRouter.post("/api/lendtech/my-payment-declarations",requireAuth,requireCsrf,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const amount=parseMoneyToMinorUnits(req.body?.amount),method=s(req.body?.method,30),paymentRef=s(req.body?.reference,60).replace(/[۰-۹]/g,ch=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(ch))).replace(/[٠-٩]/g,ch=>String("٠١٢٣٤٥٦٧٨٩".indexOf(ch))).replace(/\D/g,"");
+ const amountInput=String(req.body?.amount??"").replace(/[۰-۹]/g,ch=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(ch))).replace(/[٠-٩]/g,ch=>String("٠١٢٣٤٥٦٧٨٩".indexOf(ch))).replace(/[٬,\s]/g,"").replace(/٫/g,"."),amount=parseMoneyToMinorUnits(amountInput),method=s(req.body?.method,30),paymentRef=s(req.body?.reference,60).replace(/[۰-۹]/g,ch=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(ch))).replace(/[٠-٩]/g,ch=>String("٠١٢٣٤٥٦٧٨٩".indexOf(ch))).replace(/\D/g,"");
  const paidAtValue=s(req.body?.paidAt,40),paidAt=paidAtValue?new Date(paidAtValue):new Date();
  const contractId=s(req.body?.contractId,80),note=s(req.body?.note,300);
  if(amount===null||amount<=0n||amount>100000000000000000n)return res.status(400).json({error:"مبلغ اعلام واریز معتبر نیست"});
