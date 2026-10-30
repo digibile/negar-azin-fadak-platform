@@ -190,8 +190,8 @@ lendtechRouter.post("/api/lendtech/applications/:id/committee",requireAuth,requi
  const a=await query("select * from lendtech_applications where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
  if(!a.rowCount)return res.status(404).json({error:"درخواست اعتبار پیدا نشد"});
  const d=decision.rows[0];
- const r=await query(`insert into lendtech_facilities(tenant_ref,application_id,facility_no,approved_amount,available_amount)
-   values($1,$2,$3,$4,$4) returning *`,[t.id,a.rows[0].id,facilityNo(),d.approved_amount]);
+ const r=await query(`insert into lendtech_facilities(tenant_ref,application_id,decision_id,facility_no,approved_amount,available_amount)
+   values($1,$2,$3,$4,$5,$5) returning *`,[t.id,a.rows[0].id,d.id,facilityNo(),d.approved_amount]);
  await query("update lendtech_applications set status='approved',updated_at=now() where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
  res.status(201).json(r.rows[0]);
 }));
@@ -201,7 +201,7 @@ lendtechRouter.post("/api/lendtech/facilities/:id/contract",requireAuth,requireP
  const client=await pool.connect();
  try{
   await client.query("begin");
-  const facility=await client.query("select f.*,d.interest_rate,d.approved_term_months from lendtech_facilities f join lendtech_decisions d on d.application_id=f.application_id and d.tenant_ref=f.tenant_ref and d.decision='approve' where f.id=$1 and f.tenant_ref=$2 order by d.decided_at desc limit 1 for update of f",[req.params.id,t.id]);
+  const facility=await client.query("select f.*,d.interest_rate,d.approved_term_months from lendtech_facilities f join lendtech_decisions d on d.id=f.decision_id and d.application_id=f.application_id and d.tenant_ref=f.tenant_ref and d.decision='approve' where f.id=$1 and f.tenant_ref=$2 order by d.decided_at desc limit 1 for update of f",[req.params.id,t.id]);
   if(!facility.rowCount){await client.query("rollback");return res.status(404).json({error:"تسهیلات یا مصوبه معتبر پیدا نشد"});}
   const f=facility.rows[0];
   if(f.status!=="approved"){await client.query("rollback");return res.status(409).json({error:"فقط تسهیلات مصوب و پرداخت‌نشده قابل ایجاد قرارداد است"});}
