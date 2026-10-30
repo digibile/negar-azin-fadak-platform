@@ -10,10 +10,10 @@
 | قابلیت VamCity | شواهد مبدأ | معادل مقصد | تصمیم |
 |---|---|---|---|
 | ثبت و بررسی اعلام واریز | `PaymentDeclaration` و دو controller مشتری/مدیر | `lendtech_repayments` و API بازپرداخت قرارداد | انتقال مستقیم وضعیت Approved ممنوع؛ ثبت رسید و بررسی مدرک می‌تواند لایه ورودی باشد، اما فقط پس از بررسی تطبیق آن با قرارداد و مسیر بازپرداخت مرکزی |
-| طرف‌حساب بانکی | `CounterParty` با نام، شبا و وضعیت | `accounting_parties` دفتر عمومی حسابداری با party_typeهای customer/supplier/employee/agent/bank/other وجود دارد؛ اما شبا/حساب بانکی وابسته ندارد و زیرسیستم‌های دیگر (`purchase_suppliers`, `sales_partners`, `payment_merchants`, `sellers`) رجیستری‌های تخصصی جدا دارند؛ `treasury_payments.payee_name` همچنان متن آزاد است | شکاف تأییدشده در مدل فعلی؛ پیش از طراحی باید مرز شخص/سازمان و اتصال به حسابداری، خزانه و پذیرنده تعیین شود؛ فعلاً هیچ جدول یا داده‌ای ساخته/منتقل نشود |
+| طرف‌حساب بانکی | `CounterParty` با نام، شبا و وضعیت | `accounting_parties` مرجع عمومی است و migration 150 حساب‌های بانکی وابسته به party را در `accounting_party_bank_accounts` اضافه کرده؛ رجیستری‌های تخصصی هنوز FK مشترک ندارند و خزانه همچنان متن آزاد دارد | ثبت/ویرایش طرف‌حساب و شبا در همان ماژول حسابداری پیاده شده؛ اتصال رجیستری‌های تخصصی و مصرف در پرداخت‌های خزانه مرحله بعد است؛ هیچ backfill انجام نشده |
 | بازاریاب و کد معرفی | `Marketer` با نام، موبایل، کد و درصد پورسانت | CRM مشتریان وجود داشت، اما رجیستری بازاریاب و API آن وجود نداشت | به‌عنوان قابلیت CRM/بازاریابی مرکزی اضافه شد؛ بدون ماژول یا هویت جدید |
 | تنظیمات اپ موبایل | `AppSetting` و کلیدهای نسخه، APK، تلفن پشتیبانی، اجبار به‌روزرسانی و تعمیرات | `central_settings` و پنل تنظیمات مرکزی | جدول AppSetting موازی ساخته نمی‌شود؛ کلیدهای موبایل باید در تنظیمات مرکزی و با خروجی عمومی محدود و امن ادغام شوند |
-| درخواست استعلام | `InquiryRequest` با صف، نتیجه و وضعیت | KYC، eligibility، scoring و `lendtech_events` | استعلام‌های اعتبار/هویت باید به provider و گردش KYC/اعتبار متصل شوند؛ صف عمومی جدید بدون قرارداد ارائه‌دهنده ساخته نمی‌شود |
+| درخواست استعلام | `InquiryRequest` با صف، نتیجه و وضعیت | `platform_verification_requests` و `lendtech_events` | صف بررسی دستی در API و پنل مرکزی تسهیلات پیاده شده؛ provider بیرونی و پاسخ امضاشده هنوز پیکربندی نشده |
 | سفارش خرید تسهیلاتی | `PurchaseOrder` با `UserId`, `LoanId?`, `MerchantName`, `Amount`, `Code`, `Status`؛ فقط Pending به Delivered/Cancelled | `marketplace_orders` با فروشگاه/فروشنده/اقلام و lifecycle؛ `sales_orders` با partner/اقلام/فاکتور/دریافت؛ چرخه تسهیلات | مدل مبدأ یک سربرگ ساده است و مالکیت UserId/LoanId و اتصال پذیرنده را در کنترلر کامل اعتبارسنجی نمی‌کند؛ سفارش جدید موازی ساخته نمی‌شود و باید به مسیر فروش/بازارگاه مرکزی نگاشت شود |
 | پشتیبان‌گیری SQL Server | endpoint تهیه و دانلود فایل `.bak` | PostgreSQL مرکزی و عملیات زیرساخت | API پشتیبان‌گیری SQL Server منتقل نمی‌شود؛ بکاپ PostgreSQL مسئولیت زیرساخت است و restore عمومی API ناامن است |
 
@@ -71,8 +71,9 @@
 در `OpsControllers.cs` عملیات فهرست، ایجاد و ویرایش وجود دارد. ایجاد و ویرایش نام و شبا را اجباری می‌کند؛ شبا باید الگوی `IR` به‌علاوه ۲۴ رقم را داشته و کنترل MOD-97 را پاس کند. شبا در محدوده tenant تکراری نباشد. فهرست نیز tenant-scoped است. توضیح مدل مبدأ آن را «حساب بانکی طرف تسویه (پذیرنده، تأمین‌کننده)» معرفی می‌کند. در مدل قابل مشاهده، نوع شخص، شناسه ملی، شماره ثبت، نشانی، تلفن، چند حساب برای هر طرف، مالک حساب، تاریخچه تغییر شبا یا گردش تأیید KYC وجود ندارد. `OpsModule.cs` خود فایل entityهای مبدأ را در بر دارد؛ با این حال پیکربندی EF/DbContext و migration SQL Server در مخزن فعلی نیست، پس درباره constraintهای فیزیکی دیتابیس مبدأ ادعای بیشتری نمی‌شود.
 
 ### تطبیق واقعی با مقصد
-- `accounting_parties` در migration 089 مرجع عمومی موجود است: `party_code`, `party_type` (customer/supplier/employee/agent/bank/other), `title`, شناسه‌های ملی/اقتصادی/مالیاتی، تلفن، ایمیل، نشانی، حساب پیش‌فرض، سقف اعتبار، مهلت پرداخت و metadata. API موجود `POST /api/accounting-finance/parties` رکورد می‌سازد و `GET /api/accounting-finance/operations-overview` آن را فهرست می‌کند؛ route ویرایش مستقل برای طرف‌حساب در فایل API بررسی‌شده پیدا نشد.
-- `accounting_bank_accounts` در همان migration حساب‌های بانکی با `iban` دارد، اما این‌ها حساب‌های ثبت‌شده در خزانه/دفاتر سازمان‌اند و ستون `party_id` یا رابطه با `accounting_parties` ندارند. پس نباید شباهای ذی‌نفع را داخل این جدول به‌عنوان حساب سازمان ثبت کرد.
+- `accounting_parties` در migration 089 مرجع عمومی موجود است. Migration 150 جدول `accounting_party_bank_accounts` را برای حساب‌های بانکی بیرونی با FK مرکب tenant+party، یکتایی IBAN tenant-wide و وضعیت احراز ایجاد می‌کند.
+- APIهای `POST/PATCH /api/accounting-finance/counterparties`, `GET/POST /api/accounting-finance/parties/:partyId/bank-accounts` و `PATCH .../verification` در همان router حسابداری قرار دارند. UI هم در تب «طرف‌حساب‌ها و شبا»ی `AccountingFinanceWorkspace` است.
+- `accounting_bank_accounts` همچنان فقط حساب‌های خود سازمان است و نباید برای IBAN ذی‌نفع استفاده شود.
 - `purchase_suppliers` در migration 103 یک رجیستری مستقل تأمین‌کنندگان با نام، شناسه ملی، تلفن، ایمیل و شرایط پرداخت است؛ `supplier_id` در سفارش‌ها/فاکتورها به همین جدول وصل است، نه به `accounting_parties`.
 - `sales_partners` در migration 102 طرف‌های فروش با شناسه ملی، تلفن، ایمیل و سقف اعتبار است؛ این هم FK به `accounting_parties` ندارد.
 - `payment_merchants` در migration 130 پذیرنده پرداخت با اطلاعات حقوقی، شناسه ملی/مالیاتی، شبا، حساب تسویه، قرارداد و وضعیت احراز است؛ `sellers` در migration 017 نیز فروشنده بازارگاه است. هیچ‌کدام به `accounting_parties` متصل نشده‌اند.
@@ -89,10 +90,10 @@
 در بازبینی کامل فایل `backend/ops/files/OpsModule.cs` مشخص شد هر شش entity عملیاتی مبدأ در همین فایل تعریف شده‌اند: `PaymentDeclaration`, `CounterParty`, `Marketer`, `AppSetting`, `InquiryRequest`, `PurchaseOrder`. بنابراین عبارت‌های قبلی درباره «پیدا نشدن فایل entity» اصلاح شد. پیکربندی کامل EF/DbContext و migration فیزیکی SQL Server در repo فعلی موجود نیست.
 
 ### جزئیات بیشتر طرف‌حساب‌ها و معادل‌های نزدیک مقصد
-- `accounting_parties` در migration 089 مرجع عمومی موجود برای customer/supplier/employee/agent/bank/other است؛ API آن create و overview دارد، اما `iban` و رابطه حساب بانکی وابسته ندارد.
+- `accounting_parties` مرجع عمومی است و migration 150 رابطه حساب بانکی ذی‌نفع را به آن افزوده؛ API ایجاد/ویرایش و احراز دستی در ماژول حسابداری موجود است.
 - `purchase_suppliers` در migration 103 تأمین‌کنندگان را جداگانه نگه می‌دارد و سفارش خرید به آن FK دارد؛ این جدول به `accounting_parties` متصل نیست.
 - `sales_partners` در migration 102 طرف فروش را جداگانه نگه می‌دارد؛ `payment_merchants` در migration 130 پذیرنده دارای شبا/اطلاعات حقوقی و `sellers` در migration 017 فروشنده بازارگاه است. این رجیستری‌ها هم FK به مرجع عمومی `accounting_parties` ندارند.
-- بنابراین مشکل «نبود دفتر طرف‌حساب» نیست؛ مشکل وجود چند رجیستری تخصصی بدون شناسه مشترک canonical و نبود حساب بانکی وابسته به طرف‌حساب است. طراحی باید `accounting_parties` را مرجع هویت کند و بعد از تطبیق داده‌ها، روابط و نقش‌ها را مرحله‌ای به آن متصل کند. هیچ migration جدیدی در این مرحله ایجاد نشده است.
+- مشکل باقی‌مانده دیگر نبود حساب بانکی وابسته نیست؛ migration 150 آن را حل می‌کند. gap بعدی، اتصال مرحله‌ای رجیستری‌های تخصصی (`purchase_suppliers`, `sales_partners`, `payment_merchants`, `sellers`) به party canonical و استفاده از حساب verified در خزانه است. هیچ backfill یا اتصال داده‌ای در این مرحله انجام نشده است.
 
 ### سفارش خرید VamCity
 Entity مبدأ `PurchaseOrder` شامل `TenantId`, `UserId`, `LoanId?`, `Code`, `MerchantName`, `Amount`, `Status` و `CreatedOn` است. API مدیر فقط خالی نبودن شناسه مشتری، نام پذیرنده و مثبت بودن مبلغ را بررسی می‌کند؛ بررسی تعلق UserId به tenant یا مالکیت LoanId در همان controller دیده نمی‌شود. وضعیت فقط از Pending به Delivered یا Cancelled قابل تغییر است و فهرست تا ۵۰۰ رکورد برمی‌گردد.
@@ -138,7 +139,7 @@ API مبدأ فقط برای SuperAdmin فهرست فایل‌های `.bak`، ا
 | `/api/v1/admin/counterparties` | فهرست/ایجاد/ویرایش نام، شبا، فعال بودن | `/api/accounting-finance/counterparties` و `accounting_party_bank_accounts` در دفتر حسابداری؛ تغییر شبا حساب قبلی را غیرفعال و حساب جدید را pending می‌کند |
 | `/api/v1/admin/marketers` | فهرست/ایجاد/ویرایش بازاریاب | در CRM مرکزی پیاده‌سازی شده |
 | `/api/v1/app/config` و `/api/v1/admin/app-settings` | تنظیمات عمومی/مدیر اپ | در تنظیمات مرکزی ادغام شده |
-| `/api/v1/admin/inquiries` | ایجاد، فهرست، ثبت یک‌باره نتیجه | foundation مرکزی موجود؛ adapter/provider و API اجرایی هنوز gap |
+| `/api/v1/admin/inquiries` | ایجاد، فهرست، ثبت یک‌باره نتیجه | صف دستی در `/api/lendtech/inquiry-requests`؛ provider بیرونی و callback امضاشده هنوز gap |
 | `/api/v1/admin/orders` | ایجاد سفارش ساده و تغییر وضعیت | استفاده از بازارگاه یا فروش مرکزی؛ بدون جدول موازی |
 | `/api/v1/admin/backups` | فهرست، ایجاد و دانلود SQL Server .bak | انتقال نمی‌یابد؛ عملیات زیرساخت PostgreSQL |
 
@@ -148,12 +149,12 @@ API مبدأ فقط برای SuperAdmin فهرست فایل‌های `.bak`، ا
 1. اعلام واریز به‌عنوان «پرداخت قطعی»: تأیید مدرک بانکی به‌تنهایی نباید قسط را پرداخت‌شده کند. مقصد باید از `lendtech_repayments` و تخصیص اقساط مرکزی استفاده کند.
 2. دفتر طرف‌حساب مستقل و موازی ایجاد نشد؛ از `accounting_parties` استفاده می‌شود. حساب بانکی بیرونی در `accounting_party_bank_accounts` نگهداری می‌شود و از حساب‌های بانکی خود سازمان جداست.
 3. تنظیمات اپ مستقل: منبع تنظیمات باید `central_settings` باشد؛ فقط خروجی عمومی مجاز و غیرحساس می‌تواند ناشناس ارائه شود.
-4. صف استعلام مستقل: وضعیت احراز هویت و اعتبار باید از provider و رویدادهای lendtech به‌دست آید.
+4. صف استعلام مستقل ساخته نشد؛ درخواست‌های دستی در `platform_verification_requests` ثبت می‌شوند. استعلام واقعی فقط پس از اتصال provider معتبر مجاز است.
 5. سفارش خرید موازی: سفارش‌های بازارگاه و فروش باید مرجع واحد باقی بمانند.
 6. backup/restore مبتنی بر SQL Server: با PostgreSQL مقصد سازگار نیست و سطح خطر بالایی دارد.
 
 
-## مرحله بعد ممیزی: درخواست‌های استعلام VamCity
+## جزئیات قرارداد و پیاده‌سازی درخواست‌های استعلام VamCity
 
 ### قرارداد مبدأ
 در `OpsControllers.cs`:
@@ -167,7 +168,7 @@ API مبدأ فقط برای SuperAdmin فهرست فایل‌های `.bak`، ا
 - migration 112 جدول `platform_verification_requests` را از قبل دارد؛ شامل نوع استعلام، provider، شناسه همبستگی، وضعیت صف، payload درخواست/پاسخ، score، decision، خطا، تعداد تلاش و زمان تکمیل. بنابراین ساخت جدول صف استعلام دوم ممنوع است.
 - `lendtech_applications` و `lendtech_events` مسیر درخواست اعتبار و رویدادهای آن را دارند؛ KYC و صلاحیت اعتباری نیز در همان چرخه ثبت می‌شوند.
 - API تسهیلات برای ثبت KYC اجازه می‌دهد وضعیت pending/rejected ثبت شود، اما `verified` را تا دریافت پاسخ امضاشده provider با خطای 503 رد می‌کند. این محدودیت باید حفظ شود.
-- ماژول «احراز هویت و بررسی مدارک» فعلی، پرونده مدارک/OCR و بازبینی انسانی را از طریق رکوردهای دامنه‌ای نگه می‌دارد؛ این رکوردها به‌تنهایی پاسخ استعلام بیرونی یا تأیید معتبر هویت نیستند.
+- صفحه «احراز هویت و بررسی مدارک» فعلی رکوردهای دامنه‌ای و مرجع فایل متنی را نگه می‌دارد؛ API پیوست عمومی جداگانه وجود دارد، اما اتصال self-service امن فایل به رکورد احراز هویت و OCR worker هنوز gap است. این رکوردها به‌تنهایی پاسخ استعلام بیرونی یا تأیید معتبر هویت نیستند.
 - API صف بررسی دستی اکنون در `lendtech.ts` از `platform_verification_requests` استفاده می‌کند؛ اما adapter اجرایی برای اتصال provider بیرونی، امضای پاسخ و اعتبارسنجی callback هنوز وجود ندارد. وجود جدول و صف دستی به معنی اتصال provider یا اجرای استعلام واقعی نیست.
 
 ### تصمیم انتقال
