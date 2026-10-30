@@ -51,6 +51,7 @@ router.post("/api/treasury-bank/payments",requireAuth,requirePermission("treasur
  const method=b.method||"bank_transfer",partyId=b.partyId||null,partyBankAccountId=b.partyBankAccountId||null;
  if(!b.bankAccountId||typeof b.paymentNo!=="string"||!b.paymentNo.trim()||!date(b.paymentDate)||!(Number(b.amount)>0)||!["cash","bank_transfer","card","cheque"].includes(method))return deny(res,400,"اطلاعات پرداخت نامعتبر است");
  if(partyBankAccountId&&!partyId)return deny(res,400,"برای انتخاب شبای ذی‌نفع، طرف‌حساب مرکزی الزامی است");
+ if(partyBankAccountId&&method!=="bank_transfer")return deny(res,400,"شبای ذی‌نفع فقط برای پرداخت بانکی قابل انتخاب است");
  if(partyId&&method==="bank_transfer"&&!partyBankAccountId)return deny(res,409,"برای پرداخت بانکی به طرف‌حساب انتخاب‌شده، شبای تأییدشده لازم است");
  const c=await pool.connect();
  try{
@@ -84,6 +85,10 @@ router.patch("/api/treasury-bank/payments/:id/status",requireAuth,requirePermiss
   const flow:any={pending:["approved","cancelled"],approved:["paid","cancelled"],paid:[],cancelled:[]};
   if(!flow[old.status]?.includes(s)){await c.query("rollback");return deny(res,409,"تغییر وضعیت پرداخت مجاز نیست")}
   if(s==="paid"){
+   if(old.party_bank_account_id){
+    const beneficiary=await c.query("select id from accounting_party_bank_accounts where id=$1 and tenant_id=$2 and party_id=$3 and status='active' and verification_status='verified' for update",[old.party_bank_account_id,t.id,old.party_id]);
+    if(!beneficiary.rowCount){await c.query("rollback");return deny(res,409,"شبای ذی‌نفع از زمان ثبت پرداخت غیرفعال یا از احراز خارج شده است")}
+   }
    const bank=await c.query("select id,current_balance,status from treasury_bank_accounts where id=$1 and tenant_id=$2 for update",[old.bank_account_id,t.id]);
    if(!bank.rowCount||bank.rows[0].status!=="active"){await c.query("rollback");return deny(res,409,"حساب بانکی سازمان فعال نیست")}
    if(Number(bank.rows[0].current_balance)<Number(old.amount)){await c.query("rollback");return deny(res,409,"موجودی حساب بانکی برای پرداخت کافی نیست")}
