@@ -84,6 +84,8 @@ jobs:
       - name: API build
         working-directory: apps/api
         run: pnpm build
+      - name: Build Persian OCR worker image
+        run: docker build -f apps/api/OcrWorker.Dockerfile -t naf-ocr-worker:ci .
       - name: Database migrations
         working-directory: apps/api
         run: pnpm migrate
