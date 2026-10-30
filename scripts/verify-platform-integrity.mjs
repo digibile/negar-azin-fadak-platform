@@ -195,6 +195,7 @@ const crmPartyMigration=fs.readFileSync(path.join(root,"database/migrations/155_
 if(!crmPartyMigration.includes("add column if not exists party_id uuid")||!crmPartyMigration.includes("foreign key(tenant_id,party_id)")||!crmPartyMigration.includes("crm_customers_canonical_party_idx"))throw new Error("Customer 360 canonical party migration is missing tenant-safe links");
 if(!marketerApi.includes("ensureCanonicalParty")||!marketerApi.includes("party_id,customer_no")||!marketerApi.includes('sourceSystem:"crm_customers"'))throw new Error("Customer 360 must create and expose the canonical party link");
 if(!marketerUi.includes("nationalId")||!marketerUi.includes("canonical_party_title"))throw new Error("Customer 360 must collect national identity and display its canonical party");
+const accountingOperations=fs.readFileSync(path.join(root,"apps/api/src/accounting-finance-operations.ts"),"utf8");
 if(!accountingOperations.includes('crm_customers:{table:"crm_customers"'))throw new Error("Customer 360 records must be available in the central registry reconciliation queue");
 
 const centralSettings=fs.readFileSync(path.join(root,"apps/api/src/central-settings.ts"),"utf8");
@@ -238,7 +239,6 @@ if(!adminLendtechUi.includes("/api/lendtech/payment-declarations?status=pending"
 if(!paymentDeclarations.includes("fk_payment_declaration_contract_tenant")||!paymentDeclarations.includes("fk_payment_declaration_repayment_tenant")||!paymentDeclarations.includes("on lendtech_payment_declarations(tenant_ref,payment_ref)"))throw new Error("Payment declarations must enforce tenant-scoped contract/repayment references and unique bank references");
 
 const partyBankMigration=fs.readFileSync(path.join(root,"database/migrations/150_accounting_party_bank_accounts.sql"),"utf8");
-const accountingOperations=fs.readFileSync(path.join(root,"apps/api/src/accounting-finance-operations.ts"),"utf8");
 const accountingWorkspace=fs.readFileSync(path.join(root,"apps/web/app/modules/AccountingFinanceWorkspace.tsx"),"utf8");
 for(const marker of ["create table if not exists accounting_party_bank_accounts","foreign key(tenant_id,party_id)","unique(tenant_id,iban)","verification_status","check(iban ~ '^IR[0-9]{24}$')"])if(!partyBankMigration.includes(marker))throw new Error("Party-owned bank account schema safety marker missing: "+marker);
 for(const route of [
