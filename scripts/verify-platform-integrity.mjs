@@ -295,6 +295,6 @@ if(!accountingOperations.includes("const validIranianIban=")||!accountingOperati
 if(!accountingOperations.includes("where id=$1 and tenant_id=$2")||!accountingOperations.includes("where id=$1 and party_id=$2 and tenant_id=$3"))throw new Error("Party and bank account APIs must enforce tenant and parent ownership");
 if(!accountingOperations.includes("accounting_finance_audit")||!accountingOperations.includes("verification_status"))throw new Error("Party bank account changes must be auditable and have explicit verification state");
 if(!accountingWorkspace.includes('["parties","طرف‌حساب‌ها و شبا"]')||!accountingWorkspace.includes("/api/accounting-finance/counterparties")||!accountingWorkspace.includes("partyBankAccounts")||!accountingWorkspace.includes("تأیید دستی"))throw new Error("Canonical accounting workspace must expose counterparties and manual bank verification");
-if(accountingOperations.includes("insert into accounting_bank_accounts(tenant_id,code,bank_name")&&accountingOperations.includes("counterparties")){} 
+if(!accountingOperations.includes('requirePermission("accounting-finance.read")'))throw new Error("Party and bank account reads must require accounting read permission");
 
 console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
