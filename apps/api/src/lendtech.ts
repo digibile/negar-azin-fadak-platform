@@ -584,7 +584,7 @@ lendtechRouter.post("/api/lendtech/my-documents",requireAuth,requireCsrf,asyncHa
  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(applicationId))return res.status(400).json({error:"پرونده اعتباری معتبر نیست"});
  if(!["national-id-front","national-id-back","birth-certificate","passport","address-proof","other"].includes(documentType))return res.status(400).json({error:"نوع مدرک معتبر نیست"});
  const decoded=decodeIdentityDocument(b.data);
- if(!decoded)return res.status(415).json({error:"فقط PDF، JPEG، PNG یا WebP معتبر تا سقف ۱۰ مگابایت پذیرفته می‌شود"});
+ if(!decoded)return res.status(415).json({error:"فقط PDF، JPEG، PNG یا WebP معتبر تا سقف ۸ مگابایت پذیرفته می‌شود"});
  const fileName=safeDocumentFileName(b.fileName),sha=createHash("sha256").update(decoded.bytes).digest("hex");
  const originalSize=Number(b.originalSizeBytes);
  const originalSizeBytes=Number.isSafeInteger(originalSize)&&originalSize>=decoded.bytes.length&&originalSize<=100*1024*1024?originalSize:decoded.bytes.length;
