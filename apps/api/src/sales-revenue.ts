@@ -1,8 +1,8 @@
 import {Router,type Request,type Response} from "express";
-import {randomUUID} from "node:crypto";
 import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {resolveTenant} from "./tenant-context.js";
+import {ensureCanonicalParty} from "./canonical-party.js";
 const router=Router();
 const tenantOf=async(req:Request)=>resolveTenant(req,(req as any).user);
 const deny=(res:Response,s:number,e:string)=>res.status(s).json({error:e});
@@ -38,18 +38,10 @@ router.post("/api/sales/partners",requireAuth,requirePermission("modules:22-sale
  const nationalId=typeof b.nationalId==="string"&&b.nationalId.trim()?b.nationalId.trim():null;
  const cx=await pool.connect();try{
   await cx.query("begin");
-  let partyId:string|null=null;
-  if(nationalId){
-   await cx.query("select pg_advisory_xact_lock(hashtext($1),hashtext($2))",[t.id,nationalId]);
-   const matches=await cx.query("select id from accounting_parties where tenant_id=$1 and national_id=$2 order by created_at for update",[t.id,nationalId]);
-   if(matches.rows.length>1){await cx.query("rollback");return deny(res,409,"برای این شناسه ملی چند طرف‌حساب وجود دارد؛ ابتدا تطبیق هویت باید تعیین تکلیف شود");}
-   if(matches.rows.length===1)partyId=matches.rows[0].id;
-  }
-  if(!partyId){
-   const party=await cx.query("insert into accounting_parties(tenant_id,party_code,party_type,title,national_id,phone,email,metadata) values($1,$2,'customer',$3,$4,$5,$6,$7) returning id",
-    [t.id,"SAL-"+randomUUID().replace(/-/g,"").slice(0,12).toUpperCase(),b.name,nationalId,b.phone||null,b.email||null,{sourceSystem:"sales_partners",sourceEntity:"sales_partners"}]);
-   partyId=party.rows[0].id;
-  }
+  const partyId=await ensureCanonicalParty(cx,{
+   tenantId:t.id,kind:"customer",title:String(b.name),nationalId,
+   phone:b.phone||null,email:b.email||null,sourceSystem:"sales_partners"
+  });
   const r=await cx.query("insert into sales_partners(tenant_id,party_id,code,name,national_id,phone,email,credit_limit) values($1,$2,$3,$4,$5,$6,$7,$8) returning *",
    [t.id,partyId,b.code,b.name,nationalId,b.phone||null,b.email||null,num(b.creditLimit)]);
   await cx.query("commit");res.status(201).json(r.rows[0]);
