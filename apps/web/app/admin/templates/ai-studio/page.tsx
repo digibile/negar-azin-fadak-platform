@@ -1,6 +1,7 @@
 "use client";
 
 import {useCallback,useEffect,useState} from "react";
+import type {CSSProperties} from "react";
 import Link from "next/link";
 import {api} from "../../../../lib/api";
 import "./ai-template-studio.css";
@@ -85,7 +86,7 @@ export default function AiTemplateStudio(){
     {error&&<div className="ai-alert ai-alert-error" role="alert">{error}</div>}
     {notice&&<div className="ai-alert ai-alert-success" role="status">{notice}</div>}
     {design?<>
-     <div className="ai-design-preview" style={{"--ai-primary":design.primaryColor,"--ai-accent":design.accentColor,"--ai-canvas":design.backgroundColor} as React.CSSProperties}>
+     <div className="ai-design-preview" style={{"--ai-primary":design.primaryColor,"--ai-accent":design.accentColor,"--ai-canvas":design.backgroundColor} as CSSProperties}>
       <div className="ai-preview-nav"><b>سوکار</b><span>دسته‌بندی‌ها</span><span>پیشنهادها</span><span>فروشندگان</span><button type="button">ورود / ثبت‌نام</button></div>
       <div className="ai-preview-hero"><div><small>{pageType} · طراحی هوشمند</small><h3>{design.title}</h3><p>{design.subtitle}</p><span>{design.description}</span><button type="button">مشاهده طرح</button></div><div className="ai-preview-art"><i/><i/><i/><b>AI</b></div></div>
       <div className="ai-preview-section-head"><b>ساختار پیشنهادی صفحه</b><small>{design.layout}</small></div>
