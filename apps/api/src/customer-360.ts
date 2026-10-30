@@ -85,7 +85,8 @@ router.post("/api/marketing/marketers",requireAuth,marketingManage,requireCsrf,a
  const existing=await query("select id from crm_marketers where tenant_id=$1 and phone=$2",[t.id,phone]);
  if(existing.rowCount)return res.status(409).json({error:"این شماره موبایل قبلاً به بازاریاب دیگری اختصاص یافته است"});
  const code="MK"+randomUUID().replace(/-/g,"").slice(0,10).toUpperCase();
- const r=await query("insert into crm_marketers(tenant_id,name,phone,referral_code,commission_rate,created_by) values($1,$2,$3,$4,$5,$6) returning id,name,phone,referral_code,commission_rate,status,created_at,updated_at",[t.id,name,phone,code,rate,(req as any).user.id]);
+ const r=await query("insert into crm_marketers(tenant_id,name,phone,referral_code,commission_rate,created_by) values($1,$2,$3,$4,$5,$6) on conflict(tenant_id,phone) do nothing returning id,name,phone,referral_code,commission_rate,status,created_at,updated_at",[t.id,name,phone,code,rate,(req as any).user.id]);
+ if(!r.rowCount)return res.status(409).json({error:"این شماره موبایل قبلاً ثبت شده است"});
  await auditMarketer(req,t,r.rows[0].id,"create",null,r.rows[0]);
  res.status(201).json(r.rows[0]);
 });
