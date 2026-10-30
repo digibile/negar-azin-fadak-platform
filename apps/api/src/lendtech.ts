@@ -282,6 +282,14 @@ async function applyRepayment(client:any,args:{tenantRef:string;contractId:strin
  return {repayment:r.rows[0],unallocated:formatMinorUnits(remaining)};
 }
 
+lendtechRouter.get("/api/lendtech/my-contracts",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query(\`select c.id,c.contract_no,c.principal,c.interest_rate,c.term_months,c.status,
+  coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'installmentNo',i.installment_no,'dueDate',i.due_date,'totalDue',i.total_due,'principalPaid',i.principal_paid,'interestPaid',i.interest_paid,'status',i.status) order by i.installment_no) from lendtech_installments i where i.contract_id=c.id and i.tenant_ref=c.tenant_ref),'[]'::jsonb) as installments
+  from lendtech_contracts c join lendtech_facilities f on f.id=c.facility_id and f.tenant_ref=c.tenant_ref join lendtech_applications a on a.id=f.application_id and a.tenant_ref=f.tenant_ref
+  where c.tenant_ref=$1 and a.customer_ref=$2 order by c.created_at desc limit 100\`,[t.id,actor(req)]);
+ res.json({items:r.rows,total:r.rowCount});
+}));
 lendtechRouter.get("/api/lendtech/my-payment-declarations",requireAuth,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const r=await query("select d.id,d.contract_id,d.amount,d.method,d.payment_ref,d.paid_at,d.status,d.review_note,d.created_at,d.reviewed_at from lendtech_payment_declarations d where d.tenant_ref=$1 and d.user_ref=$2 order by d.created_at desc limit 100",[t.id,actor(req)]);
