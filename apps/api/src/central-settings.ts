@@ -1,7 +1,7 @@
 import {Router,type Request,type Response} from "express";
 import {query} from "./db.js";
 import {requireAuth} from "./auth.js";
-import {resolveTenant} from "./tenant-context.js";
+import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
 
 const router=Router();
 const defaults=[
@@ -18,7 +18,13 @@ const defaults=[
  {key:"files.max_upload_mb",category:"files",title:"حداکثر حجم فایل (MB)",value:64},
  {key:"files.allowed_extensions",category:"files",title:"پسوندهای مجاز",value:["pdf","jpg","jpeg","png","docx","xlsx"]},
  {key:"workflow.approval_required",category:"workflow",title:"الزام تأیید گردش‌کار",value:true},
- {key:"maintenance.read_only",category:"maintenance",title:"حالت فقط خواندنی",value:false}
+ {key:"maintenance.read_only",category:"maintenance",title:"حالت فقط خواندنی",value:false},
+ {key:"mobile.latest_version",category:"mobile-app",title:"آخرین نسخه اپلیکیشن",value:""},
+ {key:"mobile.minimum_version",category:"mobile-app",title:"حداقل نسخه مجاز اپلیکیشن",value:""},
+ {key:"mobile.apk_url",category:"mobile-app",title:"لینک دانلود اپلیکیشن",value:""},
+ {key:"mobile.support_phone",category:"mobile-app",title:"تلفن پشتیبانی اپلیکیشن",value:""},
+ {key:"mobile.force_update",category:"mobile-app",title:"الزام به‌روزرسانی اپلیکیشن",value:false},
+ {key:"mobile.maintenance",category:"mobile-app",title:"حالت تعمیرات اپلیکیشن",value:false}
 ];
 
 async function tenant(req:Request){return resolveTenant(req,(req as any).user)}
@@ -27,6 +33,26 @@ async function canWrite(user:any){
  const r=await query("select 1 from role_permissions where role=$1 and permission='settings:manage' limit 1",[user?.role]);
  return Boolean(r.rowCount);
 }
+router.get("/api/public/mobile-config",async(req:Request,res:Response)=>{
+ const t=await resolvePublicTenant(req,typeof req.query.tenant==="string"?req.query.tenant:"");
+ if(!t)return res.status(404).json({error:"تنظیمات عمومی این سازمان پیدا نشد"});
+ const keys=["mobile.latest_version","mobile.minimum_version","mobile.apk_url","mobile.support_phone","mobile.force_update","mobile.maintenance"];
+ const r=await query("select setting_key,value from central_settings where tenant_id=$1 and setting_key=any($2::text[])",[t.id,keys]);
+ const values=new Map<string,any>(r.rows.map((x:any)=>[x.setting_key,x.value]));
+ const read=(key:string,fallback:any)=>{const raw=values.get(key);if(raw===undefined||raw===null)return fallback;try{return typeof raw==="string"?JSON.parse(raw):raw}catch{return fallback}};
+ const apk=String(read("mobile.apk_url",""));
+ const safeApk=apk.startsWith("https://")?apk:"";
+ res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
+ res.json({
+  tenant:{code:t.code},
+  latestVersion:String(read("mobile.latest_version","")).slice(0,40),
+  minimumVersion:String(read("mobile.minimum_version","")).slice(0,40),
+  apkUrl:safeApk,
+  supportPhone:String(read("mobile.support_phone","")).slice(0,40),
+  forceUpdate:read("mobile.force_update",false)===true,
+  maintenance:read("mobile.maintenance",false)===true
+ });
+});
 router.get("/api/settings/central",requireAuth,async(req:Request,res:Response)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  for(const d of defaults) await query(
