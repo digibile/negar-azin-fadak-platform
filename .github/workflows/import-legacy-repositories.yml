@@ -1,0 +1,85 @@
+name: Import legacy repositories into the central platform
+on:
+  push:
+    branches: [integration/repository-audit-2026-10-30]
+    paths: [legacy-imports/IMPORT_SOURCE_SNAPSHOTS]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: legacy-source-import
+  cancel-in-progress: false
+jobs:
+  import-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout destination branch
+        uses: actions/checkout@v4
+        with:
+          ref: integration/repository-audit-2026-10-30
+          fetch-depth: 0
+      - name: Import pinned public source repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p legacy-imports/repositories
+          import_repo() {
+            local repo="$1" sha="$2" dest="$3" tmp
+            tmp="$(mktemp -d)"
+            git clone --quiet --no-checkout "https://github.com/${repo}.git" "$tmp/repo"
+            git -C "$tmp/repo" fetch --quiet --depth 1 origin "$sha"
+            git -C "$tmp/repo" checkout --quiet --detach FETCH_HEAD
+            mkdir -p "$dest"
+            rsync -a --exclude='.git' "$tmp/repo/" "$dest/"
+            rm -rf "$tmp"
+            printf '%s %s\n' "$repo" "$sha"
+          }
+          import_repo digibile/digibail 19385d032f73c472b98092d4efc006be711f033a legacy-imports/repositories/digibail
+          import_repo digibile/sarajon 125bd69eb24fb309057cf144c4856c4253929f0f legacy-imports/repositories/sarajon
+          import_repo digibile/vamcity 46111e031fbed89bccab324bead1b4bb3f30089c legacy-imports/repositories/vamcity
+      - name: Extract private accounting source package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p legacy-imports/repositories/negarazin-accounting/source-package
+          unzip -q -o legacy-imports/_archives/negarazin-accounting-source.zip -d legacy-imports/repositories/negarazin-accounting/source-package
+          find legacy-imports/repositories/negarazin-accounting/source-package -type f -name '*.zip' -print0 |
+            while IFS= read -r -d '' archive; do
+              target="${archive%.zip}-contents"
+              mkdir -p "$target"
+              unzip -q -o "$archive" -d "$target"
+            done
+      - name: Remove credential material and generated dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          find legacy-imports/repositories -type f \(
+            -name '.env' -o -name '*.pem' -o -name '*.key' -o -name 'id_rsa*' -o -name 'id_ed25519*'
+          \) -delete
+          find legacy-imports/repositories -type d \( -name node_modules -o -name .git -o -name bin -o -name obj -o -name .next \) -prune -exec rm -rf {} +
+          printf 'Imported files: '
+          find legacy-imports/repositories -type f | wc -l
+      - name: Record source provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > legacy-imports/SOURCE-MANIFEST.md <<'EOF'
+          # Legacy source import manifest
+          Source snapshots are preserved here. No production database was changed and no source repository was modified.
+          - digibile/digibail: 19385d032f73c472b98092d4efc006be711f033a
+          - digibile/sarajon: 125bd69eb24fb309057cf144c4856c4253929f0f
+          - digibile/vamcity: 46111e031fbed89bccab324bead1b4bb3f30089c
+          - digibile/negarazin-accounting: archive files (3).zip; source blob 3fc4e396aa69263ff39db8fad288942baaf253bd
+          Source preservation is not runtime integration or production deployment.
+          EOF
+      - name: Commit imported source snapshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add legacy-imports
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore: import legacy application source snapshots"
+          git push origin HEAD:integration/repository-audit-2026-10-30
