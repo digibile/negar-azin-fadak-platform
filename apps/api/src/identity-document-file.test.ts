@@ -19,5 +19,5 @@ test("rejects forged MIME payloads, invalid base64, empty files and oversized do
 });
 
 test("sanitizes path separators and control characters from file names",()=>{
- assert.equal(safeDocumentFileName("../passport\\u0000.pdf"),".._passport_.pdf");
+ assert.equal(safeDocumentFileName("../passport"+String.fromCharCode(0)+".pdf"),".._passport_.pdf");
 });
