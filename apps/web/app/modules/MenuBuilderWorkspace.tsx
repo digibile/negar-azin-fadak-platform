@@ -1,6 +1,6 @@
 "use client";
 import{useEffect,useMemo,useState}from"react";
-import styles from"./MenuBuilderWorkspace.module.css";
+import styles from"./SharedWorkspace.module.css";
 type R={id:number;record_type:string;title:string;status:string;data:Record<string,unknown>};
 const API=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
 const token=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";

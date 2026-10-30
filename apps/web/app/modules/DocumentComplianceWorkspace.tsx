@@ -1,6 +1,6 @@
 "use client";
 import{useEffect,useMemo,useState}from"react";
-import styles from"./DocumentComplianceWorkspace.module.css";
+import styles from"./SharedWorkspace.module.css";
 type R={id:number;record_type:string;title:string;status:string;data:Record<string,any>};
 const API=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
 const csrf=()=>document.cookie.split(";").map((x:any)=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
