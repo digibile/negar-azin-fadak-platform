@@ -33,17 +33,25 @@ router.get("/api/treasury-checks/overview",requireAuth,async(req,res)=>{
 router.post("/api/treasury-checks",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
  const t=await tenantOf(req); if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const b=req.body||{};
- if(!["received","payable"].includes(b.checkType)||typeof b.checkNo!=="string"||!b.checkNo.trim()||typeof b.issuerName!=="string"||(b.checkType==="payable"&&!b.issuerName.trim())||!validDate(b.dueDate)||!(Number(b.amount)>0))
-  return deny(res,400,"اطلاعات چک ناقص یا نامعتبر است");
  const counterpartyPartyId=typeof b.counterpartyPartyId==="string"?b.counterpartyPartyId.trim():"";
  const counterpartyBankAccountId=typeof b.counterpartyBankAccountId==="string"?b.counterpartyBankAccountId.trim():"";
+ const bankAccountId=typeof b.bankAccountId==="string"?b.bankAccountId.trim():"";
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ if(!["received","payable"].includes(b.checkType)||typeof b.checkNo!=="string"||!b.checkNo.trim()||typeof b.issuerName!=="string"||(b.checkType==="payable"&&!b.issuerName.trim())||!validDate(b.dueDate)||(b.issueDate&&!validDate(b.issueDate))||!Number.isFinite(Number(b.amount))||!(Number(b.amount)>0))
+  return deny(res,400,"اطلاعات چک ناقص یا نامعتبر است");
  if(!counterpartyPartyId)return deny(res,400,"انتخاب طرف‌حساب مرکزی برای ثبت چک الزامی است");
+ if(!uuid.test(counterpartyPartyId)||(counterpartyBankAccountId&&!uuid.test(counterpartyBankAccountId))||(bankAccountId&&!uuid.test(bankAccountId)))
+  return deny(res,400,"شناسه مرجع انتخاب‌شده معتبر نیست");
  const initial=b.checkType==="payable"?"issued":"registered";
  const c=await pool.connect();
  try{
   await c.query("begin");
   const party=await c.query("select id,title from accounting_parties where id=$1 and tenant_id=$2 and status='active' for update",[counterpartyPartyId,t.id]);
   if(!party.rowCount){await c.query("rollback");return deny(res,404,"طرف‌حساب مرکزی پیدا نشد یا غیرفعال است")}
+  if(bankAccountId){
+   const ownBank=await c.query("select id from treasury_bank_accounts where id=$1 and tenant_id=$2 and status='active' for update",[bankAccountId,t.id]);
+   if(!ownBank.rowCount){await c.query("rollback");return deny(res,409,"حساب بانکی سازمان پیدا نشد یا فعال نیست")}
+  }
   if(counterpartyBankAccountId){
    const bank=await c.query("select id from accounting_party_bank_accounts where id=$1 and tenant_id=$2 and party_id=$3 and status='active' and verification_status='verified' for update",[counterpartyBankAccountId,t.id,counterpartyPartyId]);
    if(!bank.rowCount){await c.query("rollback");return deny(res,409,"حساب بانکی انتخاب‌شده متعلق به این طرف‌حساب نیست یا تأیید نشده است")}
@@ -52,7 +60,7 @@ router.post("/api/treasury-checks",requireAuth,requirePermission("treasury-bank.
   const beneficiaryName=b.checkType==="payable"?party.rows[0].title:(b.beneficiaryName||null);
   const r=await c.query(
    "insert into treasury_checks(tenant_id,check_type,check_no,series_no,bank_name,branch_name,account_no,issuer_name,beneficiary_name,issue_date,due_date,amount,currency,description,bank_account_id,counterparty_reference,created_by,status,counterparty_party_id,counterparty_bank_account_id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) returning *",
-   [t.id,b.checkType,b.checkNo.trim(),b.seriesNo||null,b.bankName||null,b.branchName||null,b.accountNo||null,issuerName,beneficiaryName,b.issueDate||null,b.dueDate,Number(b.amount),b.currency||"IRR",b.description||"",b.bankAccountId||null,b.counterpartyReference||null,(req as any).user.id,initial,counterpartyPartyId,counterpartyBankAccountId||null]
+   [t.id,b.checkType,b.checkNo.trim(),b.seriesNo||null,b.bankName||null,b.branchName||null,b.accountNo||null,issuerName,beneficiaryName,b.issueDate||null,b.dueDate,Number(b.amount),b.currency||"IRR",b.description||"",bankAccountId||null,b.counterpartyReference||null,(req as any).user.id,initial,counterpartyPartyId,counterpartyBankAccountId||null]
   );
   await c.query("insert into treasury_check_events(tenant_id,check_id,from_status,to_status,event_type,actor_user_id) values($1,$2,$3,$4,$5,$6)",[t.id,r.rows[0].id,null,initial,"create",(req as any).user.id]);
   await c.query("commit");
@@ -64,9 +72,9 @@ router.patch("/api/treasury-checks/:id/status",requireAuth,requirePermission("tr
  const t=await tenantOf(req); if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const next=req.body?.status as string, reason=typeof req.body?.reason==="string"?req.body.reason:null;
  if(!allowedStatuses.includes(next as any))return deny(res,400,"وضعیت چک نامعتبر است");
- const old=await query("select * from treasury_checks where id=$1 and tenant_id=$2",[String(req.params.id),t.id]);
- if(!old.rowCount)return deny(res,404,"چک پیدا نشد");
- const current=old.rows[0].status as string;
+ const checkId=String(req.params.id);
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ if(!uuid.test(checkId))return deny(res,400,"شناسه چک معتبر نیست");
  const flow:Record<string,string[]>={
   registered:["awaiting_collection","deposited","assigned","returned","cancelled"],
   awaiting_collection:["deposited","assigned","collected","returned","cancelled"],
@@ -79,12 +87,15 @@ router.patch("/api/treasury-checks/:id/status",requireAuth,requirePermission("tr
   collected:["settled"],
   refunded:[],cancelled:[],settled:[]
  };
- if(!flow[current]?.includes(next))return deny(res,409,"تغییر وضعیت از مرحله فعلی مجاز نیست");
- const c=await pool.connect();
+ const c=await pool.connect();let old:any=null;
  try{
   await c.query("begin");
-  const r=await c.query("update treasury_checks set status=$1,updated_at=now(),settled_at=case when $1='settled' then now() else settled_at end where id=$2 and tenant_id=$3 returning *",[next,String(req.params.id),t.id]);
-  await c.query("insert into treasury_check_events(tenant_id,check_id,from_status,to_status,event_type,reason,actor_user_id) values($1,$2,$3,$4,$5,$6,$7)",[t.id,String(req.params.id),current,next,"status_change",reason,(req as any).user.id]);
+  const locked=await c.query("select * from treasury_checks where id=$1 and tenant_id=$2 for update",[checkId,t.id]);
+  if(!locked.rowCount){await c.query("rollback");return deny(res,404,"چک پیدا نشد")}
+  old=locked.rows[0];
+  if(!flow[old.status]?.includes(next)){await c.query("rollback");return deny(res,409,"تغییر وضعیت از مرحله فعلی مجاز نیست")}
+  const r=await c.query("update treasury_checks set status=$1,updated_at=now(),settled_at=case when $1='settled' then now() else settled_at end where id=$2 and tenant_id=$3 returning *",[next,checkId,t.id]);
+  await c.query("insert into treasury_check_events(tenant_id,check_id,from_status,to_status,event_type,reason,actor_user_id) values($1,$2,$3,$4,$5,$6,$7)",[t.id,checkId,old.status,next,"status_change",reason,(req as any).user.id]);
   await c.query("commit");
   res.json(r.rows[0]);
  }catch(e){await c.query("rollback");throw e}finally{c.release()}
