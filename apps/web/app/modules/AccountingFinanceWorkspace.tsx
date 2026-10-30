@@ -22,6 +22,7 @@ export default function AccountingFinanceWorkspace(){
  const [error,setError]=useState(""),[saving,setSaving]=useState(false);
  const [parties,setParties]=useState<Party[]>([]),[partyBankAccounts,setPartyBankAccounts]=useState<PartyBank[]>([]);
  const [partyForm,setPartyForm]=useState({name:"",iban:"",partyType:"other",isActive:true});
+ const [editingParty,setEditingParty]=useState<string|null>(null);
  const [period,setPeriod]=useState({bookId:"",code:"",title:"",startsOn:"",endsOn:""});
  const [center,setCenter]=useState({code:"",title:"",centerType:"cost"});
  const [account,setAccount]=useState({code:"",name:"",accountType:"general",accountMode:"hybrid",bookId:""});
@@ -42,7 +43,7 @@ export default function AccountingFinanceWorkspace(){
  const status=async(id:string,s:string)=>{try{await request("/api/accounting-finance/documents/"+id+"/status",{method:"PATCH",body:JSON.stringify({status:s})});await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}};
  const periodStatus=async(id:string,s:string)=>{try{await request("/api/accounting-finance/periods/"+id+"/status",{method:"PATCH",body:JSON.stringify({status:s})});await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}};
  const runReports=async()=>{try{setReports(await request("/api/accounting-finance/reports"))}catch(e){setError(e instanceof Error?e.message:"خطا")}};
- const saveParty=async()=>{setSaving(true);try{await request("/api/accounting-finance/counterparties",{method:"POST",body:JSON.stringify(partyForm)});setPartyForm({name:"",iban:"",partyType:"other",isActive:true});await load()}catch(e){setError(e instanceof Error?e.message:"ثبت طرف حساب ناموفق بود")}finally{setSaving(false)}};
+ const saveParty=async()=>{setSaving(true);try{await request(editingParty?"/api/accounting-finance/counterparties/"+editingParty:"/api/accounting-finance/counterparties",{method:editingParty?"PATCH":"POST",body:JSON.stringify(partyForm)});setPartyForm({name:"",iban:"",partyType:"other",isActive:true});setEditingParty(null);await load()}catch(e){setError(e instanceof Error?e.message:"ثبت طرف حساب ناموفق بود")}finally{setSaving(false)}};
  const verifyPartyBank=async(id:string,partyId:string,status:string)=>{try{const verificationNote=status==="rejected"?window.prompt("دلیل رد شبا را وارد کنید")||"":"";if(status==="rejected"&&!verificationNote)return;await request("/api/accounting-finance/parties/"+partyId+"/bank-accounts/"+id+"/verification",{method:"PATCH",body:JSON.stringify({verificationStatus:status,verificationNote})});await load()}catch(e){setError(e instanceof Error?e.message:"ثبت نتیجه بررسی شبا ناموفق بود")}};
 
  const addLine=()=>setLines(x=>[...x,{accountId:"",debit:"",credit:"",description:""}]);
@@ -57,7 +58,7 @@ export default function AccountingFinanceWorkspace(){
 
   {tab==="parties"&&<section className={styles.grid}>
    <article className={styles.panel}>
-    <h2>ثبت طرف تسویه و شبای بانکی</h2>
+    <h2>{editingParty?"ویرایش طرف تسویه":"ثبت طرف تسویه و شبای بانکی"}</h2>
     <p className={styles.note}>طرف‌حساب در دفتر مرکزی ثبت می‌شود و شبا به‌عنوان حساب بانکی وابسته نگهداری می‌شود. شبا تا زمان بررسی دستی، تأییدشده محسوب نمی‌شود.</p>
     <div className={styles.form}>
      <label>نام شخص یا مجموعه<input maxLength={120} value={partyForm.name} onChange={e=>setPartyForm({...partyForm,name:e.target.value})}/></label>
@@ -65,11 +66,11 @@ export default function AccountingFinanceWorkspace(){
      <label>نوع طرف حساب<select value={partyForm.partyType} onChange={e=>setPartyForm({...partyForm,partyType:e.target.value})}><option value="other">طرف تسویه</option><option value="supplier">تأمین‌کننده</option><option value="customer">مشتری</option><option value="agent">نماینده</option><option value="bank">بانک</option></select></label>
      <label>وضعیت ثبت<select value={partyForm.isActive?"active":"inactive"} onChange={e=>setPartyForm({...partyForm,isActive:e.target.value==="active"})}><option value="active">فعال</option><option value="inactive">غیرفعال</option></select></label>
     </div>
-    <button className={styles.primary} onClick={saveParty} disabled={saving||!partyForm.name.trim()||!partyForm.iban.trim()}>{saving?"در حال ثبت...":"ثبت طرف حساب و شبا"}</button>
+    <button className={styles.primary} onClick={saveParty} disabled={saving||!partyForm.name.trim()||!partyForm.iban.trim()}>{saving?"در حال ثبت...":(editingParty?"ذخیره تغییرات":"ثبت طرف حساب و شبا")}</button>
    </article>
    <article className={styles.panel}>
     <div className={styles.title}><h2>طرف‌حساب‌های ثبت‌شده</h2><span>{parties.length} طرف حساب</span></div>
-    {parties.map(p=><div className={styles.card} key={p.id}><div><strong>{p.title}</strong><small>{p.party_code} · {p.party_type} · {p.status==="active"?"فعال":"غیرفعال"}</small></div></div>)}
+    {parties.map(p=><div className={styles.card} key={p.id}><div><strong>{p.title}</strong><small>{p.party_code} · {p.party_type} · {p.status==="active"?"فعال":"غیرفعال"}</small></div><button className={styles.secondary} onClick={()=>{const bank=partyBankAccounts.find(x=>x.party_id===p.id&&x.status==="active")||partyBankAccounts.find(x=>x.party_id===p.id);setEditingParty(p.id);setPartyForm({name:p.title,iban:bank?.iban||"",partyType:p.party_type,isActive:p.status==="active"});}}>ویرایش</button></div>)}
     {!parties.length&&<div className={styles.empty}>طرف‌حسابی ثبت نشده است.</div>}
    </article>
    <article className={styles.panel}>
