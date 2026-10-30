@@ -1,0 +1,27 @@
+@model List<Product>
+
+<div class="container">
+    <div class="banner">به فروشگاه تجارت خوش آمدید</div>
+
+    <div class="section-title">محصولات ویژه</div>
+    <div class="product-grid">
+        @if (Model.Count == 0)
+        {
+            <p>هنوز محصولی ثبت نشده است.</p>
+        }
+        @foreach (var p in Model)
+        {
+            <div class="product-card">
+                <div class="img-placeholder">تصویر محصول</div>
+                <h3>@p.Title</h3>
+                <div>
+                    <span class="price">@p.Price.ToString("N0") تومان</span>
+                </div>
+                <form method="post" action="/Cart/Add">
+                    <input type="hidden" name="productId" value="@p.Id" />
+                    <button type="submit" class="admin-btn" style="width:100%;margin-top:8px;">افزودن به سبد</button>
+                </form>
+            </div>
+        }
+    </div>
+</div>

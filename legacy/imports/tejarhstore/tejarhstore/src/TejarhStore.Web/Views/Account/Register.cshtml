@@ -1,0 +1,19 @@
+<div class="container">
+    <div class="section-title">ثبت‌نام</div>
+    <form method="post" class="admin-form">
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div style="color:red">@Html.ValidationSummary()</div>
+        }
+        <label>نام و نام خانوادگی</label>
+        <input type="text" name="fullName" required />
+
+        <label>ایمیل</label>
+        <input type="email" name="email" required />
+
+        <label>رمز عبور</label>
+        <input type="password" name="password" required />
+
+        <button type="submit" class="admin-btn">ثبت‌نام</button>
+    </form>
+</div>

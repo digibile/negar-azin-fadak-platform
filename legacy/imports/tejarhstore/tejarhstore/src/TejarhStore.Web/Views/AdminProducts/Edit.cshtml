@@ -1,0 +1,44 @@
+@model Product
+
+<div class="container">
+    <div class="section-title">ویرایش محصول</div>
+    <form method="post" class="admin-form">
+        <input type="hidden" name="Id" value="@Model.Id" />
+
+        <label>عنوان محصول</label>
+        <input type="text" name="Title" value="@Model.Title" required />
+
+        <label>نامک</label>
+        <input type="text" name="Slug" value="@Model.Slug" required />
+
+        <label>توضیحات</label>
+        <textarea name="Description" rows="4">@Model.Description</textarea>
+
+        <label>قیمت (تومان)</label>
+        <input type="number" name="Price" value="@Model.Price" required />
+
+        <label>قیمت با تخفیف</label>
+        <input type="number" name="DiscountPrice" value="@Model.DiscountPrice" />
+
+        <label>موجودی</label>
+        <input type="number" name="StockQuantity" value="@Model.StockQuantity" required />
+
+        <label>دسته‌بندی</label>
+        <select name="CategoryId">
+            @foreach (var c in (List<Category>)ViewBag.Categories)
+            {
+                <option value="@c.Id" selected="@(c.Id == Model.CategoryId)">@c.Name</option>
+            }
+        </select>
+
+        <label>برند</label>
+        <select name="BrandId">
+            @foreach (var b in (List<Brand>)ViewBag.Brands)
+            {
+                <option value="@b.Id" selected="@(b.Id == Model.BrandId)">@b.Name</option>
+            }
+        </select>
+
+        <button type="submit" class="admin-btn">به‌روزرسانی</button>
+    </form>
+</div>

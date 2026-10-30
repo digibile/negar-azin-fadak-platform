@@ -1,0 +1,51 @@
+@model List<CartItem>
+
+<div class="container">
+    <div class="section-title">سبد خرید</div>
+
+    @if (Model.Count == 0)
+    {
+        <p>سبد خرید شما خالی است.</p>
+    }
+    else
+    {
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>محصول</th>
+                    <th>قیمت واحد</th>
+                    <th>تعداد</th>
+                    <th>جمع</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td>@item.Title</td>
+                        <td>@item.Price.ToString("N0")</td>
+                        <td>
+                            <form method="post" action="/Cart/UpdateQuantity" style="display:inline">
+                                <input type="hidden" name="productId" value="@item.ProductId" />
+                                <input type="number" name="quantity" value="@item.Quantity" min="0" style="width:60px" onchange="this.form.submit()" />
+                            </form>
+                        </td>
+                        <td>@((item.Price * item.Quantity).ToString("N0"))</td>
+                        <td>
+                            <form method="post" action="/Cart/Remove" style="display:inline">
+                                <input type="hidden" name="productId" value="@item.ProductId" />
+                                <button type="submit">حذف</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div style="text-align:left; margin-top:16px; font-size:16px;">
+            جمع کل: <strong>@ViewBag.Total.ToString("N0") تومان</strong>
+        </div>
+        <a href="/Checkout" class="admin-btn">تسویه حساب</a>
+    }
+</div>

@@ -1,0 +1,1 @@
+The original appsettings.json was intentionally excluded because it contains a hard-coded JWT signing key and a database password placeholder. Configure secrets through environment variables or a secret manager; do not commit real credentials.

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>تجارت | فروشگاه اینترنتی</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-top">
+            <div class="logo">تجارت</div>
+            <form class="search-box" method="get" action="/Home/Search">
+                <input type="text" name="q" placeholder="جستجو در محصولات..." />
+                <button type="submit">جستجو</button>
+            </form>
+            <div class="header-actions">
+                <span>ورود / ثبت‌نام</span>
+                <span class="cart">سبد خرید (۰)</span>
+            </div>
+        </div>
+        <nav class="category-nav">
+            <ul>
+                <li>موبایل و تبلت</li>
+                <li>لوازم خانگی</li>
+                <li>پوشاک</li>
+                <li>زیبایی و سلامت</li>
+                <li>کتاب و لوازم تحریر</li>
+                <li>ورزش</li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        @RenderBody()
+    </main>
+
+    <footer class="site-footer">
+        © ۲۰۲۶ تجارت — همه حقوق محفوظ است
+    </footer>
+</body>
+</html>

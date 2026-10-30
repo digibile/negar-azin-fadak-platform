@@ -1,0 +1,64 @@
+@model List<Product>
+@{
+    var category = (Category)ViewBag.Category;
+    var brands = (List<Brand>)ViewBag.Brands;
+    int currentPage = ViewBag.CurrentPage;
+    int totalPages = ViewBag.TotalPages;
+}
+
+<div class="container">
+    <div class="section-title">@category.Name</div>
+
+    <div class="category-layout">
+        <aside class="filter-sidebar">
+            <form method="get">
+                <h4>فیلتر قیمت</h4>
+                <input type="number" name="minPrice" placeholder="از" />
+                <input type="number" name="maxPrice" placeholder="تا" />
+
+                <h4>برند</h4>
+                @foreach (var b in brands)
+                {
+                    <label class="checkbox-row">
+                        <input type="radio" name="brandId" value="@b.Id" /> @b.Name
+                    </label>
+                }
+
+                <button type="submit" class="admin-btn">اعمال فیلتر</button>
+            </form>
+        </aside>
+
+        <div class="products-area">
+            <div class="sort-bar">
+                <a href="?sort=newest">جدیدترین</a> |
+                <a href="?sort=price_asc">ارزان‌ترین</a> |
+                <a href="?sort=price_desc">گران‌ترین</a>
+            </div>
+
+            <div class="product-grid">
+                @if (Model.Count == 0)
+                {
+                    <p>محصولی با این فیلتر یافت نشد.</p>
+                }
+                @foreach (var p in Model)
+                {
+                    <div class="product-card">
+                        <div class="img-placeholder">تصویر محصول</div>
+                        <h3>@p.Title</h3>
+                        <div class="price">@p.Price.ToString("N0") تومان</div>
+                    </div>
+                }
+            </div>
+
+            @if (totalPages > 1)
+            {
+                <div class="pagination">
+                    @for (int i = 1; i <= totalPages; i++)
+                    {
+                        <a href="?page=@i" class="@(i == currentPage ? "active" : "")">@i</a>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>

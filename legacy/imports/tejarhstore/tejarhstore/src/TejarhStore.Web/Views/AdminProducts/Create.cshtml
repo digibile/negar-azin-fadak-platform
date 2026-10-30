@@ -1,0 +1,42 @@
+@model Product
+
+<div class="container">
+    <div class="section-title">افزودن محصول جدید</div>
+    <form method="post" class="admin-form">
+        <label>عنوان محصول</label>
+        <input type="text" name="Title" required />
+
+        <label>نامک (Slug - انگلیسی، بدون فاصله)</label>
+        <input type="text" name="Slug" required />
+
+        <label>توضیحات</label>
+        <textarea name="Description" rows="4"></textarea>
+
+        <label>قیمت (تومان)</label>
+        <input type="number" name="Price" required />
+
+        <label>قیمت با تخفیف (اختیاری)</label>
+        <input type="number" name="DiscountPrice" />
+
+        <label>موجودی</label>
+        <input type="number" name="StockQuantity" required />
+
+        <label>دسته‌بندی</label>
+        <select name="CategoryId">
+            @foreach (var c in (List<Category>)ViewBag.Categories)
+            {
+                <option value="@c.Id">@c.Name</option>
+            }
+        </select>
+
+        <label>برند</label>
+        <select name="BrandId">
+            @foreach (var b in (List<Brand>)ViewBag.Brands)
+            {
+                <option value="@b.Id">@b.Name</option>
+            }
+        </select>
+
+        <button type="submit" class="admin-btn">ذخیره</button>
+    </form>
+</div>

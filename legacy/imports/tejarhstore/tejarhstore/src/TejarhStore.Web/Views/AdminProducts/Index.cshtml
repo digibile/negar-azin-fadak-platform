@@ -1,0 +1,35 @@
+@model List<Product>
+
+<div class="container">
+    <div class="section-title">مدیریت محصولات</div>
+    <a href="/AdminProducts/Create" class="admin-btn">+ افزودن محصول جدید</a>
+
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>عنوان</th>
+                <th>دسته‌بندی</th>
+                <th>قیمت</th>
+                <th>موجودی</th>
+                <th>عملیات</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in Model)
+            {
+                <tr>
+                    <td>@p.Title</td>
+                    <td>@p.Category?.Name</td>
+                    <td>@p.Price.ToString("N0")</td>
+                    <td>@p.StockQuantity</td>
+                    <td>
+                        <a href="/AdminProducts/Edit/@p.Id">ویرایش</a>
+                        <form method="post" action="/AdminProducts/Delete/@p.Id" style="display:inline">
+                            <button type="submit" onclick="return confirm('حذف شود؟')">حذف</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

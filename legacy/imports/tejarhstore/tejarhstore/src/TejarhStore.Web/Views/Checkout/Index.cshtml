@@ -1,0 +1,24 @@
+@model List<CartItem>
+
+<div class="container">
+    <div class="section-title">تسویه حساب</div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div style="color:red">@TempData["Error"]</div>
+    }
+
+    <form method="post" action="/Checkout/Pay" class="admin-form">
+        <label>آدرس ارسال</label>
+        <textarea name="address" required></textarea>
+
+        <label>شماره تماس</label>
+        <input type="text" name="phone" required />
+
+        <div style="margin:16px 0;font-size:16px;">
+            مبلغ قابل پرداخت: <strong>@ViewBag.Total.ToString("N0") تومان</strong>
+        </div>
+
+        <button type="submit" class="admin-btn">پرداخت و ثبت سفارش</button>
+    </form>
+</div>
