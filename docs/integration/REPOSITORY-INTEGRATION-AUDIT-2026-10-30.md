@@ -96,11 +96,11 @@
 
 ### 7. `digibile/uminex`
 
-**وضعیت مشاهده‌شده:** بررسی همه branchهای قابل مشاهده فقط `main` را نشان داد؛ درخت آن فقط README و فایل gitignore دارد. README محصول را بازارگاه مبتنی بر ASP.NET Core 9 معرفی می‌کند، اما سورس برنامه، مدل، API یا migration موجود نیست.
+**وضعیت مشاهده‌شده:** بررسی همه branchهای قابل مشاهده فقط `main` را نشان داد؛ درخت GitHub آن فقط README و فایل gitignore دارد. با این حال گزارش‌های تاریخی سرور، source tree در مسیر `merged-uminex` و snapshot `merged-uminex-BEFORE-ALL-ZIPS-20260906-043752` را نشان می‌دهند. assemblyهای Core، Accounting، CRM، ECommerce، Credit، HR، Intelligence، Projects، Representatives، Workflow و Integrations و routeهای API مربوط به آن‌ها در گزارش‌های قبلی فهرست شده‌اند. bytes سورس در دسترس فعلی نیست؛ DLLهای publish جایگزین سورس نیستند.
 
-**تصمیم:** فعلاً هیچ کدی برای انتقال وجود ندارد. فقط در صورت ارائه branch یا منبع کامل دیگر، قابلیت‌های متمایز بازارگاه بررسی می‌شوند. بازارگاه مقصد از قبل مسیر و ماژول canonical دارد.
+**تصمیم:** Uminex را دیگر «فاقد هرگونه سورس در سرور» فرض نمی‌کنیم؛ اما سورس در GitHub/Library فعلی قابل بازیابی نیست و ممیزی واقعی کد و schema انجام نشده است. تا دریافت آرشیو کامل `merged-uminex` هیچ کد/جدولی منتقل نمی‌شود. route inventory و مرز مالکیت پیشنهادی در `docs/integration/UMINEX-SOURCE-AVAILABILITY-AND-ROUTE-AUDIT-2026-10-30.md` ثبت شده است.
 
-**اولویت:** معلق تا دسترسی به سورس.
+**اولویت:** بالا برای بازیابی سورس و ممیزی gapها؛ ادغام معلق تا دریافت فایل‌ها.
 
 ### 8. `digibile/sitnela`
 
