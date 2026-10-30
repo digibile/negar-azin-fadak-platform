@@ -62,9 +62,9 @@ test("calculates installment quotes using exact minor units", () => {
 });
 
 test("rejects invalid quote percentages and terms", () => {
-  assert.throws(() => calculateInstallmentQuote(10000n, "100.0001", "5", 3), /نامعتبر/);
-  assert.throws(() => calculateInstallmentQuote(10000n, "10", "-1", 3), /نامعتبر/);
-  assert.throws(() => calculateInstallmentQuote(10000n, "10", "5", 121), /نامعتبر/);
+  assert.throws(() => calculateInstallmentQuote(10000n, "100.0001", "5", 3), /معتبر نیستند/);
+  assert.throws(() => calculateInstallmentQuote(10000n, "10", "-1", 3), /معتبر نیستند/);
+  assert.throws(() => calculateInstallmentQuote(10000n, "10", "5", 121), /معتبر نیستند/);
 });
 
 test("calculates debt-to-income ratios with exact integer arithmetic", () => {
