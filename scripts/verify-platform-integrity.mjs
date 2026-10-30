@@ -244,6 +244,7 @@ for(const route of [
 if(!marketerMigration.includes("create table if not exists crm_marketers")||!marketerMigration.includes("create table if not exists crm_marketer_audit"))throw new Error("Canonical marketer registry and audit storage are missing");
 for(const permission of ["marketing:read","marketing:manage"])if(!marketerMigration.includes(permission))throw new Error("Marketer permission seed missing: "+permission);
 if(!marketerUi.includes('["customer-360-6","بازاریاب‌ها"]')||!marketerUi.includes("/api/marketing/marketers"))throw new Error("Marketer registry is not exposed in the canonical CRM workspace");
+if(!marketerUi.includes("editMarketer=")||!marketerUi.includes('method:editing?"PATCH":"POST"')||!marketerUi.includes("toggleMarketer"))throw new Error("Marketer workspace must support create, edit and activation controls");
 if(marketerApi.includes("postLedgerEntry")||marketerApi.includes("lendtech_repayments"))throw new Error("Marketer registry must not post money or bypass central ledger/repayment workflows");
 
 console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
