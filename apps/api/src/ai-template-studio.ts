@@ -144,8 +144,8 @@ aiTemplateStudioRouter.post("/api/ai/template-design/save",requireAuth,requirePe
   if(!module.rowCount)return res.status(503).json({error:"ماژول مدیریت قالب‌ها در هسته مرکزی فعال نیست."});
   const data={
     createdByAi:true,
-    templateKey:"ai-"+randomUUID(),
-    templateType:pageType==="بازارگاه چندفروشندگی"?"بازارگاه":pageType==="فروشگاه اینترنتی"?"فروشگاهی":"قالب هوشمند",
+    "template-key":"ai-"+randomUUID(),
+    "template-type":pageType==="بازارگاه چندفروشندگی"?"بازارگاه":pageType==="فروشگاه اینترنتی"?"فروشگاهی":"قالب هوشمند",
     framework,
     pageType,
     design,
