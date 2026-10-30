@@ -1,8 +1,17 @@
 export const API_URL = "";
 
-function csrf(){
+function cookieValue(name:string){
   if(typeof document==="undefined") return null;
-  return document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||null;
+  const prefix=name+"=";
+  return document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith(prefix))?.slice(prefix.length)||null;
+}
+
+function csrf(){
+  return cookieValue("naf_csrf");
+}
+
+function activeTenant(){
+  return cookieValue("naf_tenant_id");
 }
 
 export async function api<T>(path:string,options:RequestInit={}){
@@ -10,6 +19,8 @@ export async function api<T>(path:string,options:RequestInit={}){
   if(options.body && !headers.has("Content-Type")) headers.set("Content-Type","application/json");
   const token=csrf();
   if(token) headers.set("X-CSRF-Token",token);
+  const tenantId=activeTenant();
+  if(tenantId) headers.set("X-Tenant-ID",decodeURIComponent(tenantId));
 
   const target=path.startsWith("/")?path:`/${path}`;
   const res=await fetch(target,{...options,headers,credentials:"include"});
