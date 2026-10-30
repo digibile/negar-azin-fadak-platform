@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import {useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useState,type FormEvent} from "react";
 type Contract={id:string;contract_no:string;principal:string;interest_rate:string;term_months:number;status:string;installments:Array<{id:string;installmentNo:number;dueDate:string;totalDue:string;principalPaid:string;interestPaid:string;status:string}>};
 type Declaration={id:string;contract_id:string;amount:string;method:string;payment_ref:string;paid_at:string;status:string;review_note?:string|null;created_at:string};
 const API=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
@@ -27,7 +27,7 @@ export default function Installments(){
  }
  useEffect(()=>{load()},[]);
  const selected=useMemo(()=>contracts.find(x=>x.id===contractId)||contracts[0],[contracts,contractId]);
- async function submit(e:React.FormEvent){
+ async function submit(e:FormEvent){
   e.preventDefault();setError("");setMessage("");
   if(!selected)return setError("قرارداد فعالی برای اعلام واریز پیدا نشد.");
   if(!amount.trim()||!reference.trim()||!paidAt)return setError("مبلغ، شماره پیگیری و تاریخ پرداخت الزامی است.");
