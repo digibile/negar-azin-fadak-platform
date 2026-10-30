@@ -10,7 +10,7 @@ type Center={id:string;code:string;title:string;center_type:string;status:string
 type FinanceProduct={id:string;code:string;title:string;sku?:string;product_type:string;unit:string;purchase_price:string;sale_price:string;};
 type Warehouse={id:string;code:string;title:string;status:string};
 type Vault={id:string;vault_no:string;title:string;document_type:string;status:string;file_count:number};
-type Party={id:string;party_code:string;party_type:string;title:string;status:string};
+type Party={id:string;party_code:string;party_type:string;title:string;status:string;national_id?:string|null};
 type PartyBank={id:string;party_id:string;party_title:string;party_code:string;iban:string;status:string;verification_status:string;verification_note?:string|null};
 type RegistryLink={id:string;registry:string;registry_label:string;code?:string|null;display_name:string;national_id?:string|null;phone?:string|null;party_id:string|null};
 
