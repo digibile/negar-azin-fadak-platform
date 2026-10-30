@@ -311,9 +311,9 @@ for(const marker of ["foreign key(tenant_id,check_id)","references public.treasu
 if(!treasuryChecksApi.includes("select id from treasury_bank_accounts where id=$1 and tenant_id=$2 and status='active' for update")||!treasuryChecksApi.includes("select * from treasury_checks where id=$1 and tenant_id=$2 for update")||!treasuryChecksApi.includes("Number.isFinite(Number(b.amount))"))throw new Error("Treasury check mutations must validate tenant-owned bank accounts and lock status transitions transactionally");
 
 const identityProvenanceMigration=fs.readFileSync(path.join(root,"database/migrations/161_identity_profile_provenance_and_change_requests.sql"),"utf8");
-const identityApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"utf8");
+const identityProfileApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"utf8");
 for(const marker of ["identity_profile_change_requests","identity_profile_field_provenance","identity_profile_change_events","legacy_unknown","identity_profile_one_pending_change_idx"])if(!identityProvenanceMigration.includes(marker))throw new Error("Identity provenance and change-request schema is incomplete");
-for(const marker of ["/api/identity/profile-change-requests","reviewer_approved","for update","ویرایش حساب دیگران مجاز نیست","تغییر اطلاعات قانونی باید از مسیر درخواست اصلاح پروفایل"])if(!identityApi.includes(marker))throw new Error("Legal identity changes must be provenance-tracked, owner-scoped and approval-gated");
+for(const marker of ["/api/identity/profile-change-requests","reviewer_approved","for update","ویرایش حساب دیگران مجاز نیست","تغییر اطلاعات قانونی باید از مسیر درخواست اصلاح پروفایل"])if(!identityProfileApi.includes(marker))throw new Error("Legal identity changes must be provenance-tracked, owner-scoped and approval-gated");
 
 const identityProfilePage=fs.readFileSync(path.join(root,"apps/web/app/profile/page.tsx"),"utf8");
 const identityProfileTests=fs.readFileSync(path.join(root,"apps/api/src/identity.test.ts"),"utf8");
