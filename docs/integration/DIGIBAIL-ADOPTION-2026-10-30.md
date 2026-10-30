@@ -87,6 +87,13 @@ Digibail `VirtualCard` و `VirtualCardTxn` دارد:
 ### ج) استعلام بانک بتا
 مبدأ endpoint `/api/v1/beta/inquiry` دارد، اما در کد صریحاً 501 برمی‌گرداند تا مستندات واقعی API بانک دریافت شود. هیچ استعلام یا پاسخ ساختگی منتقل نمی‌شود. مقصد `platform_verification_requests` را دارد؛ اتصال provider هنوز gap است.
 
+### ریسک‌های امنیتی attachment API موجود مقصد
+- `POST /api/enterprise/attachments` نوع MIME را از درخواست کلاینت می‌گیرد و در مسیر بررسی‌شده magic-byte validation برای JPEG/PNG/WebP/PDF ندارد؛ همچنین نوع‌های دلخواه می‌توانند به‌عنوان `stored_mime_type` ثبت شوند.
+- فایل در `platform_attachments.binary_data` به‌صورت بایت خام ذخیره می‌شود؛ رمزنگاری application-level در مسیر فعلی مشاهده نشد.
+- `GET /api/enterprise/attachments/:id` فایل را با `Content-Disposition: inline` و MIME ذخیره‌شده برمی‌گرداند؛ برای فایل‌های غیرتصویری یا MIME جعلی خطر اجرای محتوا در origin وجود دارد.
+- API فقط tenant و مجوز عمومی documents:read/manage را بررسی می‌کند؛ دسترسی بر اساس مالکیت customer/application و attachment link نیست.
+- بنابراین این API برای customer self-service مدارک هویتی تا رفع MIME sniffing، encryption-at-rest، headerهای امن، transaction و owner-level authorization آماده نیست.
+
 ### مسیر تکمیل اسناد در مقصد
 1. تعیین مرجع bytes میان `platform_attachments` و `finance_document_files`.
 2. افزودن self-service در attachment service موجود با کنترل مالکیت کاربر و application.
