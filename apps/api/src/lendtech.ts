@@ -60,6 +60,51 @@ function applicationNo(){return "CR-"+new Date().toISOString().replace(/[-:TZ.]/
 function facilityNo(){return "FAC-"+Date.now()+"-"+randomUUID().slice(0,6).toUpperCase();}
 function contractNo(){return "LN-"+Date.now()+"-"+randomUUID().slice(0,6).toUpperCase();}
 
+
+lendtechRouter.get("/api/lendtech/inquiry-requests",requireAuth,requirePermission("verification:read"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const status=s(req.query.status,30);
+ const params:any[]=[t.id];
+ let where="v.tenant_id=$1 and v.provider_code='manual-review' and v.subject_type='lendtech_application'";
+ if(status){params.push(status);where+=" and v.status=$2";}
+ const r=await query(`select v.*,a.application_no,a.customer_ref from platform_verification_requests v
+  left join lendtech_applications a on a.id::text=v.subject_id and a.tenant_ref=v.tenant_id
+  where ${where} order by v.created_at desc limit 500`,params);
+ res.json({items:r.rows,total:r.rowCount});
+}));
+
+lendtechRouter.post("/api/lendtech/inquiry-requests",requireAuth,requirePermission("verification:run"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const applicationId=s(req.body?.applicationId,36),type=s(req.body?.type,20),note=s(req.body?.note,300);
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(applicationId)||!["Identity","Credit","Other"].includes(type))return res.status(400).json({error:"پرونده و نوع استعلام معتبر نیست"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const application=await client.query("select id,customer_ref,application_no from lendtech_applications where id=$1 and tenant_ref=$2 for share",[applicationId,t.id]);
+  if(!application.rowCount){await client.query("rollback");return res.status(404).json({error:"پرونده اعتباری متعلق به این سازمان پیدا نشد"});}
+  const request=await client.query("insert into platform_verification_requests(tenant_id,subject_type,subject_id,verification_type,provider_code,correlation_id,status,request_payload,requested_by) values($1,'lendtech_application',$2,$3,'manual-review',$4,'needs_review',$5,$6) returning *",[t.id,applicationId,type,randomUUID(),JSON.stringify({note,source:"vamcity-inquiry",applicationNo:application.rows[0].application_no,customerRef:application.rows[0].customer_ref}),actor(req)]);
+  await event(client,t.id,applicationId,null,"manual_inquiry_queued",actor(req),{verificationRequestId:request.rows[0].id,type});
+  await client.query("commit");res.status(201).json(request.rows[0]);
+ }catch(error){await client.query("rollback");throw error}finally{client.release()}
+}));
+
+lendtechRouter.post("/api/lendtech/inquiry-requests/:id/result",requireAuth,requirePermission("verification:run"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const status=s(req.body?.status,20),result=s(req.body?.result,300);
+ if(!["Done","Failed"].includes(status)||!result)return res.status(400).json({error:"وضعیت و نتیجه بررسی الزامی است"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const old=await client.query("select * from platform_verification_requests where id=$1 and tenant_id=$2 and provider_code='manual-review' and subject_type='lendtech_application' for update",[req.params.id,t.id]);
+  if(!old.rowCount){await client.query("rollback");return res.status(404).json({error:"درخواست استعلام پیدا نشد"});}
+  if(old.rows[0].status!=="needs_review"){await client.query("rollback");return res.status(409).json({error:"نتیجه این درخواست قبلاً ثبت شده است"});}
+  const responsePayload={source:"manual-review",result,reviewedBy:actor(req),reviewedAt:new Date().toISOString(),note:s(req.body?.note,300)};
+  const next=await client.query("update platform_verification_requests set status=$1,response_payload=$2,decision=$3,completed_at=now(),updated_at=now() where id=$4 and tenant_id=$5 returning *",[status==="Done"?"completed":"failed",JSON.stringify(responsePayload),status==="Done"?"manual_result_recorded":"manual_result_failed",req.params.id,t.id]);
+  await event(client,t.id,old.rows[0].subject_id,null,"manual_inquiry_result_recorded",actor(req),{verificationRequestId:req.params.id,status});
+  await client.query("commit");res.json({request:next.rows[0],kycUpdated:false,creditDecisionUpdated:false});
+ }catch(error){await client.query("rollback");throw error}finally{client.release()}
+}));
+
 lendtechRouter.get("/api/lendtech/applications",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const status=s(req.query.status,40);
