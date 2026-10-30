@@ -148,6 +148,7 @@ API مبدأ فقط برای SuperAdmin فهرست فایل‌های `.bak`، ا
 | `/api/v1/admin/counterparties` | فهرست/ایجاد/ویرایش نام، شبا، فعال بودن | `/api/accounting-finance/counterparties` و `accounting_party_bank_accounts` در دفتر حسابداری؛ تغییر شبا حساب قبلی را غیرفعال و حساب جدید را pending می‌کند |
 | `/api/v1/admin/marketers` | فهرست/ایجاد/ویرایش بازاریاب | در CRM مرکزی پیاده‌سازی شده |
 | `/api/v1/app/config` و `/api/v1/admin/app-settings` | تنظیمات عمومی/مدیر اپ | در تنظیمات مرکزی ادغام شده |
+| `/api/v1/admin/orders` | فهرست/ایجاد سفارش خرید اقساطی و نهایی‌سازی یک‌باره وضعیت | فعلاً ادغام اجرایی متوقف؛ `sales_orders` فعلی tenant-safe نیست و `marketplace_orders` به seller/store واقعی نیاز دارد؛ جزئیات در ممیزی PurchaseOrder |
 | `/api/v1/admin/inquiries` | ایجاد، فهرست، ثبت یک‌باره نتیجه | صف دستی در `/api/lendtech/inquiry-requests`؛ provider بیرونی و callback امضاشده هنوز gap |
 | `/api/v1/admin/orders` | ایجاد سفارش ساده و تغییر وضعیت | استفاده از بازارگاه یا فروش مرکزی؛ بدون جدول موازی |
 | `/api/v1/admin/backups` | فهرست، ایجاد و دانلود SQL Server .bak | انتقال نمی‌یابد؛ عملیات زیرساخت PostgreSQL |
