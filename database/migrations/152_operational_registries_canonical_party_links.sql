@@ -56,7 +56,7 @@ begin
     end if;
 
     execute format(
-      'create index if not exists %I on public.%I (tenant_id, party_id)
+      'create unique index if not exists %I on public.%I (tenant_id, party_id)
        where party_id is not null',
       target_table || '_canonical_party_idx',
       target_table
