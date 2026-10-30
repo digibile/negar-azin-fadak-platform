@@ -288,7 +288,8 @@ for(const route of [
  'router.patch("/api/accounting-finance/counterparties/:id"',
  'router.get("/api/accounting-finance/parties/:partyId/bank-accounts"',
  'router.post("/api/accounting-finance/parties/:partyId/bank-accounts"',
- 'router.patch("/api/accounting-finance/parties/:partyId/bank-accounts/:id/verification"'
+ 'router.patch("/api/accounting-finance/parties/:partyId/bank-accounts/:id/verification"',
+ 'router.patch("/api/accounting-finance/parties/:partyId/bank-accounts/:id/status"'
 ])if(!accountingOperations.includes(route))throw new Error("Canonical party/bank-account route missing: "+route);
 const ibanValidator=fs.readFileSync(path.join(root,"apps/api/src/iranian-iban.ts"),"utf8");
 const ibanTests=fs.readFileSync(path.join(root,"apps/api/src/iranian-iban.test.ts"),"utf8");
@@ -297,7 +298,7 @@ if(!accountingOperations.includes("where id=$1 and tenant_id=$2")||!accountingOp
 if(!accountingOperations.includes("insert into audit_events(event_type,actor_ref,entity_type,entity_id,payload)")||!accountingOperations.includes("values($1,$2,$3,null,$4)")||!accountingOperations.includes("entity_id:id")||!accountingOperations.includes("tenant_id:t")||accountingOperations.includes("accounting_finance_audit")||!accountingOperations.includes("verification_status")||!accountingOperations.includes("verification_method=case when $1='verified' then 'manual'"))throw new Error("Party bank account changes must use the canonical audit_events stream, tenant-scoped UUID references and explicit manual verification state");
 if(!accountingOperations.includes("requireCsrf")||!accountingOperations.includes('requirePermission("accounting-finance.write"),requireCsrf'))throw new Error("Party and bank account mutations must enforce CSRF protection");
 if((partyBankMigration.match(/create table if not exists accounting_party_bank_accounts/g)||[]).length!==1||partyBankMigration.includes("  add constraint accounting_parties_tenant_id_unique unique(tenant_id,id);\n\ncreate table"))throw new Error("Party bank migration must contain one clean canonical table definition");
-if(!accountingWorkspace.includes('["parties","طرف‌حساب‌ها و شبا"]')||!accountingWorkspace.includes("/api/accounting-finance/counterparties")||!accountingWorkspace.includes("partyBankAccounts")||!accountingWorkspace.includes("تأیید دستی"))throw new Error("Canonical accounting workspace must expose counterparties and manual bank verification");
+if(!accountingWorkspace.includes('["parties","طرف‌حساب‌ها و شبا"]')||!accountingWorkspace.includes("/api/accounting-finance/counterparties")||!accountingWorkspace.includes("partyBankAccounts")||!accountingWorkspace.includes("تأیید دستی")||!accountingWorkspace.includes("افزودن حساب بانکی")||!accountingWorkspace.includes("مسدودسازی"))throw new Error("Canonical accounting workspace must expose counterparties and manual bank verification");
 if(!accountingOperations.includes('requirePermission("accounting-finance.read")'))throw new Error("Party and bank account reads must require accounting read permission");
 
 
