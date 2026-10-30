@@ -3,7 +3,7 @@ import {query,pool} from "./db.js";
 import {requireAuth,requirePermission,requireCsrf} from "./auth.js";
 import {resolveTenant} from "./tenant-context.js";
 import {normalizeAndValidateIranianIban} from "./iranian-iban.js";
-import {ensureCanonicalParty,findCanonicalParty} from "./canonical-party.js";
+import {ensureCanonicalParty,findCanonicalParty,normalizeNationalId} from "./canonical-party.js";
 
 const router=Router();
 const tenantOf=async(req:any)=>resolveTenant(req,req.user);
