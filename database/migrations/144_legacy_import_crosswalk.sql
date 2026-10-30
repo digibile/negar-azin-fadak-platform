@@ -51,3 +51,11 @@ ALTER TABLE lendtech_events
 CREATE UNIQUE INDEX IF NOT EXISTS uq_lendtech_events_source_ref
   ON lendtech_events(tenant_ref, source_ref)
   WHERE source_ref IS NOT NULL;
+
+ALTER TABLE lendtech_applications
+  ADD COLUMN IF NOT EXISTS legacy_imported boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS legacy_lock boolean NOT NULL DEFAULT false;
+
+CREATE INDEX IF NOT EXISTS lendtech_applications_legacy_lock_idx
+  ON lendtech_applications(tenant_ref, legacy_lock, created_at DESC)
+  WHERE legacy_imported = true;
