@@ -1,7 +1,7 @@
 # تصمیم معماری: مرجع واحد طرف‌حساب و حساب‌های بانکی ذی‌نفعان
 
 تاریخ: ۲۰۲۶-۱۰-۳۰  
-وضعیت: پیشنهادی برای بازبینی؛ بدون تغییر schema یا داده عملیاتی  
+وضعیت: پیاده‌سازی اولیه در PR #124؛ منتظر CI نهایی و بازبینی؛ بدون اعمال روی دیتابیس زنده  
 مخزن: `digibile/negar-azin-fadak-platform`
 
 ## مسئله
@@ -22,15 +22,23 @@
 | `sellers` (migration 017) | فروشنده بازارگاه با نام حقوقی/نمایشی و کمیسیون | رجیستری جدا و فاقد اتصال به party و حساب بانکی ذی‌نفع |
 | `treasury_payments` و `treasury_checks` | پرداخت‌گیرنده/ذی‌نفع عمدتاً با متن `payee_name`، `beneficiary_name` و `counterparty_reference` | شناسه مرجع و رابطه قابل اتکای party/account وجود ندارد |
 
-API فعلی `accounting-finance-operations.ts`:
-- `GET /api/accounting-finance/operations-overview` طرف‌حساب‌ها و حساب‌های بانکی tenant را جداگانه برمی‌گرداند.
-- `POST /api/accounting-finance/parties` طرف‌حساب می‌سازد و audit ثبت می‌کند.
-- `POST /api/accounting-finance/banks` حساب بانکی tenant را می‌سازد.
-- در فایل API بررسی‌شده، endpoint ویرایش party و endpoint مدیریت حساب بانکی متعلق به party مشاهده نشد.
+## پیاده‌سازی اولیه در شاخه PR #124
+
+Migration `150_accounting_party_bank_accounts.sql` جدول حساب‌های بانکی طرف‌حساب را ایجاد کرده است؛ `accounting_bank_accounts` همچنان فقط حساب سازمان است. FK مرکب tenant+party، یکتایی IBAN در هر tenant، قالب IR+24 رقم و وضعیت احراز pending/verified/rejected تعریف شده است.
+
+API موجود در `accounting-finance-operations.ts`:
+- `GET /api/accounting-finance/operations-overview` طرف‌حساب‌ها و حساب‌های بانکی ذی‌نفعان را برمی‌گرداند و به `accounting-finance.read` محدود است.
+- `POST/PATCH /api/accounting-finance/counterparties` ثبت و ویرایش سازگار با مدل ساده VamCity را انجام می‌دهد؛ ایجاد party و IBAN در یک transaction است.
+- `PATCH /api/accounting-finance/parties/:id` اطلاعات عمومی party را ویرایش می‌کند.
+- `GET/POST /api/accounting-finance/parties/:partyId/bank-accounts` مدیریت چند حساب بانکی برای یک party را فراهم می‌کند.
+- `PATCH /api/accounting-finance/parties/:partyId/bank-accounts/:id/verification` نتیجه بررسی دستی را با actor و audit ثبت می‌کند.
+- اعتبارسنجی API شامل نرمال‌سازی و MOD-97 است؛ DB نیز unique tenant+IBAN و FK مرکب را enforce می‌کند.
+
+UI در تب «طرف‌حساب‌ها و شبا» در همان `AccountingFinanceWorkspace` قرار گرفته است. این مرحله فقط رجیستری و بررسی دستی را پوشش می‌دهد؛ verification_method در مسیر فعلی هنوز باید صریحاً مقداردهی شود، وضعیت blocked در UI/API مدیریت نمی‌شود و خزانه/چک هنوز مصرف‌کننده حساب بانکی تأییدشده نشده‌اند.
 
 API خرید `purchasing-supply.ts` از `purchase_suppliers` به‌عنوان مرجع FK برای RFQ، سفارش خرید، فاکتور، ارزیابی و قرارداد استفاده می‌کند. این زیرسیستم نباید با حذف یا rename جدول از کار بیفتد.
 
-## تصمیم پیشنهادی
+## تصمیم معماری
 
 1. **مرجع هویت واحد:** `accounting_parties` مرجع canonical هویت طرف‌حساب در هر tenant باشد. کد و هویت اصلی شخص/شرکت فقط یک‌بار ثبت شود.
 2. **نقش‌ها:** نقش‌هایی مانند مشتری، تأمین‌کننده، پذیرنده، فروشنده بازارگاه، بازاریاب، نماینده و ذی‌نفع به party متصل شوند. نقش‌های عملیاتی و وضعیت تخصصی هر زیرسیستم در همان ماژول باقی بمانند؛ party نباید به انبار تمام فیلدهای همه دامنه‌ها تبدیل شود.
@@ -40,34 +48,31 @@ API خرید `purchasing-supply.ts` از `purchase_suppliers` به‌عنوان 
 6. **مصرف در پرداخت:** پرداخت خزانه و چک باید به party و حساب بانکی تأییدشده ارجاع دهند. فیلدهای متنی قبلی تا زمان نگاشت، reconciliation و سازگاری backward حذف نشوند.
 7. **تأیید مالکیت:** اعتبارسنجی قالب IBAN به‌تنهایی مالکیت حساب را ثابت نمی‌کند. وضعیت verified فقط با فرآیند قابل اتکا/پاسخ provider امضاشده یا بررسی مجاز انسانی ثبت شود؛ نام صاحب حساب و تاریخچه تغییرات قابل ممیزی بماند.
 
-## مراحل اجرایی پیشنهادی
+## مراحل باقی‌مانده
 
-### مرحله A: موجودی و تطبیق داده
-- شمارش رکوردها و وضعیت‌های واقعی در تمام رجیستری‌ها در محیط تست/نسخه پشتیبان.
-- شناسایی تطبیق قطعی بر اساس شناسه ملی/شناسه اقتصادی؛ تطبیق نام مشابه به‌تنهایی merge نمی‌شود.
-- فهرست تعارض‌ها، چند party برای یک شناسه، و چند IBAN برای یک party.
-- نگاشت همه FKهای `purchase_suppliers`, `sales_partners`, `payment_merchants`, `sellers` و منابع خزانه.
+### مرحله A: تکمیل API/UI
+- ثبت `verification_method='manual'` و actor/time در تأیید دستی؛ note اجباری برای رد.
+- UI کامل مدیریت چند حساب، فعال/غیرفعال/مسدودسازی و نمایش تاریخچه حساب‌های قبلی.
+- افزودن تست API واقعی برای tenant isolation، duplicate IBAN، MOD-97 و تغییر شبا؛ integrity script به‌تنهایی جای تست رفتار را نمی‌گیرد.
 
-### مرحله B: migration سازگار
-- افزودن رابطه حساب بانکی طرف‌حساب و audit؛ نه افزودن IBAN به `accounting_bank_accounts`.
-- افزودن FKهای nullable به رجیستری‌های تخصصی.
-- ایجاد unique/index و tenant-safe constraints.
-- عدم حذف یا rename هیچ جدول/ستون مورد استفاده.
+### مرحله B: اتصال رجیستری‌های تخصصی
+- شمارش رکوردها و reconciliation بر اساس شناسه ملی/اقتصادی؛ نام مشابه به‌تنهایی مبنای merge نیست.
+- اتصال مرحله‌ای `purchase_suppliers`, `sales_partners`, `payment_merchants` و `sellers` به party canonical با FKهای سازگار.
+- هیچ جدول تخصصی حذف یا rename نشود و backfill بدون گزارش قبل/بعد انجام نشود.
 
-### مرحله C: API و UI canonical
-- توسعه همان API حسابداری/داده پایه برای CRUD party و حساب‌های وابسته با CSRF، permission و tenant scope.
-- افزودن tab/section در workspace موجود؛ پنل یا منوی موازی ساخته نشود.
-- ارائه انتخاب‌گر party/account به خزانه، خرید، فروش، پذیرندگان و پرداخت‌ها.
+### مرحله C: مصرف در خزانه و پرداخت
+- اتصال پرداخت/چک به party و حساب بانکی verified؛ حساب pending/rejected/blocked نباید برای پرداخت قابل انتخاب باشد.
+- فیلدهای متنی قدیمی تا پایان reconciliation حفظ شوند.
+- IBAN validation به‌تنهایی مالکیت حساب را ثابت نمی‌کند؛ provider یا فرآیند بررسی انسانی باید قابل ممیزی باشد.
 
 ### مرحله D: backfill و cutover
-- فقط پس از backup، شمارش قبل/بعد و گزارش reconciliation.
-- اجرای batch قابل rollback در محیط staging.
-- dual-read و کنترل عدم افت داده؛ سپس cutover مرحله‌ای.
-- حفظ سوابق متن آزاد و امکان برگشت تا تأیید کامل.
+- فقط پس از backup، dry-run در staging و گزارش reconciliation.
+- اجرای batch قابل rollback و کنترل عدم افت رکورد/شناسه.
+- cutover مرحله‌ای و حفظ مسیر بازگشت.
 
 ## مواردی که فعلاً انجام نمی‌شود
 
-- هیچ migration، جدول، endpoint یا UI جدید در این ADR ایجاد نشده است.
+- Migration 150 و API/UI اولیه در شاخه PR #124 وجود دارند؛ CI نهایی هنوز باید موفق شود. هیچ migration روی دیتابیس تولید یا backfill انجام نشده است.
 - هیچ داده‌ای از `CounterParty` یا رجیستری‌های مقصد منتقل/merge نشده است.
 - هیچ شبا به‌عنوان تأییدشده تلقی نمی‌شود.
 - هیچ تغییر روی دیتابیس زنده، merge یا deploy انجام نشده است.
