@@ -316,4 +316,27 @@ if(!lendtechInquiryUi.includes("/api/lendtech/inquiry-requests?status=needs_revi
 
 const verificationReadPermissions=fs.readFileSync(path.join(root,"database/migrations/151_verification_queue_read_permissions.sql"),"utf8");
 if(!verificationReadPermissions.includes("('admin','verification:read')")||!verificationReadPermissions.includes("('manager','verification:read')"))throw new Error("Admin and manager must be able to read the central verification queue");
+
+const lendtechIdentity=fs.readFileSync(path.join(root,"apps/api/src/lendtech.ts"),"utf8");
+const identityFileValidation=fs.readFileSync(path.join(root,"apps/api/src/identity-document-file.ts"),"utf8");
+const identityFileTests=fs.readFileSync(path.join(root,"apps/api/src/identity-document-file.test.ts"),"utf8");
+const customerIdentityPage=fs.readFileSync(path.join(root,"apps/web/app/customer/documents/page.tsx"),"utf8");
+const customerDashboard=fs.readFileSync(path.join(root,"apps/web/app/customer/page.tsx"),"utf8");
+const lendtechAdminPage=fs.readFileSync(path.join(root,"apps/web/app/admin/lendtech/page.tsx"),"utf8");
+for(const route of [
+ 'lendtechRouter.get("/api/lendtech/my-applications"',
+ 'lendtechRouter.get("/api/lendtech/my-documents"',
+ 'lendtechRouter.post("/api/lendtech/my-documents"',
+ 'lendtechRouter.get("/api/lendtech/my-documents/:id/file"',
+ 'lendtechRouter.get("/api/lendtech/applications/:id/documents"',
+ 'lendtechRouter.get("/api/lendtech/application-documents/:id/file"'
+])if(!lendtechIdentity.includes(route))throw new Error("Customer identity document route missing: "+route);
+if(!lendtechIdentity.includes("customer_ref=$3")||!lendtechIdentity.includes("for share")||!lendtechIdentity.includes("l.relation_type='identity-document'"))throw new Error("Customer document upload and download must be bound to the owning customer and application");
+if(!lendtechIdentity.includes("platform_attachments")||!lendtechIdentity.includes("platform_attachment_links")||lendtechIdentity.includes("finance_document_files"))throw new Error("Customer documents must reuse the canonical platform attachment store");
+if(!lendtechIdentity.includes("requireCsrf")||!lendtechIdentity.includes("decodeIdentityDocument(b.data)")||!lendtechIdentity.includes("safeDocumentFileName(b.fileName)"))throw new Error("Customer uploads must enforce CSRF, safe filenames and server-side file validation");
+for(const signature of ['"%PDF-"','"RIFF"','"WEBP"',"0xff","0x89"])if(!identityFileValidation.includes(signature))throw new Error("Identity document signature validation missing: "+signature);
+if(!identityFileValidation.includes("8*1024*1024")||!identityFileTests.includes("rejects forged MIME payloads")||!identityFileTests.includes("oversized documents"))throw new Error("Identity document size and signature behavior tests are required");
+if(!customerIdentityPage.includes("/api/lendtech/my-applications")||!customerIdentityPage.includes("/api/lendtech/my-documents")||!customerIdentityPage.includes("/api/lendtech/my-documents/")||!customerDashboard.includes("/customer/documents"))throw new Error("Customer dashboard must expose the secure identity document workspace");
+if(!lendtechAdminPage.includes("/api/lendtech/applications/")||!lendtechAdminPage.includes("/api/lendtech/application-documents/")||!lendtechAdminPage.includes("مدارک هویتی مشتری"))throw new Error("LendTech admin must review and securely download documents attached to its application");
+
 console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
