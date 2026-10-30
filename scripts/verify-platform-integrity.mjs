@@ -308,4 +308,7 @@ if(!verificationFoundation.includes("create table if not exists platform_verific
 if(!lendtech.includes("kycUpdated:false,creditDecisionUpdated:false")||!lendtech.includes("manual_result_recorded"))throw new Error("Manual inquiry results must not silently verify KYC or alter credit decisions");
 if(!lendtechInquiryUi.includes("/api/lendtech/inquiry-requests?status=needs_review")||!lendtechInquiryUi.includes("ثبت نتیجه بررسی دستی")&&!lendtechInquiryUi.includes("ثبت نتیجه"))throw new Error("LendTech admin must expose the canonical manual inquiry queue");
 
+
+const verificationReadPermissions=fs.readFileSync(path.join(root,"database/migrations/151_verification_queue_read_permissions.sql"),"utf8");
+if(!verificationReadPermissions.includes("('admin','verification:read')")||!verificationReadPermissions.includes("('manager','verification:read')"))throw new Error("Admin and manager must be able to read the central verification queue");
 console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
