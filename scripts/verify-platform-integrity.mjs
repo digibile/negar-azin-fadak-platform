@@ -84,6 +84,7 @@ if(!sidebar.includes("normalize(item.child_items||[])")||!sidebar.includes("chil
 if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.includes("...flattenTitles(node.child_items||[])"))throw new Error("Menu search must include all nested backend levels");
 
 const dynamicMenu=fs.readFileSync(path.join(root,"apps/api/src/dynamic-menu.ts"),"utf8");
+if(!sidebar.includes("code.match(/^\\d{2}/)"))throw new Error("Sidebar panel numbering must parse the two-digit canonical menu key");
 const workflowDir=path.join(root,".github/workflows");
 const workflowFiles=fs.readdirSync(workflowDir).filter(name=>/\.ya?ml$/i.test(name));
 if(workflowFiles.length!==1||workflowFiles[0]!=="deploy-sookar-main.yml")throw new Error("Deployment workflow must have exactly one canonical entry point; found: "+workflowFiles.join(", "));

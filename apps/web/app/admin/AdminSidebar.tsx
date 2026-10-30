@@ -80,7 +80,7 @@ export default function AdminSidebar(){
 
  const canonical=useMemo(()=>menuItems.map(item=>{
   const code=item.menu_key||String(item.id);
-  const number=code.match(/^\\d{2}/)?.[0]||String(item.sort_order).padStart(2,"0");
+  const number=code.match(/^\d{2}/)?.[0]||String(item.sort_order).padStart(2,"0");
   const route=item.path&&item.path!=="#"?item.path:"/admin";
   return {code,number,title:item.title,route,moduleCode:code,children:normalize(item.child_items||[])};
  }),[menuItems]);
