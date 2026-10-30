@@ -143,14 +143,10 @@ lendtechRouter.post("/api/lendtech/applications/:id/score",requireAuth,requirePe
     where d.tenant_ref=$1 and a2.customer_ref=$2 and d.status='open'`,[t.id,a.customer_ref])
  ]);
  const dti=Number(a.dti_percent),historyCount=Number(repayments.rows[0].count),lateCount=Number(delinquencies.rows[0].count);
- const paymentHistoryScore=lateCount>0?Math.max(20,70-Math.min(50,lateCount*10)):Math.min(100,70+Math.min(30,historyCount*5));
- const dtiScore=Math.max(0,100-dti*1.5);
- const identityConfidenceScore=100;
- const incomeStabilityScore=Math.max(0,Math.min(100,100-dti));
- const score=Number((identityConfidenceScore*0.20+paymentHistoryScore*0.35+incomeStabilityScore*0.20+dtiScore*0.25).toFixed(2))*10;
- const band=score>=800?"A":score>=700?"B":score>=600?"C":"D";
+ const scoring=calculateLendtechScore({dtiPercent:dti,repaymentCount:historyCount,openDelinquencyCount:lateCount,monthlyIncome:Number(a.monthly_income),kycStatus:a.kyc_status});
+ const {score,band}=scoring;
  const r=await query(`insert into lendtech_scores(tenant_ref,application_id,score,band,inputs,created_by) values($1,$2,$3,$4,$5,$6) returning *`,
-  [t.id,a.id,score,band,JSON.stringify({monthlyIncome:Number(a.monthly_income),dtiPercent:dti,paymentHistoryScore,incomeStabilityScore,identityConfidenceScore,repaymentCount:historyCount,openDelinquencyCount:lateCount}),actor(req)]);
+  [t.id,a.id,score,band,JSON.stringify(scoring.inputs),actor(req)]);
  await query("update lendtech_applications set status='scoring',updated_at=now() where id=$1 and tenant_ref=$2",[a.id,t.id]);
  res.status(201).json({applicationId:a.id,score:r.rows[0]});
 }));
@@ -191,45 +187,31 @@ lendtechRouter.post("/api/lendtech/applications/:id/committee",requireAuth,requi
 
 lendtechRouter.post("/api/lendtech/facilities/:id/contract",requireAuth,requirePermission("modules:lendtech:write"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const facility=await query("select f.*,d.interest_rate,d.approved_term_months from lendtech_facilities f join lendtech_decisions d on d.application_id=f.application_id and d.decision='approve' where f.id=$1 and f.tenant_ref=$2 order by d.decided_at desc limit 1",[req.params.id,t.id]);
- if(!facility.rowCount)return res.status(404).json({error:"تسهیلات پیدا نشد"});
- const f=facility.rows[0];
- const r=await query(`insert into lendtech_contracts(tenant_ref,facility_id,contract_no,principal,interest_rate,term_months,signed_at)
-   values($1,$2,$3,$4,$5,$6,now()) returning *`,
-  [t.id,f.id,contractNo(),f.approved_amount,f.interest_rate,f.approved_term_months]);
- await query("update lendtech_applications set status='contracted',updated_at=now() where id=(select application_id from lendtech_facilities where id=$1) and tenant_ref=$2",[f.id,t.id]);
- res.status(201).json(r.rows[0]);
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const facility=await client.query("select f.*,d.interest_rate,d.approved_term_months from lendtech_facilities f join lendtech_decisions d on d.application_id=f.application_id and d.tenant_ref=f.tenant_ref and d.decision='approve' where f.id=$1 and f.tenant_ref=$2 order by d.decided_at desc limit 1 for update of f",[req.params.id,t.id]);
+  if(!facility.rowCount){await client.query("rollback");return res.status(404).json({error:"تسهیلات یا مصوبه معتبر پیدا نشد"});}
+  const f=facility.rows[0];
+  if(f.status!=="approved"){await client.query("rollback");return res.status(409).json({error:"فقط تسهیلات مصوب و پرداخت‌نشده قابل ایجاد قرارداد است"});}
+  const existing=await client.query("select id,status from lendtech_contracts where facility_id=$1 and tenant_ref=$2 order by created_at desc limit 1",[f.id,t.id]);
+  if(existing.rowCount){await client.query("rollback");return res.status(409).json({error:"برای این تسهیلات قبلاً قرارداد ایجاد شده است",contractId:existing.rows[0].id,status:existing.rows[0].status});}
+  const created=await client.query(`insert into lendtech_contracts(tenant_ref,facility_id,contract_no,principal,interest_rate,term_months,status,signed_at)
+   values($1,$2,$3,$4,$5,$6,'draft',null) returning *`,
+   [t.id,f.id,contractNo(),f.approved_amount,f.interest_rate,f.approved_term_months]);
+  await client.query("update lendtech_applications set status='contract_pending_signature',updated_at=now() where id=$1 and tenant_ref=$2",[f.application_id,t.id]);
+  await event(client,t.id,f.application_id,created.rows[0].id,"contract.draft_created",actor(req),{facilityId:f.id});
+  await client.query("commit");
+  res.status(201).json(created.rows[0]);
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
 lendtechRouter.post("/api/lendtech/contracts/:id/disburse",requireAuth,requirePermission("modules:lendtech:disburse"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const client=await pool.connect();
- try{
-  await client.query("begin");
-  const c=await client.query("select c.*,f.application_id,f.id as facility_id from lendtech_contracts c join lendtech_facilities f on f.id=c.facility_id where c.id=$1 and c.tenant_ref=$2 for update",[req.params.id,t.id]);
-  if(!c.rowCount){await client.query("rollback");return res.status(404).json({error:"قرارداد پیدا نشد"});}
-  const contract=c.rows[0];
-  if(contract.status!=="signed"){await client.query("rollback");return res.status(409).json({error:"فقط قرارداد امضاشده قابل پرداخت است"});}
-  const months=Number(contract.term_months),principal=Number(contract.principal),rate=Number(contract.interest_rate)/100/12;
-  const payment=rate===0?principal/months:(principal*rate*Math.pow(1+rate,months))/(Math.pow(1+rate,months)-1);
-  let remainingPrincipal=principal;
-  const start=new Date();
-  for(let i=1;i<=months;i++){
-   const due=addMonthsClamped(start,i);
-   const interestDue=rate===0?0:Number((remainingPrincipal*rate).toFixed(2));
-   const principalDue=i===months?remainingPrincipal:Number(Math.max(0,payment-interestDue).toFixed(2));
-   remainingPrincipal=Math.max(0,Number((remainingPrincipal-principalDue).toFixed(2)));
-   await client.query(`insert into lendtech_installments(tenant_ref,contract_id,installment_no,due_date,principal_due,interest_due,total_due)
-     values($1,$2,$3,$4,$5,$6,$7)`,
-    [t.id,contract.id,i,due.toISOString().slice(0,10),principalDue,interestDue,Number((principalDue+interestDue).toFixed(2))]);
-  }
-  await client.query("update lendtech_contracts set status='active',disbursed_at=now(),updated_at=now() where id=$1 returning *",[contract.id]);
-  await client.query("update lendtech_facilities set status='active',available_amount=0,updated_at=now() where id=$1",[contract.facility_id]);
-  await client.query("update lendtech_applications set status='disbursed',updated_at=now() where id=$1 and tenant_ref=$2",[contract.application_id,t.id]);
-  await event(client,t.id,contract.application_id,contract.id,"contract.disbursed",actor(req),{principal,termMonths:months});
-  await client.query("commit");
-  res.json({contractId:contract.id,status:"active",principal,termMonths:months});
- }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+ const contract=await query("select c.id,c.status,c.principal from lendtech_contracts c where c.id=$1 and c.tenant_ref=$2",[req.params.id,t.id]);
+ if(!contract.rowCount)return res.status(404).json({error:"قرارداد پیدا نشد"});
+ if(contract.rows[0].status!=="signed")return res.status(409).json({error:"قرارداد تا زمان ثبت و تأیید امضای معتبر قابل پرداخت نیست"});
+ return res.status(503).json({error:"اتصال تأییدشده به سرویس انتقال وجه تسهیلات هنوز پیکربندی نشده است؛ هیچ وجهی منتقل و هیچ قسط یا وضعیت پرداختی ثبت نشد."});
 }));
 
 lendtechRouter.get("/api/lendtech/contracts/:id/installments",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
