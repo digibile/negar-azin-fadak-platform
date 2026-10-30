@@ -168,10 +168,14 @@ app.post("/api/auth/otp/request",asyncHandler(async(req,res)=>{
  if(latest.rowCount&&new Date(latest.rows[0].resend_at).getTime()>Date.now())return res.status(429).json({error:"ارسال مجدد هنوز ممکن نیست",expiresIn:Math.max(0,Math.floor((new Date(latest.rows[0].expires_at).getTime()-Date.now())/1000)),resendIn:Math.max(0,Math.ceil((new Date(latest.rows[0].resend_at).getTime()-Date.now())/1000))});
  const variants=[phone,"98"+phone.slice(1),"0098"+phone.slice(1)];
  const users=await query("select u.id,u.email,u.full_name,u.role from users u join user_contact_methods c on c.user_id=u.id where u.status='active' and c.channel='sms' and c.status='active' and c.verified_at is not null and regexp_replace(translate(c.value,'۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩','01234567890123456789'),'[^0-9]','','g')=any($1::text[]) order by c.is_primary desc limit 2",[variants]);
- if(users.rowCount!==1)return res.status(202).json({message:"اگر شماره متعلق به حساب فعال و تأییدشده باشد، کد ورود ارسال می‌شود"});
+ if(users.rowCount!==1){
+  const dummy=otpDigest(phone,createOtpCode());
+  await query("insert into otp_challenges(phone,purpose,code_hash,requested_ip,send_status,send_info,expires_at,resend_at,consumed_at) values($1,'login',$2,$3::inet,'failed','account_not_eligible',now()+interval '120 seconds',now()+interval '120 seconds',now())",[phone,dummy,ip]);
+  return res.status(202).json({message:"اگر شماره متعلق به حساب فعال و تأییدشده باشد، کد ورود ارسال می‌شود"});
+ }
  const code=createOtpCode(),digest=otpDigest(phone,code),ttl=120,resend=120;
  await query("update otp_challenges set consumed_at=now() where phone=$1 and purpose='login' and consumed_at is null",[phone]);
- const created=await query("insert into otp_challenges(phone,purpose,code_hash,requested_ip,expires_at,resend_at) values($1,'login',$2,$3::inet,now()+($4||' seconds')::interval,now()+($5||' seconds')::interval) returning id",[phone,digest,ip,ttl,resend]);
+ const created=await query("insert into otp_challenges(phone,purpose,code_hash,requested_ip,expires_at,resend_at) values($1,'login',$2,$3::inet,now()+($4 * interval '1 second'),now()+($5 * interval '1 second')) returning id",[phone,digest,ip,ttl,resend]);
  const sent=await sendKavenegarOtp(phone,code,"سوکار");
  await query("update otp_challenges set send_status=$1,send_info=$2,consumed_at=case when $1='failed' then now() else consumed_at end where id=$3",[sent.ok?"sent":"failed",sent.info,created.rows[0].id]);
  if(!sent.ok)return res.status(502).json({error:"ارسال پیامک انجام نشد؛ تنظیمات درگاه پیامک را بررسی کنید"});
