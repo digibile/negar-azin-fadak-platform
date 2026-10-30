@@ -66,7 +66,8 @@ function normalizeArtifact(value:any){
   filters:clean(raw.filters,20),
   metrics:clean(raw.metrics,20),
   charts:clean(raw.charts,20),
-  acceptanceCriteria:clean(raw.acceptanceCriteria,20)
+  acceptanceCriteria:clean(raw.acceptanceCriteria,20),
+  sourceFiles:Array.isArray(raw.sourceFiles)?raw.sourceFiles.slice(0,6).map((file:any)=>({path:textValue(file?.path,300),language:textValue(file?.language,30),content:textValue(file?.content,24000)})).filter((file:any)=>file.path&&!file.path.includes("..")&&file.content):[]
  };
 }
 aiWorkshopRouter.post("/api/ai/workshop/generate",requireAuth,asyncHandler(async(req,res)=>{
@@ -86,6 +87,47 @@ aiWorkshopRouter.post("/api/ai/workshop/generate",requireAuth,asyncHandler(async
  if(!response.ok)return res.status(502).json({error:textValue(payload?.error?.message,350)||"ارتباط با مدل هوش مصنوعی ناموفق بود."});
  let parsed:any;try{parsed=JSON.parse(payload?.choices?.[0]?.message?.content||"")}catch{return res.status(502).json({error:"خروجی مدل JSON معتبر نیست."});}
  res.json({tool:key,label:config.label,framework,model,artifact:normalizeArtifact(parsed)});
+}));
+aiWorkshopRouter.post("/api/ai/workshop/code",requireAuth,asyncHandler(async(req,res)=>{
+ const key=textValue(req.body?.tool,40) as ToolKey;
+ if(!(key in tools))return res.status(400).json({error:"ابزار انتخاب‌شده معتبر نیست."});
+ const config=tools[key],user=(req as any).user;
+ const permission=await query("select 1 from role_permissions where role=$1 and permission=$2",[user.role,config.permission]);
+ if(user.role!=="admin"&&!permission.rowCount)return res.status(403).json({error:"برای تولید کد این ابزار مجوز لازم را ندارید."});
+ const artifact=normalizeArtifact(req.body?.artifact),framework=textValue(req.body?.framework,100)||"Next.js + TypeScript";
+ const apiKey=(process.env.AI_API_KEY||process.env.OPENAI_API_KEY||"").trim();
+ if(!apiKey)return res.status(503).json({error:"سرویس هوش مصنوعی پیکربندی نشده است؛ AI_API_KEY را در محیط API تنظیم کنید."});
+ const base=(process.env.AI_API_BASE_URL||"https://api.openai.com/v1").replace(/\/+$/,"");
+ const model=(process.env.AI_MODEL||"gpt-4.1-mini").trim(),slug=slugify(artifact.slug);
+ const webPrefix=framework==="React + TypeScript"?"apps/web/components/ai-generated/"+slug+"/":"apps/web/app/ai-generated/"+slug+"/";
+ const apiPrefix="apps/api/src/ai-generated/"+slug+"/";
+ const system=[
+  "You are a senior software engineer implementing a reviewed draft for Sookar.",
+  "Return only valid JSON with shape {files:[{path:string,language:string,content:string}],notes:string[],tests:string[]}.",
+  "Generate source code, not a design description. No markdown fences.",
+  "Use the selected framework. Use Persian RTL and responsive design where a UI is requested.",
+  "Do not add dependencies, modify existing files, access secrets, call external services, or invent real data.",
+  "Do not include environment files, credentials, shell scripts, SQL migrations, package manifests, or deployment scripts.",
+  "Generate at most 6 files. Every path must stay inside the approved generated folder. No ../ segments.",
+  "Use accessible semantic components, typed props, safe text rendering, and clear empty/loading/error states.",
+  "The output is an untrusted draft. Do not claim it was compiled, installed, or deployed.",
+  "Artifact specification: "+JSON.stringify(artifact).slice(0,18000),
+  "Framework: "+framework,
+  "Allowed web file prefix: "+webPrefix,
+  "Allowed API file prefix: "+apiPrefix,
+  "For Python + FastAPI generate Python service code under the API prefix. For Next.js generate page.tsx and optional scoped CSS under the web prefix. For React generate a component .tsx and optional scoped CSS under the web prefix."
+ ].join("\n");
+ const response=await fetch(base+"/chat/completions",{method:"POST",headers:{"Authorization":"Bearer "+apiKey,"Content-Type":"application/json"},body:JSON.stringify({model,temperature:0.2,response_format:{type:"json_object"},messages:[{role:"system",content:system},{role:"user",content:"Generate complete implementation source files for this reviewed draft. Return concise, complete files."}]}),signal:AbortSignal.timeout(60000)});
+ const payload:any=await response.json().catch(()=>({}));
+ if(!response.ok)return res.status(502).json({error:textValue(payload?.error?.message,350)||"تولید کد توسط مدل ناموفق بود."});
+ let parsed:any;try{parsed=JSON.parse(payload?.choices?.[0]?.message?.content||"")}catch{return res.status(502).json({error:"خروجی کد ساختار JSON معتبر ندارد."});}
+ const files=Array.isArray(parsed.files)?parsed.files.slice(0,6).map((file:any)=>{
+  const path=textValue(file?.path,300),content=textValue(file?.content,24000);
+  const allowed=(path.startsWith(webPrefix)||path.startsWith(apiPrefix))&&!path.includes("..")&&!path.startsWith("/")&&/\.(tsx|ts|css|py)$/.test(path);
+  return allowed&&content?{path,language:textValue(file?.language,30)||"text",content}:null;
+ }).filter(Boolean):[];
+ if(!files.length)return res.status(502).json({error:"مدل فایل منبع معتبر در مسیر مجاز تولید نکرد."});
+ res.json({files,notes:Array.isArray(parsed.notes)?parsed.notes.slice(0,8).map((x:any)=>textValue(x,300)):[],tests:Array.isArray(parsed.tests)?parsed.tests.slice(0,8).map((x:any)=>textValue(x,300)):[],status:"draft-not-executed"});
 }));
 aiWorkshopRouter.post("/api/ai/workshop/save",requireAuth,asyncHandler(async(req,res)=>{
  const key=textValue(req.body?.tool,40) as ToolKey;
