@@ -266,7 +266,7 @@ router.post("/api/accounting-finance/party-links/:registry/:id",requireAuth,requ
   await audit(t.id,actor(req),"registry_party_link",registryId,"link",source.rows[0],{...linked.rows[0],registry:req.params.registry,partyTitle:party.rows[0].title,matchMethod:method,matchEvidence:b.matchEvidence.trim()},c);
   await c.query("commit");
   res.json({registry:req.params.registry,registryId,partyId,partyTitle:party.rows[0].title,matchMethod:method,linked:true});
- }catch(error){await c.query("rollback");throw error}finally{c.release()}
+ }catch(error:any){await c.query("rollback");if(error?.code==="23505")return deny(res,409,"این طرف‌حساب قبلاً به رکورد دیگری از همین دفتر متصل شده است");throw error}finally{c.release()}
 });
 
 export {router as accountingFinanceOperationsRouter};
