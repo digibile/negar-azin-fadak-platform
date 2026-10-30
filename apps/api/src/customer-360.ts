@@ -42,9 +42,19 @@ router.post("/api/customer-360/customers",requireAuth,write,requireCsrf,async(re
 });
 router.patch("/api/customer-360/customers/:id",requireAuth,write,requireCsrf,async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const old=await query("select * from crm_customers where id=$1 and tenant_id=$2",[String(String(String(req.params.id))),t.id]);if(!old.rowCount)return res.status(404).json({error:"مشتری پیدا نشد"});
- const b=req.body||{};const r=await query("update crm_customers set full_name=coalesce($1,full_name),mobile=coalesce($2,mobile),email=coalesce($3,email),status=coalesce($4,status),notes=coalesce($5,notes),updated_at=now() where id=$6 and tenant_id=$7 returning *",[b.fullName??null,b.mobile??null,b.email??null,b.status??null,b.notes??null,String(String(String(req.params.id))),t.id]);
- await audit(req,t,String(String(String(req.params.id))),"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+ const id=String(req.params.id),b=req.body||{},c=await pool.connect();
+ try{
+  await c.query("begin");
+  const old=await c.query("select * from crm_customers where id=$1 and tenant_id=$2 for update",[id,t.id]);
+  if(!old.rowCount){await c.query("rollback");return res.status(404).json({error:"مشتری پیدا نشد"});}
+  const r=await c.query("update crm_customers set full_name=coalesce($1,full_name),mobile=coalesce($2,mobile),email=coalesce($3,email),status=coalesce($4,status),notes=coalesce($5,notes),updated_at=now() where id=$6 and tenant_id=$7 returning *",[b.fullName??null,b.mobile??null,b.email??null,b.status??null,b.notes??null,id,t.id]);
+  if(old.rows[0].party_id){
+   await c.query("update accounting_parties set title=coalesce($1,title),phone=coalesce($2,phone),email=coalesce($3,email),updated_at=now() where id=$4 and tenant_id=$5",[b.fullName??null,b.mobile??null,b.email??null,old.rows[0].party_id,t.id]);
+  }
+  await c.query("commit");
+  await audit(req,t,id,"update",old.rows[0],r.rows[0]);
+  res.json(r.rows[0]);
+ }catch(error){await c.query("rollback");throw error}finally{c.release()}
 });
 router.post("/api/customer-360/customers/:id/identities",requireAuth,write,requireCsrf,async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
