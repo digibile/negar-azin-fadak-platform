@@ -25,7 +25,6 @@ type DesignSpec={
 
 const frameworks=["Next.js + TypeScript","React + TypeScript","Python + FastAPI","Next.js + Python FastAPI"];
 const pageTypes=["فروشگاه اینترنتی","بازارگاه چندفروشندگی","صفحه اصلی سازمانی","داشبورد مدیریتی","صفحه معرفی محصول","سایر"];
-const colors=["#0f766e","#2563eb","#7c3aed","#db2777","#ea580c","#0f172a","#0891b2","#16a34a"];
 const attempts=new Map<string,{count:number;resetAt:number}>();
 
 function validText(value:unknown,max=1800){return typeof value==="string"?value.trim().slice(0,max):"";}
