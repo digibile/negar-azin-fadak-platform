@@ -34,7 +34,7 @@ API موجود در `accounting-finance-operations.ts`:
 - `PATCH /api/accounting-finance/parties/:partyId/bank-accounts/:id/verification` نتیجه بررسی دستی را با actor و audit ثبت می‌کند.
 - اعتبارسنجی API شامل نرمال‌سازی و MOD-97 است؛ DB نیز unique tenant+IBAN و FK مرکب را enforce می‌کند.
 
-UI در تب «طرف‌حساب‌ها و شبا» در همان `AccountingFinanceWorkspace` قرار گرفته است. مسیر تأیید دستی اکنون `verification_method='manual'`، actor و زمان را ثبت می‌کند. وضعیت blocked هنوز در UI/API مدیریت نمی‌شود و خزانه/چک هنوز مصرف‌کننده حساب بانکی تأییدشده نشده‌اند.
+UI در تب «طرف‌حساب‌ها و شبا» در همان `AccountingFinanceWorkspace` قرار گرفته است. مسیر تأیید دستی اکنون `verification_method='manual'`، actor و زمان را ثبت می‌کند. API و UI مدیریت وضعیت active/inactive/blocked و افزودن چند حساب برای هر طرف را دارند. خزانه/چک هنوز مصرف‌کننده حساب بانکی تأییدشده نشده‌اند.
 
 API خرید `purchasing-supply.ts` از `purchase_suppliers` به‌عنوان مرجع FK برای RFQ، سفارش خرید، فاکتور، ارزیابی و قرارداد استفاده می‌کند. این زیرسیستم نباید با حذف یا rename جدول از کار بیفتد.
 
