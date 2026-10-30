@@ -121,6 +121,7 @@ Entity مبدأ `PurchaseOrder` شامل `TenantId`, `UserId`, `LoanId?`, `Code`
 
 ### تکمیل اجرایی صف InquiryRequest مبدأ
 - مسیرهای API در router مرکزی تسهیلات: `GET /api/lendtech/inquiry-requests`, `POST /api/lendtech/inquiry-requests`, `POST /api/lendtech/inquiry-requests/:id/result`.
+- migration 151 مجوز مشاهده صف احراز را برای admin و manager هم فعال می‌کند؛ viewer فقط مجوز read دارد و مجوز اجرای/ثبت نتیجه ندارد.
 - ایجاد درخواست فقط برای پرونده اعتباری موجود در همان tenant مجاز است؛ نوع‌ها دقیقاً `Identity`, `Credit`, `Other` هستند و یادداشت/نتیجه به ۳۰۰ نویسه محدود می‌شود.
 - درخواست در `platform_verification_requests` با `provider_code='manual-review'` و `status='needs_review'` ذخیره می‌شود؛ صف موازی یا جدول جدید ساخته نشده است.
 - ثبت نتیجه فقط یک بار و با قفل تراکنشی انجام می‌شود و رویداد در `lendtech_events` ثبت می‌شود. پاسخ API صریحاً `kycUpdated:false` و `creditDecisionUpdated:false` می‌دهد؛ نتیجه دستی KYC را verified نمی‌کند، امتیاز اعتباری نمی‌سازد و تصمیم تسهیلات را تغییر نمی‌دهد.
@@ -182,7 +183,7 @@ API مبدأ فقط برای SuperAdmin فهرست فایل‌های `.bak`، ا
 
 ## اعتبارسنجی و محدودیت اجرا
 
-- migration runner مقصد فایل‌ها را بر اساس نام مرتب می‌کند و هر فایل را با نام کامل در `schema_migrations` ثبت می‌کند؛ migrationهای 148 تا 150 پس از 147 اجرا خواهند شد.
+- migration runner مقصد فایل‌ها را بر اساس نام مرتب می‌کند و هر فایل را با نام کامل در `schema_migrations` ثبت می‌کند؛ migrationهای 148 تا 151 پس از 147 اجرا خواهند شد.
 - API جدید از همان `customer360Router` موجود استفاده می‌کند؛ router جداگانه یا سرویس دوم اضافه نشده است.
 - کنترل CSRF برای عملیات نوشتن و tenant scope برای تمام خواندن/نوشتن‌ها اعمال شده است.
 - اسکریپت یکپارچگی برای وجود migration، routeها، مجوزها و UI بازاریاب بررسی اضافه دریافت کرده است.
