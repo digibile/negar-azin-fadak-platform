@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildAmortizationSchedule,
+  calculateInstallmentQuote,
   formatMinorUnits,
   parseMoneyToMinorUnits,
   roundRatioHalfUp,
@@ -19,6 +20,8 @@ test("rejects values outside the persisted two-decimal money contract", () => {
   assert.equal(parseMoneyToMinorUnits("1000000000000000000.00"), null);
   assert.equal(parseMoneyToMinorUnits("1e6"), null);
   assert.equal(parseMoneyToMinorUnits(Number.NaN), null);
+  assert.equal(parseMoneyToMinorUnits(9999999999999999), null);
+  assert.equal(parseMoneyToMinorUnits(1e16), null);
 });
 
 test("rounds exact ratios half-up", () => {
@@ -44,4 +47,20 @@ test("supports maximum contractual term and rejects invalid rates", () => {
   const result = buildAmortizationSchedule(1n, "9999.9999", 120);
   assert.equal(result.rows.length, 120);
   assert.throws(() => buildAmortizationSchedule(100n, "-1", 12), /نامعتبر/);
+});
+
+test("calculates installment quotes using exact minor units", () => {
+  const quote = calculateInstallmentQuote(100000001n, "10.0000", "5.0000", 3);
+  assert.equal(quote.downPayment, 10000000n);
+  assert.equal(quote.financedAmount, 90000001n);
+  assert.equal(quote.serviceFee, 4500000n);
+  assert.equal(quote.totalInstallments, 94500001n);
+  assert.equal(quote.totalPayable, 104500001n);
+  assert.deepEqual(quote.installments.map((row) => row.amount), [31500001n, 31500001n, 31500000n]);
+});
+
+test("rejects invalid quote percentages and terms", () => {
+  assert.throws(() => calculateInstallmentQuote(10000n, "100.0001", "5", 3), /نامعتبر/);
+  assert.throws(() => calculateInstallmentQuote(10000n, "10", "-1", 3), /نامعتبر/);
+  assert.throws(() => calculateInstallmentQuote(10000n, "10", "5", 121), /نامعتبر/);
 });
