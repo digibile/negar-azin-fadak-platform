@@ -1,4 +1,4 @@
--- 159: enforce tenant ownership for treasury check source accounts and event history.
+-- 160: enforce tenant ownership for treasury check source accounts and event history.
 -- NOT VALID preserves historical rows while enforcing every new insert or update.
 begin;
 
