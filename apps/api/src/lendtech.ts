@@ -135,7 +135,7 @@ lendtechRouter.post("/api/lendtech/applications",requireAuth,requirePermission("
 
 lendtechRouter.get("/api/lendtech/applications/:id",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const a=await query("select * from lendtech_applications where id=$1 and tenant_ref=$2",[applicationId,t.id]);
+ const a=await query("select * from lendtech_applications where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
  if(!a.rowCount)return res.status(404).json({error:"درخواست اعتبار پیدا نشد"});
  const [scores,decisions,facility,contract,events]=await Promise.all([
   query("select * from lendtech_scores where application_id=$1 and tenant_ref=$2 order by created_at desc",[req.params.id,t.id]),
