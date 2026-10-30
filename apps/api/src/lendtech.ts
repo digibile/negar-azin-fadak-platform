@@ -243,15 +243,15 @@ lendtechRouter.post("/api/lendtech/contracts/:id/repay",requireAuth,requirePermi
    const principalPaid=Math.min(remaining,principalOutstanding);remaining-=principalPaid;
    const newInterest=Number(i.interest_paid)+interestPaid,newPrincipal=Number(i.principal_paid)+principalPaid;
    const paid=newInterest>=Number(i.interest_due)-0.005&&newPrincipal>=Number(i.principal_due)-0.005;
-   await client.query(`update lendtech_installments set interest_paid=$1,principal_paid=$2,status=$3,paid_at=case when $3='paid' then now() else paid_at end where id=$4`,
-    [newInterest,newPrincipal,paid?"paid":"partial",i.id]);
+   await client.query(`update lendtech_installments set interest_paid=$1,principal_paid=$2,status=$3,paid_at=case when $3='paid' then now() else paid_at end where id=$4 and tenant_ref=$5`,
+    [newInterest,newPrincipal,paid?"paid":"partial",i.id,t.id]);
    allocation.push({installmentId:i.id,interestPaid,principalPaid});
   }
   const applied=Number((amount-remaining).toFixed(2));
   if(applied<=0){await client.query("rollback");return res.status(409).json({error:"مانده قابل پرداختی برای این قرارداد وجود ندارد"});}
   const r=await client.query("insert into lendtech_repayments(tenant_ref,contract_id,payment_ref,amount,method,allocation,created_by) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,req.params.id,paymentRef,applied,s(req.body?.method,50)||null,JSON.stringify(allocation),actor(req)]);
-  const open=await client.query("select count(*)::int as count from lendtech_installments where contract_id=$1 and status<>'paid'",[req.params.id]);
-  if(Number(open.rows[0].count)===0)await client.query("update lendtech_contracts set status='closed',closed_at=now(),updated_at=now() where id=$1",[req.params.id]);
+  const open=await client.query("select count(*)::int as count from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status<>'paid'",[req.params.id,t.id]);
+  if(Number(open.rows[0].count)===0)await client.query("update lendtech_contracts set status='closed',closed_at=now(),updated_at=now() where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
   await event(client,t.id,null,String(req.params.id),"repayment.received",actor(req),{paymentRef,amount:applied,unallocated:remaining});
   await client.query("commit");
   res.status(201).json({repayment:r.rows[0],unallocated:remaining});
@@ -288,10 +288,10 @@ lendtechRouter.post("/api/lendtech/contracts/:id/restructure",requireAuth,requir
   const outstanding=await client.query(`select
     coalesce(sum(principal_due-principal_paid),0) as principal,
     coalesce(sum(interest_due-interest_paid),0) as interest
-    from lendtech_installments where contract_id=$1 and status<>'paid'`,[contract.id]);
+    from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status<>'paid'`,[contract.id,t.id]);
   const remainingPrincipal=Number(outstanding.rows[0].principal);
   if(remainingPrincipal<=0){await client.query("rollback");return res.status(409).json({error:"مانده اصلی قرارداد برای بازسازی وجود ندارد"});}
-  await client.query("delete from lendtech_installments where contract_id=$1 and status<>'paid'",[contract.id]);
+  await client.query("delete from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status<>'paid'",[contract.id,t.id]);
   const months=Number(term),rate=Number(contract.interest_rate)/100/12;
   const payment=rate===0?remainingPrincipal/months:(remainingPrincipal*rate*Math.pow(1+rate,months))/(Math.pow(1+rate,months)-1);
   let balance=remainingPrincipal;
@@ -306,8 +306,8 @@ lendtechRouter.post("/api/lendtech/contracts/:id/restructure",requireAuth,requir
     [t.id,contract.id,i,due.toISOString().slice(0,10),principalDue,interestDue,Number((principalDue+interestDue).toFixed(2))]);
   }
   const r=await client.query("insert into lendtech_restructures(tenant_ref,contract_id,old_term_months,new_term_months,reason,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,contract.id,contract.term_months,term,reason,actor(req)]);
-  await client.query("update lendtech_contracts set term_months=$1,status='active',updated_at=now() where id=$2",[term,contract.id]);
-  await client.query("update lendtech_delinquencies set status='resolved',resolved_at=now() where contract_id=$1 and status='open'",[contract.id]);
+  await client.query("update lendtech_contracts set term_months=$1,status='active',updated_at=now() where id=$2 and tenant_ref=$3",[term,contract.id,t.id]);
+  await client.query("update lendtech_delinquencies set status='resolved',resolved_at=now() where contract_id=$1 and tenant_ref=$2 and status='open'",[contract.id,t.id]);
   await event(client,t.id,null,contract.id,"contract.restructured",actor(req),{oldTermMonths:contract.term_months,newTermMonths:term,remainingPrincipal});
   await client.query("commit");
   res.status(201).json({restructure:r.rows[0],remainingPrincipal,newTermMonths:term});
