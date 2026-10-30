@@ -80,13 +80,13 @@
 - `master_data` فقط مجموعه/کد/واحد/آیتم‌های مرجع عمومی است، نه registry اشخاص. `organizations` و `organization_entities` ساختار داخلی شرکت/شعبه/واحد را مدل می‌کنند.
 
 ### تصمیم اصلاح‌شده
-دفتر پایه طرف‌حساب از قبل وجود دارد؛ شکاف واقعی، **عدم یکپارچگی رجیستری‌های تخصصی با `accounting_parties` و نبود حساب بانکی وابسته به شخص/سازمان** است. طراحی پیشنهادی: `accounting_parties` مرجع canonical هویت طرف‌حساب باقی بماند؛ نقش‌های مشتری/تأمین‌کننده/پذیرنده/فروشنده به همان party متصل شوند؛ برای حساب‌های بانکی بیرونی رابطه tenant-scoped مستقل با چند حساب، وضعیت تأیید، تاریخچه تغییر و کنترل یکتایی شبا تعریف شود؛ `accounting_bank_accounts` فقط حساب‌های خود سازمان بماند. سپس `purchase_suppliers`, `sales_partners`, `payment_merchants` و `sellers` با FK اختیاری/اجباری مرحله‌ای به party وصل شوند، پس از reconciliation داده‌ها و بدون حذف ناگهانی جدول‌های موجود. خزانه پرداخت/چک باید در مرحله بعد از شناسه party و حساب بانکی تأییدشده استفاده کند. این مرحله فعلاً فقط ممیزی و تصمیم معماری است؛ هیچ migration یا backfill اجرا نشده است. فیلدهای آزاد قبلی نیز تا پایان نگاشت و reconciliation دست‌نخورده می‌مانند.
+دفتر پایه `accounting_parties` از قبل وجود داشت؛ بنابراین migration 150 جدول دفتر طرف‌حساب دوم نمی‌سازد. این migration فقط حساب‌های بانکی وابسته به party را با FK مرکب tenant+party، یکتایی شبای هر tenant، وضعیت احراز و تاریخچه بررسی اضافه می‌کند. API و UI نیز داخل ماژول موجود حسابداری و مالی توسعه یافته‌اند. رجیستری‌های `purchase_suppliers`, `sales_partners`, `payment_merchants` و `sellers` هنوز برای اتصال مرحله‌ای به party نیازمند reconciliation هستند؛ هیچ backfill خودکاری انجام نشده و `payee_name`/`beneficiary_name`های متنی به party تبدیل نشده‌اند.
 
 
 
 ## تکمیل ممیزی همه entityهای فایل OpsModule و مسیرهای عملیاتی
 
-در بازبینی کامل فایل `backend/ops/files/OpsModule.cs` مشخص شد entityهای عملیاتی مبدأ در همین فایل تعریف شده‌اند: `PaymentDeclaration`, `CounterParty`, `Marketer`, `AppSetting`, `InquiryRequest`, `PurchaseOrder`. بنابراین عبارت‌های قبلی درباره «پیدا نشدن فایل entity» اصلاح شد. پیکربندی کامل EF/DbContext و migration فیزیکی SQL Server در repo فعلی موجود نیست.
+در بازبینی کامل فایل `backend/ops/files/OpsModule.cs` مشخص شد هر شش entity عملیاتی مبدأ در همین فایل تعریف شده‌اند: `PaymentDeclaration`, `CounterParty`, `Marketer`, `AppSetting`, `InquiryRequest`, `PurchaseOrder`. بنابراین عبارت‌های قبلی درباره «پیدا نشدن فایل entity» اصلاح شد. پیکربندی کامل EF/DbContext و migration فیزیکی SQL Server در repo فعلی موجود نیست.
 
 ### جزئیات بیشتر طرف‌حساب‌ها و معادل‌های نزدیک مقصد
 - `accounting_parties` در migration 089 مرجع عمومی موجود برای customer/supplier/employee/agent/bank/other است؛ API آن create و overview دارد، اما `iban` و رابطه حساب بانکی وابسته ندارد.
@@ -109,6 +109,15 @@ Entity مبدأ `PurchaseOrder` شامل `TenantId`, `UserId`, `LoanId?`, `Code`
 - کنترلر اعلام واریز مبدأ پس از تأیید مدیر فقط Status/ReviewNote/Reviewer را ذخیره می‌کند و صریحاً ثبت قسط را جدا می‌داند. رفتار مقصد که در یک تراکنش به `applyRepayment` متصل است، عمداً قوی‌تر و ایمن‌تر است.
 
 
+### تکمیل اجرایی دفتر طرف‌حساب و حساب بانکی ذی‌نفع
+- migration جدید: `database/migrations/150_accounting_party_bank_accounts.sql`. جدول جدید فقط حساب بانکی وابسته به `accounting_parties` را نگه می‌دارد؛ `accounting_bank_accounts` همچنان حساب‌های بانکی خود سازمان است.
+- FK مرکب `(tenant_id,party_id)` مانع اتصال حساب بانکی به party متعلق به tenant دیگر می‌شود. یکتایی `(tenant_id,iban)` از ثبت شبا برای دو طرف متفاوت در یک tenant جلوگیری می‌کند.
+- API در همان `accountingFinanceOperationsRouter`: ایجاد/ویرایش طرف تسویه، فهرست و ثبت حساب بانکی، و ثبت نتیجه احراز دستی. شبا قبل از ثبت با قالب IR+24 رقم و MOD-97 بررسی می‌شود؛ این کنترل فقط صحت ساختاری است و مالکیت حساب را اثبات نمی‌کند.
+- تغییر شبا، حساب قبلی را حذف نمی‌کند؛ آن را غیرفعال می‌کند و حساب جدید را با وضعیت احراز pending می‌سازد. تأیید/رد حساب با کاربر بررسی‌کننده، زمان و دلیل در audit ثبت می‌شود.
+- UI در تب «طرف‌حساب‌ها و شبا»ی `AccountingFinanceWorkspace` اضافه شد. تأیید دستی در رابط به معنی تطبیق با بانک نیست؛ تا زمان اتصال سرویس استعلام مالکیت، وضعیت تأیید فقط اقدام اپراتور مجاز است.
+- داده‌های قدیمی `CounterParty` از SQL Server به‌صورت خودکار منتقل نشده‌اند؛ هنوز DB مبدأ و inventory فیزیکی کامل EF/SQL Server در repo قابل دسترس نیست. migration و backfill روی محیط زنده اجرا نشده است.
+
+
 ### بکاپ مبدأ
 API مبدأ فقط برای SuperAdmin فهرست فایل‌های `.bak`، اجرای `BACKUP DATABASE` روی SQL Server و دانلود فایل را ارائه می‌کند؛ restore از API عمداً وجود ندارد. این endpoint به مسیر فایل و دسترسی سرویس SQL Server وابسته است و قابل انتقال به PostgreSQL نیست. بکاپ/بازیابی مقصد باید از سازوکار زیرساخت PostgreSQL و runbook کنترل‌شده انجام شود، نه endpoint اپلیکیشن.
 
@@ -117,7 +126,7 @@ API مبدأ فقط برای SuperAdmin فهرست فایل‌های `.bak`، ا
 |---|---|---|
 | `/api/v1/me/payment-declarations` | ثبت و فهرست اعلام‌های خود کاربر | مسیر مرکزی lendtech و UI موجود اقساط |
 | `/api/v1/admin/payment-declarations` | فهرست و بررسی مدیر؛ فقط تغییر وضعیت | صف مدیر مرکزی؛ تأیید از `applyRepayment` و نه کپی رفتار مبدأ |
-| `/api/v1/admin/counterparties` | فهرست/ایجاد/ویرایش نام، شبا، فعال بودن | gap در master data؛ بدون ساخت جدول تا طراحی مرجع مشترک |
+| `/api/v1/admin/counterparties` | فهرست/ایجاد/ویرایش نام، شبا، فعال بودن | `/api/accounting-finance/counterparties` و `accounting_party_bank_accounts` در دفتر حسابداری؛ تغییر شبا حساب قبلی را غیرفعال و حساب جدید را pending می‌کند |
 | `/api/v1/admin/marketers` | فهرست/ایجاد/ویرایش بازاریاب | در CRM مرکزی پیاده‌سازی شده |
 | `/api/v1/app/config` و `/api/v1/admin/app-settings` | تنظیمات عمومی/مدیر اپ | در تنظیمات مرکزی ادغام شده |
 | `/api/v1/admin/inquiries` | ایجاد، فهرست، ثبت یک‌باره نتیجه | foundation مرکزی موجود؛ adapter/provider و API اجرایی هنوز gap |
@@ -128,7 +137,7 @@ API مبدأ فقط برای SuperAdmin فهرست فایل‌های `.bak`، ا
 ## مواردی که عمداً منتقل نشدند
 
 1. اعلام واریز به‌عنوان «پرداخت قطعی»: تأیید مدرک بانکی به‌تنهایی نباید قسط را پرداخت‌شده کند. مقصد باید از `lendtech_repayments` و تخصیص اقساط مرکزی استفاده کند.
-2. طرف‌حساب مستقل: باعث دوگانگی با طرف‌حساب حسابداری، پذیرنده و حساب بانکی می‌شود.
+2. دفتر طرف‌حساب مستقل و موازی ایجاد نشد؛ از `accounting_parties` استفاده می‌شود. حساب بانکی بیرونی در `accounting_party_bank_accounts` نگهداری می‌شود و از حساب‌های بانکی خود سازمان جداست.
 3. تنظیمات اپ مستقل: منبع تنظیمات باید `central_settings` باشد؛ فقط خروجی عمومی مجاز و غیرحساس می‌تواند ناشناس ارائه شود.
 4. صف استعلام مستقل: وضعیت احراز هویت و اعتبار باید از provider و رویدادهای lendtech به‌دست آید.
 5. سفارش خرید موازی: سفارش‌های بازارگاه و فروش باید مرجع واحد باقی بمانند.
@@ -163,7 +172,7 @@ API مبدأ فقط برای SuperAdmin فهرست فایل‌های `.bak`، ا
 
 ## اعتبارسنجی و محدودیت اجرا
 
-- migration runner مقصد فایل‌ها را بر اساس نام مرتب می‌کند و هر فایل را با نام کامل در `schema_migrations` ثبت می‌کند؛ migration جدید 148 پس از 147 اجرا خواهد شد.
+- migration runner مقصد فایل‌ها را بر اساس نام مرتب می‌کند و هر فایل را با نام کامل در `schema_migrations` ثبت می‌کند؛ migrationهای 148 تا 150 پس از 147 اجرا خواهند شد.
 - API جدید از همان `customer360Router` موجود استفاده می‌کند؛ router جداگانه یا سرویس دوم اضافه نشده است.
 - کنترل CSRF برای عملیات نوشتن و tenant scope برای تمام خواندن/نوشتن‌ها اعمال شده است.
 - اسکریپت یکپارچگی برای وجود migration، routeها، مجوزها و UI بازاریاب بررسی اضافه دریافت کرده است.
