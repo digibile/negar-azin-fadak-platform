@@ -54,6 +54,7 @@ export default function CustomerDashboard(){
    <a href="/store/cart" className="customer-card"><b>سبد خرید</b><span>مشاهده اقلام و ادامه خرید</span><i>‹</i></a>
    <a href="/marketplace/orders" className="customer-card"><b>سفارش‌های من</b><span>پیگیری سفارش‌ها و وضعیت تحویل</span><i>‹</i></a>
    <a href="/pay" className="customer-card"><b>اعتبار و پرداخت</b><span>اعتبار خرید، پرداخت و اقساط</span><i>‹</i></a>
+   <a href="/customer/contracts" className="customer-card"><b>قراردادهای من</b><span>مشاهده و پذیرش قراردادهای تسهیلات</span><i>‹</i></a>
    <a href="/pay/repayment" className="customer-card"><b>بازپرداخت</b><span>مدیریت پرداخت‌های اعتباری</span><i>‹</i></a>
    <a href="/pay/support" className="customer-card"><b>پشتیبانی</b><span>درخواست‌ها و ارتباط با پشتیبانی</span><i>‹</i></a>
   </section>
