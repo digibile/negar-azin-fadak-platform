@@ -131,7 +131,7 @@ const firstDestinations=firstChildren.map(child=>child[2]||child[3]).filter(Bool
 if(new Set(firstDestinations).size!==firstDestinations.length)throw new Error("Panel 01 contains duplicate child destinations");
 if(!masterMenu.includes('child("مرکز فرماندهی عملیاتی","","command-center","/command-center")'))throw new Error("Panel 01 command center route is not explicitly registered");
 if(sidebar.includes('import {MASTER_MENU} from "./master-menu"')||!sidebar.includes('api<{items:MenuNode[]}>("/api/dashboard/menu-tree?panel=admin")'))throw new Error("Sidebar must use the canonical backend menu API instead of a frontend menu registry");
-if(!sidebar.includes("const canonical=useMemo(()=>menuItems.map(item=>"))||!sidebar.includes("normalize(item.child_items||[])"))throw new Error("Sidebar must derive panels and child navigation from backend menu records");
+if(!sidebar.includes("const canonical=useMemo(()=>menuItems.map(item=>")||!sidebar.includes("normalize(item.child_items||[])"))throw new Error("Sidebar must derive panels and child navigation from backend menu records");
 const unroutedLegacy=expectedLegacyCodes.filter(code=>!declaredCodes.has(code));
 if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered in a real dispatcher branch/workspace: "+unroutedLegacy.join(", "));
 
