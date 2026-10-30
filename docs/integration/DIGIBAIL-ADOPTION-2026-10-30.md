@@ -94,6 +94,14 @@ Digibail `VirtualCard` و `VirtualCardTxn` دارد:
 - API فقط tenant و مجوز عمومی documents:read/manage را بررسی می‌کند؛ دسترسی بر اساس مالکیت customer/application و attachment link نیست.
 - بنابراین این API برای customer self-service مدارک هویتی تا رفع MIME sniffing، encryption-at-rest، headerهای امن، transaction و owner-level authorization آماده نیست.
 
+### تصمیم مرجع فایل و صف OCR پس از بررسی schema و API
+- مرجع عمومی پیوست برای مدارک هویتی/مشتری و فایل‌های متصل به موجودیت‌های عملیاتی، platform_attachments و platform_attachment_links در migration 108 است؛ این مدل tenant-scoped است، metadata و hash دارد و bytes یا storage_key را پشتیبانی می‌کند. platform_ocr_jobs نیز به همین attachment متصل است.
+- finance_document_files در migration 087 به finance_document_vaults وابسته است و نسخه‌بندی/متن OCR سندهای زونکن مالی را نگه می‌دارد؛ برای هویت مشتری، فایل عمومی یا پشتیبانی نباید از آن به‌عنوان مخزن دوم استفاده شود.
+- بنابراین جدول یا storage تازه ساخته نمی‌شود: platform_attachments مرجع واحد bytes و لینک عمومی است؛ finance_document_files فقط برای اسناد دارای مالکیت زونکن مالی باقی می‌ماند. اتصال سند هویتی به پرونده باید از طریق platform_attachment_links و شناسه واقعی module_record یا پرونده اعتباری باشد، نه متن آزاد file-reference.
+- نقص امنیتی API فعلی: POST پیوست فقط documents:manage می‌خواهد و entityType/entityId ارسالی را بدون بررسی مالکیت موجودیت مقصد می‌پذیرد؛ GET نیز فقط tenant را کنترل می‌کند. این API برای self-service مشتری مناسب نیست. endpoint مشتری باید شناسه پرونده متعلق به همان user و tenant را خودش resolve کند، attachment را به همان پرونده link کند و دانلود را با مالکیت همان link محدود کند.
+- صف OCR در schema و API وجود دارد، اما worker مصرف‌کننده platform_ocr_jobs در مقصد پیدا نشد؛ notification-worker فقط outbox/notification و چند job دیگر را پردازش می‌کند. کد مبدأ Digibail یک TesseractOcrProvider محلی و parser فیلدهای کارت هویت دارد، ولی image مقصد فعلاً node:22-alpine است و Tesseract/language data در آن نصب نیست.
+- تصمیم اجرایی: اول API آپلود/دانلود self-service و پیوند امن به پرونده مشتری روی platform_attachments پیاده شود؛ سپس worker مستقل OCR با provider محلی Tesseract، timeout، محدودیت concurrency، صف قفل‌شده SKIP LOCKED و نتیجه needs_review ساخته شود. تا زمانی که worker و Tesseract واقعی در image تست نشده‌اند، وضعیت OCR نباید به‌صورت موفق یا پردازش‌شده نمایش داده شود.
+
 ### مسیر تکمیل اسناد در مقصد
 1. تعیین مرجع bytes میان `platform_attachments` و `finance_document_files`.
 2. افزودن self-service در attachment service موجود با کنترل مالکیت کاربر و application.
