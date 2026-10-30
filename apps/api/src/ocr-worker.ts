@@ -124,4 +124,4 @@ async function run(){
 
 process.on("SIGTERM",()=>{stopping=true;});
 process.on("SIGINT",()=>{stopping=true;});
-void run().catch(error=>{process.stderr.write(String(error)+"\n");process.exitCode=1;});
+void run().catch(async error=>{process.stderr.write(String(error)+"\n");await pool.end();process.exitCode=1;});
