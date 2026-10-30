@@ -12,6 +12,7 @@ type MenuNode={
  parent_id:string|number|null;
  title:string;
  path:string;
+ route?:string;
  icon?:string|null;
  sort_order:number;
  permission:string|null;
@@ -26,7 +27,7 @@ function ChevronIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path 
 function HomeIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v10.5a1 1 0 0 1-1 1h-5.5v-6h-4v6H4.5a1 1 0 0 1-1-1V10Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>}
 function CloseIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>}
 
-function normalize(nodes:MenuNode[]):MenuNode[]{return [...nodes].sort((a,b)=>a.sort_order-b.sort_order||String(a.id).localeCompare(String(b.id)))}
+function normalize(nodes:MenuNode[]):MenuNode[]{return [...nodes].sort((a,b)=>a.sort_order-b.sort_order||String(a.id).localeCompare(String(b.id))).map(node=>({...node,route:node.path&&node.path!=="#"?node.path:undefined,child_items:normalize(node.child_items||[])}))}
 function flattenTitles(nodes:MenuNode[]):string[]{return nodes.flatMap(node=>[node.title,...flattenTitles(node.child_items||[])])}
 function menuHref(path:string|undefined,parent:string,title:string){
  if(path&&path!=="#")return path;
@@ -49,7 +50,7 @@ function TreeNode({node,href,pathname,closeMobile,depth}:{node:MenuNode;href:str
    {children.length>0&&<button type="button" className={styles["master-chevron-button"]} onClick={()=>setExpanded(x=>!x)} aria-expanded={expanded} aria-label={(expanded?"بستن ":"باز کردن ")+node.title}><span className={styles["master-chevron"]}><ChevronIcon/></span></button>}
   </div>
   {expanded&&children.length>0&&<div className={styles["tree-grandchildren"]}>
-   {children.map(child=><TreeNode key={child.id} node={child} href={menuHref(child.path,href,child.title)} pathname={pathname} closeMobile={closeMobile} depth={depth+1}/>)}
+   {children.map(child=>{const childRoute=child.route;return <TreeNode key={child.id} node={child} href={menuHref(childRoute,href,child.title)} pathname={pathname} closeMobile={closeMobile} depth={depth+1}/>})}
   </div>}
  </div>;
 }
