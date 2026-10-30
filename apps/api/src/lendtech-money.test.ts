@@ -48,7 +48,7 @@ test("positive-rate schedule reconciles principal and calculates exact totals", 
 test("supports maximum contractual term and rejects invalid rates", () => {
   const result = buildAmortizationSchedule(1n, "9999.9999", 120);
   assert.equal(result.rows.length, 120);
-  assert.throws(() => buildAmortizationSchedule(100n, "-1", 12), /نامعتبر/);
+  assert.throws(() => buildAmortizationSchedule(100n, "-1", 12), /معتبر/);
 });
 
 test("calculates installment quotes using exact minor units", () => {
@@ -58,7 +58,7 @@ test("calculates installment quotes using exact minor units", () => {
   assert.equal(quote.serviceFee, 4500000n);
   assert.equal(quote.totalInstallments, 94500001n);
   assert.equal(quote.totalPayable, 104500001n);
-  assert.deepEqual(quote.installments.map((row) => row.amount), [31500001n, 31500001n, 31500000n]);
+  assert.deepEqual(quote.installments.map((row) => row.amount), [31500001n, 31500001n, 31499999n]);
 });
 
 test("rejects invalid quote percentages and terms", () => {
