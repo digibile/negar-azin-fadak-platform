@@ -1,7 +1,7 @@
 import {Router} from "express";
 import {randomUUID} from "node:crypto";
 import {pool,query} from "./db.js";
-import {requireAuth,requirePermission} from "./auth.js";
+import {requireAuth,requireCsrf,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
 import {calculateLendtechScore} from "./lendtech-scoring.js";
@@ -242,55 +242,122 @@ lendtechRouter.get("/api/lendtech/contracts/:id/installments",requireAuth,requir
  res.json({items:r.rows,total:r.rowCount});
 }));
 
-lendtechRouter.post("/api/lendtech/contracts/:id/repay",requireAuth,requirePermission("modules:lendtech:repay"),asyncHandler(async(req,res)=>{
+
+class RepaymentFault extends Error { constructor(public status:number,message:string,public details:any={}){super(message);} }
+async function applyRepayment(client:any,args:{tenantRef:string;contractId:string;amount:bigint;paymentRef:string;method:string|null;createdBy:string;paidAt?:Date}){
+ const {tenantRef,contractId,amount,paymentRef,method,createdBy,paidAt}=args;
+ const c=await client.query("select * from lendtech_contracts where id=$1 and tenant_ref=$2 for update",[contractId,tenantRef]);
+ if(!c.rowCount)throw new RepaymentFault(404,"قرارداد پیدا نشد");
+ const duplicate=await client.query("select id from lendtech_repayments where tenant_ref=$1 and payment_ref=$2",[tenantRef,paymentRef]);
+ if(duplicate.rowCount)throw new RepaymentFault(409,"مرجع پرداخت تکراری است");
+ if(!["active","delinquent"].includes(c.rows[0].status))throw new RepaymentFault(409,"بازپرداخت فقط برای قرارداد فعال یا دارای معوقه مجاز است");
+ const outstanding=await client.query("select coalesce(sum(greatest(total_due-principal_paid-interest_paid,0)),0)::text as amount from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status<>'paid'",[contractId,tenantRef]);
+ const outstandingMinor=parseMoneyToMinorUnits(outstanding.rows[0].amount);
+ if(outstandingMinor===null||amount>outstandingMinor)throw new RepaymentFault(409,"مبلغ پرداخت از مانده قابل پرداخت قرارداد بیشتر است؛ پرداخت مازاد باید جداگانه تطبیق و ثبت شود",{outstanding:outstanding.rows[0].amount});
+ let remaining=amount;
+ const installments=await client.query("select * from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status<>'paid' order by due_date,installment_no for update",[contractId,tenantRef]);
+ const allocation:any[]=[];
+ for(const i of installments.rows){
+  if(remaining<=0n)break;
+  const interestDue=parseMoneyToMinorUnits(i.interest_due),interestAlreadyPaid=parseMoneyToMinorUnits(i.interest_paid);
+  const principalDue=parseMoneyToMinorUnits(i.principal_due),principalAlreadyPaid=parseMoneyToMinorUnits(i.principal_paid);
+  if(interestDue===null||interestAlreadyPaid===null||principalDue===null||principalAlreadyPaid===null)throw new Error("مقادیر مالی قسط با قالب ذخیره‌شده سازگار نیست");
+  const interestOutstanding=interestDue>interestAlreadyPaid?interestDue-interestAlreadyPaid:0n;
+  const principalOutstanding=principalDue>principalAlreadyPaid?principalDue-principalAlreadyPaid:0n;
+  const interestPaid=remaining<interestOutstanding?remaining:interestOutstanding;remaining-=interestPaid;
+  const principalPaid=remaining<principalOutstanding?remaining:principalOutstanding;remaining-=principalPaid;
+  const newInterest=interestAlreadyPaid+interestPaid,newPrincipal=principalAlreadyPaid+principalPaid;
+  const paid=newInterest>=interestDue&&newPrincipal>=principalDue;
+  await client.query("update lendtech_installments set interest_paid=$1,principal_paid=$2,status=$3,paid_at=case when $3='paid' then now() else paid_at end where id=$4 and tenant_ref=$5",
+   [formatMinorUnits(newInterest),formatMinorUnits(newPrincipal),paid?"paid":"partial",i.id,tenantRef]);
+  allocation.push({installmentId:i.id,interestPaid:formatMinorUnits(interestPaid),principalPaid:formatMinorUnits(principalPaid)});
+ }
+ const applied=amount-remaining;
+ if(applied<=0n)throw new RepaymentFault(409,"مانده قابل پرداختی برای این قرارداد وجود ندارد");
+ const r=await client.query("insert into lendtech_repayments(tenant_ref,contract_id,payment_ref,amount,paid_at,method,allocation,created_by) values($1,$2,$3,$4,coalesce($5,now()),$6,$7,$8) returning *",
+  [tenantRef,contractId,paymentRef,formatMinorUnits(applied),paidAt||null,method,JSON.stringify(allocation),createdBy]);
+ const open=await client.query("select count(*)::int as count from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status<>'paid'",[contractId,tenantRef]);
+ if(Number(open.rows[0].count)===0)await client.query("update lendtech_contracts set status='closed',closed_at=now(),updated_at=now() where id=$1 and tenant_ref=$2",[contractId,tenantRef]);
+ await event(client,tenantRef,null,contractId,"repayment.received",createdBy,{paymentRef,amount:formatMinorUnits(applied),unallocated:formatMinorUnits(remaining)});
+ return {repayment:r.rows[0],unallocated:formatMinorUnits(remaining)};
+}
+
+lendtechRouter.get("/api/lendtech/my-payment-declarations",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query("select d.id,d.contract_id,d.amount,d.method,d.payment_ref,d.paid_at,d.status,d.review_note,d.created_at,d.reviewed_at from lendtech_payment_declarations d where d.tenant_ref=$1 and d.user_ref=$2 order by d.created_at desc limit 100",[t.id,actor(req)]);
+ res.json({items:r.rows,total:r.rowCount});
+}));
+lendtechRouter.post("/api/lendtech/my-payment-declarations",requireAuth,requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const amount=parseMoneyToMinorUnits(req.body?.amount),method=s(req.body?.method,30),paymentRef=s(req.body?.reference,30).replace(/[۰-۹]/g,ch=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(ch))).replace(/[٠-٩]/g,ch=>String("٠١٢٣٤٥٦٧٨٩".indexOf(ch)));
+ const paidAtValue=s(req.body?.paidAt,40),paidAt=paidAtValue?new Date(paidAtValue):new Date();
+ const contractId=s(req.body?.contractId,80),note=s(req.body?.note,300);
+ if(amount===null||amount<=0n||amount>100000000000000000n)return res.status(400).json({error:"مبلغ اعلام واریز معتبر نیست"});
+ if(!["CardToCard","BankTransfer"].includes(method))return res.status(400).json({error:"روش پرداخت نامعتبر است"});
+ if(paymentRef.length<4||paymentRef.length>30)return res.status(400).json({error:"شماره پیگیری باید بین ۴ تا ۳۰ رقم/نویسه باشد"});
+ if(Number.isNaN(paidAt.getTime())||paidAt.getTime()>Date.now()+86400000||paidAt.getTime()<Date.now()-366*86400000)return res.status(400).json({error:"تاریخ پرداخت نامعتبر است"});
+ if(!contractId)return res.status(400).json({error:"شناسه قرارداد مرکزی الزامی است"});
+ const owns=await query("select c.id from lendtech_contracts c join lendtech_facilities f on f.id=c.facility_id and f.tenant_ref=c.tenant_ref join lendtech_applications a on a.id=f.application_id and a.tenant_ref=f.tenant_ref where c.id=$1 and c.tenant_ref=$2 and a.customer_ref=$3",[contractId,t.id,actor(req)]);
+ if(!owns.rowCount)return res.status(404).json({error:"قرارداد متعلق به حساب کاربری جاری پیدا نشد"});
+ const pending=await query("select count(*)::int as count from lendtech_payment_declarations where tenant_ref=$1 and user_ref=$2 and status='pending'",[t.id,actor(req)]);
+ if(Number(pending.rows[0].count)>=10)return res.status(429).json({error:"ابتدا منتظر بررسی اعلام واریزهای قبلی بمانید"});
+ const r=await query("insert into lendtech_payment_declarations(tenant_ref,user_ref,contract_id,amount,method,payment_ref,paid_at,note) values($1,$2,$3,$4,$5,$6,$7,$8) on conflict do nothing returning id,status",
+  [t.id,actor(req),contractId,formatMinorUnits(amount),method,paymentRef,paidAt,note||null]);
+ if(!r.rowCount)return res.status(409).json({error:"این شماره پیگیری و مبلغ قبلاً برای این سازمان ثبت شده است"});
+ res.status(201).json(r.rows[0]);
+}));
+lendtechRouter.get("/api/lendtech/payment-declarations",requireAuth,requirePermission("modules:lendtech:repay"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const status=s(req.query.status,20),params:any[]=[t.id];let where="d.tenant_ref=$1";
+ if(status){params.push(status);where+=" and d.status=$2";}
+ const r=await query("select d.*,c.contract_no,a.customer_ref from lendtech_payment_declarations d join lendtech_contracts c on c.id=d.contract_id and c.tenant_ref=d.tenant_ref join lendtech_facilities f on f.id=c.facility_id and f.tenant_ref=c.tenant_ref join lendtech_applications a on a.id=f.application_id and a.tenant_ref=f.tenant_ref where "+where+" order by d.created_at desc limit 500",params);
+ res.json({items:r.rows,total:r.rowCount});
+}));
+lendtechRouter.post("/api/lendtech/payment-declarations/:id/review",requireAuth,requirePermission("modules:lendtech:repay"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const decision=s(req.body?.status,20),reviewNote=s(req.body?.note,500);
+ if(!["approved","rejected"].includes(decision))return res.status(400).json({error:"وضعیت بررسی نامعتبر است"});
+ if(decision==="rejected"&&!reviewNote)return res.status(400).json({error:"برای رد اعلام واریز، دلیل بررسی الزامی است"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const d=await client.query("select * from lendtech_payment_declarations where id=$1 and tenant_ref=$2 for update",[req.params.id,t.id]);
+  if(!d.rowCount){await client.query("rollback");return res.status(404).json({error:"اعلام واریز پیدا نشد"});}
+  if(d.rows[0].status!=="pending"){await client.query("rollback");return res.status(409).json({error:"این اعلام واریز قبلاً بررسی شده است"});}
+  if(d.rows[0].user_ref===actor(req)){await client.query("rollback");return res.status(403).json({error:"امکان بررسی اعلام واریز خودتان وجود ندارد"});}
+  if(decision==="rejected"){
+   const r=await client.query("update lendtech_payment_declarations set status='rejected',review_note=$1,reviewed_by=$2,reviewed_at=now(),updated_at=now() where id=$3 and tenant_ref=$4 returning id,status,review_note",[reviewNote,actor(req),req.params.id,t.id]);
+   await event(client,t.id,null,d.rows[0].contract_id,"payment_declaration.rejected",actor(req),{declarationId:req.params.id});
+   await client.query("commit");return res.json(r.rows[0]);
+  }
+  const ownership=await client.query("select 1 from lendtech_contracts c join lendtech_facilities f on f.id=c.facility_id and f.tenant_ref=c.tenant_ref join lendtech_applications a on a.id=f.application_id and a.tenant_ref=f.tenant_ref where c.id=$1 and c.tenant_ref=$2 and a.customer_ref=$3",[d.rows[0].contract_id,t.id,d.rows[0].user_ref]);
+  if(!ownership.rowCount)throw new RepaymentFault(409,"ارتباط مشتری اعلام‌کننده با قرارداد قابل تأیید نیست");
+  const amount=parseMoneyToMinorUnits(d.rows[0].amount);if(amount===null||amount<=0n)throw new Error("مبلغ اعلام واریز در پایگاه داده معتبر نیست");
+  const payment=await applyRepayment(client,{tenantRef:t.id,contractId:d.rows[0].contract_id,amount,paymentRef:"DECL-"+String(d.rows[0].id),method:d.rows[0].method,createdBy:actor(req),paidAt:new Date(d.rows[0].paid_at)});
+  const r=await client.query("update lendtech_payment_declarations set status='approved',review_note=$1,reviewed_by=$2,reviewed_at=now(),repayment_id=$3,updated_at=now() where id=$4 and tenant_ref=$5 returning id,status,repayment_id",[reviewNote||null,actor(req),payment.repayment.id,req.params.id,t.id]);
+  await event(client,t.id,null,d.rows[0].contract_id,"payment_declaration.approved",actor(req),{declarationId:req.params.id,repaymentId:payment.repayment.id});
+  await client.query("commit");return res.json({declaration:r.rows[0],repayment:payment.repayment,unallocated:payment.unallocated});
+ }catch(e){
+  await client.query("rollback");
+  if(e instanceof RepaymentFault)return res.status(e.status).json({error:e.message,...e.details});
+  throw e;
+ }finally{client.release();}
+}));
+
+lendtechRouter.post("/api/lendtech/contracts/:id/repay",requireAuth,requirePermission("modules:lendtech:repay"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const amount=parseMoneyToMinorUnits(req.body?.amount),paymentRef=s(req.body?.paymentRef,160)||("PAY-"+Date.now());
  if(amount===null||amount<=0n)return res.status(400).json({error:"مبلغ بازپرداخت نامعتبر است؛ حداکثر دو رقم اعشار مجاز است"});
  const client=await pool.connect();
  try{
   await client.query("begin");
-  const c=await client.query("select * from lendtech_contracts where id=$1 and tenant_ref=$2 for update",[req.params.id,t.id]);
-  if(!c.rowCount){await client.query("rollback");return res.status(404).json({error:"قرارداد پیدا نشد"});}
-  const duplicate=await client.query("select id from lendtech_repayments where tenant_ref=$1 and payment_ref=$2",[t.id,paymentRef]);
-  if(duplicate.rowCount){await client.query("rollback");return res.status(409).json({error:"مرجع پرداخت تکراری است"});}
-  let remaining=amount;
-  if(!["active","delinquent"].includes(c.rows[0].status)){
-   await client.query("rollback");
-   return res.status(409).json({error:"بازپرداخت فقط برای قرارداد فعال یا دارای معوقه مجاز است"});
-  }
-  const outstanding=await client.query(`select coalesce(sum(greatest(total_due-principal_paid-interest_paid,0)),0)::text as amount
-   from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status<>'paid'`,[req.params.id,t.id]);
-  const outstandingMinor=parseMoneyToMinorUnits(outstanding.rows[0].amount);
-  if(outstandingMinor===null||amount>outstandingMinor){
-   await client.query("rollback");
-   return res.status(409).json({error:"مبلغ پرداخت از مانده قابل پرداخت قرارداد بیشتر است؛ پرداخت مازاد باید جداگانه تطبیق و ثبت شود",outstanding:outstanding.rows[0].amount});
-  }
-  const installments=await client.query("select * from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status<>'paid' order by due_date,installment_no for update",[req.params.id,t.id]);
-  const allocation:any[]=[];
-  for(const i of installments.rows){
-   if(remaining<=0n)break;
-   const interestDue=parseMoneyToMinorUnits(i.interest_due),interestAlreadyPaid=parseMoneyToMinorUnits(i.interest_paid);
-   const principalDue=parseMoneyToMinorUnits(i.principal_due),principalAlreadyPaid=parseMoneyToMinorUnits(i.principal_paid);
-   if(interestDue===null||interestAlreadyPaid===null||principalDue===null||principalAlreadyPaid===null)throw new Error("مقادیر مالی قسط با قالب ذخیره‌شده سازگار نیست");
-   const interestOutstanding=interestDue>interestAlreadyPaid?interestDue-interestAlreadyPaid:0n;
-   const principalOutstanding=principalDue>principalAlreadyPaid?principalDue-principalAlreadyPaid:0n;
-   const interestPaid=remaining<interestOutstanding?remaining:interestOutstanding;remaining-=interestPaid;
-   const principalPaid=remaining<principalOutstanding?remaining:principalOutstanding;remaining-=principalPaid;
-   const newInterest=interestAlreadyPaid+interestPaid,newPrincipal=principalAlreadyPaid+principalPaid;
-   const paid=newInterest>=interestDue&&newPrincipal>=principalDue;
-   await client.query(`update lendtech_installments set interest_paid=$1,principal_paid=$2,status=$3,paid_at=case when $3='paid' then now() else paid_at end where id=$4 and tenant_ref=$5`,
-    [formatMinorUnits(newInterest),formatMinorUnits(newPrincipal),paid?"paid":"partial",i.id,t.id]);
-   allocation.push({installmentId:i.id,interestPaid:formatMinorUnits(interestPaid),principalPaid:formatMinorUnits(principalPaid)});
-  }
-  const applied=amount-remaining;
-  if(applied<=0n){await client.query("rollback");return res.status(409).json({error:"مانده قابل پرداختی برای این قرارداد وجود ندارد"});}
-  const r=await client.query("insert into lendtech_repayments(tenant_ref,contract_id,payment_ref,amount,method,allocation,created_by) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,req.params.id,paymentRef,formatMinorUnits(applied),s(req.body?.method,50)||null,JSON.stringify(allocation),actor(req)]);
-  const open=await client.query("select count(*)::int as count from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status<>'paid'",[req.params.id,t.id]);
-  if(Number(open.rows[0].count)===0)await client.query("update lendtech_contracts set status='closed',closed_at=now(),updated_at=now() where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
-  await event(client,t.id,null,String(req.params.id),"repayment.received",actor(req),{paymentRef,amount:formatMinorUnits(applied),unallocated:formatMinorUnits(remaining)});
-  await client.query("commit");
-  res.status(201).json({repayment:r.rows[0],unallocated:formatMinorUnits(remaining)});
- }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+  const result=await applyRepayment(client,{tenantRef:t.id,contractId:String(req.params.id),amount,paymentRef,method:s(req.body?.method,50)||null,createdBy:actor(req)});
+  await client.query("commit");res.status(201).json(result);
+ }catch(e){
+  await client.query("rollback");
+  if(e instanceof RepaymentFault)return res.status(e.status).json({error:e.message,...e.details});
+  throw e;
+ }finally{client.release();}
 }));
 
 lendtechRouter.post("/api/lendtech/contracts/:id/delinquency/refresh",requireAuth,requirePermission("modules:lendtech:collect"),asyncHandler(async(req,res)=>{
