@@ -3,7 +3,12 @@ export type SupportedIdentityDocument={bytes:Buffer;mimeType:"application/pdf"|"
 export function decodeIdentityDocument(value:unknown):SupportedIdentityDocument|null{
  if(typeof value!=="string"||value.length>14*1024*1024)return null;
  const raw=value.replace(/^data:[^;]+;base64,/i,"").replace(/\s/g,"");
- if(!raw||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(raw))return null;
+ if(!raw||raw.length%4!==0)return null;
+ const padding=raw.endsWith("==")?2:raw.endsWith("=")?1:0;
+ for(let i=0;i<raw.length;i++){
+  const code=raw.charCodeAt(i),isAlpha=(code>=65&&code<=90)||(code>=97&&code<=122),isDigit=code>=48&&code<=57;
+  if(!(isAlpha||isDigit||code===43||code===47||(code===61&&i>=raw.length-padding)))return null;
+ }
  const bytes=Buffer.from(raw,"base64");
  if(!bytes.length||bytes.length>8*1024*1024)return null;
  if(bytes.length>=5&&bytes.subarray(0,5).toString("ascii")==="%PDF-")return {bytes,mimeType:"application/pdf"};
