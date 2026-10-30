@@ -19,7 +19,7 @@ const validIranianIban=(value:any)=>{
  return remainder===1?iban:null;
 };
 const audit=async(t:string,u:string,type:string,id:string,action:string,b:any,a:any,db:any=pool)=>
- db.query("insert into audit_events(event_type,actor_ref,entity_type,entity_id,payload) values($1,$2,$3,$4,$5)",["accounting."+type+"."+action,u,"accounting_"+type,id,{tenant_id:t,before:b||null,after:a||null}]);
+ db.query("insert into audit_events(event_type,actor_ref,entity_type,entity_id,payload) values($1,$2,$3,null,$4)",["accounting."+type+"."+action,u,"accounting_"+type,{tenant_id:t,entity_id:id,before:b||null,after:a||null}]);
 
 router.get("/api/accounting-finance/operations-overview",requireAuth,requirePermission("accounting-finance.read"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
