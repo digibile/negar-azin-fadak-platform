@@ -925,36 +925,33 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
   const tenant=await resolvePublicTenant(req,requestedCode);
   if(!tenant)return res.status(404).json({error:"بازارگاه فعال پیدا نشد",products:[],stores:[],categories:[],total:0});
   const tenantId=tenant.id;
+  const publicProductSql="select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,jsonb_strip_nulls(jsonb_build_object('brand',p.attributes->'brand','rating',p.attributes->'rating','specifications',p.attributes->'specifications','galleryImages',p.attributes->'galleryImages','sourceName',p.attributes->'sourceName','sourceUrl',p.attributes->'sourceUrl','sourcePriceSnapshot',p.attributes->'sourcePriceSnapshot','demoCatalog',p.attributes->'demoCatalog','demoNotice',p.attributes->'demoNotice','vehicleType',p.attributes->'vehicleType','year',p.attributes->'year','province',p.attributes->'province','city',p.attributes->'city','mileage',p.attributes->'mileage','transmission',p.attributes->'transmission','inventoryMode',p.attributes->'inventoryMode','preorderEnabled',p.attributes->'preorderEnabled','preorderLimit',p.attributes->'preorderLimit','sourceCheckedAt',p.attributes->'sourceCheckedAt','originalPriceSnapshot',p.attributes->'originalPriceSnapshot','discountPercentSnapshot',p.attributes->'discountPercentSnapshot','sourceAvailable',p.attributes->'sourceAvailable','catalogOrigin',p.attributes->'catalogOrigin')) as attributes,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name,(p.attributes->>'demoCatalog'='true') as is_demo_product,p.attributes->>'sourceUrl' as source_url from products p join sellers sl on sl.id=p.seller_id and sl.tenant_id=p.tenant_id left join stores st on st.id=p.store_id and st.tenant_id=p.tenant_id where p.tenant_id=$1 and p.status='active' and sl.status='active' and (p.store_id is null or st.status='active') and (coalesce(p.attributes->>'demoCatalog','false')='true' or ((coalesce(p.attributes->>'sourceType','') in ('seller-owned','supplier-verified') and p.attributes->>'inventoryVerified'='true' and case when coalesce(p.attributes->>'inventoryQuantity','') ~ '^[0-9]+$' then (p.attributes->>'inventoryQuantity')::integer else 0 end > 0 and coalesce(p.attributes->>'inventorySource','') <> '') or (p.attributes->>'catalogOrigin'='internal-catalog-copy' and p.attributes->>'preorderEnabled'='true' and case when coalesce(p.attributes->>'preorderLimit','') ~ '^[0-9]+$' then (p.attributes->>'preorderLimit')::integer else 0 end > 0 and coalesce(p.attributes->>'inventoryMode','')='preorder')) order by p.updated_at desc limit 1000";
   const [stores,products,categoryRows]=await Promise.all([
-    query(
-      "select s.id,s.name,s.slug,s.domain,s.seller_id,sl.display_name as seller_name from stores s join sellers sl on sl.id=s.seller_id and sl.tenant_id=s.tenant_id where s.tenant_id=$1 and s.status='active' and sl.status='active' order by s.name limit 500",
-      [tenantId]
-    ),
-    query(
-      "select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.store_id,p.seller_id,jsonb_strip_nulls(jsonb_build_object('brand',p.attributes->'brand','rating',p.attributes->'rating','specifications',p.attributes->'specifications','galleryImages',p.attributes->'galleryImages','variants',p.attributes->'variants','sourceName',p.attributes->'sourceName','sourceUrl',p.attributes->'sourceUrl','sourcePriceSnapshot',p.attributes->'sourcePriceSnapshot','demoCatalog',p.attributes->'demoCatalog','demoNotice',p.attributes->'demoNotice','vehicleType',p.attributes->'vehicleType','year',p.attributes->'year','province',p.attributes->'province','city',p.attributes->'city','mileage',p.attributes->'mileage','transmission',p.attributes->'transmission','inventoryMode',p.attributes->'inventoryMode','preorderEnabled',p.attributes->'preorderEnabled','preorderLimit',p.attributes->'preorderLimit','sourceCheckedAt',p.attributes->'sourceCheckedAt','originalPriceSnapshot',p.attributes->'originalPriceSnapshot','discountPercentSnapshot',p.attributes->'discountPercentSnapshot','sourceAvailable',p.attributes->'sourceAvailable','catalogOrigin',p.attributes->'catalogOrigin')) as attributes,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name,(p.attributes->>'demoCatalog'='true') as is_demo_product,p.attributes->>'sourceUrl' as source_url from products p join sellers sl on sl.id=p.seller_id and sl.tenant_id=p.tenant_id left join stores st on st.id=p.store_id and st.tenant_id=p.tenant_id where p.tenant_id=$1 and p.status='active' and sl.status='active' and coalesce(p.attributes->>'demoCatalog','false') <> 'true' and ((coalesce(p.attributes->>'sourceType','') in ('seller-owned','supplier-verified') and p.attributes->>'inventoryVerified'='true' and case when coalesce(p.attributes->>'inventoryQuantity','') ~ '^[0-9]+$' then (p.attributes->>'inventoryQuantity')::integer else 0 end > 0 and coalesce(p.attributes->>'inventorySource','') <> '') or (p.attributes->>'catalogOrigin'='internal-catalog-copy' and p.attributes->>'preorderEnabled'='true' and case when coalesce(p.attributes->>'preorderLimit','') ~ '^[0-9]+$' then (p.attributes->>'preorderLimit')::integer else 0 end > 0 and coalesce(p.attributes->>'inventoryMode','')='preorder')) and (p.store_id is null or st.status='active') order by p.updated_at desc limit 1000",
-      [tenantId]
-    ),
-    query(
-      "select name from marketplace_categories where tenant_id=$1 and status='active' order by sort_order,name",
-      [tenantId]
-    )
+    query("select s.id,s.name,s.slug,s.domain,s.seller_id,sl.display_name as seller_name from stores s join sellers sl on sl.id=s.seller_id and sl.tenant_id=s.tenant_id where s.tenant_id=$1 and s.status='active' and sl.status='active' order by s.name limit 500",[tenantId]),
+    query(publicProductSql,[tenantId]),
+    query("select name from marketplace_categories where tenant_id=$1 and status='active' order by sort_order,name",[tenantId])
   ]);
-  // Public storefronts expose only seller-owned listings. Demo/reference imports stay admin-only.
-  const catalogProducts:any[]=products.rows;
+  let catalogProducts:any[]=products.rows;
+  const currentHost=String(req.headers["x-forwarded-host"]||req.headers.host||"").split(",")[0].trim().toLowerCase().replace(/:\\d+$/,"");
+  // Restore the visible reference catalog only when Sookar has no public listings.
+  // These cards are clearly marked as test/reference products and are never purchasable.
+  if(catalogProducts.length===0&&(currentHost==="sookar.ir"||currentHost==="www.sookar.ir")){
+    if(!sookarDemoBootstrap){
+      sookarDemoBootstrap=importDemoCatalogForTenant(tenantId,120)
+        .catch(error=>{console.error("Sookar demo catalog bootstrap failed:",error);return null;})
+        .finally(()=>{sookarDemoBootstrap=null;});
+    }
+    await sookarDemoBootstrap;
+    const refreshed=await query(publicProductSql,[tenantId]);
+    catalogProducts=refreshed.rows;
+  }
   const catalogMode:"owned"|"demo"=catalogProducts.some((item:any)=>item.is_demo_product)?"demo":"owned";
-  const sourceStatus:"live"|"unavailable"|"not-needed"="not-needed";
-  const sourceFetchedAt:string|null=null;
-  const referenceCategories:string[]=[];
-  // Never expose external reference cards as if they were Sookar products.
-  // If import/bootstrap fails, the public API stays empty and the server logs the cause.
-  const publicProducts:any[]=catalogProducts;
   const categories=[...new Set([
     ...categoryRows.rows.map((row:any)=>typeof row.name==="string"?row.name.trim():"").filter(Boolean),
-    ...catalogProducts.map((item:any)=>typeof item.category==="string"?item.category.trim():"").filter(Boolean),
-    ...referenceCategories
+    ...catalogProducts.map((item:any)=>typeof item.category==="string"?item.category.trim():"").filter(Boolean)
   ])].sort((a,b)=>a.localeCompare(b,"fa"));
   res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
-  res.json({tenant,stores:stores.rows,products:publicProducts,categories,total:publicProducts.length,catalogMode,referenceCount:0,sourceStatus,sourceFetchedAt,notice:catalogProducts.length===0?"هنوز کالای واقعیِ منتشرشده از سوی فروشندگان در بازارگاه ثبت نشده است.":undefined});
+  res.json({tenant,stores:stores.rows,products:catalogProducts,categories,total:catalogProducts.length,catalogMode,referenceCount:catalogProducts.filter((item:any)=>item.is_demo_product).length,sourceStatus:"not-needed",sourceFetchedAt:null,notice:catalogMode==="demo"?"کاتالوگ آزمایشی سوکار؛ قیمت و موجودی مرجع هستند و افزودن به سبد، سفارش و پرداخت واقعی غیرفعال است.":undefined});
 }));
 
 domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/status",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
