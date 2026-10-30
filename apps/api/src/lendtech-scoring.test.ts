@@ -7,7 +7,7 @@ test("normalizes measurable scoring components without inventing identity confid
     dtiPercent: 0,
     repaymentCount: 0,
     openDelinquencyCount: 0,
-    monthlyIncome: 50000000,
+    monthlyIncome: "50000000",
     kycStatus: "verified",
   });
 
@@ -28,14 +28,14 @@ test("open delinquencies reduce the measurable score", () => {
     dtiPercent: 40,
     repaymentCount: 0,
     openDelinquencyCount: 0,
-    monthlyIncome: 10000000,
+    monthlyIncome: "10000000",
     kycStatus: "verified",
   });
   const overdue = calculateLendtechScore({
     dtiPercent: 40,
     repaymentCount: 0,
     openDelinquencyCount: 2,
-    monthlyIncome: 10000000,
+    monthlyIncome: "10000000",
     kycStatus: "verified",
   });
 
@@ -48,7 +48,7 @@ test("requires verified KYC but does not convert it into a confidence percentage
     dtiPercent: 20,
     repaymentCount: 1,
     openDelinquencyCount: 0,
-    monthlyIncome: 10000000,
+    monthlyIncome: "10000000",
     kycStatus: "pending",
   }), /احراز هویت تأیید نشده/);
 });
@@ -58,7 +58,7 @@ test("rejects invalid scoring inputs", () => {
     dtiPercent: -1,
     repaymentCount: 0,
     openDelinquencyCount: 0,
-    monthlyIncome: 10000000,
+    monthlyIncome: "10000000",
     kycStatus: "verified",
   }), /نسبت تعهدات معتبر نیست/);
 });
