@@ -287,7 +287,7 @@ lendtechRouter.get("/api/lendtech/my-contracts",requireAuth,asyncHandler(async(r
  const r=await query(`select c.id,c.contract_no,c.principal,c.interest_rate,c.term_months,c.status,
   coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'installmentNo',i.installment_no,'dueDate',i.due_date,'totalDue',i.total_due,'principalPaid',i.principal_paid,'interestPaid',i.interest_paid,'status',i.status) order by i.installment_no) from lendtech_installments i where i.contract_id=c.id and i.tenant_ref=c.tenant_ref),'[]'::jsonb) as installments
   from lendtech_contracts c join lendtech_facilities f on f.id=c.facility_id and f.tenant_ref=c.tenant_ref join lendtech_applications a on a.id=f.application_id and a.tenant_ref=f.tenant_ref
-  where c.tenant_ref=$1 and a.customer_ref=$2 order by c.created_at desc limit 100`,[t.id,actor(req)]);
+  where c.tenant_ref=$1 and a.customer_ref=$2 and c.status in ('active','delinquent') order by c.created_at desc limit 100`,[t.id,actor(req)]);
  res.json({items:r.rows,total:r.rowCount});
 }));
 lendtechRouter.get("/api/lendtech/my-payment-declarations",requireAuth,asyncHandler(async(req,res)=>{
@@ -305,7 +305,7 @@ lendtechRouter.post("/api/lendtech/my-payment-declarations",requireAuth,requireC
  if(paymentRef.length<4||paymentRef.length>30)return res.status(400).json({error:"شماره پیگیری باید بین ۴ تا ۳۰ رقم/نویسه باشد"});
  if(Number.isNaN(paidAt.getTime())||paidAt.getTime()>Date.now()+86400000||paidAt.getTime()<Date.now()-366*86400000)return res.status(400).json({error:"تاریخ پرداخت نامعتبر است"});
  if(!contractId)return res.status(400).json({error:"شناسه قرارداد مرکزی الزامی است"});
- const owns=await query("select c.id from lendtech_contracts c join lendtech_facilities f on f.id=c.facility_id and f.tenant_ref=c.tenant_ref join lendtech_applications a on a.id=f.application_id and a.tenant_ref=f.tenant_ref where c.id=$1 and c.tenant_ref=$2 and a.customer_ref=$3",[contractId,t.id,actor(req)]);
+ const owns=await query("select c.id from lendtech_contracts c join lendtech_facilities f on f.id=c.facility_id and f.tenant_ref=c.tenant_ref join lendtech_applications a on a.id=f.application_id and a.tenant_ref=f.tenant_ref where c.id=$1 and c.tenant_ref=$2 and c.status in ('active','delinquent') and a.customer_ref=$3",[contractId,t.id,actor(req)]);
  if(!owns.rowCount)return res.status(404).json({error:"قرارداد متعلق به حساب کاربری جاری پیدا نشد"});
  const pending=await query("select count(*)::int as count from lendtech_payment_declarations where tenant_ref=$1 and user_ref=$2 and status='pending'",[t.id,actor(req)]);
  if(Number(pending.rows[0].count)>=10)return res.status(429).json({error:"ابتدا منتظر بررسی اعلام واریزهای قبلی بمانید"});
