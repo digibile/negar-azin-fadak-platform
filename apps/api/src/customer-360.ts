@@ -56,11 +56,11 @@ router.post("/api/customer-360/customers/:id/financial",requireAuth,write,requir
 const marketingRead=requirePermission("marketing:read");
 const marketingManage=requirePermission("marketing:manage");
 const normalizeMobile=(value:unknown)=>{
- let digits=String(value??"").replace(/[۰-۹]/g,ch=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(ch))).replace(/[٠-٩]/g,ch=>String("٠١٢٣٤٥٦٧٨٩".indexOf(ch))).replace(/\\D/g,"");
+ let digits=String(value??"").replace(/[۰-۹]/g,ch=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(ch))).replace(/[٠-٩]/g,ch=>String("٠١٢٣٤٥٦٧٨٩".indexOf(ch))).replace(/\D/g,"");
  if(digits.startsWith("0098"))digits="0"+digits.slice(4);
  else if(digits.startsWith("98"))digits="0"+digits.slice(2);
  else if(digits.length===10&&digits.startsWith("9"))digits="0"+digits;
- return /^09\\d{9}$/.test(digits)?digits:"";
+ return /^09\d{9}$/.test(digits)?digits:"";
 };
 async function auditMarketer(req:any,t:any,id:string|null,action:string,before:any,after:any){
  await query("insert into crm_marketer_audit(tenant_id,marketer_id,action,actor_user_id,before_data,after_data) values($1,$2,$3,$4,$5,$6)",[
