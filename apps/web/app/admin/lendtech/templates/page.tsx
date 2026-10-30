@@ -7,7 +7,7 @@ import {api} from "../../../../lib/api";
 type Template={id:string;group_key:string;version:number;title:string;template_type:string;status:string;valid_from?:string|null;valid_to?:string|null;published_at?:string|null};
 type Variable={id:string;key:string;label:string;data_type:string;source:string;required:boolean;sensitivity:string};
 type DocumentItem={id:string;document_no:string;title:string;stage:string;status:string;template_version:number;contract_no:string;application_no:string;product_code:string;customer_ref:string;created_at:string};
-const initialBody="<h1>قرارداد تسهیلات</h1>\n<p>شماره قرارداد: {{contract_number}}</p>\n<p>تاریخ تنظیم: {{contract_date}}</p>\n<p>این قرارداد میان {{company_name}} و {{applicant_name}} منعقد می‌شود.</p>\n<p>موضوع قرارداد: تسهیلات طرح {{product_name}} به مبلغ {{loan_amount}} با مدت {{loan_months}} ماه.</p>\n<p>نرخ سود/کارمزد: {{loan_interest_percent}}</p>\n<p>مبلغ اولین قسط: {{loan_installment_amount}}</p>\n<p>مجموع بازپرداخت: {{loan_total_repay}}</p>\n{{installments_table}}\n<p>شماره درخواست: {{request_id}}</p>";
+const initialBody="<h1>قرارداد تسهیلات</h1>\n<p>شماره قرارداد: {{contract_number}}</p>\n<p>تاریخ تنظیم: {{contract_date}}</p>\n<p>این قرارداد میان {{company_name}} و {{applicant_name}} با کد ملی {{applicant_national_code}} منعقد می‌شود.</p>\n<p>موضوع قرارداد: تسهیلات طرح {{product_name}} به مبلغ {{loan_amount}} با مدت {{loan_months}} ماه.</p>\n<p>نرخ سود/کارمزد: {{loan_interest_percent}}</p>\n<p>مبلغ اولین قسط: {{loan_installment_amount}}</p>\n<p>مجموع بازپرداخت: {{loan_total_repay}}</p>\n{{installments_table}}\n<p>شماره درخواست: {{request_id}}</p>";
 
 export default function ContractTemplatesAdmin(){
  const [templates,setTemplates]=useState<Template[]>([]);
