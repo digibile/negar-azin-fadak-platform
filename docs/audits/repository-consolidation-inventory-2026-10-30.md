@@ -84,3 +84,16 @@
 4. `tejarhstore`: استخراج دامنه فروشگاهی و تطبیق Product/Category/Cart/Order/Brand با بازارگاه موجود.
 5. `uminex` / `sitnela` / `aqayevam`: فعلاً هیچ کد اجرایی قابل انتقالی در main مشاهده نشد؛ تا دریافت branch یا فایل دیگر، وارد فاز ادغام نمی‌شوند.
 
+
+
+## بررسی Branchهای مهم
+- مخزن اصلی بیش از 100 شاخه قابل مشاهده در صفحه اول Branch API دارد؛ شاخه‌های feature/fix/deploy متعدد وجود دارند و ادغام همه آن‌ها به‌صورت یکجا صحیح نیست.
+- شاخه‌های `feat/lendtech-real-lifecycle` و `feat/store-lendtech-complete` هرکدام 13 commit اختصاصی نسبت به `main` دارند، اما به‌ترتیب 991 و 989 commit از main عقب‌اند. Diff آن‌ها فایل‌های مرتبط با لندتک، checkout، درخواست اعتبار و migrationهای 087/088 را نشان می‌دهد؛ باید تغییراتشان با کد فعلی و migrationهای جدید تطبیق داده شود و cherry-pick کور انجام نشود.
+- شاخه `feature/sookar-commerce-lendtech` دارای 60 commit اختصاصی و 1002 commit عقب‌ماندگی نسبت به main است؛ فقط قابلیت‌های منحصربه‌فرد قابل بررسی‌اند.
+- شاخه `feat/enterprise-command-center-ui-v2` دارای 2 commit اختصاصی و 993 commit عقب‌ماندگی است؛ تغییرات آن محدود به layout و CSS دیده شد.
+- شاخه `feat/digibile-pro-marketplace-homepage` دارای 2 commit اختصاصی و 18 commit عقب‌ماندگی است؛ فقط تغییرات قالب بازارگاه و workflow آن باید با نسخه فعلی تطبیق داده شود.
+- در `vamcity` شاخه `import/ghestine-platform-2026-10-26` دارای 64 commit اختصاصی و 55 commit عقب‌ماندگی نسبت به main است و شامل چند آرشیو ZIP، مستندات و workflowهای واردسازی است؛ آرشیوها باید جداگانه از نظر منبع، محتوا، مجوز و داده حساس بررسی شوند.
+- در `vamcity` شاخه `database-linux-migration` یک commit اختصاصی برای اسکریپت بررسی دیتابیس لینوکسی دارد.
+- در `digibail` شاخه `migration/all-legacy-tables-2026-10-28` دارای 7 commit اختصاصی و 629 commit عقب‌ماندگی است؛ تغییرات migration و اسکریپت‌های انتقال دیتابیس باید با inventory واقعی و طرح مصوب تطبیق داده شوند.
+- مقایسه branchها صرفاً اختلاف commit و فایل را مشخص می‌کند؛ به‌تنهایی اثبات نمی‌کند تغییرات لازم، صحیح، تست‌شده یا آماده انتشار هستند.
+
