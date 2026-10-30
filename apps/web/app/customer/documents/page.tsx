@@ -65,7 +65,7 @@ export default function CustomerIdentityDocumentsPage(){
   {error&&<div className={styles.error}>{error}</div>}
   {message&&<div className={styles.success}>{message}</div>}
   <section className={styles.panel}>
-   <div className={styles.panelHead}><div><small>UPLOAD · SECURE</small><h2>ثبت مدرک جدید</h2></div><span>PDF / JPG / PNG / WEBP · حداکثر ۱۰ مگابایت</span></div>
+   <div className={styles.panelHead}><div><small>UPLOAD · SECURE</small><h2>ثبت مدرک جدید</h2></div><span>PDF / JPG / PNG / WEBP · حداکثر ۸ مگابایت</span></div>
    {!applications.length&&!loading?<div className={styles.empty}>برای حساب شما پرونده اعتباری فعالی پیدا نشد. ابتدا درخواست اعتبار ثبت کنید.</div>:<div className={styles.form}>
     <label>پرونده اعتباری<select value={applicationId} onChange={e=>setApplicationId(e.target.value)}><option value="">انتخاب پرونده</option>{applications.map(a=><option key={a.id} value={a.id}>{a.application_no} · {a.product_code} · {a.status}</option>)}</select></label>
     <label>نوع مدرک<select value={documentType} onChange={e=>setDocumentType(e.target.value)}>{types.map(([value,title])=><option key={value} value={value}>{title}</option>)}</select></label>
