@@ -145,12 +145,13 @@ router.post("/api/identity/profile-change-requests",requireAuth,requireCsrf,asyn
   if(!current.rowCount){await client.query("rollback");return res.status(404).json({error:"حساب فعال پیدا نشد"});}
   if(Object.prototype.hasOwnProperty.call(proposed,"fullName")){
    before.fullName=current.rows[0].full_name;
-   if(proposed.fullName===before.fullName){await client.query("rollback");return res.status(409).json({error:"نام واردشده با اطلاعات فعلی تفاوتی ندارد"});}
+   if(proposed.fullName===before.fullName){delete proposed.fullName;delete before.fullName;}
   }
   if(Object.prototype.hasOwnProperty.call(proposed,"nationalId")){
    before.nationalId=current.rows[0].national_id;
-   if(proposed.nationalId===before.nationalId){await client.query("rollback");return res.status(409).json({error:"کد ملی واردشده با اطلاعات فعلی تفاوتی ندارد"});}
+   if(proposed.nationalId===before.national_id){delete proposed.nationalId;delete before.nationalId;}
   }
+  if(!Object.keys(proposed).length){await client.query("rollback");return res.status(409).json({error:"هیچ‌یک از اطلاعات واردشده با اطلاعات فعلی تفاوت ندارد"});}
   const created=await client.query("insert into identity_profile_change_requests(user_id,requested_by,before_values,proposed_values,reason) values($1,$2,$3,$4,$5) returning *",[req.user.id,req.user.id,before,proposed,reason]);
   await client.query("insert into identity_profile_change_events(request_id,user_id,actor_user_id,event_type,before_values,after_values,note) values($1,$2,$3,'requested',$4,$5,$6)",[created.rows[0].id,req.user.id,req.user.id,before,proposed,reason]);
   await client.query("commit");

@@ -315,6 +315,13 @@ const identityApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"ut
 for(const marker of ["identity_profile_change_requests","identity_profile_field_provenance","identity_profile_change_events","legacy_unknown","identity_profile_one_pending_change_idx"])if(!identityProvenanceMigration.includes(marker))throw new Error("Identity provenance and change-request schema is incomplete");
 for(const marker of ["/api/identity/profile-change-requests","reviewer_approved","for update","ویرایش حساب دیگران مجاز نیست","تغییر اطلاعات قانونی باید از مسیر درخواست اصلاح پروفایل"])if(!identityApi.includes(marker))throw new Error("Legal identity changes must be provenance-tracked, owner-scoped and approval-gated");
 
+const identityProfilePage=fs.readFileSync(path.join(root,"apps/web/app/profile/page.tsx"),"utf8");
+const identityWorkspace=fs.readFileSync(path.join(root,"apps/web/app/modules/IdentityWorkspace.tsx"),"utf8");
+const identityProfileTests=fs.readFileSync(path.join(root,"apps/api/src/identity.test.ts"),"utf8");
+if(!identityProfilePage.includes("/api/identity/profile-change-requests")||!identityProfilePage.includes("درخواست اصلاح پروفایل")||!identityProfilePage.includes("منشأ اطلاعات هویتی"))throw new Error("Customer profile must submit reviewed identity changes and show provenance");
+if(!identityWorkspace.includes("profileChanges")||!identityWorkspace.includes("reviewChange")||!identityWorkspace.includes("تأیید و اعمال"))throw new Error("Identity workspace must provide an administrator review queue");
+if(!identityProfileTests.includes("legal identity edits are routed through a reviewed")||!identityProfileTests.includes("identity change approval checks stale snapshots"))throw new Error("Identity profile change workflow tests are missing");
+
 const verificationFoundation=fs.readFileSync(path.join(root,"database/migrations/112_verification_and_insurance_foundation.sql"),"utf8");
 const lendtechInquiryUi=fs.readFileSync(path.join(root,"apps/web/app/admin/lendtech/page.tsx"),"utf8");
 for(const route of [
