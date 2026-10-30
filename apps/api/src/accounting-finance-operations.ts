@@ -10,7 +10,7 @@ const deny=(res:any,n:number,error:string)=>res.status(n).json({error});
 const actor=(req:any)=>req.user.id;
 const date=(v:any)=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v);
 const validIranianIban=(value:any)=>{
- const iban=String(value||"").replace(/\s|-/g,"").toUpperCase();
+ const iban=String(value||"").replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[\s\u200c-]/g,"").toUpperCase();
  if(!/^IR[0-9]{24}$/.test(iban))return null;
  const rearranged=iban.slice(4)+iban.slice(0,4);
  const numeric=rearranged.replace(/[A-Z]/g,ch=>String(ch.charCodeAt(0)-55));
@@ -136,7 +136,7 @@ router.patch("/api/accounting-finance/parties/:partyId/bank-accounts/:id/verific
  const id=idOf(req,"id"),partyId=idOf(req,"partyId");
  const old=await query("select * from accounting_party_bank_accounts where id=$1 and party_id=$2 and tenant_id=$3",[id,partyId,t.id]);
  if(!old.rowCount)return deny(res,404,"حساب بانکی طرف حساب پیدا نشد");
- const r=await query("update accounting_party_bank_accounts set verification_status=$1,verification_note=$2,verified_by=case when $1='verified' then $3 else null end,verified_at=case when $1='verified' then now() else null end,updated_at=now() where id=$4 and party_id=$5 and tenant_id=$6 returning *",[status,note||null,actor(req),id,partyId,t.id]);
+ const r=await query("update accounting_party_bank_accounts set verification_status=$1,verification_note=$2,verification_method=case when $1='verified' then 'manual' else null end,verified_by=case when $1='verified' then $3 else null end,verified_at=case when $1='verified' then now() else null end,updated_at=now() where id=$4 and party_id=$5 and tenant_id=$6 returning *",[status,note||null,actor(req),id,partyId,t.id]);
  await audit(t.id,actor(req),"party_bank_account",id,"verification",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 
