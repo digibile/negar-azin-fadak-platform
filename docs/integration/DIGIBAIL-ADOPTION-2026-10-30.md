@@ -54,7 +54,9 @@ Digibail مدل `CustomerDocument` و APIهای مشتری/مدیر دارد:
 - `finance_ocr_jobs` برای provider، status، language، raw_text، extracted_data، confidence و خطا
 - مرکز اسناد، governance، retention، approvals و identity verification UI
 
-اما در APIهای قابل مشاهده فعلی، endpoint کامل customer upload/download/field-correction/review که این foundation را به پرونده مشتری و lendtech متصل کند پیدا نشد. این gap باید در همان Document Vault/Identity Verification موجود پیاده شود، نه با ساخت جدول `customer_documents` جدید.
+در مقصد API عمومی پیوست در `enterprise-interaction.ts` با `POST /api/enterprise/attachments` و `GET /api/enterprise/attachments/:id` وجود دارد و `AttachmentCapture.tsx` از آن استفاده می‌کند؛ این مسیرها فعلاً مجوز `documents:manage/read` می‌خواهند. صفحه `IdentityVerificationWorkspace.tsx` هنوز `file-reference` را به‌صورت متن در `module_records` ذخیره می‌کند و فایل واقعی را به پرونده مشتری متصل نمی‌کند. همچنین در API و `notification-worker.ts` مصرف‌کننده‌ای برای `platform_ocr_jobs` پیدا نشد؛ endpoint فقط job را enqueue می‌کند.
+
+بنابراین gap دقیق‌تر self-service امن مشتری، اتصال فایل واقعی به پرونده identity/lendtech، بازبینی فیلدهای OCR و worker واقعی OCR است. مقصد دو storage foundation موازی دارد: `finance_document_files` در migration 087 و `platform_attachments` در migration 108. پیش از توسعه باید مرز آن‌ها روشن شود و جدول سوم یا ذخیره دوباره bytes ساخته نشود.
 
 **محدودیت‌های کد مبدأ که نباید کپی شوند:**
 - `loanId` ارسالی کاربر پیش از ذخیره در controller به مالکیت/tenant قرارداد متصل نمی‌شود.
@@ -84,6 +86,13 @@ Digibail `VirtualCard` و `VirtualCardTxn` دارد:
 
 ### ج) استعلام بانک بتا
 مبدأ endpoint `/api/v1/beta/inquiry` دارد، اما در کد صریحاً 501 برمی‌گرداند تا مستندات واقعی API بانک دریافت شود. هیچ استعلام یا پاسخ ساختگی منتقل نمی‌شود. مقصد `platform_verification_requests` را دارد؛ اتصال provider هنوز gap است.
+
+### مسیر تکمیل اسناد در مقصد
+1. تعیین مرجع bytes میان `platform_attachments` و `finance_document_files`.
+2. افزودن self-service در attachment service موجود با کنترل مالکیت کاربر و application.
+3. اتصال IdentityVerificationWorkspace به attachment ID واقعی.
+4. افزودن OCR worker به صف `platform_ocr_jobs`؛ Tesseract فقط در صورت نصب binary و زبان فارسی اجرا شود، در غیر این صورت وضعیت خطا/بازبینی دستی ثبت شود.
+5. OCR فقط پیشنهاد فیلد است و جای تأیید هویت را نمی‌گیرد.
 
 ## ۵. نقشه تصمیم نهایی
 
