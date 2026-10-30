@@ -619,7 +619,7 @@ lendtechRouter.get("/api/lendtech/applications/:id/documents",requireAuth,requir
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const app=await query("select id from lendtech_applications where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
  if(!app.rowCount)return res.status(404).json({error:"پرونده پیدا نشد"});
- const r=await query("select f.id,f.original_name,f.mime_type,f.size_bytes,f.ocr_status,f.created_at,l.title document_type from platform_attachment_links l join platform_attachments f on f.id=l.attachment_id and f.tenant_id=l.tenant_id where l.tenant_id=$1 and l.entity_type='lendtech_application' and l.entity_id=$2 and l.relation_type='identity-document' order by f.created_at desc",[t.id,applicationId]);
+ const r=await query("select f.id,f.original_name,f.mime_type,f.size_bytes,f.ocr_status,f.extracted_text,f.created_at,l.title document_type,j.extracted_json,j.error_message from platform_attachment_links l join platform_attachments f on f.id=l.attachment_id and f.tenant_id=l.tenant_id left join lateral(select extracted_json,error_message from platform_ocr_jobs where attachment_id=f.id and tenant_id=f.tenant_id order by created_at desc limit 1) j on true where l.tenant_id=$1 and l.entity_type='lendtech_application' and l.entity_id=$2 and l.relation_type='identity-document' order by f.created_at desc",[t.id,applicationId]);
  res.json({items:r.rows,total:r.rowCount});
 }));
 
