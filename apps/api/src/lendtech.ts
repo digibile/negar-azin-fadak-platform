@@ -135,7 +135,7 @@ lendtechRouter.post("/api/lendtech/applications",requireAuth,requirePermission("
 
 lendtechRouter.get("/api/lendtech/applications/:id",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const a=await query("select * from lendtech_applications where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
+ const a=await query("select * from lendtech_applications where id=$1 and tenant_ref=$2",[applicationId,t.id]);
  if(!a.rowCount)return res.status(404).json({error:"درخواست اعتبار پیدا نشد"});
  const [scores,decisions,facility,contract,events]=await Promise.all([
   query("select * from lendtech_scores where application_id=$1 and tenant_ref=$2 order by created_at desc",[req.params.id,t.id]),
@@ -605,26 +605,26 @@ lendtechRouter.post("/api/lendtech/my-documents",requireAuth,requireCsrf,asyncHa
 }));
 
 lendtechRouter.get("/api/lendtech/my-documents/:id/file",requireAuth,asyncHandler(async(req,res)=>{
- if(!isUuid(req.params.id))return res.status(404).json({error:"فایل متعلق به حساب شما پیدا نشد"});
+ const fileId=s(req.params.id,36);if(!isUuid(fileId))return res.status(404).json({error:"فایل متعلق به حساب شما پیدا نشد"});
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("select f.id,f.original_name,f.stored_mime_type,f.binary_data from platform_attachments f join platform_attachment_links l on l.attachment_id=f.id and l.tenant_id=f.tenant_id join lendtech_applications a on a.id::text=l.entity_id and a.tenant_ref=l.tenant_id where f.id=$1 and f.tenant_id=$2 and a.customer_ref=$3 and l.entity_type='lendtech_application' and l.relation_type='identity-document'",[req.params.id,t.id,actor(req)]);
+ const r=await query("select f.id,f.original_name,f.stored_mime_type,f.binary_data from platform_attachments f join platform_attachment_links l on l.attachment_id=f.id and l.tenant_id=f.tenant_id join lendtech_applications a on a.id::text=l.entity_id and a.tenant_ref=l.tenant_id where f.id=$1 and f.tenant_id=$2 and a.customer_ref=$3 and l.entity_type='lendtech_application' and l.relation_type='identity-document'",[fileId,t.id,actor(req)]);
  if(!r.rowCount)return res.status(404).json({error:"فایل متعلق به حساب شما پیدا نشد"});
  const f=r.rows[0];res.setHeader("Content-Type",f.stored_mime_type);res.setHeader("Content-Disposition","attachment; filename*=UTF-8''"+encodeURIComponent(f.original_name));res.send(f.binary_data);
 }));
 
 lendtechRouter.get("/api/lendtech/applications/:id/documents",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
- if(!isUuid(req.params.id))return res.status(404).json({error:"پرونده پیدا نشد"});
+ const applicationId=s(req.params.id,36);if(!isUuid(applicationId))return res.status(404).json({error:"پرونده پیدا نشد"});
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const app=await query("select id from lendtech_applications where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
  if(!app.rowCount)return res.status(404).json({error:"پرونده پیدا نشد"});
- const r=await query("select f.id,f.original_name,f.mime_type,f.size_bytes,f.ocr_status,f.created_at,l.title document_type from platform_attachment_links l join platform_attachments f on f.id=l.attachment_id and f.tenant_id=l.tenant_id where l.tenant_id=$1 and l.entity_type='lendtech_application' and l.entity_id=$2 and l.relation_type='identity-document' order by f.created_at desc",[t.id,String(req.params.id)]);
+ const r=await query("select f.id,f.original_name,f.mime_type,f.size_bytes,f.ocr_status,f.created_at,l.title document_type from platform_attachment_links l join platform_attachments f on f.id=l.attachment_id and f.tenant_id=l.tenant_id where l.tenant_id=$1 and l.entity_type='lendtech_application' and l.entity_id=$2 and l.relation_type='identity-document' order by f.created_at desc",[t.id,applicationId]);
  res.json({items:r.rows,total:r.rowCount});
 }));
 
 lendtechRouter.get("/api/lendtech/application-documents/:id/file",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
- if(!isUuid(req.params.id))return res.status(404).json({error:"فایل پرونده پیدا نشد"});
+ const fileId=s(req.params.id,36);if(!isUuid(fileId))return res.status(404).json({error:"فایل پرونده پیدا نشد"});
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("select f.original_name,f.stored_mime_type,f.binary_data from platform_attachments f join platform_attachment_links l on l.attachment_id=f.id and l.tenant_id=f.tenant_id join lendtech_applications a on a.id::text=l.entity_id and a.tenant_ref=l.tenant_id where f.id=$1 and f.tenant_id=$2 and l.entity_type='lendtech_application' and l.relation_type='identity-document'",[req.params.id,t.id]);
+ const r=await query("select f.original_name,f.stored_mime_type,f.binary_data from platform_attachments f join platform_attachment_links l on l.attachment_id=f.id and l.tenant_id=f.tenant_id join lendtech_applications a on a.id::text=l.entity_id and a.tenant_ref=l.tenant_id where f.id=$1 and f.tenant_id=$2 and l.entity_type='lendtech_application' and l.relation_type='identity-document'",[fileId,t.id]);
  if(!r.rowCount)return res.status(404).json({error:"فایل پرونده پیدا نشد"});
  const f=r.rows[0];res.setHeader("Content-Type",f.stored_mime_type);res.setHeader("Content-Disposition","attachment; filename*=UTF-8''"+encodeURIComponent(f.original_name));res.send(f.binary_data);
 }));
