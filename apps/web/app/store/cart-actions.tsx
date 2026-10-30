@@ -65,6 +65,10 @@ export function AddToCartButton({ product, compact = false }: { product: StoreCa
   const [added, setAdded] = useState(false);
   const [notice, setNotice] = useState("");
   function add() {
+    if (product.is_demo_product) {
+      setNotice("این کالا فقط برای مشاهده و آزمایش است؛ سفارش و پرداخت واقعی ندارد.");
+      return;
+    }
     const cart = readCart();
     const existing = cart.find(item => item.id === product.id);
     const limit = product.is_preorder ? Math.max(1, Number(product.preorder_limit) || 10) : Number.POSITIVE_INFINITY;
@@ -80,8 +84,8 @@ export function AddToCartButton({ product, compact = false }: { product: StoreCa
     setNotice("");
     window.setTimeout(() => setAdded(false), 1600);
   }
-  return <button type="button" className={compact ? "sk-add-cart sk-add-cart-compact" : "sk-add-cart"} onClick={add} aria-live="polite">
-    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4h2l2.1 10.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg><span>{added ? "به سبد اضافه شد" : product.is_preorder ? (compact ? "پیش‌فروش این کالا" : "افزودن به پیش‌فروش") : compact ? "افزودن به سبد" : "افزودن به سبد خرید"}</span>
+  return <button type="button" disabled={Boolean(product.is_demo_product)} className={compact ? "sk-add-cart sk-add-cart-compact" : "sk-add-cart"} onClick={add} aria-live="polite">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4h2l2.1 10.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg><span>{product.is_demo_product ? "کالای مرجع · خرید غیرفعال" : added ? "به سبد اضافه شد" : product.is_preorder ? (compact ? "پیش‌فروش این کالا" : "افزودن به پیش‌فروش") : compact ? "افزودن به سبد" : "افزودن به سبد خرید"}</span>
     {notice && <small role="status">{notice}</small>}
   </button>;
 }
