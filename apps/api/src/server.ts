@@ -1,10 +1,11 @@
 import express from "express";
 import cors from "cors";
 import "dotenv/config";
-import {query} from "./db.js";
+import {pool,query} from "./db.js";
 import {ensureAdmin,hashPassword,verifyPassword,issueSession,clearSession,requireAuth,requireCsrf,requirePermission} from "./auth.js";
 import {asyncHandler,errorHandler,notFound} from "./http.js";
 import {loginIdentifierSchema,userCreateSchema,formSchema,pageSchema,menuUpdateSchema} from "./validation.js";
+import {normalizeIranMobile,createOtpCode,otpDigest,verifyOtpDigest,sendKavenegarOtp} from "./otp.js";
 import {domainFinanceRouter} from "./domain-finance.js";
 import {dynamicMenuRouter} from "./dynamic-menu.js";
 import {accountingRouter} from "./accounting.js";
@@ -154,6 +155,60 @@ app.use(enterpriseInteractionRouter);
 app.use(commerceIntelligenceRouter);
 
 app.get("/api/auth/human-check",(_req,res)=>res.json(issueHumanCheck()));
+app.post("/api/auth/otp/request",asyncHandler(async(req,res)=>{
+ const phone=normalizeIranMobile(req.body?.phone);
+ if(!phone)return res.status(400).json({error:"شماره موبایل معتبر نیست"});
+ if(!verifyHumanCheck(String(req.body?.humanCheck||""),String(req.body?.humanAnswer||"")))return res.status(400).json({error:"کد امنیتی نادرست یا منقضی شده است"});
+ if((process.env.OTP_PEPPER||"").length<24||(process.env.KAVENEGAR_API_KEY||"").trim()==="")return res.status(503).json({error:"سرویس ورود پیامکی هنوز پیکربندی نشده است"});
+ const ip=req.ip||"127.0.0.1";
+ const rate=await query("select count(*) filter(where phone=$1)::int as phone_count,count(*) filter(where requested_ip=$2::inet)::int as ip_count from otp_challenges where created_at>now()-interval '1 hour'",[phone,ip]);
+ if(Number(rate.rows[0]?.phone_count||0)>=5)return res.status(429).json({error:"برای این شماره در یک ساعت بیش از حد درخواست ثبت شده است"});
+ if(Number(rate.rows[0]?.ip_count||0)>=20)return res.status(429).json({error:"تعداد درخواست از این شبکه زیاد است؛ بعداً تلاش کنید"});
+ const latest=await query("select expires_at,resend_at from otp_challenges where phone=$1 and purpose='login' order by created_at desc limit 1",[phone]);
+ if(latest.rowCount&&new Date(latest.rows[0].resend_at).getTime()>Date.now())return res.status(429).json({error:"ارسال مجدد هنوز ممکن نیست",expiresIn:Math.max(0,Math.floor((new Date(latest.rows[0].expires_at).getTime()-Date.now())/1000)),resendIn:Math.max(0,Math.ceil((new Date(latest.rows[0].resend_at).getTime()-Date.now())/1000))});
+ const variants=[phone,"98"+phone.slice(1),"0098"+phone.slice(1)];
+ const users=await query("select u.id,u.email,u.full_name,u.role from users u join user_contact_methods c on c.user_id=u.id where u.status='active' and c.channel='sms' and c.status='active' and c.verified_at is not null and regexp_replace(translate(c.value,'۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩','01234567890123456789'),'[^0-9]','','g')=any($1::text[]) order by c.is_primary desc limit 2",[variants]);
+ if(users.rowCount!==1)return res.status(202).json({message:"اگر شماره متعلق به حساب فعال و تأییدشده باشد، کد ورود ارسال می‌شود"});
+ const code=createOtpCode(),digest=otpDigest(phone,code),ttl=120,resend=120;
+ await query("update otp_challenges set consumed_at=now() where phone=$1 and purpose='login' and consumed_at is null",[phone]);
+ const created=await query("insert into otp_challenges(phone,purpose,code_hash,requested_ip,expires_at,resend_at) values($1,'login',$2,$3::inet,now()+($4||' seconds')::interval,now()+($5||' seconds')::interval) returning id",[phone,digest,ip,ttl,resend]);
+ const sent=await sendKavenegarOtp(phone,code,"سوکار");
+ await query("update otp_challenges set send_status=$1,send_info=$2,consumed_at=case when $1='failed' then now() else consumed_at end where id=$3",[sent.ok?"sent":"failed",sent.info,created.rows[0].id]);
+ if(!sent.ok)return res.status(502).json({error:"ارسال پیامک انجام نشد؛ تنظیمات درگاه پیامک را بررسی کنید"});
+ res.status(202).json({message:"کد ورود ارسال شد",expiresIn:ttl,resendIn:resend});
+}));
+
+app.post("/api/auth/otp/verify",asyncHandler(async(req,res)=>{
+ const phone=normalizeIranMobile(req.body?.phone);
+ const code=String(req.body?.code??"").replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/\D/g,"");
+ if(!phone||!/^\d{6}$/.test(code))return res.status(400).json({error:"شماره موبایل یا کد شش‌رقمی معتبر نیست"});
+ const client=await pool.connect();
+ let user:any=null;
+ try{
+  await client.query("begin");
+  const challenge=await client.query("select id,code_hash,attempts,expires_at from otp_challenges where phone=$1 and purpose='login' and consumed_at is null and send_status='sent' order by created_at desc limit 1 for update",[phone]);
+  if(!challenge.rowCount||new Date(challenge.rows[0].expires_at).getTime()<Date.now()){
+   await client.query("rollback");return res.status(400).json({error:"کد منقضی شده یا پیدا نشد؛ کد جدید بگیرید"});
+  }
+  const current=challenge.rows[0];
+  if(Number(current.attempts)>=5){
+   await client.query("update otp_challenges set consumed_at=now() where id=$1",[current.id]);
+   await client.query("commit");return res.status(429).json({error:"تعداد تلاش بیش از حد است؛ کد جدید بگیرید"});
+  }
+  const valid=verifyOtpDigest(current.code_hash,phone,code);
+  await client.query("update otp_challenges set attempts=attempts+1,consumed_at=case when $2::boolean then now() when attempts+1>=5 then now() else consumed_at end where id=$1",[current.id,valid]);
+  if(!valid){await client.query("commit");return res.status(400).json({error:"کد ورود نادرست است"});}
+  const variants=[phone,"98"+phone.slice(1),"0098"+phone.slice(1)];
+  const found=await client.query("select u.id,u.email,u.full_name,u.role from users u join user_contact_methods c on c.user_id=u.id where u.status='active' and c.channel='sms' and c.status='active' and c.verified_at is not null and regexp_replace(translate(c.value,'۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩','01234567890123456789'),'[^0-9]','','g')=any($1::text[]) order by c.is_primary desc limit 2 for update of u",[variants]);
+  if(found.rowCount===1)user=found.rows[0];
+  await client.query("commit");
+ }catch(error){await client.query("rollback");throw error;}finally{client.release();}
+ if(!user)return res.status(401).json({error:"حساب فعال و تأییدشده‌ای برای این شماره پیدا نشد"});
+ await issueSession(req,res,{id:user.id,email:user.email,role:user.role});
+ await query("insert into security_login_events(user_id,email,ip_address,user_agent,success) values($1,$2,$3::inet,$4,true)",[user.id,user.email,req.ip||null,String(req.headers["user-agent"]||"").slice(0,1000)||null]);
+ res.json({user:{id:user.id,email:user.email,fullName:user.full_name,role:user.role}});
+}));
+
 app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  const method=req.body?.method==="mobile"?"mobile":req.body?.method==="nationalId"?"nationalId":"email";
  const rawIdentifier=String(req.body?.identifier??req.body?.email??"").trim();
