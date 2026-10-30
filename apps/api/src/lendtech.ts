@@ -47,6 +47,7 @@ const s=(v:unknown,max=250)=>typeof v==="string"?v.trim().slice(0,max):"";
 const n=(v:unknown)=>{const x=Number(v);return Number.isFinite(x)?x:null;};
 const tenant=async(req:any)=>resolveTenant(req,req.user);
 const actor=(req:any)=>String(req.user?.id||"system");
+const isUuid=(v:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 
 async function event(client:any,tenantRef:string,applicationId:string|null,contractId:string|null,eventType:string,actorRef:string,payload:any={}){
  await client.query(
@@ -571,6 +572,7 @@ lendtechRouter.get("/api/lendtech/my-applications",requireAuth,asyncHandler(asyn
 lendtechRouter.get("/api/lendtech/my-documents",requireAuth,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const applicationId=s(req.query.applicationId,36);
+ if(applicationId&&!isUuid(applicationId))return res.status(400).json({error:"شناسه پرونده معتبر نیست"});
  const params:any[]=[t.id,actor(req)];
  let filter="";
  if(applicationId){params.push(applicationId);filter=" and a.id=$3";}
@@ -581,7 +583,7 @@ lendtechRouter.get("/api/lendtech/my-documents",requireAuth,asyncHandler(async(r
 lendtechRouter.post("/api/lendtech/my-documents",requireAuth,requireCsrf,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const b=req.body||{},applicationId=s(b.applicationId,36),documentType=s(b.documentType,40),documentNumber=s(b.documentNumber,60);
- if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(applicationId))return res.status(400).json({error:"پرونده اعتباری معتبر نیست"});
+ if(!isUuid(applicationId))return res.status(400).json({error:"پرونده اعتباری معتبر نیست"});
  if(!["national-id-front","national-id-back","birth-certificate","passport","address-proof","other"].includes(documentType))return res.status(400).json({error:"نوع مدرک معتبر نیست"});
  const decoded=decodeIdentityDocument(b.data);
  if(!decoded)return res.status(415).json({error:"فقط PDF، JPEG، PNG یا WebP معتبر تا سقف ۸ مگابایت پذیرفته می‌شود"});
@@ -603,6 +605,7 @@ lendtechRouter.post("/api/lendtech/my-documents",requireAuth,requireCsrf,asyncHa
 }));
 
 lendtechRouter.get("/api/lendtech/my-documents/:id/file",requireAuth,asyncHandler(async(req,res)=>{
+ if(!isUuid(req.params.id))return res.status(404).json({error:"فایل متعلق به حساب شما پیدا نشد"});
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const r=await query("select f.id,f.original_name,f.stored_mime_type,f.binary_data from platform_attachments f join platform_attachment_links l on l.attachment_id=f.id and l.tenant_id=f.tenant_id join lendtech_applications a on a.id::text=l.entity_id and a.tenant_ref=l.tenant_id where f.id=$1 and f.tenant_id=$2 and a.customer_ref=$3 and l.entity_type='lendtech_application' and l.relation_type='identity-document'",[req.params.id,t.id,actor(req)]);
  if(!r.rowCount)return res.status(404).json({error:"فایل متعلق به حساب شما پیدا نشد"});
@@ -610,6 +613,7 @@ lendtechRouter.get("/api/lendtech/my-documents/:id/file",requireAuth,asyncHandle
 }));
 
 lendtechRouter.get("/api/lendtech/applications/:id/documents",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
+ if(!isUuid(req.params.id))return res.status(404).json({error:"پرونده پیدا نشد"});
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const app=await query("select id from lendtech_applications where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
  if(!app.rowCount)return res.status(404).json({error:"پرونده پیدا نشد"});
@@ -618,6 +622,7 @@ lendtechRouter.get("/api/lendtech/applications/:id/documents",requireAuth,requir
 }));
 
 lendtechRouter.get("/api/lendtech/application-documents/:id/file",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
+ if(!isUuid(req.params.id))return res.status(404).json({error:"فایل پرونده پیدا نشد"});
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const r=await query("select f.original_name,f.stored_mime_type,f.binary_data from platform_attachments f join platform_attachment_links l on l.attachment_id=f.id and l.tenant_id=f.tenant_id join lendtech_applications a on a.id::text=l.entity_id and a.tenant_ref=l.tenant_id where f.id=$1 and f.tenant_id=$2 and l.entity_type='lendtech_application' and l.relation_type='identity-document'",[req.params.id,t.id]);
  if(!r.rowCount)return res.status(404).json({error:"فایل پرونده پیدا نشد"});
