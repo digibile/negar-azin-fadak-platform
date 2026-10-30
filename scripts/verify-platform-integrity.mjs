@@ -130,12 +130,13 @@ const firstChildren=[...firstPanel[4].matchAll(/child\("([^"]+)"(?:,\s*(?:"([^"]
 const firstDestinations=firstChildren.map(child=>child[2]||child[3]).filter(Boolean);
 if(new Set(firstDestinations).size!==firstDestinations.length)throw new Error("Panel 01 contains duplicate child destinations");
 if(!masterMenu.includes('child("مرکز فرماندهی عملیاتی","","command-center","/command-center")'))throw new Error("Panel 01 command center route is not explicitly registered");
-if(!sidebar.includes("const childRoute=child.route"))throw new Error("Sidebar does not honor explicit canonical child routes");
+if(sidebar.includes('import {MASTER_MENU} from "./master-menu"')||!sidebar.includes('api<{items:MenuNode[]}>("/api/dashboard/menu-tree?panel=admin")'))throw new Error("Sidebar must use the canonical backend menu API instead of a frontend menu registry");
+if(!sidebar.includes("const canonical=useMemo(()=>menuItems.map(item=>"))||!sidebar.includes("normalize(item.child_items||[])"))throw new Error("Sidebar must derive panels and child navigation from backend menu records");
 const unroutedLegacy=expectedLegacyCodes.filter(code=>!declaredCodes.has(code));
 if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered in a real dispatcher branch/workspace: "+unroutedLegacy.join(", "));
 
 if(!sidebar.includes("const visit=(nodes:MenuNode[])")||!sidebar.includes("visit(node.child_items||[])"))throw new Error("Legacy menu merge must index every nested level");
-if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.includes("...flattenTitles(x.dbChildren)"))throw new Error("Menu search must include all nested legacy levels");
+if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.includes("...flattenTitles(node.child_items||[])"))throw new Error("Menu search must include all nested backend levels");
 
 const dynamicMenu=fs.readFileSync(path.join(root,"apps/api/src/dynamic-menu.ts"),"utf8");
 const workflowDir=path.join(root,".github/workflows");
@@ -215,7 +216,7 @@ if(!sellerManagement.includes("/status")||!sellerManagement.includes("فعال�
 if(!fs.existsSync(storeDirectory))throw new Error("Public store directory route is missing");
 if(!fs.readFileSync(storeDirectory,"utf8").includes("/api/public/marketplace"))throw new Error("Public store directory must use real public catalog data");
 const adminDashboard=fs.readFileSync(path.join(root,"apps/web/app/admin/page.tsx"),"utf8");
-if(!adminDashboard.includes('import {MASTER_MENU} from "./master-menu"')||adminDashboard.includes("const GROUPS=")||!adminDashboard.includes("canonical-panel-grid"))throw new Error("Management dashboard must use the canonical 20-panel menu source");
+if(adminDashboard.includes('import {MASTER_MENU} from "./master-menu"')||!adminDashboard.includes('api<any>("/api/dashboard/menu-tree?panel=admin")')||!adminDashboard.includes("menuItems.filter(panel=>")||!adminDashboard.includes("canonical-panel-grid"))throw new Error("Management dashboard must render the canonical 20-panel menu from the backend API");
 
 
 const identityApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"utf8");
