@@ -115,7 +115,7 @@ aiWorkshopRouter.post("/api/ai/workshop/code",requireAuth,asyncHandler(async(req
   "Framework: "+framework,
   "Allowed web file prefix: "+webPrefix,
   "Allowed API file prefix: "+apiPrefix,
-  "For Python + FastAPI generate Python service code under the API prefix. For Next.js generate page.tsx and optional scoped CSS under the web prefix. For React generate a component .tsx and optional scoped CSS under the web prefix."
+  "For Python + FastAPI generate Python service code under the API prefix. For Next.js generate page.tsx and optional scoped CSS under the web prefix. For React generate a component .tsx and optional scoped CSS under the web prefix. If the selected framework includes Python, also generate a FastAPI service module under the API prefix."
  ].join("\n");
  const response=await fetch(base+"/chat/completions",{method:"POST",headers:{"Authorization":"Bearer "+apiKey,"Content-Type":"application/json"},body:JSON.stringify({model,temperature:0.2,response_format:{type:"json_object"},messages:[{role:"system",content:system},{role:"user",content:"Generate complete implementation source files for this reviewed draft. Return concise, complete files."}]}),signal:AbortSignal.timeout(60000)});
  const payload:any=await response.json().catch(()=>({}));
