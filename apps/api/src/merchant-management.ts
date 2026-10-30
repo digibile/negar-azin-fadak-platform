@@ -23,7 +23,7 @@ merchantRouter.get("/api/merchants",requireAuth,requirePermission("merchant:view
     where+=" and (m.code ilike $2 or m.legal_name ilike $2 or m.display_name ilike $2 or coalesce(m.national_id,'') ilike $2)";
   }
   const r=await query(
-    "select m.id,m.code,m.legal_name,m.display_name,m.business_type,m.national_id,m.tax_id,m.iban,m.settlement_account_ref,m.contract_ref,m.commission_rate,m.status,m.verification_status,m.verified_at,m.verified_by,m.verification_reason,m.created_at,m.updated_at from payment_merchants m where "+where+" order by m.created_at desc",
+    "select m.id,m.party_id,p.title as canonical_party_title,m.code,m.legal_name,m.display_name,m.business_type,m.national_id,m.tax_id,m.iban,m.settlement_account_ref,m.contract_ref,m.commission_rate,m.status,m.verification_status,m.verified_at,m.verified_by,m.verification_reason,m.created_at,m.updated_at from payment_merchants m left join accounting_parties p on p.id=m.party_id and p.tenant_id=m.tenant_id where "+where+" order by m.created_at desc",
     params
   );
   res.json({tenant:t,items:r.rows,total:r.rowCount});
@@ -32,7 +32,7 @@ merchantRouter.get("/api/merchants",requireAuth,requirePermission("merchant:view
 merchantRouter.get("/api/merchants/:id",requireAuth,requirePermission("merchant:view"),asyncHandler(async(req,res)=>{
   const t=await tenant(req);
   if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
-  const r=await query("select * from payment_merchants where id=$1 and tenant_id=$2",[req.params.id,t.id]);
+  const r=await query("select m.*,p.title as canonical_party_title from payment_merchants m left join accounting_parties p on p.id=m.party_id and p.tenant_id=m.tenant_id where m.id=$1 and m.tenant_id=$2",[req.params.id,t.id]);
   if(!r.rowCount)return res.status(404).json({error:"پذیرنده پیدا نشد"});
   res.json(r.rows[0]);
 }));
