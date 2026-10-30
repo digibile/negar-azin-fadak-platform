@@ -76,13 +76,13 @@ lendtechRouter.get("/api/lendtech/applications",requireAuth,requirePermission("m
 lendtechRouter.post("/api/lendtech/applications",requireAuth,requirePermission("modules:lendtech:write"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const customerRef=s(req.body?.customerRef,200),productCode=s(req.body?.productCode,80),purpose=s(req.body?.purpose,500);
- const amount=n(req.body?.requestedAmount),term=n(req.body?.termMonths);
- if(!customerRef||!productCode||amount===null||amount<=0||term===null||term<1||term>120)return res.status(400).json({error:"اطلاعات درخواست اعتبار نامعتبر است"});
+ const amount=parseMoneyToMinorUnits(req.body?.requestedAmount),term=n(req.body?.termMonths);
+ if(!customerRef||!productCode||amount===null||amount<=0n||term===null||!Number.isInteger(term)||term<1||term>120)return res.status(400).json({error:"اطلاعات درخواست اعتبار نامعتبر است"});
  const no=applicationNo();
  const r=await query(`insert into lendtech_applications
   (tenant_ref,application_no,customer_ref,product_code,requested_amount,term_months,purpose,created_by)
   values($1,$2,$3,$4,$5,$6,$7,$8) returning *`,
-  [t.id,no,customerRef,productCode,amount,term,purpose||null,actor(req)]);
+  [t.id,no,customerRef,productCode,formatMinorUnits(amount),term,purpose||null,actor(req)]);
  res.status(201).json(r.rows[0]);
 }));
 
@@ -169,7 +169,8 @@ lendtechRouter.post("/api/lendtech/applications/:id/decision",requireAuth,requir
  const submittedAmount=parseMoneyToMinorUnits(req.body?.approvedAmount??a.requested_amount);
  const approvedAmount=decision==="approve"&&requestedAmount!==null&&submittedAmount!==null
    ?formatMinorUnits(submittedAmount<requestedAmount?submittedAmount:requestedAmount):null;
- const approvedTerm=decision==="approve"?Math.min(Number(a.term_months),Number(req.body?.approvedTermMonths??a.term_months)):null;
+ const requestedApprovedTerm=decision==="approve"?Number(req.body?.approvedTermMonths??a.term_months):null;
+ const approvedTerm=decision==="approve"&&Number.isInteger(requestedApprovedTerm)&&requestedApprovedTerm>0?Math.min(Number(a.term_months),requestedApprovedTerm):null;
  const rateScaled=decision==="approve"?parsePercentToScaledInteger(req.body?.interestRate??"18"):null;
  const rate=rateScaled===null?null:formatScaledPercent(rateScaled,10000n);
  const approvedMinor=approvedAmount===null?null:parseMoneyToMinorUnits(approvedAmount);
@@ -345,18 +346,22 @@ lendtechRouter.get("/api/lendtech/facilities/:id/collaterals",requireAuth,requir
 lendtechRouter.post("/api/lendtech/facilities/:id/collaterals",requireAuth,requirePermission("modules:lendtech:write"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const type=s(req.body?.collateralType,80),owner=s(req.body?.ownerRef,160),description=s(req.body?.description,500);
- const value=n(req.body?.declaredValue);
- if(!type||value===null||value<0)return res.status(400).json({error:"نوع و ارزش وثیقه معتبر نیست"});
+ const value=parseMoneyToMinorUnits(req.body?.declaredValue);
+ const verifiedRaw=req.body?.verifiedValue;
+ const verifiedValue=verifiedRaw===undefined||verifiedRaw===null||verifiedRaw===""?null:parseMoneyToMinorUnits(verifiedRaw);
+ if(!type||value===null||value<0n||(verifiedRaw!==undefined&&verifiedRaw!==null&&verifiedRaw!==""&&(verifiedValue===null||verifiedValue<0n)))return res.status(400).json({error:"نوع و ارزش وثیقه معتبر نیست؛ حداکثر دو رقم اعشار مجاز است"});
  const exists=await query("select id from lendtech_facilities where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
  if(!exists.rowCount)return res.status(404).json({error:"تسهیلات پیدا نشد"});
  const no="COL-"+Date.now()+"-"+randomUUID().slice(0,6).toUpperCase();
- const r=await query("insert into lendtech_collaterals(tenant_ref,facility_id,collateral_no,collateral_type,owner_ref,description,declared_value,verified_value,status,reference_data,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,'proposed',$9,$10) returning *",[t.id,req.params.id,no,type,owner||null,description||null,value,n(req.body?.verifiedValue),JSON.stringify(req.body?.referenceData||{}),actor(req)]);
+ const r=await query("insert into lendtech_collaterals(tenant_ref,facility_id,collateral_no,collateral_type,owner_ref,description,declared_value,verified_value,status,reference_data,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,'proposed',$9,$10) returning *",[t.id,req.params.id,no,type,owner||null,description||null,formatMinorUnits(value),verifiedValue===null?null:formatMinorUnits(verifiedValue),JSON.stringify(req.body?.referenceData||{}),actor(req)]);
  res.status(201).json(r.rows[0]);
 }));
 lendtechRouter.post("/api/lendtech/collaterals/:id/verify",requireAuth,requirePermission("modules:lendtech:committee"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const value=n(req.body?.verifiedValue);
- const r=await query("update lendtech_collaterals set status='verified',verified_value=coalesce($1,verified_value),updated_at=now() where id=$2 and tenant_ref=$3 returning *",[value,req.params.id,t.id]);
+ const raw=req.body?.verifiedValue;
+ const value=raw===undefined||raw===null||raw===""?null:parseMoneyToMinorUnits(raw);
+ if(raw!==undefined&&raw!==null&&raw!==""&&(value===null||value<0n))return res.status(400).json({error:"ارزش تأییدشده وثیقه معتبر نیست؛ حداکثر دو رقم اعشار مجاز است"});
+ const r=await query("update lendtech_collaterals set status='verified',verified_value=coalesce($1,verified_value),updated_at=now() where id=$2 and tenant_ref=$3 returning *",[value===null?null:formatMinorUnits(value),req.params.id,t.id]);
  if(!r.rowCount)return res.status(404).json({error:"وثیقه پیدا نشد"});
  res.json(r.rows[0]);
 }));
@@ -375,9 +380,9 @@ lendtechRouter.get("/api/lendtech/contracts/:id/collection-cases",requireAuth,re
 }));
 lendtechRouter.post("/api/lendtech/collection-cases/:id/promise",requireAuth,requirePermission("modules:lendtech:collect"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const amount=n(req.body?.promiseAmount),due=s(req.body?.promiseDueDate,20),notes=s(req.body?.notes,1000);
- if(amount===null||amount<=0||!due)return res.status(400).json({error:"مبلغ و تاریخ وعده پرداخت الزامی است"});
- const r=await query("update lendtech_collection_cases set promise_amount=$1,promise_due_date=$2,notes=coalesce($3,notes),status='promise',updated_at=now() where id=$4 and tenant_ref=$5 returning *",[amount,due,notes||null,req.params.id,t.id]);
+ const amount=parseMoneyToMinorUnits(req.body?.promiseAmount),due=s(req.body?.promiseDueDate,20),notes=s(req.body?.notes,1000);
+ if(amount===null||amount<=0n||!due)return res.status(400).json({error:"مبلغ و تاریخ وعده پرداخت الزامی است؛ حداکثر دو رقم اعشار مجاز است"});
+ const r=await query("update lendtech_collection_cases set promise_amount=$1,promise_due_date=$2,notes=coalesce($3,notes),status='promise',updated_at=now() where id=$4 and tenant_ref=$5 returning *",[formatMinorUnits(amount),due,notes||null,req.params.id,t.id]);
  if(!r.rowCount)return res.status(404).json({error:"پرونده وصول پیدا نشد"});
  res.json(r.rows[0]);
 }));
