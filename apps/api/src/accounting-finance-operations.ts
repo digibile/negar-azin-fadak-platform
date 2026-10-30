@@ -74,7 +74,7 @@ router.patch("/api/accounting-finance/counterparties/:id",requireAuth,requirePer
   await c.query("begin");
   const old=await c.query("select * from accounting_parties where id=$1 and tenant_id=$2 for update",[id,t.id]);
   if(!old.rowCount){await c.query("rollback");return deny(res,404,"طرف حساب پیدا نشد")}
-  const status=b.isActive===false?"inactive":"active";
+  const status=b.isActive===undefined?old.rows[0].status:(b.isActive===false?"inactive":"active");
   const p=await c.query("update accounting_parties set title=$1,status=$2,updated_at=now() where id=$3 and tenant_id=$4 returning *",[name,status,id,t.id]);
   let bankAccount=null;
   if(iban){
@@ -84,6 +84,9 @@ router.patch("/api/accounting-finance/counterparties/:id",requireAuth,requirePer
     const inserted=await c.query("insert into accounting_party_bank_accounts(tenant_id,party_id,account_title,iban,status,verification_status) values($1,$2,$3,$4,$5,'pending') on conflict(tenant_id,iban) do nothing returning *",[t.id,id,name,iban,status]);
     if(!inserted.rowCount)throw Object.assign(new Error("این شماره شبا قبلاً برای طرف دیگری در همین سازمان ثبت شده است"),{statusCode:409});
     bankAccount=inserted.rows[0];
+   }else if(status==="active"&&current.rowCount){
+    const activated=await c.query("update accounting_party_bank_accounts set status='active',account_title=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[name,current.rows[0].id,t.id]);
+    bankAccount=activated.rows[0];
    }
   }
   if(status==="inactive")await c.query("update accounting_party_bank_accounts set status='inactive',updated_at=now() where tenant_id=$1 and party_id=$2 and status='active'",[t.id,id]);
