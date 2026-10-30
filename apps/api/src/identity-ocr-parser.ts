@@ -29,7 +29,7 @@ export function parseIranianIdentityText(raw:string):IdentityOcrResult{
  const firstName=capture(text,"نام(?!\\s*خانوادگی)");
  const lastName=capture(text,"نام\\s*خانوادگی");
  const fatherName=capture(text,"نام\\s*پدر");
- const birthDate=text.match(/(?:تاریخ\\s*تولد|تولد)\\s*[:：\\-]?\\s*(1[34]\\d{2}[\\/\\-]\\d{1,2}[\\/\\-]\\d{1,2})/i)?.[1];
+ const birthDate=text.match(/(?:تاریخ\s*تولد|تولد)\s*[:：\-]?\s*(1[34]\d{2}[\/\-]\d{1,2}[\/\-]\d{1,2})/i)?.[1];
  if(firstName)fields.firstName=firstName;
  if(lastName)fields.lastName=lastName;
  if(fatherName)fields.fatherName=fatherName;
