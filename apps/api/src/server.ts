@@ -186,6 +186,10 @@ app.post("/api/auth/otp/verify",asyncHandler(async(req,res)=>{
  const phone=normalizeIranMobile(req.body?.phone);
  const code=String(req.body?.code??"").replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/\D/g,"");
  if(!phone||!/^\d{6}$/.test(code))return res.status(400).json({error:"شماره موبایل یا کد شش‌رقمی معتبر نیست"});
+ const verifyIp=req.ip||"127.0.0.1";
+ await query("insert into otp_verification_attempts(requested_ip,phone) values($1::inet,$2)",[verifyIp,phone]);
+ const ipAttempts=await query("select count(*)::int as total from otp_verification_attempts where requested_ip=$1::inet and attempted_at>now()-interval '15 minutes'",[verifyIp]);
+ if(Number(ipAttempts.rows[0]?.total||0)>40)return res.status(429).json({error:"تلاش‌های زیاد از این شبکه؛ کمی بعد دوباره امتحان کنید"});
  const client=await pool.connect();
  let user:any=null;
  try{
