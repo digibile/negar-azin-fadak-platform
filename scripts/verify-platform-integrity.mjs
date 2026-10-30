@@ -270,4 +270,11 @@ for(const marker of ["create table if not exists lendtech_payment_declarations",
 if(!lendtech.includes("applyRepayment(client")||!lendtech.includes('paymentRef:"DECL-"+String(d.rows[0].id)')||!lendtech.includes("a.customer_ref=$3")||!lendtech.includes('requireCsrf'))throw new Error("Payment declaration approval must use central transactional repayment, customer-contract ownership and CSRF");
 if(lendtech.includes('status="approved"')&& !lendtech.includes("lendtech_repayments"))throw new Error("Payment declaration approval must not be a status-only payment confirmation");
 
+
+const customerInstallmentsUi=fs.readFileSync(path.join(root,"apps/web/app/account/installments/page.tsx"),"utf8");
+const adminLendtechUi=fs.readFileSync(path.join(root,"apps/web/app/admin/lendtech/page.tsx"),"utf8");
+if(!lendtech.includes('lendtechRouter.get("/api/lendtech/my-contracts"'))throw new Error("Customer-owned central contract listing route is missing");
+if(!customerInstallmentsUi.includes("/api/lendtech/my-contracts")||!customerInstallmentsUi.includes("/api/lendtech/my-payment-declarations")||!customerInstallmentsUi.includes('"/api/lendtech/my-payment-declarations"')||!customerInstallmentsUi.includes("اعلام واریز ثبت شد"))throw new Error("Customer installment workspace must list owned contracts and submit/track payment declarations");
+if(!adminLendtechUi.includes("/api/lendtech/payment-declarations?status=pending")||!adminLendtechUi.includes('reviewDeclaration(d.id,"approved")')||!adminLendtechUi.includes('reviewDeclaration(d.id,"rejected")'))throw new Error("Central LendTech admin workspace must review pending payment declarations");
+
 console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
