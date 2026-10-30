@@ -377,4 +377,12 @@ if(apiPackage.scripts?.["worker:ocr"]!=="node dist/ocr-worker.js")throw new Erro
 if(!enterpriseInteraction.includes("'tesseract-local'")||!lendtechIdentity.includes("'tesseract-local'"))throw new Error("Admin and customer image uploads must enqueue the same local OCR provider");
 if(!deploymentWorkflow.includes("Build Persian OCR worker image"))throw new Error("CI must build the Persian OCR worker image");
 
+const publicMarketplaceApi=fs.readFileSync(path.join(root,"apps/api/src/domain-marketplace.ts"),"utf8");
+const storefrontPage=fs.readFileSync(path.join(root,"apps/web/app/store/page.tsx"),"utf8");
+const storeCartActions=fs.readFileSync(path.join(root,"apps/web/app/store/cart-actions.tsx"),"utf8");
+if(!publicMarketplaceApi.includes("importDemoCatalogForTenant(tenantId,120)")||!publicMarketplaceApi.includes('currentHost==="sookar.ir"')||!publicMarketplaceApi.includes("coalesce(p.attributes->>'demoCatalog','false')='true'"))throw new Error("Sookar public catalog must restore its explicitly marked preview products only on the Sookar host");
+if(!publicMarketplaceApi.includes("inventoryVerified")||!publicMarketplaceApi.includes("inventoryQuantity")||!publicMarketplaceApi.includes("demoNotice"))throw new Error("Public catalog must retain verified-stock requirements and explicit preview disclosure");
+if(!storeCartActions.includes("disabled={Boolean(product.is_demo_product)}")||!storeCartActions.includes("کالای مرجع · خرید غیرفعال"))throw new Error("Reference/demo products must never be addable to the real cart");
+if(!storefrontPage.includes("/api/public/marketplace")||!storefrontPage.includes("is_demo_product"))throw new Error("Sookar storefront must render the canonical public marketplace catalog and distinguish preview products");
+
 console.log("Platform integrity OK: 45 modules, 20 canonical panels, database-driven recursive menu navigation/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
