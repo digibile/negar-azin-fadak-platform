@@ -17,7 +17,7 @@ begin
   end if;
 end $$;
 
-do $
+do $$
 begin
   if not exists (
     select 1 from pg_constraint
@@ -27,7 +27,7 @@ begin
     alter table public.treasury_bank_accounts
       add constraint treasury_bank_accounts_tenant_id_unique unique(tenant_id,id);
   end if;
-end $;
+end $$;
 
 alter table public.treasury_payments
   add column if not exists party_id uuid,
