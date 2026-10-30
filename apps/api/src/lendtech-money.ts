@@ -37,6 +37,19 @@ export function roundRatioHalfUp(numerator: bigint, denominator: bigint): bigint
   return (numerator + denominator / 2n) / denominator;
 }
 
+export function calculateDtiThousandths(income: bigint, obligations: bigint): bigint | null {
+  if (income <= 0n || obligations < 0n) return null;
+  const scaled = roundRatioHalfUp(obligations * 100_000n, income);
+  return scaled <= 99_999_999n ? scaled : null;
+}
+
+export function formatScaledPercent(value: bigint, scale: bigint): string {
+  if (value < 0n || scale <= 0n) throw new Error("درصد نامعتبر است");
+  const whole = value / scale;
+  const fraction = String(value % scale).padStart(scale.toString().length - 1, "0");
+  return `${whole}.${fraction}`;
+}
+
 export function parsePercentToScaledInteger(value: unknown): bigint | null {
   if (typeof value !== "string" && typeof value !== "number" && typeof value !== "bigint") return null;
   const raw = String(value).trim();
