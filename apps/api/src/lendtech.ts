@@ -18,7 +18,7 @@ lendtechRouter.post("/api/lendtech/installment-quote",requireAuth,requirePermiss
  const intervalDays=n(req.body?.intervalDays);
  const startValue=s(req.body?.startDate,40);
  const start=startValue?new Date(startValue):new Date();
- if(amount===null||amount<=0n||amount>100000000000000000n||months===null||intervalDays===null||
+ if(amount===null||amount<=0n||amount>1000000000000n||months===null||intervalDays===null||
     !Number.isInteger(months)||months<1||months>120||!Number.isInteger(intervalDays)||intervalDays<1||intervalDays>366||Number.isNaN(start.getTime())){
   return res.status(400).json({error:"اطلاعات محاسبه اقساط معتبر نیست"});
  }
@@ -297,7 +297,7 @@ lendtechRouter.get("/api/lendtech/my-payment-declarations",requireAuth,asyncHand
 }));
 lendtechRouter.post("/api/lendtech/my-payment-declarations",requireAuth,requireCsrf,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const amount=parseMoneyToMinorUnits(req.body?.amount),method=s(req.body?.method,30),paymentRef=s(req.body?.reference,30).replace(/[۰-۹]/g,ch=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(ch))).replace(/[٠-٩]/g,ch=>String("٠١٢٣٤٥٦٧٨٩".indexOf(ch)));
+ const amount=parseMoneyToMinorUnits(req.body?.amount),method=s(req.body?.method,30),paymentRef=s(req.body?.reference,60).replace(/[۰-۹]/g,ch=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(ch))).replace(/[٠-٩]/g,ch=>String("٠١٢٣٤٥٦٧٨٩".indexOf(ch))).replace(/\D/g,"");
  const paidAtValue=s(req.body?.paidAt,40),paidAt=paidAtValue?new Date(paidAtValue):new Date();
  const contractId=s(req.body?.contractId,80),note=s(req.body?.note,300);
  if(amount===null||amount<=0n||amount>100000000000000000n)return res.status(400).json({error:"مبلغ اعلام واریز معتبر نیست"});
