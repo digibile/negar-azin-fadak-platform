@@ -309,7 +309,7 @@ for(const table of ["purchase_suppliers","sales_partners","payment_merchants","s
   throw new Error("Operational registry canonical-party migration is missing tenant-safe constraints");
 }
 if(!accountingOperations.includes('router.post("/api/accounting-finance/party-links/:registry/:id"')||
-   !accountingOperations.includes('matchMethod==="national_id"')||
+   !accountingOperations.includes('if(method==="national_id")')||
    !accountingOperations.includes('b.confirmMatch!==true')||
    !accountingOperations.includes('error?.code==="23505"')||
    !accountingOperations.includes('requirePermission("accounting-finance.write"),requireCsrf'))
