@@ -225,4 +225,48 @@ router.patch("/api/accounting-finance/bank-reconciliations/:id/status",requireAu
  await audit(t.id,actor(req),"bank_reconciliation",idOf(req,"id"),"status",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 
+
+const canonicalPartyRegistries:Record<string,{table:string;hasNationalId:boolean}>={
+ purchase_suppliers:{table:"purchase_suppliers",hasNationalId:true},
+ sales_partners:{table:"sales_partners",hasNationalId:true},
+ payment_merchants:{table:"payment_merchants",hasNationalId:true},
+ sellers:{table:"sellers",hasNationalId:false}
+};
+
+router.post("/api/accounting-finance/party-links/:registry/:id",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const registry=canonicalPartyRegistries[String(req.params.registry||"")];
+ const registryId=idOf(req,"id"),b=req.body||{},partyId=String(b.partyId||"");
+ if(!registry)return deny(res,400,"نوع دفتر عملیاتی برای اتصال معتبر نیست");
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ if(!uuid.test(String(registryId||""))||!uuid.test(partyId))return deny(res,400,"شناسه رکورد یا طرف‌حساب معتبر نیست");
+ const method=b.matchMethod;
+ if(!["national_id","manual_review"].includes(method)||typeof b.matchEvidence!=="string"||!b.matchEvidence.trim()||b.matchEvidence.trim().length>500||b.confirmMatch!==true)
+  return deny(res,400,"روش تطبیق، مستند بررسی و تأیید صریح تطبیق الزامی است");
+ if(method==="national_id"&&!registry.hasNationalId)return deny(res,400,"این دفتر شناسه ملی قابل تطبیق خودکار ندارد؛ بررسی دستی لازم است");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const source=await c.query(
+   `select id,party_id,${registry.hasNationalId?"national_id": "null::text as national_id"} from ${registry.table} where id=$1 and tenant_id=$2 for update`,
+   [registryId,t.id]
+  );
+  if(!source.rowCount){await c.query("rollback");return deny(res,404,"رکورد دفتر عملیاتی پیدا نشد")}
+  const party=await c.query("select id,title,national_id,status from accounting_parties where id=$1 and tenant_id=$2 for update",[partyId,t.id]);
+  if(!party.rowCount){await c.query("rollback");return deny(res,404,"طرف‌حساب مرکزی در همین سازمان پیدا نشد")}
+  if(source.rows[0].party_id&&source.rows[0].party_id!==partyId){await c.query("rollback");return deny(res,409,"این رکورد قبلاً به طرف‌حساب دیگری متصل شده است")}
+  if(method==="national_id"){
+   const sourceCode=String(source.rows[0].national_id||"").replace(/[^0-9]/g,"");
+   const partyCode=String(party.rows[0].national_id||"").replace(/[^0-9]/g,"");
+   if(!sourceCode||!partyCode||sourceCode!==partyCode){await c.query("rollback");return deny(res,409,"شناسه ملی دو رکورد یکسان نیست؛ تطبیق دستی و مستند لازم است")}
+  }
+  const duplicate=await c.query(`select id from ${registry.table} where tenant_id=$1 and party_id=$2 and id<>$3 limit 1`,[t.id,partyId,registryId]);
+  if(duplicate.rowCount){await c.query("rollback");return deny(res,409,"این طرف‌حساب قبلاً به رکورد دیگری از همین دفتر متصل شده است")}
+  const linked=await c.query(`update ${registry.table} set party_id=$1 where id=$2 and tenant_id=$3 returning id,party_id`,[partyId,registryId,t.id]);
+  await audit(t.id,actor(req),"registry_party_link",registryId,"link",source.rows[0],{...linked.rows[0],registry:req.params.registry,partyTitle:party.rows[0].title,matchMethod:method,matchEvidence:b.matchEvidence.trim()},c);
+  await c.query("commit");
+  res.json({registry:req.params.registry,registryId,partyId,partyTitle:party.rows[0].title,matchMethod:method,linked:true});
+ }catch(error){await c.query("rollback");throw error}finally{c.release()}
+});
+
 export {router as accountingFinanceOperationsRouter};
