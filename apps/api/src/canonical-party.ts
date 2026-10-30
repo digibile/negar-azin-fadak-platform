@@ -10,23 +10,29 @@ export function normalizeNationalId(value:unknown):string{
   .replace(/[\s-]/g,"");
 }
 
+/** Find one exact tenant-scoped identity match. Must run inside a transaction. */
+export async function findCanonicalParty(client:SqlClient,tenantId:string,value:unknown):Promise<string|null>{
+ const rawNationalId=String(value||"").trim();
+ if(!rawNationalId)return null;
+ const nationalId=normalizeNationalId(rawNationalId);
+ if(!nationalId||!/^\d+$/.test(nationalId))throw Object.assign(new Error("شناسه ملی باید فقط شامل رقم باشد"),{statusCode:400});
+ await client.query("select pg_advisory_xact_lock(hashtext($1),hashtext($2))",[tenantId,nationalId]);
+ const matches=await client.query(
+  "select id from accounting_parties where tenant_id=$1 and regexp_replace(translate(coalesce(national_id,''),'۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩','01234567890123456789'),'[^0-9]','','g')=$2 order by created_at for update",
+  [tenantId,nationalId]
+ );
+ if(matches.rows.length>1)throw Object.assign(new Error("برای این شناسه ملی چند طرف‌حساب وجود دارد؛ ابتدا تطبیق هویت باید تعیین تکلیف شود"),{statusCode:409});
+ return matches.rows.length===1?String(matches.rows[0].id):null;
+}
+
 /** Tenant-scoped exact-identifier resolver. Must run inside the caller's transaction. */
 export async function ensureCanonicalParty(client:SqlClient,input:{
  tenantId:string; kind:CanonicalPartyKind; title:string; nationalId?:string|null;
  taxId?:string|null; phone?:string|null; email?:string|null; sourceSystem:string;
 }):Promise<string>{
- const rawNationalId=String(input.nationalId||"").trim();
- const nationalId=rawNationalId?normalizeNationalId(rawNationalId):null;
- if(rawNationalId&&(!nationalId||!/^\d+$/.test(nationalId)))throw Object.assign(new Error("شناسه ملی باید فقط شامل رقم باشد"),{statusCode:400});
- if(nationalId){
-  await client.query("select pg_advisory_xact_lock(hashtext($1),hashtext($2))",[input.tenantId,nationalId]);
-  const matches=await client.query(
-   "select id from accounting_parties where tenant_id=$1 and regexp_replace(translate(coalesce(national_id,''),'۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩','01234567890123456789'),'[^0-9]','','g')=$2 order by created_at for update",
-   [input.tenantId,nationalId]
-  );
-  if(matches.rows.length>1)throw Object.assign(new Error("برای این شناسه ملی چند طرف‌حساب وجود دارد؛ ابتدا تطبیق هویت باید تعیین تکلیف شود"),{statusCode:409});
-  if(matches.rows.length===1)return String(matches.rows[0].id);
- }
+ const nationalId=String(input.nationalId||"").trim()?normalizeNationalId(input.nationalId):null;
+ const existing=await findCanonicalParty(client,input.tenantId,input.nationalId);
+ if(existing)return existing;
  const prefix=input.kind==="customer"?"CUS":input.kind==="supplier"?"SUP":"PTY";
  const created=await client.query(
   "insert into accounting_parties(tenant_id,party_code,party_type,title,national_id,tax_id,phone,email,status,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,'active',$9) returning id",
