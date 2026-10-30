@@ -257,6 +257,7 @@ const canonicalPartyRegistries:Record<string,{table:string;hasNationalId:boolean
  purchase_suppliers:{table:"purchase_suppliers",hasNationalId:true,label:"تأمین‌کنندگان",projection:"id,code,name as display_name,national_id,phone,party_id"},
  sales_partners:{table:"sales_partners",hasNationalId:true,label:"مشتریان فروش",projection:"id,code,name as display_name,national_id,phone,party_id"},
  payment_merchants:{table:"payment_merchants",hasNationalId:true,label:"پذیرندگان",projection:"id,code,legal_name as display_name,national_id,null::text as phone,party_id"},
+ crm_customers:{table:"crm_customers",hasNationalId:true,label:"مشتریان CRM",projection:"id,customer_no as code,full_name as display_name,national_id,mobile as phone,party_id"},
  sellers:{table:"sellers",hasNationalId:false,label:"فروشندگان بازارگاه",projection:"id,null::text as code,legal_name as display_name,null::text as national_id,null::text as phone,party_id"}
 };
 

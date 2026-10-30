@@ -1,6 +1,7 @@
 import {Router} from "express";
 import {randomUUID} from "node:crypto";
-import {query} from "./db.js";
+import {query,pool} from "./db.js";
+import {ensureCanonicalParty,normalizeNationalId} from "./canonical-party.js";
 import {requireAuth,requireCsrf,requirePermission} from "./auth.js";
 import {resolveTenant} from "./tenant-context.js";
 const router=Router();
@@ -13,7 +14,7 @@ async function audit(req:any,t:any,id:string|null,action:string,before:any,after
 router.get("/api/customer-360/overview",requireAuth,read,async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const [customers,interactions,purchases,financial]=await Promise.all([
-  query("select id,customer_no,customer_type,full_name,national_id,mobile,email,birth_date,status,notes,created_at from crm_customers where tenant_id=$1 order by created_at desc limit 500",[t.id]),
+  query("select c.id,c.customer_no,c.customer_type,c.full_name,c.national_id,c.mobile,c.email,c.birth_date,c.status,c.notes,c.created_at,c.party_id,p.title as canonical_party_title from crm_customers c left join accounting_parties p on p.id=c.party_id and p.tenant_id=c.tenant_id where c.tenant_id=$1 order by c.created_at desc limit 500",[t.id]),
   query("select i.id,i.customer_id,i.channel,i.subject,i.body,i.occurred_at,c.full_name from crm_customer_interactions i join crm_customers c on c.id=i.customer_id where i.tenant_id=$1 order by i.occurred_at desc limit 200",[t.id]),
   query("select p.id,p.customer_id,p.external_ref,p.description,p.amount,p.status,p.purchased_at,c.full_name from crm_customer_purchases p join crm_customers c on c.id=p.customer_id where p.tenant_id=$1 order by p.purchased_at desc limit 200",[t.id]),
   query("select f.id,f.customer_id,f.receivable,f.payable,f.credit_limit,f.credit_used,f.snapshot_at,c.full_name from crm_customer_financial_snapshots f join crm_customers c on c.id=f.customer_id where f.tenant_id=$1 order by f.snapshot_at desc limit 200",[t.id])
@@ -23,8 +24,21 @@ router.get("/api/customer-360/overview",requireAuth,read,async(req,res)=>{
 router.post("/api/customer-360/customers",requireAuth,write,requireCsrf,async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const b=req.body||{};if(!String(b.customerNo||"").trim()||!String(b.fullName||"").trim())return res.status(400).json({error:"شماره مشتری و نام الزامی است"});
- const r=await query("insert into crm_customers(tenant_id,customer_no,customer_type,full_name,national_id,mobile,email,birth_date,status,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,b.customerNo,b.customerType||"individual",b.fullName,b.nationalId||null,b.mobile||null,b.email||null,b.birthDate||null,b.status||"active",b.notes||"",(req as any).user.id]);
- await audit(req,t,r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
+ const nationalId=String(b.nationalId||"").trim()?normalizeNationalId(b.nationalId):null;
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const partyId=await ensureCanonicalParty(c,{tenantId:t.id,kind:"customer",title:String(b.fullName),nationalId,phone:b.mobile||null,email:b.email||null,sourceSystem:"crm_customers"});
+  const r=await c.query("insert into crm_customers(tenant_id,party_id,customer_no,customer_type,full_name,national_id,mobile,email,birth_date,status,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning *",[t.id,partyId,b.customerNo,b.customerType||"individual",b.fullName,nationalId,b.mobile||null,b.email||null,b.birthDate||null,b.status||"active",b.notes||"",(req as any).user.id]);
+  await c.query("commit");
+  await audit(req,t,r.rows[0].id,"create",null,r.rows[0]);
+  res.status(201).json(r.rows[0]);
+ }catch(error:any){
+  await c.query("rollback");
+  if(error?.statusCode)return res.status(error.statusCode).json({error:error.message});
+  if(error?.code==="23505")return res.status(409).json({error:"این مشتری یا شناسه هویتی قبلاً در همین سازمان ثبت شده است"});
+  throw error;
+ }finally{c.release()}
 });
 router.patch("/api/customer-360/customers/:id",requireAuth,write,requireCsrf,async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});

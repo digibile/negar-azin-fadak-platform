@@ -191,6 +191,12 @@ for(const permission of ["marketing:read","marketing:manage"])if(!marketerMigrat
 if(!marketerUi.includes('["customer-360-6","بازاریاب‌ها"]')||!marketerUi.includes("/api/marketing/marketers"))throw new Error("Marketer registry is not exposed in the canonical CRM workspace");
 if(!marketerUi.includes("editMarketer=")||!marketerUi.includes('method:editing?"PATCH":"POST"')||!marketerUi.includes("toggleMarketer"))throw new Error("Marketer workspace must support create, edit and activation controls");
 if(marketerApi.includes("postLedgerEntry")||marketerApi.includes("lendtech_repayments"))throw new Error("Marketer registry must not post money or bypass central ledger/repayment workflows");
+const crmPartyMigration=fs.readFileSync(path.join(root,"database/migrations/155_crm_customers_canonical_party.sql"),"utf8");
+if(!crmPartyMigration.includes("add column if not exists party_id uuid")||!crmPartyMigration.includes("foreign key(tenant_id,party_id)")||!crmPartyMigration.includes("crm_customers_canonical_party_idx"))throw new Error("Customer 360 canonical party migration is missing tenant-safe links");
+if(!marketerApi.includes("ensureCanonicalParty")||!marketerApi.includes("party_id,customer_no")||!marketerApi.includes('sourceSystem:"crm_customers"'))throw new Error("Customer 360 must create and expose the canonical party link");
+if(!marketerUi.includes("nationalId")||!marketerUi.includes("canonical_party_title"))throw new Error("Customer 360 must collect national identity and display its canonical party");
+if(!accountingOperations.includes('crm_customers:{table:"crm_customers"'))throw new Error("Customer 360 records must be available in the central registry reconciliation queue");
+
 const centralSettings=fs.readFileSync(path.join(root,"apps/api/src/central-settings.ts"),"utf8");
 const centralSettingsUi=fs.readFileSync(path.join(root,"apps/web/app/modules/CentralSettingsWorkspace.tsx"),"utf8");
 for(const key of ["mobile.latest_version","mobile.minimum_version","mobile.apk_url","mobile.support_phone","mobile.force_update","mobile.maintenance"])if(!centralSettings.includes('key:"'+key+'"'))throw new Error("Central mobile setting missing: "+key);
