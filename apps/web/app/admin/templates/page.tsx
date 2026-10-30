@@ -185,7 +185,29 @@ export default function Templates() {
           <div><h2 id="lending-templates-title" style={{ margin: "0 0 6px", fontSize: 22 }}>قالب‌های لندتک و اعتباردهی</h2><p style={{ margin: 0, color: "var(--muted-foreground, #64748b)", lineHeight: 1.8 }}>قالب مستقل صفحه اصلی خدمات وام، اعتبار و خرید اقساطی سوکار؛ بدون تغییر قالب فروشگاه و کاتالوگ محصولات.</p></div>
           <span style={{ fontSize: 13, color: "#087cf0", fontWeight: 800 }}>۱ قالب آماده پیش‌نمایش</span>
         </div>
-        <article style={{ ...cardStyle, borderColor: "#bfdbfe", background: "linear-gradient(135deg, #ffffff, #f1f7ff)" }}>
+        <article style={{ ...cardStyle, borderColor: "#bfdbfe", background: "linear-gradient(135deg, #ffffff, #f1f7ff)", padding: 14 }}>
+          <div style={{ overflow: "hidden", border: "1px solid #d8e8fb", borderRadius: 14, background: "#071f43" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", background: "#fff", color: "#17365e", fontSize: 11, fontWeight: 800 }}>
+              <span>سوکار <span style={{ color: "#1769e8" }}>●</span></span>
+              <span style={{ color: "#71839d" }}>طرح‌های اعتباری　 محاسبه‌گر　 راهنما</span>
+              <span style={{ padding: "5px 9px", borderRadius: 8, background: "#1769e8", color: "#fff" }}>ورود</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1.1fr .9fr", gap: 12, padding: "18px 16px", background: "radial-gradient(circle at 10% 20%,#1769e855,transparent 35%),linear-gradient(120deg,#061b39,#0b3568)", color: "#fff", minHeight: 155 }}>
+              <div>
+                <div style={{ color: "#a9eaff", fontSize: 9, marginBottom: 8 }}>راهکار هوشمند خرید اعتباری</div>
+                <div style={{ fontSize: 19, fontWeight: 900, lineHeight: 1.7 }}>امروز انتخاب کن،<br/><span style={{ color: "#54d8f2" }}>آسان و اقساطی</span> پرداخت کن.</div>
+                <div style={{ marginTop: 9, fontSize: 9, color: "#c8d9ef" }}>طرح‌های متنوع اعتبار و خرید اقساطی</div>
+              </div>
+              <div style={{ alignSelf: "center", padding: 12, borderRadius: 12, background: "#fff", color: "#17365e", boxShadow: "0 8px 25px #00132c55" }}>
+                <div style={{ fontSize: 10, fontWeight: 900 }}>برآورد درخواست اعتبار</div>
+                <div style={{ marginTop: 10, padding: 8, border: "1px solid #e5edf7", borderRadius: 7, fontSize: 9, color: "#71839d" }}>مبلغ موردنیاز　　۳۰,۰۰۰,۰۰۰ تومان</div>
+                <div style={{ marginTop: 8, padding: 8, borderRadius: 7, background: "#edf5ff", color: "#1769e8", fontSize: 9 }}>شرایط نهایی پس از انتخاب طرح</div>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, padding: 9, background: "#fff" }}>
+              {["لوازم خانگی","موبایل و تبلت","تجهیزات هوشمند","خودرو"].map((label) => <div key={label} style={{ textAlign: "center", padding: "8px 3px", borderRadius: 7, background: "#f1f6fc", color: "#345477", fontSize: 9, fontWeight: 800 }}>{label}</div>)}
+            </div>
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span aria-hidden="true" style={{ width: 12, height: 48, borderRadius: 8, background: "linear-gradient(180deg,#16a5ff,#0756c9)", flexShrink: 0 }} />
             <div><p style={{ margin: "0 0 3px", fontSize: 12, color: "#087cf0" }}>لندتک · وام · خرید اعتباری و اقساطی</p><h3 style={{ margin: 0, fontSize: 19 }}>سوکار | خرید آسان، اقساطی مطمئن</h3></div>
