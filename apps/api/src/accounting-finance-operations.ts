@@ -120,6 +120,22 @@ router.post("/api/accounting-finance/parties/:partyId/bank-accounts",requireAuth
  await audit(t.id,actor(req),"party_bank_account",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
 });
 
+
+router.patch("/api/accounting-finance/parties/:partyId/bank-accounts/:id/status",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const status=req.body?.status;
+ if(!["active","inactive","blocked"].includes(status))return deny(res,400,"وضعیت حساب بانکی نامعتبر است");
+ const id=idOf(req,"id"),partyId=idOf(req,"partyId"),client=await pool.connect();
+ try{
+  await client.query("begin");
+  const old=await client.query("select * from accounting_party_bank_accounts where id=$1 and party_id=$2 and tenant_id=$3 for update",[id,partyId,t.id]);
+  if(!old.rowCount){await client.query("rollback");return deny(res,404,"حساب بانکی طرف حساب پیدا نشد");}
+  const updated=await client.query("update accounting_party_bank_accounts set status=$1,updated_at=now() where id=$2 and party_id=$3 and tenant_id=$4 returning *",[status,id,partyId,t.id]);
+  await audit(t.id,actor(req),"party_bank_account",id,"status_change",old.rows[0],updated.rows[0],client);
+  await client.query("commit");res.json(updated.rows[0]);
+ }catch(error){await client.query("rollback");throw error}finally{client.release()}
+});
+
 router.patch("/api/accounting-finance/parties/:partyId/bank-accounts/:id/verification",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const status=req.body?.verificationStatus,note=String(req.body?.verificationNote||"").trim();
