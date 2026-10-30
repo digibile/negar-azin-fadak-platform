@@ -18,7 +18,7 @@
 | پشتیبان‌گیری SQL Server | endpoint تهیه و دانلود فایل `.bak` | PostgreSQL مرکزی و عملیات زیرساخت | API پشتیبان‌گیری SQL Server منتقل نمی‌شود؛ بکاپ PostgreSQL مسئولیت زیرساخت است و restore عمومی API ناامن است |
 
 
-تصمیم معماری مرجع واحد طرف‌حساب و حساب‌های بانکی ذی‌نفعان در سند جداگانه ثبت شده است: `docs/integration/PARTY-MASTER-DATA-ADR-2026-10-30.md`. این سند بر مبنای `accounting_parties` موجود است و فعلاً فقط تصمیم معماری است؛ هیچ schema یا داده‌ای را تغییر نداده است.
+تصمیم معماری مرجع واحد طرف‌حساب در `docs/integration/PARTY-MASTER-DATA-ADR-2026-10-30.md` ثبت شده و پیاده‌سازی اولیه آن در migration 150، API و UI شاخه PR #124 انجام شده است؛ هیچ backfill یا تغییر دیتابیس زنده انجام نشده است.
 
 ## پیاده‌سازی انجام‌شده در این شاخه
 
@@ -72,7 +72,7 @@
 
 ### تطبیق واقعی با مقصد
 - `accounting_parties` در migration 089 مرجع عمومی موجود است. Migration 150 جدول `accounting_party_bank_accounts` را برای حساب‌های بانکی بیرونی با FK مرکب tenant+party، یکتایی IBAN tenant-wide و وضعیت احراز ایجاد می‌کند.
-- APIهای `POST/PATCH /api/accounting-finance/counterparties`, `GET/POST /api/accounting-finance/parties/:partyId/bank-accounts` و `PATCH .../verification` در همان router حسابداری قرار دارند. UI هم در تب «طرف‌حساب‌ها و شبا»ی `AccountingFinanceWorkspace` است.
+- APIهای `POST/PATCH /api/accounting-finance/counterparties`, `GET/POST /api/accounting-finance/parties/:partyId/bank-accounts`, `PATCH .../verification` و `PATCH .../status` در همان router حسابداری قرار دارند. UI همان تب امکان افزودن چند شبا، تأیید/رد دستی و فعال‌سازی/غیرفعال‌سازی/مسدودسازی را دارد.
 - `accounting_bank_accounts` همچنان فقط حساب‌های خود سازمان است و نباید برای IBAN ذی‌نفع استفاده شود.
 - `purchase_suppliers` در migration 103 یک رجیستری مستقل تأمین‌کنندگان با نام، شناسه ملی، تلفن، ایمیل و شرایط پرداخت است؛ `supplier_id` در سفارش‌ها/فاکتورها به همین جدول وصل است، نه به `accounting_parties`.
 - `sales_partners` در migration 102 طرف‌های فروش با شناسه ملی، تلفن، ایمیل و سقف اعتبار است؛ این هم FK به `accounting_parties` ندارد.
@@ -115,7 +115,7 @@ Entity مبدأ `PurchaseOrder` شامل `TenantId`, `UserId`, `LoanId?`, `Code`
 - FK مرکب `(tenant_id,party_id)` مانع اتصال حساب بانکی به party متعلق به tenant دیگر می‌شود. یکتایی `(tenant_id,iban)` از ثبت شبا برای دو طرف متفاوت در یک tenant جلوگیری می‌کند. قید پایگاه داده قالب IR+24 رقم را کنترل می‌کند و API علاوه بر آن الگوریتم MOD-97 را اجرا می‌کند؛ کنترل ساختاری، مالکیت حساب را اثبات نمی‌کند.
 - API در همان `accountingFinanceOperationsRouter`: ایجاد/ویرایش طرف تسویه، فهرست و ثبت حساب بانکی، و ثبت نتیجه احراز دستی. شبا قبل از ثبت با قالب IR+24 رقم و MOD-97 بررسی می‌شود؛ این کنترل فقط صحت ساختاری است و مالکیت حساب را اثبات نمی‌کند.
 - تغییر شبا، حساب قبلی را حذف نمی‌کند؛ آن را غیرفعال می‌کند و حساب جدید را با وضعیت احراز pending می‌سازد. تأیید/رد حساب با کاربر بررسی‌کننده، زمان و دلیل در audit ثبت می‌شود.
-- UI در تب «طرف‌حساب‌ها و شبا»ی `AccountingFinanceWorkspace` اضافه شد. تأیید دستی در رابط به معنی تطبیق با بانک نیست؛ تا زمان اتصال سرویس استعلام مالکیت، وضعیت تأیید فقط اقدام اپراتور مجاز است.
+- UI در تب «طرف‌حساب‌ها و شبا»ی `AccountingFinanceWorkspace` اضافه شد؛ افزودن چند حساب، فعال/غیرفعال/مسدودسازی و تأیید/رد دستی در همان workspace انجام می‌شود. تأیید دستی در رابط به معنی تطبیق با بانک نیست؛ تا زمان اتصال سرویس استعلام مالکیت، وضعیت تأیید فقط اقدام اپراتور مجاز است.
 - داده‌های قدیمی `CounterParty` از SQL Server به‌صورت خودکار منتقل نشده‌اند؛ هنوز DB مبدأ و inventory فیزیکی کامل EF/SQL Server در repo قابل دسترس نیست. migration و backfill روی محیط زنده اجرا نشده است.
 
 
