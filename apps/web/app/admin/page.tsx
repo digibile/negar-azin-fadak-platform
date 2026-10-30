@@ -6,8 +6,6 @@ import {api} from "../../lib/api";
 
 type ModuleItem={id:number;code:string;title:string;core:string;lifecycle:string;record_count:number;route?:string|null;description?:string|null};
 type MenuNode={id:string|number;menu_key:string|null;parent_id:string|number|null;title:string;path:string;sort_order:number;permission:string|null;child_items?:MenuNode[]};
-const flattenMenuTitles=(nodes:MenuNode[]):string[]=>nodes.flatMap(node=>[node.title,...flattenMenuTitles(node.child_items||[])]);
-const menuHref=(path:string|undefined,parent:string,title:string)=>path&&path!=="#"?path:parent+(parent.includes("?")?"&":"?")+"menu="+encodeURIComponent(title);
 
 const PANEL_DESCRIPTIONS:Record<string,string>={
  "01-dashboard":"وضعیت کل سامانه، شاخص‌ها و فرمان‌های مدیریتی",
@@ -30,43 +28,15 @@ const PANEL_DESCRIPTIONS:Record<string,string>={
  "18-notifications":"پیامک، ایمیل، اعلان درون‌سامانه و صف ارسال",
  "19-documents-governance":"زونکن دیجیتال، OCR، گردش اسناد و ممیزی",
  "20-system-settings":"یکپارچه‌سازی، API، نگهداری و سلامت سامانه"
-};se client";
+};
 
-import Link from "next/link";
-import {useEffect,useMemo,useState} from "react";
-import {api} from "../../lib/api";
-
-type ModuleItem={id:number;code:string;title:string;core:string;lifecycle:string;record_count:number;route?:string|null;description?:string|null};
-type MenuNode={id:string|number;menu_key:string|null;parent_id:string|number|null;title:string;path:string;sort_order:number;permission:string|null;child_items?:MenuNode[]};
 const flattenMenuTitles=(nodes:MenuNode[]):string[]=>nodes.flatMap(node=>[node.title,...flattenMenuTitles(node.child_items||[])]);
 const menuHref=(path:string|undefined,parent:string,title:string)=>path&&path!=="#"?path:parent+(parent.includes("?")?"&":"?")+"menu="+encodeURIComponent(title);
 
-const PANEL_DESCRIPTIONS:Record<string,string>={
- management:"وضعیت کل سامانه، شاخص‌ها و فرمان‌های مدیریتی",
- organization:"هلدینگ، شرکت، شعب، واحدها و ساختار سازمانی",
- "users-access":"حساب‌ها، نقش‌ها، مجوزها و امنیت ورود",
- "customers-360":"پرونده یکپارچه مشتری، ارتباطات و خدمات",
- "smart-calendar":"تقویم سازمانی، تعطیلات و زمان‌بندی",
- "business-rules":"قواعد کسب‌وکار، گردش کار و اتوماسیون",
- sla:"سطح خدمت، تعهدات و پایش عملکرد",
- "accounting-finance":"حسابداری، خزانه، بودجه و کنترل مالی",
- commerce:"کالاها، فروشگاه‌ها، سفارش و زنجیره تأمین",
- domains:"دامنه‌های سازمانی، فروشگاهی و گواهی اتصال",
- acceptors:"پذیرندگان، قراردادها و تسویه",
- sellers:"فروشندگان، فروشگاه، کمیسیون و تسویه",
- "payments-settlement":"درگاه‌ها، پرداخت، بازپرداخت و دفترکل",
- "form-builder":"تعریف فرم، فیلد، اعتبارسنجی و انتشار",
- "menu-builder":"منوی مرکزی، ترتیب، جایگاه و مجوزها",
- "page-builder":"صفحه‌ها، بلوک‌ها، قالب و انتشار",
- "frontend-management":"قالب ظاهری، Header، Footer و ترجمه",
- notifications:"پیامک، ایمیل، اعلان درون‌سامانه و صف ارسال",
- "documents-governance":"زونکن دیجیتال، OCR، گردش اسناد و ممیزی",
- "system-settings":"یکپارچه‌سازی، API، نگهداری و سلامت سامانه"
-};
-
 export default function Admin(){
  const [me,setMe]=useState<any>(null);
- const [modules,setModules]=useState<ModuleItem[]>([]);\n const [menuItems,setMenuItems]=useState<MenuNode[]>([]);
+ const [modules,setModules]=useState<ModuleItem[]>([]);
+ const [menuItems,setMenuItems]=useState<MenuNode[]>([]);
  const [health,setHealth]=useState<{status?:string;database?:string}>({});
  const [error,setError]=useState("");
  const [loading,setLoading]=useState(true);
@@ -77,12 +47,15 @@ export default function Admin(){
    try{
     const [session,catalog,tree,h]=await Promise.allSettled([
      api<any>("/api/auth/me"),
-     api<any>("/api/platform/modules"),\n     api<any>("/api/dashboard/menu-tree?panel=admin"),
+     api<any>("/api/platform/modules"),
+     api<any>("/api/dashboard/menu-tree?panel=admin"),
      fetch("/health",{credentials:"include",cache:"no-store"}).then(x=>x.ok?x.json():{})
     ]);
     if(!alive)return;
     if(session.status==="fulfilled")setMe(session.value.user);
-    if(catalog.status==="fulfilled")setModules(catalog.value.items||[]);\n    if(tree.status==="fulfilled")setMenuItems(tree.value.items||[]);
+    if(catalog.status==="fulfilled")setModules(catalog.value.items||[]);
+    if(tree.status==="fulfilled")setMenuItems(tree.value.items||[]);
+    else setError("ساختار منوی مرکزی از سرویس دریافت نشد.");
     if(h.status==="fulfilled")setHealth(h.value);
     if(session.status==="rejected"&&catalog.status==="rejected")setError("نشست یا سرویس مرکزی در دسترس نیست.");
    }catch(e){
@@ -102,7 +75,8 @@ export default function Admin(){
   const needle=q.trim().toLocaleLowerCase("fa-IR");
   return menuItems.filter(panel=>{
    if(!needle)return true;
-   const hay=[panel.menu_key||"",panel.title,PANEL_DESCRIPTIONS[panel.menu_key||""]||"",...flattenMenuTitles(panel.child_items||[])].join(" ").toLocaleLowerCase("fa-IR");
+   const code=panel.menu_key||String(panel.id);
+   const hay=[code,panel.title,PANEL_DESCRIPTIONS[code]||"",...flattenMenuTitles(panel.child_items||[])].join(" ").toLocaleLowerCase("fa-IR");
    return hay.includes(needle);
   });
  },[menuItems,q]);
@@ -112,7 +86,7 @@ export default function Admin(){
    <div className="dashboard-hero-copy">
     <span className="hero-kicker">مرکز فرماندهی · نگار آذین فدک · نسخه ۲۰۲۶</span>
     <h1>مرکز مدیریت سازمان</h1>
-    <p>یک داشبورد واحد برای ۲۰ پنل اصلی سازمان. هر پنل از همان منوی مرکزی استفاده می‌کند تا ساختار قدیمی و مسیرهای موازی دوباره‌کاری نسازند.</p>
+    <p>یک داشبورد واحد برای ۲۰ پنل اصلی سازمان. ساختار پنل‌ها و زیرمنوها از منوی مرکزی سازمان دریافت می‌شود.</p>
     <div className="dashboard-identity"><span className="identity-dot"/><b>{me?.fullName||me?.email||"کاربر مدیریتی"}</b><span>فضای مدیریت</span></div>
     <nav className="dashboard-quick-actions" aria-label="دسترسی سریع">
      <Link href="/admin" className="dashboard-quick-action dashboard-quick-action-primary"><span aria-hidden="true">▦</span><span><b>پیشخوان مدیریت</b><small>بازگشت به داشبورد مرکزی</small></span><i aria-hidden="true">←</i></Link>
@@ -143,7 +117,7 @@ export default function Admin(){
   <section className="canonical-panel-grid">
    {panels.map(panel=>{
     const code=panel.menu_key||String(panel.id);
-    const number=code.match(/^\\d{2}/)?.[0]||String(panel.sort_order).padStart(2,"0");
+    const number=code.match(/^\d{2}/)?.[0]||String(panel.sort_order).padStart(2,"0");
     const route=menuHref(panel.path,"/admin",panel.title);
     const moduleCode=new URLSearchParams(route.split("?")[1]||"").get("code")||code;
     const module=moduleByCode.get(moduleCode);
@@ -161,7 +135,7 @@ export default function Admin(){
      <footer><span>{children.length.toLocaleString("fa-IR")} زیرمنو</span><Link href={route}>ورود به پنل <b>←</b></Link></footer>
     </article>;
    })}
-   {!panels.length&&<div className="dashboard-empty large">پنل یا زیرمنویی با این عبارت پیدا نشد.</div>}
+   {!panels.length&&<div className="dashboard-empty large">{loading?"در حال دریافت منوی مرکزی...":"پنل یا زیرمنویی با این عبارت پیدا نشد."}</div>}
   </section>
   {!loading&&modules.length===0&&<div className="dashboard-empty large">منوی مرکزی از API دریافت شد، اما کاتالوگ وضعیت ماژول‌ها در دسترس نیست. وضعیت سرویس مرکزی باید بررسی شود.</div>}
  </main>;
