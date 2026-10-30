@@ -135,7 +135,7 @@ if(!sidebar.includes("const canonical=useMemo(()=>menuItems.map(item=>")||!sideb
 const unroutedLegacy=expectedLegacyCodes.filter(code=>!declaredCodes.has(code));
 if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered in a real dispatcher branch/workspace: "+unroutedLegacy.join(", "));
 
-if(!sidebar.includes("normalize(item.child_items||[])")||!sidebar.includes("hasPath(child,pathname)"))throw new Error("Canonical sidebar must render recursive child routes from the backend menu tree");
+if(!sidebar.includes("normalize(item.child_items||[])")||!sidebar.includes("children.some(x=>hasPath(x,pathname))"))throw new Error("Canonical sidebar must render recursive child routes from the backend menu tree");
 if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.includes("...flattenTitles(node.child_items||[])"))throw new Error("Menu search must include all nested backend levels");
 
 const dynamicMenu=fs.readFileSync(path.join(root,"apps/api/src/dynamic-menu.ts"),"utf8");
