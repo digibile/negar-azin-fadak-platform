@@ -104,7 +104,7 @@ router.patch("/api/marketing/marketers/:id",requireAuth,marketingManage,requireC
  const duplicate=await query("select id from crm_marketers where tenant_id=$1 and phone=$2 and id<>$3",[t.id,phone,req.params.id]);
  if(duplicate.rowCount)return res.status(409).json({error:"این شماره موبایل قبلاً ثبت شده است"});
  const r=await query("update crm_marketers set name=$1,phone=$2,commission_rate=$3,status=$4,updated_at=now() where id=$5 and tenant_id=$6 returning id,name,phone,referral_code,commission_rate,status,created_at,updated_at",[name,phone,rate,status,req.params.id,t.id]);
- await auditMarketer(req,t,req.params.id,"update",old.rows[0],r.rows[0]);
+ await auditMarketer(req,t,String(req.params.id),"update",old.rows[0],r.rows[0]);
  res.json(r.rows[0]);
 });
 router.get("/api/marketing/marketers/audit",requireAuth,marketingRead,async(req,res)=>{
