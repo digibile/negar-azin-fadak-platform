@@ -146,8 +146,8 @@ lendtechRouter.post("/api/lendtech/applications/:id/score",requireAuth,requirePe
  const dti=Number(a.dti_percent),historyCount=Number(repayments.rows[0].count),lateCount=Number(delinquencies.rows[0].count);
  const scoring=calculateLendtechScore({dtiPercent:dti,repaymentCount:historyCount,openDelinquencyCount:lateCount,monthlyIncome:Number(a.monthly_income),kycStatus:a.kyc_status});
  const {score,band}=scoring;
- const r=await query(`insert into lendtech_scores(tenant_ref,application_id,score,band,inputs,created_by) values($1,$2,$3,$4,$5,$6) returning *`,
-  [t.id,a.id,score,band,JSON.stringify(scoring.inputs),actor(req)]);
+ const r=await query(`insert into lendtech_scores(tenant_ref,application_id,score,band,inputs,model_version,created_by) values($1,$2,$3,$4,$5,$6,$7) returning *`,
+  [t.id,a.id,score,band,JSON.stringify(scoring.inputs),"rules-v2",actor(req)]);
  await query("update lendtech_applications set status='scoring',updated_at=now() where id=$1 and tenant_ref=$2",[a.id,t.id]);
  res.status(201).json({applicationId:a.id,score:r.rows[0]});
 }));
