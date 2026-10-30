@@ -296,4 +296,16 @@ if(!accountingOperations.includes("accounting_finance_audit")||!accountingOperat
 if(!accountingWorkspace.includes('["parties","طرف‌حساب‌ها و شبا"]')||!accountingWorkspace.includes("/api/accounting-finance/counterparties")||!accountingWorkspace.includes("partyBankAccounts")||!accountingWorkspace.includes("تأیید دستی"))throw new Error("Canonical accounting workspace must expose counterparties and manual bank verification");
 if(!accountingOperations.includes('requirePermission("accounting-finance.read")'))throw new Error("Party and bank account reads must require accounting read permission");
 
+
+const verificationFoundation=fs.readFileSync(path.join(root,"database/migrations/112_verification_and_insurance_foundation.sql"),"utf8");
+const lendtechInquiryUi=fs.readFileSync(path.join(root,"apps/web/app/admin/lendtech/page.tsx"),"utf8");
+for(const route of [
+ 'lendtechRouter.get("/api/lendtech/inquiry-requests"',
+ 'lendtechRouter.post("/api/lendtech/inquiry-requests"',
+ 'lendtechRouter.post("/api/lendtech/inquiry-requests/:id/result"'
+])if(!lendtech.includes(route))throw new Error("Central manual inquiry route missing: "+route);
+if(!verificationFoundation.includes("create table if not exists platform_verification_requests")||!lendtech.includes("provider_code='manual-review'")||!lendtech.includes("status='needs_review'"))throw new Error("VamCity inquiry intake must reuse the canonical verification queue");
+if(!lendtech.includes("kycUpdated:false,creditDecisionUpdated:false")||!lendtech.includes("manual_result_recorded"))throw new Error("Manual inquiry results must not silently verify KYC or alter credit decisions");
+if(!lendtechInquiryUi.includes("/api/lendtech/inquiry-requests?status=needs_review")||!lendtechInquiryUi.includes("ثبت نتیجه بررسی دستی")&&!lendtechInquiryUi.includes("ثبت نتیجه"))throw new Error("LendTech admin must expose the canonical manual inquiry queue");
+
 console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
