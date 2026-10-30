@@ -1,4 +1,4 @@
--- 158: connect lending applications to the canonical party registry.
+-- 159: connect lending applications to the canonical party registry.
 -- Existing customer_ref values remain the operational reference and are not rewritten.
 -- The tenant UUID is stored alongside the legacy text tenant_ref so the FK can enforce tenant isolation.
 begin;

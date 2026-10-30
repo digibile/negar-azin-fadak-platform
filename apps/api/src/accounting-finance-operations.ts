@@ -296,8 +296,8 @@ router.post("/api/accounting-finance/party-links/:registry/:id",requireAuth,requ
    [registryId,t.id]
   );
   if(!source.rowCount){await c.query("rollback");return deny(res,404,"رکورد دفتر عملیاتی پیدا نشد")}
-  const party=await c.query("select id,title,national_id,status from accounting_parties where id=$1 and tenant_id=$2 for update",[partyId,t.id]);
-  if(!party.rowCount){await c.query("rollback");return deny(res,404,"طرف‌حساب مرکزی در همین سازمان پیدا نشد")}
+  const party=await c.query("select id,title,national_id,status from accounting_parties where id=$1 and tenant_id=$2 and status='active' for update",[partyId,t.id]);
+  if(!party.rowCount){await c.query("rollback");return deny(res,404,"طرف‌حساب مرکزی فعال در همین سازمان پیدا نشد")}
   if(source.rows[0].party_id&&source.rows[0].party_id!==partyId){await c.query("rollback");return deny(res,409,"این رکورد قبلاً به طرف‌حساب دیگری متصل شده است")}
   if(method==="national_id"){
    const sourceCode=normalizeNationalId(source.rows[0].national_id);
