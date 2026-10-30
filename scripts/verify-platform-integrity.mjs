@@ -297,7 +297,8 @@ const treasuryMutations=treasuryBankApi.split("\n").filter(line=>line.includes('
 if(treasuryMutations.length!==10||treasuryMutations.some(line=>!line.includes("requireCsrf")))throw new Error("Every treasury mutation route must enforce CSRF protection");
 if(!treasuryBankUi.includes("CanonicalPartyReference"))throw new Error("Treasury receipts and payments must use the shared canonical party reference UI");
 const treasuryChecksOwnershipMigration=fs.readFileSync(path.join(root,"database/migrations/160_treasury_checks_tenant_ownership.sql"),"utf8");
-for(const marker of ["foreign key(tenant_id,bank_account_id)","references public.treasury_bank_accounts(tenant_id,id)","foreign key(tenant_id,check_id)","references public.treasury_checks(tenant_id,id)","not valid"])if(!treasuryChecksOwnershipMigration.includes(marker))throw new Error("Treasury check tenant ownership migration is incomplete");
+if(!treasuryChecksMigration.includes("foreign key(tenant_id,bank_account_id)")||!treasuryChecksMigration.includes("treasury_checks_own_bank_tenant_fk"))throw new Error("Treasury check source bank must be tenant-owned in migration 158");
+for(const marker of ["foreign key(tenant_id,check_id)","references public.treasury_checks(tenant_id,id)","not valid"])if(!treasuryChecksOwnershipMigration.includes(marker))throw new Error("Treasury check event tenant ownership migration is incomplete");
 if(!treasuryChecksApi.includes("select id from treasury_bank_accounts where id=$1 and tenant_id=$2 and status='active' for update")||!treasuryChecksApi.includes("select * from treasury_checks where id=$1 and tenant_id=$2 for update")||!treasuryChecksApi.includes("Number.isFinite(Number(b.amount))"))throw new Error("Treasury check mutations must validate tenant-owned bank accounts and lock status transitions transactionally");
 
 const verificationFoundation=fs.readFileSync(path.join(root,"database/migrations/112_verification_and_insurance_foundation.sql"),"utf8");

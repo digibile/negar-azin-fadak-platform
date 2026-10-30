@@ -2,12 +2,6 @@
 -- NOT VALID preserves historical rows while enforcing every new insert or update.
 begin;
 
-alter table public.treasury_checks
-  add constraint treasury_checks_own_bank_tenant_fk
-  foreign key(tenant_id,bank_account_id)
-  references public.treasury_bank_accounts(tenant_id,id)
-  on delete restrict not valid;
-
 alter table public.treasury_check_events
   add constraint treasury_check_events_tenant_check_fk
   foreign key(tenant_id,check_id)
