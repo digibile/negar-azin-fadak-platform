@@ -31,7 +31,7 @@ router.get("/api/accounting-finance/operations-overview",requireAuth,requirePerm
  res.json({parties:parties.rows,banks:banks.rows,partyBankAccounts:partyBankAccounts.rows,cashboxes:cash.rows,checks:checks.rows,receivablesPayables:rp.rows,assets:assets.rows,budgets:budgets.rows,commitments:commitments.rows,reconciliations:recs.rows});
 });
 
-router.post("/api/accounting-finance/parties",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.post("/api/accounting-finance/parties",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const b=req.body||{};
  if(typeof b.partyCode!=="string"||!b.partyCode.trim()||typeof b.title!=="string"||!b.title.trim())return deny(res,400,"کد و عنوان طرف حساب الزامی است");
@@ -118,7 +118,7 @@ router.patch("/api/accounting-finance/counterparties/:id",requireAuth,requirePer
  }catch(e:any){await c.query("rollback");if(e?.statusCode)return deny(res,e.statusCode,e.message);throw e}finally{c.release()}
 });
 
-router.patch("/api/accounting-finance/parties/:id",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.patch("/api/accounting-finance/parties/:id",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const b=req.body||{},id=idOf(req,"id");
  if(typeof b.title!=="string"||!b.title.trim())return deny(res,400,"عنوان طرف حساب الزامی است");
@@ -175,14 +175,14 @@ router.patch("/api/accounting-finance/parties/:partyId/bank-accounts/:id/verific
  await audit(t.id,actor(req),"party_bank_account",id,"verification",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 
-router.post("/api/accounting-finance/banks",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.post("/api/accounting-finance/banks",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};
  if(typeof b.code!=="string"||typeof b.bankName!=="string")return deny(res,400,"کد و نام بانک الزامی است");
  const r=await query("insert into accounting_bank_accounts(tenant_id,code,bank_name,branch_name,account_no,iban,card_no,currency,ledger_account_id,opening_balance,current_balance) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10) returning *",[t.id,b.code.trim(),b.bankName.trim(),b.branchName||null,b.accountNo||null,b.iban||null,b.cardNo||null,b.currency||"IRR",b.ledgerAccountId||null,Number(b.openingBalance)||0]);
  await audit(t.id,actor(req),"bank_account",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
 });
 
-router.post("/api/accounting-finance/cashboxes",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.post("/api/accounting-finance/cashboxes",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};
  if(typeof b.code!=="string"||typeof b.title!=="string")return deny(res,400,"کد و عنوان صندوق الزامی است");
  const opening=Number(b.openingBalance)||0;
@@ -190,7 +190,7 @@ router.post("/api/accounting-finance/cashboxes",requireAuth,requirePermission("a
  await audit(t.id,actor(req),"cashbox",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
 });
 
-router.post("/api/accounting-finance/receivables-payables",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.post("/api/accounting-finance/receivables-payables",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};
  if(!b.partyId||!["receivable","payable"].includes(b.direction)||!date(b.issueDate)||!(Number(b.originalAmount)>0))return deny(res,400,"اطلاعات دریافتنی/پرداختنی نامعتبر است");
  const party=await query("select id from accounting_parties where id=$1 and tenant_id=$2",[b.partyId,t.id]);if(!party.rowCount)return deny(res,404,"طرف حساب پیدا نشد");
@@ -198,14 +198,14 @@ router.post("/api/accounting-finance/receivables-payables",requireAuth,requirePe
  await audit(t.id,actor(req),"receivable_payable",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
 });
 
-router.post("/api/accounting-finance/checks",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.post("/api/accounting-finance/checks",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};
  if(typeof b.checkNo!=="string"||!["received","issued"].includes(b.direction)||!(Number(b.amount)>0))return deny(res,400,"اطلاعات چک نامعتبر است");
  const r=await query("insert into accounting_checks(tenant_id,party_id,rp_id,check_no,direction,bank_name,branch_name,issue_date,due_date,amount,status,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning *",[t.id,b.partyId||null,b.rpId||null,b.checkNo.trim(),b.direction,b.bankName||null,b.branchName||null,b.issueDate||null,b.dueDate||null,Number(b.amount),b.direction==="received"?"in_hand":"issued",b.notes||"",actor(req)]);
  await audit(t.id,actor(req),"check",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
 });
 
-router.patch("/api/accounting-finance/checks/:id/status",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.patch("/api/accounting-finance/checks/:id/status",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const s=req.body?.status;
  if(!["in_hand","deposited","cleared","returned","endorsed","cancelled","issued","paid"].includes(s))return deny(res,400,"وضعیت چک نامعتبر است");
  const old=await query("select * from accounting_checks where id=$1 and tenant_id=$2",[idOf(req,"id"),t.id]);if(!old.rowCount)return deny(res,404,"چک پیدا نشد");
@@ -213,7 +213,7 @@ router.patch("/api/accounting-finance/checks/:id/status",requireAuth,requirePerm
  await audit(t.id,actor(req),"check",idOf(req,"id"),"status",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 
-router.post("/api/accounting-finance/assets",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.post("/api/accounting-finance/assets",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};
  if(typeof b.assetCode!=="string"||typeof b.title!=="string"||!date(b.acquisitionDate)||!(Number(b.acquisitionCost)>=0)||!(Number(b.usefulLifeMonths)>0))return deny(res,400,"اطلاعات دارایی ثابت نامعتبر است");
  const cost=Number(b.acquisitionCost),residual=Number(b.residualValue)||0;
@@ -222,28 +222,28 @@ router.post("/api/accounting-finance/assets",requireAuth,requirePermission("acco
  await audit(t.id,actor(req),"asset",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
 });
 
-router.post("/api/accounting-finance/budgets",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.post("/api/accounting-finance/budgets",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};
  if(typeof b.code!=="string"||typeof b.title!=="string")return deny(res,400,"کد و عنوان بودجه الزامی است");
  const r=await query("insert into accounting_budgets(tenant_id,fiscal_period_id,code,title,dimension_type,dimension_id,planned_amount,created_by) values($1,$2,$3,$4,$5,$6,$7,$8) returning *",[t.id,b.fiscalPeriodId||null,b.code.trim(),b.title.trim(),b.dimensionType||"cost_center",b.dimensionId||null,Number(b.plannedAmount)||0,actor(req)]);
  await audit(t.id,actor(req),"budget",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
 });
 
-router.post("/api/accounting-finance/commitments",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.post("/api/accounting-finance/commitments",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};
  if(!["purchase","sale","payment","receipt","contract","loan"].includes(b.commitmentType)||!(Number(b.amount)>=0))return deny(res,400,"تعهد مالی نامعتبر است");
  const r=await query("insert into accounting_commitments(tenant_id,party_id,commitment_type,reference_no,due_date,amount,source_module,source_id,description,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",[t.id,b.partyId||null,b.commitmentType,b.referenceNo||null,b.dueDate||null,Number(b.amount),b.sourceModule||"manual",b.sourceId||null,b.description||"",actor(req)]);
  await audit(t.id,actor(req),"commitment",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
 });
 
-router.post("/api/accounting-finance/bank-reconciliations",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.post("/api/accounting-finance/bank-reconciliations",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};
  if(!b.bankAccountId||!date(b.statementDate))return deny(res,400,"اطلاعات مغایرت بانکی نامعتبر است");
  const r=await query("insert into accounting_bank_reconciliations(tenant_id,bank_account_id,statement_date,statement_balance,book_balance,status) values($1,$2,$3,$4,$5,'draft') returning *",[t.id,b.bankAccountId,b.statementDate,Number(b.statementBalance)||0,Number(b.bookBalance)||0]);
  await audit(t.id,actor(req),"bank_reconciliation",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
 });
 
-router.patch("/api/accounting-finance/bank-reconciliations/:id/status",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.patch("/api/accounting-finance/bank-reconciliations/:id/status",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const s=req.body?.status;
  if(!["draft","in_review","reconciled","approved"].includes(s))return deny(res,400,"وضعیت مغایرت نامعتبر است");
  const old=await query("select * from accounting_bank_reconciliations where id=$1 and tenant_id=$2",[idOf(req,"id"),t.id]);if(!old.rowCount)return deny(res,404,"مغایرت پیدا نشد");
