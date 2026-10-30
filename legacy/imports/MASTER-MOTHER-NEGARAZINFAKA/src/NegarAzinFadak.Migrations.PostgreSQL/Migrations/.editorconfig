@@ -1,0 +1,10 @@
+# EF Core emits migrations with block-scoped namespaces and its own layout, and rewrites them on every
+# `migrations add`. They are tooling output rather than hand-edited source, so the repository's
+# hand-authored style rules are switched off for this folder instead of being fought on every run.
+root = false
+
+[*.cs]
+generated_code = true
+csharp_style_namespace_declarations = file_scoped:none
+dotnet_analyzer_diagnostic.IDE0161.severity = none
+dotnet_analyzer_diagnostic.IDE0055.severity = none

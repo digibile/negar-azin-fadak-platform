@@ -1,0 +1,1486 @@
+{
+  "base": "http://127.0.0.1:5000",
+  "captured": {
+    "ping": {
+      "status": 200,
+      "correlationId": "99d80dcfd6774b8696c48d72e8073ef8",
+      "contentType": "application/json; charset=utf-8",
+      "body": {
+        "status": "ok",
+        "version": 1
+      },
+      "raw": "{\"status\":\"ok\",\"version\":1}"
+    },
+    "healthLive": {
+      "status": 200,
+      "correlationId": "28539167098a4df7bd055922fc2451da",
+      "contentType": "text/plain",
+      "body": "Healthy",
+      "raw": "Healthy"
+    },
+    "healthReady": {
+      "status": 200,
+      "correlationId": "cd8bd4f862cc43f58a6ea14c7276dc6d",
+      "contentType": "text/plain",
+      "body": "Healthy",
+      "raw": "Healthy"
+    },
+    "meAnonymous": {
+      "status": 401,
+      "correlationId": "3f3edaa60afb424d9e443dc22d46aa87",
+      "contentType": "application/problem+json",
+      "body": {
+        "type": "https://tools.ietf.org/html/rfc9110#section-15.5.2",
+        "title": "Unauthorized",
+        "status": 401,
+        "traceId": "00-4d3187ec0239f53174a5f08e3d271a83-fca1a922ccec6c08-00"
+      },
+      "raw": "{\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.2\",\"title\":\"Unauthorized\",\"status\":401,\"traceId\":\"00-4d3187ec0239f53174a5f08e3d271a83-fca1a922ccec6c08-00\"}"
+    },
+    "mePermissionsAnonymous": {
+      "status": 401,
+      "correlationId": "d69d7a49c140445aa2ce0054ada50bcc",
+      "contentType": "application/problem+json",
+      "body": {
+        "type": "https://tools.ietf.org/html/rfc9110#section-15.5.2",
+        "title": "Unauthorized",
+        "status": 401,
+        "traceId": "00-553f24922dd1600fee556a8b0948a760-6c7473ffcbbdaa8c-00"
+      },
+      "raw": "{\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.2\",\"title\":\"Unauthorized\",\"status\":401,\"traceId\":\"00-553f24922dd1600fee556a8b0948a760-6c7473ffcbbdaa8c-00\"}"
+    },
+    "rolesAnonymous": {
+      "status": 401,
+      "correlationId": "f66943bd00754fb6a0eac9445f49228c",
+      "contentType": "application/problem+json",
+      "body": {
+        "type": "https://tools.ietf.org/html/rfc9110#section-15.5.2",
+        "title": "Unauthorized",
+        "status": 401,
+        "traceId": "00-538172a24550bd61b7fce275a9c86322-dd776b542ed91124-00"
+      },
+      "raw": "{\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.2\",\"title\":\"Unauthorized\",\"status\":401,\"traceId\":\"00-538172a24550bd61b7fce275a9c86322-dd776b542ed91124-00\"}"
+    },
+    "unitsCompanyAnonymous": {
+      "status": 401,
+      "correlationId": "e5c4a373a73e4912b2a6f311fb4fb9a2",
+      "contentType": "application/problem+json",
+      "body": {
+        "type": "https://tools.ietf.org/html/rfc9110#section-15.5.2",
+        "title": "Unauthorized",
+        "status": 401,
+        "traceId": "00-d7ca2723ab8a97e8ba5940a15a00ce62-963a8e2442078769-00"
+      },
+      "raw": "{\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.2\",\"title\":\"Unauthorized\",\"status\":401,\"traceId\":\"00-d7ca2723ab8a97e8ba5940a15a00ce62-963a8e2442078769-00\"}"
+    },
+    "unitsStoreAnonymous": {
+      "status": 401,
+      "correlationId": "febd4bee650a47d9bfb17546e7c0ebc3",
+      "contentType": "application/problem+json",
+      "body": {
+        "type": "https://tools.ietf.org/html/rfc9110#section-15.5.2",
+        "title": "Unauthorized",
+        "status": 401,
+        "traceId": "00-7e8ceeaba04f268c466054076cf8c01d-056168883ebd9d56-00"
+      },
+      "raw": "{\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.2\",\"title\":\"Unauthorized\",\"status\":401,\"traceId\":\"00-7e8ceeaba04f268c466054076cf8c01d-056168883ebd9d56-00\"}"
+    },
+    "permissionsAnonymous": {
+      "status": 401,
+      "correlationId": "defee10981a940e59c2884605d329f42",
+      "contentType": "application/problem+json",
+      "body": {
+        "type": "https://tools.ietf.org/html/rfc9110#section-15.5.2",
+        "title": "Unauthorized",
+        "status": 401,
+        "traceId": "00-98231cda1b57eb4507db72f10b59c1c0-a694bc698b81264a-00"
+      },
+      "raw": "{\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.2\",\"title\":\"Unauthorized\",\"status\":401,\"traceId\":\"00-98231cda1b57eb4507db72f10b59c1c0-a694bc698b81264a-00\"}"
+    },
+    "tenantConfigurationAnonymous": {
+      "status": 401,
+      "correlationId": "fe849ee362834a2999e5d23c986e1782",
+      "contentType": "application/problem+json",
+      "body": {
+        "type": "https://tools.ietf.org/html/rfc9110#section-15.5.2",
+        "title": "Unauthorized",
+        "status": 401,
+        "traceId": "00-e0f54bac80907513690c991ecc4b32e3-cf5f55b0ccc1277c-00"
+      },
+      "raw": "{\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.2\",\"title\":\"Unauthorized\",\"status\":401,\"traceId\":\"00-e0f54bac80907513690c991ecc4b32e3-cf5f55b0ccc1277c-00\"}"
+    },
+    "auditAnonymous": {
+      "status": 401,
+      "correlationId": "134a47e8312b414ea5dbd183ebcf8100",
+      "contentType": "application/problem+json",
+      "body": {
+        "type": "https://tools.ietf.org/html/rfc9110#section-15.5.2",
+        "title": "Unauthorized",
+        "status": 401,
+        "traceId": "00-dfe24e6b7751e77474d3e7b6f98c174a-95d05f787477e3d9-00"
+      },
+      "raw": "{\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.2\",\"title\":\"Unauthorized\",\"status\":401,\"traceId\":\"00-dfe24e6b7751e77474d3e7b6f98c174a-95d05f787477e3d9-00\"}"
+    },
+    "openapi": {
+      "status": 200,
+      "correlationId": "0aea7d30a01b4fe4af606ef5cd123189",
+      "contentType": "application/json;charset=utf-8",
+      "body": {
+        "openapi": "3.1.1",
+        "info": {
+          "title": "NegarAzinFadak.Api | v1",
+          "version": "1.0.0"
+        },
+        "servers": [
+          {
+            "url": "http://127.0.0.1:5000/"
+          }
+        ],
+        "paths": {
+          "/": {
+            "get": {
+              "tags": [
+                "NegarAzinFadak.Api"
+              ],
+              "responses": {
+                "200": {
+                  "description": "OK"
+                }
+              }
+            }
+          },
+          "/api/v1/ping": {
+            "get": {
+              "tags": [
+                "NegarAzinFadak.Api"
+              ],
+              "responses": {
+                "200": {
+                  "description": "OK"
+                }
+              }
+            }
+          },
+          "/api/v1/me": {
+            "get": {
+              "tags": [
+                "Principal"
+              ],
+              "operationId": "GetCurrentPrincipal",
+              "responses": {
+                "200": {
+                  "description": "OK"
+                }
+              }
+            }
+          },
+          "/api/v1/me/permissions": {
+            "get": {
+              "tags": [
+                "Principal"
+              ],
+              "operationId": "ListCurrentPrincipalPermissions",
+              "responses": {
+                "200": {
+                  "description": "OK"
+                }
+              }
+            }
+          },
+          "/api/v1/audit": {
+            "get": {
+              "tags": [
+                "NegarAzinFadak.Api"
+              ],
+              "operationId": "QueryAuditTrail",
+              "parameters": [
+                {
+                  "name": "Page",
+                  "in": "query",
+                  "schema": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "format": "int32"
+                  }
+                },
+                {
+                  "name": "PageSize",
+                  "in": "query",
+                  "schema": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "format": "int32"
+                  }
+                },
+                {
+                  "name": "Action",
+                  "in": "query",
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "name": "ResourceType",
+                  "in": "query",
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "name": "ResourceId",
+                  "in": "query",
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "name": "ActorUserId",
+                  "in": "query",
+                  "schema": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "name": "From",
+                  "in": "query",
+                  "schema": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                {
+                  "name": "To",
+                  "in": "query",
+                  "schema": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "OK"
+                }
+              }
+            }
+          },
+          "/api/v1/tenants": {
+            "post": {
+              "tags": [
+                "Tenants"
+              ],
+              "operationId": "ProvisionTenant",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/ProvisionTenantRequest"
+                    }
+                  }
+                },
+                "required": true
+              },
+              "responses": {
+                "200": {
+                  "description": "OK",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/ResultOfProvisionedTenant"
+                      }
+                    }
+                  }
+                },
+                "201": {
+                  "description": "Created",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/ProvisionTenantResponse"
+                      }
+                    }
+                  }
+                },
+                "400": {
+                  "description": "Bad Request",
+                  "content": {
+                    "application/problem+json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/ProblemDetails"
+                      }
+                    }
+                  }
+                },
+                "409": {
+                  "description": "Conflict",
+                  "content": {
+                    "application/problem+json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/ProblemDetails"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/v1/tenants/lifecycle/activate": {
+            "post": {
+              "tags": [
+                "Tenants"
+              ],
+              "operationId": "ActivateTenant",
+              "responses": {
+                "204": {
+                  "description": "No Content"
+                },
+                "422": {
+                  "description": "Unprocessable Entity",
+                  "content": {
+                    "application/problem+json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/ProblemDetails"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/v1/tenants/lifecycle/suspend": {
+            "post": {
+              "tags": [
+                "Tenants"
+              ],
+              "operationId": "SuspendTenant",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/TenantLifecycleRequest"
+                    }
+                  }
+                },
+                "required": true
+              },
+              "responses": {
+                "204": {
+                  "description": "No Content"
+                },
+                "400": {
+                  "description": "Bad Request",
+                  "content": {
+                    "application/problem+json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/ProblemDetails"
+                      }
+                    }
+                  }
+                },
+                "422": {
+                  "description": "Unprocessable Entity",
+                  "content": {
+                    "application/problem+json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/ProblemDetails"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/v1/tenants/lifecycle/close": {
+            "post": {
+              "tags": [
+                "Tenants"
+              ],
+              "operationId": "CloseTenant",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/TenantLifecycleRequest"
+                    }
+                  }
+                },
+                "required": true
+              },
+              "responses": {
+                "204": {
+                  "description": "No Content"
+                },
+                "422": {
+                  "description": "Unprocessable Entity",
+                  "content": {
+                    "application/problem+json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/ProblemDetails"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/v1/tenants/lifecycle/{level}/{unitId}/activate": {
+            "post": {
+              "tags": [
+                "Tenants"
+              ],
+              "operationId": "ActivateOrganizationalUnit",
+              "parameters": [
+                {
+                  "name": "level",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "name": "unitId",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              ],
+              "responses": {
+                "204": {
+                  "description": "No Content"
+                }
+              }
+            }
+          },
+          "/api/v1/tenants/lifecycle/{level}/{unitId}/suspend": {
+            "post": {
+              "tags": [
+                "Tenants"
+              ],
+              "operationId": "SuspendOrganizationalUnit",
+              "parameters": [
+                {
+                  "name": "level",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "name": "unitId",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              ],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/TenantLifecycleRequest"
+                    }
+                  }
+                },
+                "required": true
+              },
+              "responses": {
+                "204": {
+                  "description": "No Content"
+                },
+                "400": {
+                  "description": "Bad Request",
+                  "content": {
+                    "application/problem+json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/ProblemDetails"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/v1/organization/units/{level}": {
+            "get": {
+              "tags": [
+                "Organization"
+              ],
+              "operationId": "ListOrganizationalUnits",
+              "parameters": [
+                {
+                  "name": "level",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "name": "Page",
+                  "in": "query",
+                  "schema": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "format": "int32"
+                  }
+                },
+                {
+                  "name": "PageSize",
+                  "in": "query",
+                  "schema": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "format": "int32"
+                  }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "OK"
+                }
+              }
+            },
+            "post": {
+              "tags": [
+                "Organization"
+              ],
+              "operationId": "CreateOrganizationalUnit",
+              "parameters": [
+                {
+                  "name": "level",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/OrganizationalUnitRequest"
+                    }
+                  }
+                },
+                "required": true
+              },
+              "responses": {
+                "201": {
+                  "description": "Created",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/OrganizationalUnitResponse"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/v1/organization/units/{level}/{unitId}": {
+            "put": {
+              "tags": [
+                "Organization"
+              ],
+              "operationId": "RenameOrganizationalUnit",
+              "parameters": [
+                {
+                  "name": "level",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "name": "unitId",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              ],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/OrganizationalUnitRequest"
+                    }
+                  }
+                },
+                "required": true
+              },
+              "responses": {
+                "204": {
+                  "description": "No Content"
+                }
+              }
+            }
+          },
+          "/api/v1/roles": {
+            "get": {
+              "tags": [
+                "Roles"
+              ],
+              "operationId": "ListRoles",
+              "parameters": [
+                {
+                  "name": "Page",
+                  "in": "query",
+                  "schema": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "format": "int32"
+                  }
+                },
+                {
+                  "name": "PageSize",
+                  "in": "query",
+                  "schema": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "format": "int32"
+                  }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "OK"
+                }
+              }
+            },
+            "post": {
+              "tags": [
+                "Roles"
+              ],
+              "operationId": "DefineRole",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/RoleRequest"
+                    }
+                  }
+                },
+                "required": true
+              },
+              "responses": {
+                "201": {
+                  "description": "Created",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/RoleResponse"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/v1/roles/{roleId}": {
+            "put": {
+              "tags": [
+                "Roles"
+              ],
+              "operationId": "RenameRole",
+              "parameters": [
+                {
+                  "name": "roleId",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              ],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/RoleRequest"
+                    }
+                  }
+                },
+                "required": true
+              },
+              "responses": {
+                "204": {
+                  "description": "No Content"
+                }
+              }
+            }
+          },
+          "/api/v1/roles/{roleId}/permissions": {
+            "post": {
+              "tags": [
+                "Roles"
+              ],
+              "operationId": "GrantRolePermission",
+              "parameters": [
+                {
+                  "name": "roleId",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              ],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/PermissionGrantRequest"
+                    }
+                  }
+                },
+                "required": true
+              },
+              "responses": {
+                "204": {
+                  "description": "No Content"
+                },
+                "404": {
+                  "description": "Not Found",
+                  "content": {
+                    "application/problem+json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/ProblemDetails"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/v1/roles/{roleId}/permissions/{permissionCode}": {
+            "delete": {
+              "tags": [
+                "Roles"
+              ],
+              "operationId": "RevokeRolePermission",
+              "parameters": [
+                {
+                  "name": "roleId",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "name": "permissionCode",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "responses": {
+                "204": {
+                  "description": "No Content"
+                }
+              }
+            }
+          },
+          "/api/v1/roles/{roleId}/retire": {
+            "post": {
+              "tags": [
+                "Roles"
+              ],
+              "operationId": "RetireRole",
+              "parameters": [
+                {
+                  "name": "roleId",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              ],
+              "responses": {
+                "204": {
+                  "description": "No Content"
+                }
+              }
+            }
+          },
+          "/api/v1/roles/{roleId}/activate": {
+            "post": {
+              "tags": [
+                "Roles"
+              ],
+              "operationId": "ActivateRole",
+              "parameters": [
+                {
+                  "name": "roleId",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              ],
+              "responses": {
+                "204": {
+                  "description": "No Content"
+                }
+              }
+            }
+          },
+          "/api/v1/permissions": {
+            "get": {
+              "tags": [
+                "Permissions"
+              ],
+              "operationId": "ListPermissions",
+              "parameters": [
+                {
+                  "name": "Page",
+                  "in": "query",
+                  "schema": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "format": "int32"
+                  }
+                },
+                {
+                  "name": "PageSize",
+                  "in": "query",
+                  "schema": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "format": "int32"
+                  }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "OK"
+                }
+              }
+            }
+          },
+          "/api/v1/permissions/publish": {
+            "post": {
+              "tags": [
+                "Permissions"
+              ],
+              "operationId": "PublishPermissionCatalog",
+              "responses": {
+                "200": {
+                  "description": "OK"
+                },
+                "400": {
+                  "description": "Bad Request",
+                  "content": {
+                    "application/problem+json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/ProblemDetails"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/v1/tenant/configuration": {
+            "get": {
+              "tags": [
+                "Tenant configuration"
+              ],
+              "operationId": "DescribeTenantConfiguration",
+              "responses": {
+                "200": {
+                  "description": "OK"
+                }
+              }
+            }
+          },
+          "/api/v1/tenant/configuration/settings/{code}": {
+            "put": {
+              "tags": [
+                "Tenant configuration"
+              ],
+              "operationId": "SetTenantSetting",
+              "parameters": [
+                {
+                  "name": "code",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/TenantSettingRequest"
+                    }
+                  }
+                },
+                "required": true
+              },
+              "responses": {
+                "204": {
+                  "description": "No Content"
+                },
+                "400": {
+                  "description": "Bad Request",
+                  "content": {
+                    "application/problem+json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/ProblemDetails"
+                      }
+                    }
+                  }
+                },
+                "409": {
+                  "description": "Conflict",
+                  "content": {
+                    "application/problem+json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/ProblemDetails"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "delete": {
+              "tags": [
+                "Tenant configuration"
+              ],
+              "operationId": "RemoveTenantSetting",
+              "parameters": [
+                {
+                  "name": "code",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "responses": {
+                "204": {
+                  "description": "No Content"
+                }
+              }
+            }
+          }
+        },
+        "components": {
+          "schemas": {
+            "Error": {
+              "required": [
+                "code",
+                "type"
+              ],
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "type": {
+                  "$ref": "#/components/schemas/ErrorType"
+                },
+                "description": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              }
+            },
+            "ErrorType": {
+              "type": "integer"
+            },
+            "OrganizationalUnitRequest": {
+              "required": [
+                "code",
+                "name",
+                "legalName"
+              ],
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "legalName": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              }
+            },
+            "OrganizationalUnitResponse": {
+              "required": [
+                "id",
+                "code",
+                "name",
+                "legalName",
+                "status",
+                "isActive",
+                "isRetail"
+              ],
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "legalName": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "isActive": {
+                  "type": "boolean"
+                },
+                "isRetail": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                }
+              }
+            },
+            "PermissionGrantRequest": {
+              "required": [
+                "permissionCode"
+              ],
+              "type": "object",
+              "properties": {
+                "permissionCode": {
+                  "type": "string"
+                }
+              }
+            },
+            "ProblemDetails": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "title": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "status": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)$",
+                  "type": [
+                    "null",
+                    "integer",
+                    "string"
+                  ],
+                  "format": "int32"
+                },
+                "detail": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "instance": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              }
+            },
+            "ProvisionedTenant": {
+              "required": [
+                "scope",
+                "configurationId",
+                "roleIds",
+                "isActive"
+              ],
+              "type": "object",
+              "properties": {
+                "scope": {
+                  "$ref": "#/components/schemas/TenantScope"
+                },
+                "configurationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "roleIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "isActive": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "ProvisionTenantRequest": {
+              "required": [
+                "code",
+                "name",
+                "legalName",
+                "currencyCode",
+                "economicCode",
+                "nationalRegistrationNumber"
+              ],
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "legalName": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "currencyCode": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "economicCode": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "nationalRegistrationNumber": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              }
+            },
+            "ProvisionTenantResponse": {
+              "required": [
+                "organizationId",
+                "configurationId",
+                "roleIds",
+                "isActive"
+              ],
+              "type": "object",
+              "properties": {
+                "organizationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "configurationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "roleIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "isActive": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "ResultOfProvisionedTenant": {
+              "type": "object",
+              "properties": {
+                "isSuccess": {
+                  "type": "boolean"
+                },
+                "isFailure": {
+                  "type": "boolean"
+                },
+                "errors": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                },
+                "isSingleFailure": {
+                  "type": "boolean"
+                },
+                "firstError": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "value": {
+                  "$ref": "#/components/schemas/ProvisionedTenant"
+                }
+              }
+            },
+            "RoleRequest": {
+              "required": [
+                "code",
+                "name",
+                "description"
+              ],
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              }
+            },
+            "RoleResponse": {
+              "required": [
+                "id",
+                "code",
+                "name",
+                "description",
+                "status",
+                "isActive",
+                "isBuiltIn",
+                "permissions"
+              ],
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "status": {
+                  "type": "string"
+                },
+                "isActive": {
+                  "type": "boolean"
+                },
+                "isBuiltIn": {
+                  "type": "boolean"
+                },
+                "permissions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "TenantLifecycleRequest": {
+              "required": [
+                "reason"
+              ],
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              }
+            },
+            "TenantScope": {
+              "required": [
+                "organizationId"
+              ],
+              "type": "object",
+              "properties": {
+                "organizationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "companyId": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "brandId": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "branchId": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "storeId": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "isEmpty": {
+                  "type": "boolean"
+                },
+                "hasCompany": {
+                  "type": "boolean"
+                },
+                "hasStore": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "TenantSettingRequest": {
+              "required": [
+                "value",
+                "kind",
+                "isSensitive",
+                "rangeMinimum",
+                "rangeMaximum"
+              ],
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "isSensitive": {
+                  "type": "boolean"
+                },
+                "rangeMinimum": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                  "type": [
+                    "null",
+                    "number",
+                    "string"
+                  ],
+                  "format": "double"
+                },
+                "rangeMaximum": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+                  "type": [
+                    "null",
+                    "number",
+                    "string"
+                  ],
+                  "format": "double"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          {
+            "name": "NegarAzinFadak.Api"
+          },
+          {
+            "name": "Principal"
+          },
+          {
+            "name": "Tenants"
+          },
+          {
+            "name": "Organization"
+          },
+          {
+            "name": "Roles"
+          },
+          {
+            "name": "Permissions"
+          },
+          {
+            "name": "Tenant configuration"
+          }
+        ]
+      },
+      "raw": "{\n  \"openapi\": \"3.1.1\",\n  \"info\": {\n    \"title\": \"NegarAzinFadak.Api | v1\",\n    \"version\": \"1.0.0\"\n  },\n  \"servers\": [\n    {\n      \"url\": \"http://127.0.0.1:5000/\"\n    }\n  ],\n  \"paths\": {\n    \"/\": {\n      \"get\": {\n        \"tags\": [\n          \"NegarAzinFadak.Api\"\n        ],\n        \"responses\": {\n          \"200\": {\n            \"description\": \"OK\"\n          }\n        }\n      }\n    },\n    \"/api/v1/ping\": {\n      \"get\": {\n        \"tags\": [\n          \"NegarAzinFadak.Api\"\n        ],\n        \"responses\": {\n          \"200\": {\n            \"description\": \"OK\"\n          }\n        }\n      }\n    },\n    \"/api/v1/me\": {\n      \"get\": {\n        \"tags\": [\n          \"Principal\"\n        ],\n        \"operationId\": \"GetCurrentPrincipal\",\n        \"responses\": {\n          \"200\": {\n            \"description\": \"OK\"\n          }\n        }\n      }\n    },\n    \"/api/v1/me/permissions\": {\n      \"get\": {\n        \"tags\": [\n          \"Principal\"\n        ],\n        \"operationId\": \"ListCurrentPrincipalPermissions\",\n        \"responses\": {\n          \"200\": {\n            \"description\": \"OK\"\n          }\n        }\n      }\n    },\n    \"/api/v1/audit\": {\n      \"get\": {\n        \"tags\": [\n          \"NegarAzinFadak.Api\"\n        ],\n        \"operationId\": \"QueryAuditTrail\",\n        \"parameters\": [\n          {\n            \"name\": \"Page\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"pattern\": \"^-?(?:0|[1-9]\\\\d*)$\",\n              \"type\": [\n                \"integer\",\n                \"string\"\n              ],\n              \"format\": \"int32\"\n            }\n          },\n          {\n            \"name\": \"PageSize\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"pattern\": \"^-?(?:0|[1-9]\\\\d*)$\",\n              \"type\": [\n                \"integer\",\n                \"string\"\n              ],\n              \"format\": \"int32\"\n            }\n          },\n          {\n            \"name\": \"Action\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"type\": \"string\"\n            }\n          },\n          {\n            \"name\": \"ResourceType\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"type\": \"string\"\n            }\n          },\n          {\n            \"name\": \"ResourceId\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"type\": \"string\"\n            }\n          },\n          {\n            \"name\": \"ActorUserId\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"type\": \"string\",\n              \"format\": \"uuid\"\n            }\n          },\n          {\n            \"name\": \"From\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"type\": \"string\",\n              \"format\": \"date-time\"\n            }\n          },\n          {\n            \"name\": \"To\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"type\": \"string\",\n              \"format\": \"date-time\"\n            }\n          }\n        ],\n        \"responses\": {\n          \"200\": {\n            \"description\": \"OK\"\n          }\n        }\n      }\n    },\n    \"/api/v1/tenants\": {\n      \"post\": {\n        \"tags\": [\n          \"Tenants\"\n        ],\n        \"operationId\": \"ProvisionTenant\",\n        \"requestBody\": {\n          \"content\": {\n            \"application/json\": {\n              \"schema\": {\n                \"$ref\": \"#/components/schemas/ProvisionTenantRequest\"\n              }\n            }\n          },\n          \"required\": true\n        },\n        \"responses\": {\n          \"200\": {\n            \"description\": \"OK\",\n            \"content\": {\n              \"application/json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/ResultOfProvisionedTenant\"\n                }\n              }\n            }\n          },\n          \"201\": {\n            \"description\": \"Created\",\n            \"content\": {\n              \"application/json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/ProvisionTenantResponse\"\n                }\n              }\n            }\n          },\n          \"400\": {\n            \"description\": \"Bad Request\",\n            \"content\": {\n              \"application/problem+json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/ProblemDetails\"\n                }\n              }\n            }\n          },\n          \"409\": {\n            \"description\": \"Conflict\",\n            \"content\": {\n              \"application/problem+json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/ProblemDetails\"\n                }\n              }\n            }\n          }\n        }\n      }\n    },\n    \"/api/v1/tenants/lifecycle/activate\": {\n      \"post\": {\n        \"tags\": [\n          \"Tenants\"\n        ],\n        \"operationId\": \"ActivateTenant\",\n        \"responses\": {\n          \"204\": {\n            \"description\": \"No Content\"\n          },\n          \"422\": {\n            \"description\": \"Unprocessable Entity\",\n            \"content\": {\n              \"application/problem+json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/ProblemDetails\"\n                }\n              }\n            }\n          }\n        }\n      }\n    },\n    \"/api/v1/tenants/lifecycle/suspend\": {\n      \"post\": {\n        \"tags\": [\n          \"Tenants\"\n        ],\n        \"operationId\": \"SuspendTenant\",\n        \"requestBody\": {\n          \"content\": {\n            \"application/json\": {\n              \"schema\": {\n                \"$ref\": \"#/components/schemas/TenantLifecycleRequest\"\n              }\n            }\n          },\n          \"required\": true\n        },\n        \"responses\": {\n          \"204\": {\n            \"description\": \"No Content\"\n          },\n          \"400\": {\n            \"description\": \"Bad Request\",\n            \"content\": {\n              \"application/problem+json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/ProblemDetails\"\n                }\n              }\n            }\n          },\n          \"422\": {\n            \"description\": \"Unprocessable Entity\",\n            \"content\": {\n              \"application/problem+json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/ProblemDetails\"\n                }\n              }\n            }\n          }\n        }\n      }\n    },\n    \"/api/v1/tenants/lifecycle/close\": {\n      \"post\": {\n        \"tags\": [\n          \"Tenants\"\n        ],\n        \"operationId\": \"CloseTenant\",\n        \"requestBody\": {\n          \"content\": {\n            \"application/json\": {\n              \"schema\": {\n                \"$ref\": \"#/components/schemas/TenantLifecycleRequest\"\n              }\n            }\n          },\n          \"required\": true\n        },\n        \"responses\": {\n          \"204\": {\n            \"description\": \"No Content\"\n          },\n          \"422\": {\n            \"description\": \"Unprocessable Entity\",\n            \"content\": {\n              \"application/problem+json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/ProblemDetails\"\n                }\n              }\n            }\n          }\n        }\n      }\n    },\n    \"/api/v1/tenants/lifecycle/{level}/{unitId}/activate\": {\n      \"post\": {\n        \"tags\": [\n          \"Tenants\"\n        ],\n        \"operationId\": \"ActivateOrganizationalUnit\",\n        \"parameters\": [\n          {\n            \"name\": \"level\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\"\n            }\n          },\n          {\n            \"name\": \"unitId\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\",\n              \"format\": \"uuid\"\n            }\n          }\n        ],\n        \"responses\": {\n          \"204\": {\n            \"description\": \"No Content\"\n          }\n        }\n      }\n    },\n    \"/api/v1/tenants/lifecycle/{level}/{unitId}/suspend\": {\n      \"post\": {\n        \"tags\": [\n          \"Tenants\"\n        ],\n        \"operationId\": \"SuspendOrganizationalUnit\",\n        \"parameters\": [\n          {\n            \"name\": \"level\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\"\n            }\n          },\n          {\n            \"name\": \"unitId\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\",\n              \"format\": \"uuid\"\n            }\n          }\n        ],\n        \"requestBody\": {\n          \"content\": {\n            \"application/json\": {\n              \"schema\": {\n                \"$ref\": \"#/components/schemas/TenantLifecycleRequest\"\n              }\n            }\n          },\n          \"required\": true\n        },\n        \"responses\": {\n          \"204\": {\n            \"description\": \"No Content\"\n          },\n          \"400\": {\n            \"description\": \"Bad Request\",\n            \"content\": {\n              \"application/problem+json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/ProblemDetails\"\n                }\n              }\n            }\n          }\n        }\n      }\n    },\n    \"/api/v1/organization/units/{level}\": {\n      \"get\": {\n        \"tags\": [\n          \"Organization\"\n        ],\n        \"operationId\": \"ListOrganizationalUnits\",\n        \"parameters\": [\n          {\n            \"name\": \"level\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\"\n            }\n          },\n          {\n            \"name\": \"Page\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"pattern\": \"^-?(?:0|[1-9]\\\\d*)$\",\n              \"type\": [\n                \"integer\",\n                \"string\"\n              ],\n              \"format\": \"int32\"\n            }\n          },\n          {\n            \"name\": \"PageSize\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"pattern\": \"^-?(?:0|[1-9]\\\\d*)$\",\n              \"type\": [\n                \"integer\",\n                \"string\"\n              ],\n              \"format\": \"int32\"\n            }\n          }\n        ],\n        \"responses\": {\n          \"200\": {\n            \"description\": \"OK\"\n          }\n        }\n      },\n      \"post\": {\n        \"tags\": [\n          \"Organization\"\n        ],\n        \"operationId\": \"CreateOrganizationalUnit\",\n        \"parameters\": [\n          {\n            \"name\": \"level\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\"\n            }\n          }\n        ],\n        \"requestBody\": {\n          \"content\": {\n            \"application/json\": {\n              \"schema\": {\n                \"$ref\": \"#/components/schemas/OrganizationalUnitRequest\"\n              }\n            }\n          },\n          \"required\": true\n        },\n        \"responses\": {\n          \"201\": {\n            \"description\": \"Created\",\n            \"content\": {\n              \"application/json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/OrganizationalUnitResponse\"\n                }\n              }\n            }\n          }\n        }\n      }\n    },\n    \"/api/v1/organization/units/{level}/{unitId}\": {\n      \"put\": {\n        \"tags\": [\n          \"Organization\"\n        ],\n        \"operationId\": \"RenameOrganizationalUnit\",\n        \"parameters\": [\n          {\n            \"name\": \"level\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\"\n            }\n          },\n          {\n            \"name\": \"unitId\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\",\n              \"format\": \"uuid\"\n            }\n          }\n        ],\n        \"requestBody\": {\n          \"content\": {\n            \"application/json\": {\n              \"schema\": {\n                \"$ref\": \"#/components/schemas/OrganizationalUnitRequest\"\n              }\n            }\n          },\n          \"required\": true\n        },\n        \"responses\": {\n          \"204\": {\n            \"description\": \"No Content\"\n          }\n        }\n      }\n    },\n    \"/api/v1/roles\": {\n      \"get\": {\n        \"tags\": [\n          \"Roles\"\n        ],\n        \"operationId\": \"ListRoles\",\n        \"parameters\": [\n          {\n            \"name\": \"Page\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"pattern\": \"^-?(?:0|[1-9]\\\\d*)$\",\n              \"type\": [\n                \"integer\",\n                \"string\"\n              ],\n              \"format\": \"int32\"\n            }\n          },\n          {\n            \"name\": \"PageSize\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"pattern\": \"^-?(?:0|[1-9]\\\\d*)$\",\n              \"type\": [\n                \"integer\",\n                \"string\"\n              ],\n              \"format\": \"int32\"\n            }\n          }\n        ],\n        \"responses\": {\n          \"200\": {\n            \"description\": \"OK\"\n          }\n        }\n      },\n      \"post\": {\n        \"tags\": [\n          \"Roles\"\n        ],\n        \"operationId\": \"DefineRole\",\n        \"requestBody\": {\n          \"content\": {\n            \"application/json\": {\n              \"schema\": {\n                \"$ref\": \"#/components/schemas/RoleRequest\"\n              }\n            }\n          },\n          \"required\": true\n        },\n        \"responses\": {\n          \"201\": {\n            \"description\": \"Created\",\n            \"content\": {\n              \"application/json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/RoleResponse\"\n                }\n              }\n            }\n          }\n        }\n      }\n    },\n    \"/api/v1/roles/{roleId}\": {\n      \"put\": {\n        \"tags\": [\n          \"Roles\"\n        ],\n        \"operationId\": \"RenameRole\",\n        \"parameters\": [\n          {\n            \"name\": \"roleId\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\",\n              \"format\": \"uuid\"\n            }\n          }\n        ],\n        \"requestBody\": {\n          \"content\": {\n            \"application/json\": {\n              \"schema\": {\n                \"$ref\": \"#/components/schemas/RoleRequest\"\n              }\n            }\n          },\n          \"required\": true\n        },\n        \"responses\": {\n          \"204\": {\n            \"description\": \"No Content\"\n          }\n        }\n      }\n    },\n    \"/api/v1/roles/{roleId}/permissions\": {\n      \"post\": {\n        \"tags\": [\n          \"Roles\"\n        ],\n        \"operationId\": \"GrantRolePermission\",\n        \"parameters\": [\n          {\n            \"name\": \"roleId\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\",\n              \"format\": \"uuid\"\n            }\n          }\n        ],\n        \"requestBody\": {\n          \"content\": {\n            \"application/json\": {\n              \"schema\": {\n                \"$ref\": \"#/components/schemas/PermissionGrantRequest\"\n              }\n            }\n          },\n          \"required\": true\n        },\n        \"responses\": {\n          \"204\": {\n            \"description\": \"No Content\"\n          },\n          \"404\": {\n            \"description\": \"Not Found\",\n            \"content\": {\n              \"application/problem+json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/ProblemDetails\"\n                }\n              }\n            }\n          }\n        }\n      }\n    },\n    \"/api/v1/roles/{roleId}/permissions/{permissionCode}\": {\n      \"delete\": {\n        \"tags\": [\n          \"Roles\"\n        ],\n        \"operationId\": \"RevokeRolePermission\",\n        \"parameters\": [\n          {\n            \"name\": \"roleId\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\",\n              \"format\": \"uuid\"\n            }\n          },\n          {\n            \"name\": \"permissionCode\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\"\n            }\n          }\n        ],\n        \"responses\": {\n          \"204\": {\n            \"description\": \"No Content\"\n          }\n        }\n      }\n    },\n    \"/api/v1/roles/{roleId}/retire\": {\n      \"post\": {\n        \"tags\": [\n          \"Roles\"\n        ],\n        \"operationId\": \"RetireRole\",\n        \"parameters\": [\n          {\n            \"name\": \"roleId\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\",\n              \"format\": \"uuid\"\n            }\n          }\n        ],\n        \"responses\": {\n          \"204\": {\n            \"description\": \"No Content\"\n          }\n        }\n      }\n    },\n    \"/api/v1/roles/{roleId}/activate\": {\n      \"post\": {\n        \"tags\": [\n          \"Roles\"\n        ],\n        \"operationId\": \"ActivateRole\",\n        \"parameters\": [\n          {\n            \"name\": \"roleId\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\",\n              \"format\": \"uuid\"\n            }\n          }\n        ],\n        \"responses\": {\n          \"204\": {\n            \"description\": \"No Content\"\n          }\n        }\n      }\n    },\n    \"/api/v1/permissions\": {\n      \"get\": {\n        \"tags\": [\n          \"Permissions\"\n        ],\n        \"operationId\": \"ListPermissions\",\n        \"parameters\": [\n          {\n            \"name\": \"Page\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"pattern\": \"^-?(?:0|[1-9]\\\\d*)$\",\n              \"type\": [\n                \"integer\",\n                \"string\"\n              ],\n              \"format\": \"int32\"\n            }\n          },\n          {\n            \"name\": \"PageSize\",\n            \"in\": \"query\",\n            \"schema\": {\n              \"pattern\": \"^-?(?:0|[1-9]\\\\d*)$\",\n              \"type\": [\n                \"integer\",\n                \"string\"\n              ],\n              \"format\": \"int32\"\n            }\n          }\n        ],\n        \"responses\": {\n          \"200\": {\n            \"description\": \"OK\"\n          }\n        }\n      }\n    },\n    \"/api/v1/permissions/publish\": {\n      \"post\": {\n        \"tags\": [\n          \"Permissions\"\n        ],\n        \"operationId\": \"PublishPermissionCatalog\",\n        \"responses\": {\n          \"200\": {\n            \"description\": \"OK\"\n          },\n          \"400\": {\n            \"description\": \"Bad Request\",\n            \"content\": {\n              \"application/problem+json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/ProblemDetails\"\n                }\n              }\n            }\n          }\n        }\n      }\n    },\n    \"/api/v1/tenant/configuration\": {\n      \"get\": {\n        \"tags\": [\n          \"Tenant configuration\"\n        ],\n        \"operationId\": \"DescribeTenantConfiguration\",\n        \"responses\": {\n          \"200\": {\n            \"description\": \"OK\"\n          }\n        }\n      }\n    },\n    \"/api/v1/tenant/configuration/settings/{code}\": {\n      \"put\": {\n        \"tags\": [\n          \"Tenant configuration\"\n        ],\n        \"operationId\": \"SetTenantSetting\",\n        \"parameters\": [\n          {\n            \"name\": \"code\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\"\n            }\n          }\n        ],\n        \"requestBody\": {\n          \"content\": {\n            \"application/json\": {\n              \"schema\": {\n                \"$ref\": \"#/components/schemas/TenantSettingRequest\"\n              }\n            }\n          },\n          \"required\": true\n        },\n        \"responses\": {\n          \"204\": {\n            \"description\": \"No Content\"\n          },\n          \"400\": {\n            \"description\": \"Bad Request\",\n            \"content\": {\n              \"application/problem+json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/ProblemDetails\"\n                }\n              }\n            }\n          },\n          \"409\": {\n            \"description\": \"Conflict\",\n            \"content\": {\n              \"application/problem+json\": {\n                \"schema\": {\n                  \"$ref\": \"#/components/schemas/ProblemDetails\"\n                }\n              }\n            }\n          }\n        }\n      },\n      \"delete\": {\n        \"tags\": [\n          \"Tenant configuration\"\n        ],\n        \"operationId\": \"RemoveTenantSetting\",\n        \"parameters\": [\n          {\n            \"name\": \"code\",\n            \"in\": \"path\",\n            \"required\": true,\n            \"schema\": {\n              \"type\": \"string\"\n            }\n          }\n        ],\n        \"responses\": {\n          \"204\": {\n            \"description\": \"No Content\"\n          }\n        }\n      }\n    }\n  },\n  \"components\": {\n    \"schemas\": {\n      \"Error\": {\n        \"required\": [\n          \"code\",\n          \"type\"\n        ],\n        \"type\": \"object\",\n        \"properties\": {\n          \"code\": {\n            \"type\": \"string\"\n          },\n          \"type\": {\n            \"$ref\": \"#/components/schemas/ErrorType\"\n          },\n          \"description\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          }\n        }\n      },\n      \"ErrorType\": {\n        \"type\": \"integer\"\n      },\n      \"OrganizationalUnitRequest\": {\n        \"required\": [\n          \"code\",\n          \"name\",\n          \"legalName\"\n        ],\n        \"type\": \"object\",\n        \"properties\": {\n          \"code\": {\n            \"type\": \"string\"\n          },\n          \"name\": {\n            \"type\": \"string\"\n          },\n          \"legalName\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          }\n        }\n      },\n      \"OrganizationalUnitResponse\": {\n        \"required\": [\n          \"id\",\n          \"code\",\n          \"name\",\n          \"legalName\",\n          \"status\",\n          \"isActive\",\n          \"isRetail\"\n        ],\n        \"type\": \"object\",\n        \"properties\": {\n          \"id\": {\n            \"type\": \"string\",\n            \"format\": \"uuid\"\n          },\n          \"code\": {\n            \"type\": \"string\"\n          },\n          \"name\": {\n            \"type\": \"string\"\n          },\n          \"legalName\": {\n            \"type\": \"string\"\n          },\n          \"status\": {\n            \"type\": \"string\"\n          },\n          \"isActive\": {\n            \"type\": \"boolean\"\n          },\n          \"isRetail\": {\n            \"type\": [\n              \"null\",\n              \"boolean\"\n            ]\n          }\n        }\n      },\n      \"PermissionGrantRequest\": {\n        \"required\": [\n          \"permissionCode\"\n        ],\n        \"type\": \"object\",\n        \"properties\": {\n          \"permissionCode\": {\n            \"type\": \"string\"\n          }\n        }\n      },\n      \"ProblemDetails\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"type\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          },\n          \"title\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          },\n          \"status\": {\n            \"pattern\": \"^-?(?:0|[1-9]\\\\d*)$\",\n            \"type\": [\n              \"null\",\n              \"integer\",\n              \"string\"\n            ],\n            \"format\": \"int32\"\n          },\n          \"detail\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          },\n          \"instance\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          }\n        }\n      },\n      \"ProvisionedTenant\": {\n        \"required\": [\n          \"scope\",\n          \"configurationId\",\n          \"roleIds\",\n          \"isActive\"\n        ],\n        \"type\": \"object\",\n        \"properties\": {\n          \"scope\": {\n            \"$ref\": \"#/components/schemas/TenantScope\"\n          },\n          \"configurationId\": {\n            \"type\": \"string\",\n            \"format\": \"uuid\"\n          },\n          \"roleIds\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\",\n              \"format\": \"uuid\"\n            }\n          },\n          \"isActive\": {\n            \"type\": \"boolean\"\n          }\n        }\n      },\n      \"ProvisionTenantRequest\": {\n        \"required\": [\n          \"code\",\n          \"name\",\n          \"legalName\",\n          \"currencyCode\",\n          \"economicCode\",\n          \"nationalRegistrationNumber\"\n        ],\n        \"type\": \"object\",\n        \"properties\": {\n          \"code\": {\n            \"type\": \"string\"\n          },\n          \"name\": {\n            \"type\": \"string\"\n          },\n          \"legalName\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          },\n          \"currencyCode\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          },\n          \"economicCode\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          },\n          \"nationalRegistrationNumber\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          }\n        }\n      },\n      \"ProvisionTenantResponse\": {\n        \"required\": [\n          \"organizationId\",\n          \"configurationId\",\n          \"roleIds\",\n          \"isActive\"\n        ],\n        \"type\": \"object\",\n        \"properties\": {\n          \"organizationId\": {\n            \"type\": \"string\",\n            \"format\": \"uuid\"\n          },\n          \"configurationId\": {\n            \"type\": \"string\",\n            \"format\": \"uuid\"\n          },\n          \"roleIds\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\",\n              \"format\": \"uuid\"\n            }\n          },\n          \"isActive\": {\n            \"type\": \"boolean\"\n          }\n        }\n      },\n      \"ResultOfProvisionedTenant\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"isSuccess\": {\n            \"type\": \"boolean\"\n          },\n          \"isFailure\": {\n            \"type\": \"boolean\"\n          },\n          \"errors\": {\n            \"type\": [\n              \"null\",\n              \"array\"\n            ],\n            \"items\": {\n              \"$ref\": \"#/components/schemas/Error\"\n            }\n          },\n          \"isSingleFailure\": {\n            \"type\": \"boolean\"\n          },\n          \"firstError\": {\n            \"$ref\": \"#/components/schemas/Error\"\n          },\n          \"value\": {\n            \"$ref\": \"#/components/schemas/ProvisionedTenant\"\n          }\n        }\n      },\n      \"RoleRequest\": {\n        \"required\": [\n          \"code\",\n          \"name\",\n          \"description\"\n        ],\n        \"type\": \"object\",\n        \"properties\": {\n          \"code\": {\n            \"type\": \"string\"\n          },\n          \"name\": {\n            \"type\": \"string\"\n          },\n          \"description\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          }\n        }\n      },\n      \"RoleResponse\": {\n        \"required\": [\n          \"id\",\n          \"code\",\n          \"name\",\n          \"description\",\n          \"status\",\n          \"isActive\",\n          \"isBuiltIn\",\n          \"permissions\"\n        ],\n        \"type\": \"object\",\n        \"properties\": {\n          \"id\": {\n            \"type\": \"string\",\n            \"format\": \"uuid\"\n          },\n          \"code\": {\n            \"type\": \"string\"\n          },\n          \"name\": {\n            \"type\": \"string\"\n          },\n          \"description\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          },\n          \"status\": {\n            \"type\": \"string\"\n          },\n          \"isActive\": {\n            \"type\": \"boolean\"\n          },\n          \"isBuiltIn\": {\n            \"type\": \"boolean\"\n          },\n          \"permissions\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\"\n            }\n          }\n        }\n      },\n      \"TenantLifecycleRequest\": {\n        \"required\": [\n          \"reason\"\n        ],\n        \"type\": \"object\",\n        \"properties\": {\n          \"reason\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          }\n        }\n      },\n      \"TenantScope\": {\n        \"required\": [\n          \"organizationId\"\n        ],\n        \"type\": \"object\",\n        \"properties\": {\n          \"organizationId\": {\n            \"type\": \"string\",\n            \"format\": \"uuid\"\n          },\n          \"companyId\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ],\n            \"format\": \"uuid\"\n          },\n          \"brandId\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ],\n            \"format\": \"uuid\"\n          },\n          \"branchId\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ],\n            \"format\": \"uuid\"\n          },\n          \"storeId\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ],\n            \"format\": \"uuid\"\n          },\n          \"isEmpty\": {\n            \"type\": \"boolean\"\n          },\n          \"hasCompany\": {\n            \"type\": \"boolean\"\n          },\n          \"hasStore\": {\n            \"type\": \"boolean\"\n          }\n        }\n      },\n      \"TenantSettingRequest\": {\n        \"required\": [\n          \"value\",\n          \"kind\",\n          \"isSensitive\",\n          \"rangeMinimum\",\n          \"rangeMaximum\"\n        ],\n        \"type\": \"object\",\n        \"properties\": {\n          \"value\": {\n            \"type\": [\n              \"null\",\n              \"string\"\n            ]\n          },\n          \"kind\": {\n            \"type\": \"string\"\n          },\n          \"isSensitive\": {\n            \"type\": \"boolean\"\n          },\n          \"rangeMinimum\": {\n            \"pattern\": \"^-?(?:0|[1-9]\\\\d*)(?:\\\\.\\\\d+)?$\",\n            \"type\": [\n              \"null\",\n              \"number\",\n              \"string\"\n            ],\n            \"format\": \"double\"\n          },\n          \"rangeMaximum\": {\n            \"pattern\": \"^-?(?:0|[1-9]\\\\d*)(?:\\\\.\\\\d+)?$\",\n            \"type\": [\n              \"null\",\n              \"number\",\n              \"string\"\n            ],\n            \"format\": \"double\"\n          }\n        }\n      }\n    }\n  },\n  \"tags\": [\n    {\n      \"name\": \"NegarAzinFadak.Api\"\n    },\n    {\n      \"name\": \"Principal\"\n    },\n    {\n      \"name\": \"Tenants\"\n    },\n    {\n      \"name\": \"Organization\"\n    },\n    {\n      \"name\": \"Roles\"\n    },\n    {\n      \"name\": \"Permissions\"\n    },\n    {\n      \"name\": \"Tenant configuration\"\n    }\n  ]\n}"
+    }
+  }
+}

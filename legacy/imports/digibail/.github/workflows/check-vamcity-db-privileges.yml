@@ -1,0 +1,43 @@
+name: Verify privileged MariaDB access for VamCity migration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/check-vamcity-db-privileges.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read-only MariaDB privilege check
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            echo "=== SSH USER ==="
+            id
+            echo "=== DEFAULT MYSQL GRANTS ==="
+            mysql --batch --skip-column-names -e "SELECT USER(),CURRENT_USER(); SHOW GRANTS;" 2>&1 | head -n 20 || true
+            echo "=== SUDO MYSQL ACCESS ==="
+            if sudo -n mysql --batch --skip-column-names -e "SELECT USER(),CURRENT_USER(); SHOW GRANTS;" >/tmp/vamcity-mysql-grants.txt 2>/dev/null; then
+              sed -n '1,20p' /tmp/vamcity-mysql-grants.txt
+              rm -f /tmp/vamcity-mysql-grants.txt
+              echo "SUDO_MYSQL_ACCESS=AVAILABLE"
+            else
+              echo "SUDO_MYSQL_ACCESS=UNAVAILABLE"
+            fi
+            echo "=== PHP SOCKET ACCESS AS DEPLOY USER ==="
+            php -r '$m=@new mysqli("localhost","root",""); if($m->connect_errno){echo "PHP_ROOT_SOCKET=DENIED\n";}else{echo "PHP_ROOT_SOCKET=AVAILABLE\n";$m->close();}'
+            echo "=== SUDO PHP SOCKET ACCESS ==="
+            if sudo -n php -r '$m=@new mysqli("localhost","root",""); if($m->connect_errno){exit(2);} $m->close();' 2>/dev/null; then echo "SUDO_PHP_ROOT_SOCKET=AVAILABLE"; else echo "SUDO_PHP_ROOT_SOCKET=UNAVAILABLE"; fi
+            echo "PRIVILEGE_CHECK_COMPLETE=1"

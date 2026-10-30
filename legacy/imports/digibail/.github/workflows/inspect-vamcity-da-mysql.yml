@@ -1,0 +1,62 @@
+name: Inspect DirectAdmin MySQL administration route
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/inspect-vamcity-da-mysql.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check DirectAdmin credentials file and VamCity connection names without exposing secrets
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; else D='docker'; fi
+            IMAGE="$($D inspect vamcity-stage-sql --format '{{.Config.Image}}')"
+            echo "=== DIRECTADMIN MYSQL CONFIG METADATA ==="
+            $D run --rm --user 0:0 --entrypoint /bin/sh -v /:/host:ro "$IMAGE" -c '
+              for f in /host/usr/local/directadmin/conf/mysql.conf /host/usr/local/directadmin/conf/mysql.conf.d; do
+                if [ -f "$f" ]; then
+                  echo "CONFIG_FILE_PRESENT=$f"
+                  sed -n "s/^[[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\)[[:space:]]*=.*/CONFIG_KEY=\1/p" "$f"
+                  stat -c "OWNER=%U:%G MODE=%a SIZE=%s" "$f"
+                fi
+              done
+            ' 2>/dev/null || echo "DIRECTADMIN_CONFIG_INSPECTION_UNAVAILABLE"
+            echo "=== VAMCITY APP CONNECTION METADATA ==="
+            $D exec vamcity-stage-app sh -lc '
+              for f in /app/appsettings.json /app/appsettings.Production.json /app/LoanSystemAvizhe.Site.runtimeconfig.json; do
+                if [ -f "$f" ] && echo "$f" | grep -q appsettings; then
+                  python3 - "$f" <<'"'"'PY'"'"'
+            import json,sys
+            try:
+                d=json.load(open(sys.argv[1],encoding="utf-8"))
+                cs=d.get("ConnectionStrings",{})
+                print("APP_CONFIG",sys.argv[1],"CONNECTION_KEYS",",".join(sorted(cs)))
+                for k,v in cs.items():
+                    if isinstance(v,str):
+                        parts={}
+                        for p in v.split(";"):
+                            if "=" in p:
+                                a,b=p.split("=",1); parts[a.strip().lower()]=b.strip()
+                        print("CONNECTION",k,"SERVER",parts.get("server",parts.get("data source","")),"DATABASE",parts.get("database",parts.get("initial catalog","")))
+            except Exception as e:
+                print("APP_CONFIG_PARSE_ERROR",type(e).__name__)
+            PY
+                fi
+              done
+            ' 2>/dev/null || echo "APP_CONFIG_NOT_READABLE"
+            echo "DA_MYSQL_ROUTE_INSPECTION_COMPLETE=1"

@@ -1,0 +1,97 @@
+name: Export VamCity backup data privately for MySQL conversion
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/inspect-vamcity-data-export.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vamcity-private-data-export
+  cancel-in-progress: false
+
+jobs:
+  export:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Stream all rows from isolated SQL Server imports into private compressed exports
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 80m
+          script: |
+            set -euo pipefail
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; elif docker info >/dev/null 2>&1; then D='docker'; else echo "DOCKER_UNAVAILABLE"; exit 50; fi
+            SQLC="vamcity-stage-sql"
+            SQLCMD="$($D exec "$SQLC" sh -lc 'command -v /opt/mssql-tools18/bin/sqlcmd || command -v /opt/mssql-tools/bin/sqlcmd || command -v sqlcmd' 2>/dev/null | head -n 1)"
+            PASS="$($D exec "$SQLC" printenv MSSQL_SA_PASSWORD 2>/dev/null || true)"
+            [ -n "$PASS" ] || PASS="$($D exec "$SQLC" printenv SA_PASSWORD 2>/dev/null || true)"
+            [ -n "$SQLCMD" ] && [ -n "$PASS" ] || { echo "SQL_ACCESS_UNAVAILABLE"; exit 51; }
+            BASE="/home/digibail/domains/digebail.ir/var/migrations"
+            OUT="$BASE/vamcity-private-json-export-20261030-v4"
+            if [ -e "$OUT" ]; then echo "EXPORT_ALREADY_EXISTS=$OUT"; exit 52; fi
+            mkdir -p "$OUT"
+            chmod 700 "$OUT"
+            TMP="/tmp/vamcity-export-$$.json"
+            trap '$D exec "$SQLC" rm -f "$TMP" >/dev/null 2>&1 || true; unset PASS' EXIT
+            MANIFEST="$OUT/manifest.tsv"
+            printf 'database\tschema\ttable\texpected_rows\texported_rows\tcompressed_bytes\tsha256\n' > "$MANIFEST"
+            BCP="/opt/mssql-tools18/bin/bcp"
+            for SPEC in \
+              "vamcityc_vamcity_import_20261028|main" \
+              "vamcityc_bluvamdb_import_20261028|bluvamdb" \
+              "vamcityc_transferDb_import_20261028|transferdb"; do
+              DB="${SPEC%%|*}"; GROUP="${SPEC#*|}"
+              echo "=== EXPORT_DATABASE=$DB GROUP=$GROUP ==="
+              TABLES="$($D exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -b -h -1 -W -s '|' -d "$DB" -Q "SET NOCOUNT ON; SELECT s.name,t.name,COALESCE(SUM(CASE WHEN p.index_id IN (0,1) THEN p.rows ELSE 0 END),0) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id LEFT JOIN sys.partitions p ON p.object_id=t.object_id GROUP BY s.name,t.name ORDER BY s.name,t.name;" )"
+              DB_EXPECTED=0; DB_EXPORTED=0; TABLE_COUNT=0
+              while IFS='|' read -r SCHEMA TABLE EXPECTED; do
+                SCHEMA="$(printf '%s' "$SCHEMA" | xargs)"
+                TABLE="$(printf '%s' "$TABLE" | xargs)"
+                EXPECTED="$(printf '%s' "$EXPECTED" | xargs)"
+                [ -n "$SCHEMA" ] && [ -n "$TABLE" ] && [[ "$EXPECTED" =~ ^[0-9]+$ ]] || continue
+                FREE_MB="$(df -Pm "$OUT" | awk 'NR==2{print $4}')"
+                [ "$FREE_MB" -ge 700 ] || { echo "STOPPED_LOW_DISK_FREE_MB=$FREE_MB"; exit 53; }
+                SAFE_NAME="$(printf '%s__%s' "$SCHEMA" "$TABLE" | tr -c 'A-Za-z0-9_.-' '_')"
+                FILE="$OUT/$GROUP/$SAFE_NAME.json.gz"
+                mkdir -p "$OUT/$GROUP"
+                QUOTED_DB="$(printf '%s' "$DB" | sed 's/]/]]/g')"
+                QUOTED_SCHEMA="$(printf '%s' "$SCHEMA" | sed 's/]/]]/g')"
+                QUOTED_TABLE="$(printf '%s' "$TABLE" | sed 's/]/]]/g')"
+                QUERY="DECLARE @j nvarchar(max); SET @j=(SELECT * FROM [$QUOTED_DB].[$QUOTED_SCHEMA].[$QUOTED_TABLE] FOR JSON PATH, INCLUDE_NULL_VALUES); WITH N AS (SELECT TOP ((LEN(@j)+999)/1000) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM sys.all_objects a CROSS JOIN sys.all_objects b) SELECT SUBSTRING(@j,(n-1)*1000+1,1000) FROM N ORDER BY n"
+                echo "EXPORT_TABLE=$DB.$SCHEMA.$TABLE EXPECTED_ROWS=$EXPECTED"
+                if [ "$EXPECTED" -eq 0 ]; then
+                  python3 -c 'import sys; sys.stdout.buffer.write("[]".encode("utf-16"))' | gzip -c > "$FILE"
+                else
+                  $D exec "$SQLC" "$BCP" "$QUERY" queryout "$TMP" -w -u -S localhost -U sa -P "$PASS" >/dev/null
+                  $D exec "$SQLC" cat "$TMP" | gzip -c > "$FILE"
+                  $D exec "$SQLC" rm -f "$TMP"
+                fi
+                ACTUAL="$(gzip -cd "$FILE" | python3 -c 'import json,sys; raw=sys.stdin.buffer.read().decode("utf-16"); payload="".join(raw.splitlines()); x=json.loads(payload); print(len(x))')"
+                [ "$ACTUAL" = "$EXPECTED" ] || { echo "ROW_COUNT_MISMATCH=$DB.$SCHEMA.$TABLE expected=$EXPECTED actual=$ACTUAL"; exit 54; }
+                BYTES="$(stat -c %s "$FILE")"
+                HASH="$(sha256sum "$FILE" | awk '{print $1}')"
+                printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$DB" "$SCHEMA" "$TABLE" "$EXPECTED" "$ACTUAL" "$BYTES" "$HASH" >> "$MANIFEST"
+                DB_EXPECTED=$((DB_EXPECTED+EXPECTED)); DB_EXPORTED=$((DB_EXPORTED+ACTUAL)); TABLE_COUNT=$((TABLE_COUNT+1))
+                echo "TABLE_EXPORT_OK=$DB.$SCHEMA.$TABLE rows=$ACTUAL gzip_bytes=$BYTES"
+              done <<EOF
+            $TABLES
+            EOF
+              [ "$DB_EXPECTED" = "$DB_EXPORTED" ] || { echo "DATABASE_ROW_MISMATCH=$DB"; exit 55; }
+              echo "DATABASE_EXPORT_OK=$DB tables=$TABLE_COUNT rows=$DB_EXPORTED"
+            done
+            chmod 600 "$MANIFEST"
+            echo "=== EXPORT SUMMARY ==="
+            tail -n 1 "$MANIFEST"
+            awk -F '\t' 'NR>1 {tables++; expected+=$4; actual+=$5; bytes+=$6} END {printf "TOTAL_TABLES=%d EXPECTED_ROWS=%d EXPORTED_ROWS=%d COMPRESSED_BYTES=%d\n",tables,expected,actual,bytes}' "$MANIFEST"
+            du -sh "$OUT"
+            df -h "$OUT"
+            echo "PRIVATE_VAMCITY_DATA_EXPORT_COMPLETE=1"

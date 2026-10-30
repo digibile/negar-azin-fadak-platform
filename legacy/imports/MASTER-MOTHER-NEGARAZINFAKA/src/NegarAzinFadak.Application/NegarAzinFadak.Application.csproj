@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>NegarAzinFadak.Application</RootNamespace>
+    <AssemblyName>NegarAzinFadak.Application</AssemblyName>
+    <Description>Use cases and provider abstractions: OCR, SMS, storage, identity verification, notifications, AI.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NegarAzinFadak.Core\NegarAzinFadak.Core.csproj" />
+    <ProjectReference Include="..\NegarAzinFadak.Organization.Domain\NegarAzinFadak.Organization.Domain.csproj" />
+    <ProjectReference Include="..\NegarAzinFadak.Identity.Domain\NegarAzinFadak.Identity.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="NegarAzinFadak.Application.Tests" />
+    <InternalsVisibleTo Include="NegarAzinFadak.Api" />
+    <InternalsVisibleTo Include="NegarAzinFadak.Infrastructure" />
+  </ItemGroup>
+
+</Project>

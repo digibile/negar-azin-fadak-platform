@@ -1,0 +1,81 @@
+name: Inspect original VamCity backup on roofixo server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/inspect-vamcity-roofixo-backup.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Read-only inspection of original SQL Server backup
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            set -eu
+            ROOT="/home/roofixo/domains/roofixo.ir/public_html"
+            ARCHIVE="$ROOT/vamcityc_aqayevamdb_2026-10-11_15-51-44.zip"
+            echo "=== HOST ==="
+            hostname
+            echo "=== ORIGINAL BACKUP ==="
+            if [ ! -s "$ARCHIVE" ]; then
+              echo "BACKUP_NOT_FOUND=$ARCHIVE"
+              echo "CANDIDATE_VAMCITY_FILES_UNDER_HOME:"
+              find /home -type f -iname '*vamcity*' -printf '%p | %s bytes | %TY-%Tm-%Td %TH:%TM\\n' 2>/dev/null | head -n 200 || true
+              echo "ROOFIXO_DOMAIN_DIRECTORIES:"
+              find /home/roofixo/domains/roofixo.ir -maxdepth 3 -type d -printf '%p\\n' 2>/dev/null | head -n 100 || true
+              echo "RECENT_ZIP_ARCHIVES_UNDER_ROOFIXO:"
+              find /home/roofixo -type f -iname '*.zip' -printf '%p | %s bytes | %TY-%Tm-%Td %TH:%TM\\n' 2>/dev/null | head -n 100 || true
+              exit 31
+            fi
+            stat -c 'PATH=%n SIZE_BYTES=%s MODIFIED=%y OWNER=%U:%G MODE=%a' "$ARCHIVE"
+            sha256sum "$ARCHIVE"
+            file "$ARCHIVE" || true
+            echo "=== ZIP VALIDATION AND MEMBERS ==="
+            unzip -t "$ARCHIVE" | tail -n 8
+            unzip -Z1 "$ARCHIVE" | head -n 50
+            INNER="$(unzip -Z1 "$ARCHIVE" | head -n 1)"
+            TMP="$(mktemp -d /tmp/vamcity-readonly.XXXXXX)"
+            trap 'rm -rf "$TMP"; if [ -n "${D:-}" ] && [ -n "${SQLC:-}" ]; then $D exec "$SQLC" rm -f /var/opt/mssql/data/vamcity-readonly-header.bak >/dev/null 2>&1 || true; fi' EXIT
+            unzip -p "$ARCHIVE" "$INNER" > "$TMP/source.bak"
+            chmod 600 "$TMP/source.bak"
+            echo "=== EXTRACTED BACKUP PAYLOAD ==="
+            stat -c 'PAYLOAD_SIZE_BYTES=%s' "$TMP/source.bak"
+            sha256sum "$TMP/source.bak"
+            file "$TMP/source.bak"
+            printf 'MAGIC='
+            od -An -tx1 -N16 "$TMP/source.bak" | tr -s ' ' | tr '\n' ' '
+            echo
+            echo "=== SQL SERVER ACCESS ==="
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; elif docker info >/dev/null 2>&1; then D='docker'; else D=''; fi
+            if [ -z "$D" ]; then echo "DOCKER_ACCESS=UNAVAILABLE"; exit 32; fi
+            $D ps -a --format 'CONTAINER={{.Names}} IMAGE={{.Image}} STATUS={{.Status}}' | grep -Ei 'vamcity|sql|mssql' || true
+            SQLC=""
+            for c in vamcity-stage-sql public_html-db-1; do if $D inspect "$c" >/dev/null 2>&1; then SQLC="$c"; break; fi; done
+            if [ -z "$SQLC" ]; then echo "SQL_SERVER_CONTAINER_NOT_FOUND"; exit 33; fi
+            SQLCMD="$($D exec "$SQLC" sh -lc 'command -v /opt/mssql-tools18/bin/sqlcmd || command -v /opt/mssql-tools/bin/sqlcmd || command -v sqlcmd' 2>/dev/null | head -n 1)"
+            SA_PASS="$($D exec "$SQLC" printenv MSSQL_SA_PASSWORD 2>/dev/null || true)"
+            if [ -z "$SA_PASS" ]; then SA_PASS="$($D exec "$SQLC" printenv SA_PASSWORD 2>/dev/null || true)"; fi
+            if [ -z "$SQLCMD" ] || [ -z "$SA_PASS" ]; then echo "SQLCMD_OR_CREDENTIALS_UNAVAILABLE"; exit 34; fi
+            $D cp "$TMP/source.bak" "$SQLC:/var/opt/mssql/data/vamcity-readonly-header.bak" >/dev/null
+            $D exec -u 0 "$SQLC" chown mssql:mssql /var/opt/mssql/data/vamcity-readonly-header.bak
+            echo "=== RESTORE HEADERONLY (NO RESTORE) ==="
+            $D exec -e SQLCMDPASSWORD="$SA_PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "RESTORE HEADERONLY FROM DISK=N'/var/opt/mssql/data/vamcity-readonly-header.bak';" 2>&1 | tail -n 12
+            echo "=== RESTORE FILELISTONLY (NO RESTORE) ==="
+            $D exec -e SQLCMDPASSWORD="$SA_PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "RESTORE FILELISTONLY FROM DISK=N'/var/opt/mssql/data/vamcity-readonly-header.bak';" 2>&1 | tail -n 15
+            echo "=== SQL SERVER VERSION AND EXISTING DATABASE NAMES ==="
+            $D exec -e SQLCMDPASSWORD="$SA_PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; SELECT @@VERSION; SELECT name,state_desc FROM sys.databases ORDER BY name;" 2>&1 | tail -n 24
+            unset SA_PASS
+            echo "READ_ONLY_BACKUP_INSPECTION_COMPLETE=1"

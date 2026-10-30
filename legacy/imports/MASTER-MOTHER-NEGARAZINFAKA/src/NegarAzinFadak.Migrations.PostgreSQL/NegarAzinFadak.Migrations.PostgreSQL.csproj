@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>NegarAzinFadak.Migrations.PostgreSQL</RootNamespace>
+    <AssemblyName>NegarAzinFadak.Migrations.PostgreSQL</AssemblyName>
+    <Description>PostgreSQL migration set. Kept in its own assembly so the SQLite and PostgreSQL migration sets can coexist.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NegarAzinFadak.Infrastructure\NegarAzinFadak.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,1 @@
+The source repository currently contains only `files (3).zip` (344,383 bytes). It has not been extracted or copied. Inspect the archive contents for secrets, personal data, and database backups before any import. The complete original repository remains connected as a submodule at `legacy/source-repositories/negarazin-accounting`.

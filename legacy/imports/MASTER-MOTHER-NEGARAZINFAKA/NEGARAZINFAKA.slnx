@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NegarAzinFadak.Api/NegarAzinFadak.Api.csproj" />
+    <Project Path="src/NegarAzinFadak.Application/NegarAzinFadak.Application.csproj" />
+    <Project Path="src/NegarAzinFadak.Core/NegarAzinFadak.Core.csproj" />
+    <Project Path="src/NegarAzinFadak.Identity.Domain/NegarAzinFadak.Identity.Domain.csproj" />
+    <Project Path="src/NegarAzinFadak.Migrations.PostgreSQL/NegarAzinFadak.Migrations.PostgreSQL.csproj" />
+    <Project Path="src/NegarAzinFadak.Migrations.Sqlite/NegarAzinFadak.Migrations.Sqlite.csproj" />
+    <Project Path="src/NegarAzinFadak.Infrastructure/NegarAzinFadak.Infrastructure.csproj" />
+    <Project Path="src/NegarAzinFadak.Organization.Domain/NegarAzinFadak.Organization.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NegarAzinFadak.Api.Tests/NegarAzinFadak.Api.Tests.csproj" />
+    <Project Path="tests/NegarAzinFadak.Identity.Domain.Tests/NegarAzinFadak.Identity.Domain.Tests.csproj" />
+    <Project Path="tests/NegarAzinFadak.Infrastructure.Tests/NegarAzinFadak.Infrastructure.Tests.csproj" />
+    <Project Path="tests/NegarAzinFadak.Organization.Domain.Tests/NegarAzinFadak.Organization.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

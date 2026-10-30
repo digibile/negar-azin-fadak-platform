@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>پنل کاربری | دیجی‌بایل</title>
+<style>
+:root{color-scheme:light;--ink:#21183a;--muted:#716b80;--line:#e6e0ef;--purple:#4a2a86;--gold:#ffb629;--bg:#f7f5fb}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.9 Tahoma,Arial,sans-serif}
+header{background:linear-gradient(120deg,#241047,#4a2a86);color:#fff;padding:22px max(18px,calc((100% - 1080px)/2));display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:21px;margin:0}header p{margin:4px 0;color:#e7ddf9}.wrap{max-width:1080px;margin:24px auto;padding:0 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.card,.panel{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 5px 22px #21183a08}
+.card h2,.panel h2{font-size:17px;margin:0 0 8px}.muted{color:var(--muted)}.btn{display:inline-block;border:0;border-radius:10px;padding:9px 13px;background:var(--purple);color:white;text-decoration:none;font:inherit;cursor:pointer}
+.btn.secondary{background:#f0eaf8;color:var(--purple)}.notice{padding:12px;border-radius:10px;background:#fff3cf;margin-bottom:14px}
+table{width:100%;border-collapse:collapse}th,td{text-align:right;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}.scroll{overflow:auto}.pill{background:#eee8f8;color:var(--purple);padding:2px 9px;border-radius:99px}
+@media(max-width:600px){header{align-items:flex-start;flex-direction:column}.wrap{margin-top:12px}.card,.panel{padding:13px}}
+</style>
+</head>
+<body>
+<header><div><h1>پنل کاربری دیجی‌بایل</h1><p id="welcome">در حال بررسی نشست کاربری…</p></div><div><a class="btn secondary" href="/">صفحه اصلی</a> <button class="btn" id="logout" type="button">خروج</button></div></header>
+<main class="wrap">
+<div id="notice" class="notice" hidden></div>
+<section class="grid">
+<div class="card"><h2>اطلاعات حساب</h2><div id="account" class="muted">در حال بارگذاری…</div></div>
+<div class="card"><h2>مدارک من</h2><p id="docCount" class="muted">در حال بارگذاری…</p><a class="btn" href="/documents.html">مدیریت مدارک</a></div>
+<div class="card"><h2>قراردادهای من</h2><p id="contractCount" class="muted">در حال بارگذاری…</p><a class="btn" href="/contracts.html">مشاهده قراردادها</a></div>
+</section>
+<section class="panel" style="margin-top:16px"><h2>مدارک ثبت‌شده</h2><div class="scroll"><table><thead><tr><th>نوع مدرک</th><th>نام فایل</th><th>وضعیت</th><th>تاریخ</th></tr></thead><tbody id="documents"><tr><td colspan="4">در حال بارگذاری…</td></tr></tbody></table></div></section>
+<section class="panel" style="margin-top:16px"><h2>قراردادها</h2><div class="scroll"><table><thead><tr><th>عنوان</th><th>شماره</th><th>وضعیت</th><th>تاریخ</th></tr></thead><tbody id="contracts"><tr><td colspan="4">در حال بارگذاری…</td></tr></tbody></table></div></section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const date=v=>v?new Date(v).toLocaleDateString("fa-IR"):"—";
+async function api(path){const r=await fetch(path,{credentials:"same-origin",headers:{"Accept":"application/json"}});const j=await r.json().catch(()=>({}));if(r.status===401||r.status===403){location.replace("/login.html?next=%2Fprofile.html");throw new Error("برای ادامه دوباره وارد شوید.")}if(!r.ok)throw new Error(j.message||"خطا در دریافت اطلاعات");return j.data??j}
+function rows(items,cols,empty){return items.length?items.map(x=>"<tr>"+cols.map(c=>"<td>"+c(x)+"</td>").join("")+"</tr>").join(""):'<tr><td colspan="4">'+empty+"</td></tr>"}
+async function load(){try{
+ const me=await api("/api/v1/security/me");
+ const role=String(me.role||"").toLowerCase();
+ if(["admin","superadmin"].includes(role)){
+   const nav=document.querySelector("header > div:last-child");
+   if(nav&&!document.querySelector("#adminAccess")){const link=document.createElement("a");link.id="adminAccess";link.className="btn";link.href="/admin.html";link.textContent="ورود به پنل مدیریت";link.style.marginInlineStart="8px";nav.prepend(link);}
+ }
+ $("#welcome").textContent="خوش آمدید، "+(me.fullName||me.username||"کاربر گرامی");
+ $("#account").innerHTML="<p><b>نام:</b> "+esc(me.fullName||"ثبت نشده")+"</p><p><b>نام کاربری:</b> "+esc(me.username||"—")+"</p><p><b>موبایل:</b> "+esc(me.phone||"—")+"</p><p><b>وضعیت:</b> <span class='pill'>حساب فعال</span></p>";
+ const [docs,contracts]=await Promise.all([api("/api/v1/me/documents"),api("/api/v1/me/contracts")]);
+ $("#docCount").textContent="تعداد مدارک ثبت‌شده: "+docs.length;
+ $("#contractCount").textContent="تعداد قراردادها: "+contracts.length;
+ $("#documents").innerHTML=rows(docs,[x=>esc(x.kind||"مدرک"),x=>esc(x.fileName||x.file_name||"—"),x=>esc(x.status||"—"),x=>date((x.createdOn||x.created_on))],"مدرکی ثبت نشده است.");
+ $("#contracts").innerHTML=rows(contracts,[x=>esc(x.title||"—"),x=>esc(x.number||"—"),x=>esc(x.status||"—"),x=>date((x.createdOn||x.created_on))],"قراردادی ثبت نشده است.");
+ }catch(e){$("#notice").hidden=false;$("#notice").textContent=e.message||"خطا در بارگذاری پنل کاربری."}}
+$("#logout").addEventListener("click",()=>{for(const k of ["token","accessToken","jwt"]){try{localStorage.removeItem(k)}catch{}}document.cookie="db_session=; Max-Age=0; Path=/; SameSite=Lax";location.replace("/login.html")});
+load();
+</script>
+</body></html>

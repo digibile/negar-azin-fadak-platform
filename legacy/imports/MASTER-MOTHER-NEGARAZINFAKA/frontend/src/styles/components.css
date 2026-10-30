@@ -1,0 +1,549 @@
+/* Shared component surfaces. Everything here is direction-agnostic: sides are expressed as
+   inline-start/inline-end, so the same rules produce the layout in an RTL document and would produce its
+   mirror in an LTR one without a second stylesheet. */
+
+/* ---------- Brand ---------- */
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.brand__mark {
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  flex: 0 0 auto;
+  border-radius: var(--radius-md);
+}
+
+.brand__text {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.brand__name {
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.4;
+  color: inherit;
+}
+
+.brand__sub {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.brand--inverse .brand__sub {
+  color: rgb(255 255 255 / 70%);
+}
+
+/* ---------- Surfaces ---------- */
+
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: var(--space-4) var(--space-5);
+  border-block-end: 1px solid var(--color-border);
+}
+
+.panel__title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.panel__heading {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.panel__hint {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.panel__body {
+  padding: var(--space-5);
+}
+
+.panel__body--flush {
+  padding: 0;
+}
+
+/* ---------- Buttons ---------- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.6;
+  cursor: pointer;
+  background: var(--color-brand-600);
+  color: #fff;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--color-brand-700);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.button--secondary {
+  background: transparent;
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.button--secondary:hover:not(:disabled) {
+  background: var(--color-surface-sunken);
+  border-color: var(--color-brand-500);
+}
+
+.button--ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  padding-inline: 0.6rem;
+}
+
+.button--ghost:hover:not(:disabled) {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.button--danger {
+  background: var(--color-critical);
+}
+
+.button--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-critical) 85%, #000);
+}
+
+.button--block {
+  inline-size: 100%;
+}
+
+/* ---------- Chips and badges ---------- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.2rem 0.7rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.8;
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.chip--positive {
+  background: var(--color-positive-soft);
+  color: var(--color-positive);
+  border-color: transparent;
+}
+.chip--caution {
+  background: var(--color-caution-soft);
+  color: var(--color-caution);
+  border-color: transparent;
+}
+.chip--critical {
+  background: var(--color-critical-soft);
+  color: var(--color-critical);
+  border-color: transparent;
+}
+.chip--info {
+  background: var(--color-info-soft);
+  color: var(--color-info);
+  border-color: transparent;
+}
+.chip--brand {
+  background: var(--color-brand-800);
+  color: #fff;
+  border-color: transparent;
+}
+
+.chip__dot {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.code-chip {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  direction: ltr;
+  unicode-bidi: isolate;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.1rem 0.45rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ---------- Forms ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.field__control {
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.75rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.field__control:focus-visible {
+  border-color: var(--color-brand-500);
+  outline-offset: 0;
+}
+
+.field__control:disabled {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-subtle);
+}
+
+.field__hint {
+  font-size: 0.78rem;
+  color: var(--color-text-subtle);
+}
+
+.field__error {
+  font-size: 0.8rem;
+  color: var(--color-critical);
+}
+
+textarea.field__control {
+  min-block-size: 7rem;
+  resize: vertical;
+  line-height: 1.7;
+}
+
+/* ---------- Tables ---------- */
+
+.table-wrap {
+  inline-size: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table caption {
+  text-align: start;
+  padding: var(--space-3) var(--space-5);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.table th,
+.table td {
+  text-align: start;
+  padding: var(--space-3) var(--space-4);
+  border-block-end: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.table thead th {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  background: var(--color-surface-sunken);
+  white-space: nowrap;
+  position: sticky;
+  inset-block-start: 0;
+}
+
+.table tbody tr:last-child td {
+  border-block-end: none;
+}
+
+.table tbody tr:hover {
+  background: var(--color-surface-sunken);
+}
+
+.table__numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+.table__id {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  direction: ltr;
+  unicode-bidi: isolate;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ---------- Empty, gap and error states ---------- */
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  border: 1px dashed var(--color-border-strong);
+}
+
+.state__title {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.state__body {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  max-inline-size: 62ch;
+}
+
+.state--error {
+  background: var(--color-critical-soft);
+  border-color: color-mix(in srgb, var(--color-critical) 35%, transparent);
+  border-style: solid;
+}
+
+.state--error .state__title {
+  color: var(--color-critical);
+}
+
+.state--gap {
+  background: var(--color-caution-soft);
+  border-color: color-mix(in srgb, var(--color-caution) 35%, transparent);
+}
+
+.state--gap .state__title {
+  color: var(--color-caution);
+}
+
+/* A 401 is not a platform failure, so it borrows the informational palette rather than the critical one. */
+.state--unauthorized {
+  background: var(--color-info-soft);
+  border-color: color-mix(in srgb, var(--color-info) 35%, transparent);
+}
+
+.state--unauthorized .state__title {
+  color: var(--color-info);
+}
+
+/* A 403 is a decision, not a fault, so it is shown as a caution the operator can act on. */
+.state--forbidden {
+  background: var(--color-caution-soft);
+  border-color: color-mix(in srgb, var(--color-caution) 35%, transparent);
+}
+
+.state--forbidden .state__title {
+  color: var(--color-caution);
+}
+
+.state--offline {
+  background: var(--color-critical-soft);
+  border-color: color-mix(in srgb, var(--color-critical) 35%, transparent);
+}
+
+.state--offline .state__title {
+  color: var(--color-critical);
+}
+
+.state--empty {
+  align-items: center;
+  text-align: center;
+}
+
+.state__meta {
+  font-size: 0.78rem;
+  color: var(--color-text-subtle);
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-family: var(--font-mono);
+}
+
+/* ---------- Skeleton ---------- */
+
+.skeleton {
+  display: block;
+  block-size: 1rem;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-sunken) 25%,
+    var(--color-border) 37%,
+    var(--color-surface-sunken) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-sweep 1.4s ease infinite;
+}
+
+@keyframes skeleton-sweep {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.skeleton-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+/* ---------- Notice ---------- */
+
+.notice {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+  border: 1px solid transparent;
+}
+
+.notice--info {
+  background: var(--color-info-soft);
+  color: var(--color-info);
+}
+.notice--caution {
+  background: var(--color-caution-soft);
+  color: var(--color-caution);
+}
+.notice--critical {
+  background: var(--color-critical-soft);
+  color: var(--color-critical);
+}
+
+.notice__body {
+  min-inline-size: 0;
+}
+
+/* ---------- Definition rows ---------- */
+
+.definition-list {
+  display: grid;
+  grid-template-columns: minmax(9rem, auto) 1fr;
+  gap: var(--space-2) var(--space-4);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.definition-list dt {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.definition-list dd {
+  margin: 0;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 34rem) {
+  .definition-list {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+
+  .definition-list dd {
+    margin-block-end: var(--space-3);
+  }
+}
+
+/* ---------- Utility ---------- */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.stack--tight {
+  gap: var(--space-2);
+}
+
+.stack--loose {
+  gap: var(--space-6);
+}
+
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.cluster--tight {
+  gap: var(--space-2);
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.text-subtle {
+  color: var(--color-text-subtle);
+  font-size: 0.82rem;
+}
+
+.text-sm {
+  font-size: 0.88rem;
+}
+
+.text-ltr {
+  direction: ltr;
+  unicode-bidi: isolate;
+}

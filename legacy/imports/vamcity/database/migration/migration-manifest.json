@@ -1,0 +1,232 @@
+{
+  "project": "VamCity",
+  "source": {
+    "engine": "Microsoft SQL Server",
+    "expected_name_from_user": "vamcitydigibilepay",
+    "actual_database_names_confirmed_by_backup_headers": [
+      "vamcityc_vamcity",
+      "vamcityc_bluvamdb",
+      "vamcityc_transferDb"
+    ],
+    "main_backup_database_name": "vamcityc_vamcity",
+    "source_name_matches_expected": false,
+    "backup_headers_verified": true,
+    "sql_server_version": "15.0.4410",
+    "collation": "SQL_Latin1_General_CP1_CI_AS",
+    "canonical_source_selected_by_user": "vamcityc_vamcity",
+    "canonical_backup_file": "vamcityc_vamcity_2026-10-29_19-20-04.zip",
+    "live_database_state": "ONLINE",
+    "live_database_compatibility_level": 150,
+    "live_database_collation": "SQL_Latin1_General_CP1_CI_AS"
+  },
+  "target": {
+    "engine": "MariaDB",
+    "database": "vamcitydigibilepay",
+    "single_database": true,
+    "server_version": "10.6.17-MariaDB",
+    "created": true,
+    "table_count_at_creation": 0,
+    "default_character_set": "utf8mb4",
+    "default_collation": "utf8mb4_unicode_ci"
+  },
+  "backup_headers": [
+    {
+      "file": "vamcityc_vamcity_2026-10-29_19-20-04.zip",
+      "database_name": "vamcityc_vamcity",
+      "backup_type": "Full database",
+      "backup_start": "2026-10-28 20:17:41",
+      "backup_finish": "2026-10-28 20:17:43",
+      "backup_size_bytes": 358726656,
+      "database_created": "2024-05-20 11:16:59",
+      "collation": "SQL_Latin1_General_CP1_CI_AS",
+      "is_damaged": false,
+      "has_backup_checksums": false
+    },
+    {
+      "file": "vamcityc_bluvamdb_2026-10-29_19-19-45.zip",
+      "database_name": "vamcityc_bluvamdb",
+      "backup_type": "Full database",
+      "backup_start": "2026-10-28 20:17:31",
+      "backup_finish": "2026-10-28 20:17:31",
+      "backup_size_bytes": 177305600,
+      "database_created": "2024-08-30 09:09:10",
+      "collation": "SQL_Latin1_General_CP1_CI_AS",
+      "is_damaged": false,
+      "has_backup_checksums": false
+    },
+    {
+      "file": "vamcityc_transferDb_2026-10-29_19-19-51.zip",
+      "database_name": "vamcityc_transferDb",
+      "backup_type": "Full database",
+      "backup_start": "2026-10-28 20:17:31",
+      "backup_finish": "2026-10-28 20:17:31",
+      "backup_size_bytes": 4280320,
+      "database_created": "2023-12-24 23:33:06",
+      "collation": "SQL_Latin1_General_CP1_CI_AS",
+      "is_damaged": false,
+      "has_backup_checksums": false
+    }
+  ],
+  "live_sqlserver_inventory": {
+    "databases": [
+      {
+        "name": "vamcityc_vamcity",
+        "tables": 88,
+        "rows": 530812
+      },
+      {
+        "name": "vamcityc_bluvamdb",
+        "tables": 56,
+        "rows": 286597
+      },
+      {
+        "name": "vamcityc_transferDb",
+        "tables": 12,
+        "rows": 29
+      }
+    ],
+    "totals": {
+      "tables": 156,
+      "rows": 817438
+    },
+    "duplicate_table_names_across_sources": 55,
+    "import_alias_comparison": {
+      "alias_databases": [
+        "vamcityc_vamcity_import_20261028",
+        "vamcityc_bluvamdb_import_20261028",
+        "vamcityc_transferDb_import_20261028"
+      ],
+      "alias_totals": {
+        "tables": 156,
+        "rows": 817798
+      },
+      "main_database_row_difference": 360,
+      "reconciliation_required": true
+    },
+    "main_database": {
+      "name": "vamcityc_vamcity",
+      "schemas": {
+        "dbo": {
+          "tables": 77,
+          "rows": 527540
+        },
+        "HangFire": {
+          "tables": 11,
+          "rows": 3272
+        }
+      },
+      "totals": {
+        "tables": 88,
+        "rows": 530812,
+        "columns": 959,
+        "primary_unique_key_columns": 106,
+        "foreign_key_columns": 188
+      },
+      "other_objects": {
+        "views": 0,
+        "procedures": 0,
+        "triggers": 0,
+        "check_constraints": 0,
+        "sequences": 0
+      },
+      "important_tables": {
+        "AspNetUsers": 54621,
+        "AspNetUserRoles": 54618,
+        "UserLoanRequests": 17248,
+        "UserLoanRequestStatusHistories": 49144,
+        "UserLoanRequestAuthorizationItems": 19566,
+        "UserLoanRequestAuthorizationItemAttachments": 19342,
+        "UserLoanPayments": 29148,
+        "UserLoans": 1404,
+        "Loans": 112,
+        "Tickets": 54197,
+        "TicketResponses": 54661,
+        "AppSms": 138461
+      },
+      "empty_tables": 21,
+      "types": {
+        "nvarchar": 298,
+        "uniqueidentifier": 232,
+        "int": 108,
+        "datetime2": 64,
+        "bigint": 49,
+        "decimal": 61,
+        "tinyint": 4,
+        "bit": 84,
+        "time": 3,
+        "datetimeoffset": 1,
+        "float": 10
+      }
+    }
+  },
+  "server_preflight": {
+    "hostname": "srv4056476230",
+    "mariadb_process_running": true,
+    "systemd_service_state_reported": "inactive (service naming mismatch; mysqld process and socket exist)",
+    "directadmin_database_account_authentication": "successful",
+    "target_database_absent_before_creation": true,
+    "free_disk_kib_before_target_creation": 8747296,
+    "swap_used_bytes_approx": "2 GiB",
+    "memory_available_approx": "1.9 GiB"
+  },
+  "migration_status": {
+    "ssh_preflight": "success",
+    "backup_zip_integrity": "success",
+    "sqlserver_backup_header_inspection": "success",
+    "source_backup_name_matches_user_expected_name": false,
+    "mariadb_target_created": true,
+    "mariadb_target_credentials_verified": true,
+    "target_backup_verified": false,
+    "free_disk_rechecked": true,
+    "mapping_approved": false,
+    "schema_conflicts_resolved": false,
+    "dry_run_completed": true,
+    "real_mariadb_rows_imported": false,
+    "per_table_reconciliation_completed": false,
+    "application_connection_switched": false,
+    "application_smoke_tests_completed": false,
+    "primary_source_selected": true,
+    "primary_backup_restore_verifyonly": "success",
+    "primary_live_dbcc_checkdb": "success",
+    "primary_schema_inventory": "success"
+  },
+  "known_risks": [
+    "55 table names overlap across the three source databases; blindly merging rows would risk primary-key, identity, and foreign-key collisions.",
+    "The existing import alias for the main database contains 360 more rows than the current restored source database; the exact table-level difference is recorded in the inspection logs and must be reconciled before choosing the canonical main dataset.",
+    "The MariaDB target currently exists and is empty; no production rows have been imported.",
+    "The latest free-space observation is approximately 8.34 GiB and swap was fully used; capacity must be rechecked immediately before bulk import.",
+    "SQL Server and MariaDB collation behavior differs; column-level string comparisons and unique indexes require explicit mapping.",
+    "The primary source selected by the user is vamcityc_vamcity. Its verified backup was created 2026-10-28 and does not contain backup checksums; RESTORE VERIFYONLY confirms readability but cannot validate a backup checksum that is absent.",
+    "The live primary SQL Server database passed DBCC CHECKDB with no reported errors. The backup passed RESTORE VERIFYONLY."
+  ],
+  "security": {
+    "public_repository": true,
+    "raw_customer_data_or_backups_committed": false,
+    "plaintext_credentials_committed": false
+  },
+  "acceptance_rule": "Do not mark migration complete until source identity and canonical snapshot are resolved, every table has row-count and key reconciliation, foreign keys validate, financial/date values are checked, and application smoke tests pass.",
+  "latest_execution": {
+    "target_creation_run_id": 40994258236,
+    "target_creation_run_url": "https://github.com/digibile/vamcity/actions/runs/40994258236",
+    "inventory_run_id": 40994165393,
+    "inventory_run_url": "https://github.com/digibile/vamcity/actions/runs/40994165393",
+    "date": "2026-10-30",
+    "result": "primary source selected; backup RESTORE VERIFYONLY and live source DBCC CHECKDB successful; MariaDB import not started",
+    "primary_backup_verification_run_id": 40994766360,
+    "primary_backup_verification_run_url": "https://github.com/digibile/vamcity/actions/runs/40994766360"
+  },
+  "backup_verification": {
+    "run_id": 40994766360,
+    "run_url": "https://github.com/digibile/vamcity/actions/runs/40994766360",
+    "zip_integrity": "success",
+    "backup_type": "Full database",
+    "restore_verifyonly": "success",
+    "message": "The backup set on file 1 is valid.",
+    "backup_checksums_present": false,
+    "dbcc_checkdb_on_live_source": "success",
+    "extracted_backup_bytes": 358735360,
+    "backup_sha256": "f7dab1ab7e4260b3937f01b94452f3bae25a2f6d9c6060bdb7e481370fbe82fc",
+    "logical_data_file": "vamciydb",
+    "logical_log_file": "vamciydb_log"
+  }
+}

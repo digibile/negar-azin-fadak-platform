@@ -1,0 +1,53 @@
+name: Lint VamCity migration package on production host
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - database/migration/migrate.php
+      - database/migration/config.example.php
+      - database/mysql/schema-*.sql
+      - .github/workflows/lint-vamcity-migration.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PHP migration package and MariaDB collation support
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            echo "=== WAIT FOR MAIN BRANCH DEPLOY SYNC ==="
+            for i in $(seq 1 30); do
+              if grep -q 'FINAL_JSON_DIAGNOSTICS_NO_RECORD_VALUES' "$ROOT/database/migration/migrate.php"; then break; fi
+              sleep 5
+            done
+            grep -q 'FINAL_JSON_DIAGNOSTICS_NO_RECORD_VALUES' "$ROOT/database/migration/migrate.php"
+            echo "=== MIGRATION FILES ==="
+            test -s "$ROOT/database/migration/migrate.php"
+            test -s "$ROOT/database/migration/config.example.php"
+            test -s "$ROOT/database/mysql/schema-main.sql"
+            test -s "$ROOT/database/mysql/schema-bluvamdb.sql"
+            test -s "$ROOT/database/mysql/schema-transfer.sql"
+            echo "MIGRATION_PACKAGE_FILES_PRESENT=1"
+            echo "=== PHP SYNTAX ==="
+            php -l "$ROOT/database/migration/migrate.php"
+            php -l "$ROOT/database/migration/config.example.php"
+            echo "=== MIGRATION DRY RUN (READ ONLY) ==="
+            php "$ROOT/database/migration/migrate.php" --dry-run
+            echo "=== MYSQL COLLATIONS ==="
+            mysql --batch --skip-column-names -e "SHOW COLLATION WHERE Collation LIKE 'utf8mb4%as_ci' OR Collation LIKE 'utf8mb4%bin';" | head -n 25
+            echo "=== CURRENT DISK ==="
+            df -h /
+            echo "PACKAGE_LINT_COMPLETE=1"

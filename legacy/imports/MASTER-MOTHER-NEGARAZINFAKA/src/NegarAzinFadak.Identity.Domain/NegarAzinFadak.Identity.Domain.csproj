@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>NegarAzinFadak.Identity.Domain</RootNamespace>
+    <AssemblyName>NegarAzinFadak.Identity.Domain</AssemblyName>
+    <Description>Central identity: users, profiles, documents, digital folders, OTP and timelines.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NegarAzinFadak.Core\NegarAzinFadak.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="NegarAzinFadak.Identity.Domain.Tests" />
+    <InternalsVisibleTo Include="NegarAzinFadak.Infrastructure" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,47 @@
+name: Map VamCity app to its actual project and routes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/map-vamcity-live-project.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  map:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Map live VamCity container, domain proxy, and SQL table counts
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -eu
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; else D='docker'; fi
+            echo "=== APP CONTAINER LABELS / COMMAND / MOUNTS ==="
+            $D inspect vamcity-stage-app --format 'NAME={{.Name}} IMAGE={{.Config.Image}} WORKDIR={{.Config.WorkingDir}} ENTRYPOINT={{json .Config.Entrypoint}} CMD={{json .Config.Cmd}} LABELS={{json .Config.Labels}} MOUNTS={{json .Mounts}}' | sed -E 's/(PASSWORD|PASS|TOKEN|SECRET|KEY|CONNECTIONSTRING)[^,}]*[=:][^,}]*/[REDACTED]/Ig'
+            echo "=== APP FILE LIST (names only) ==="
+            $D exec vamcity-stage-app sh -lc 'find /app -maxdepth 2 -type f -printf "%P\n" 2>/dev/null | head -n 100' || true
+            echo "=== DOMAIN COMPOSE / NGINX PROXY REFERENCES ==="
+            for root in /home/roofixo/domains/roofixo.ir /home/digibail/domains/digebail.ir; do
+              [ -d "$root" ] || continue
+              echo "ROOT=$root"
+              find "$root" -maxdepth 3 -type f \( -name 'docker-compose.yml' -o -name 'compose.yml' -o -name '*.cust_nginx' -o -name 'nginx.conf' \) -print 2>/dev/null | head -n 25
+              grep -RInE '5187|vamcity-stage-app|127\.0\.0\.1:4000|127\.0\.0\.1:3100|proxy_pass' "$root" --include='*.yml' --include='*.yaml' --include='*.conf' --include='*.cust_nginx' 2>/dev/null | head -n 50 || true
+            done
+            echo "=== SQL TABLE COUNTS FOR RESTORED DATABASES ==="
+            SQLC="vamcity-stage-sql"
+            SQLCMD="$($D exec "$SQLC" sh -lc 'command -v /opt/mssql-tools18/bin/sqlcmd || command -v /opt/mssql-tools/bin/sqlcmd || command -v sqlcmd' 2>/dev/null | head -n 1)"
+            SA_PASS="$($D exec "$SQLC" printenv MSSQL_SA_PASSWORD 2>/dev/null || true)"
+            [ -n "$SQLCMD" ] && [ -n "$SA_PASS" ] || { echo "SQL_ACCESS_UNAVAILABLE"; exit 7; }
+            Q="SET NOCOUNT ON; DECLARE @db sysname; DECLARE c CURSOR FOR SELECT name FROM sys.databases WHERE name IN ('vamcity_stage','vamcityc_vamcity','vamcityc_bluvamdb','vamcityc_transferDb'); OPEN c; FETCH NEXT FROM c INTO @db; WHILE @@FETCH_STATUS=0 BEGIN DECLARE @sql nvarchar(max)=N'USE '+QUOTENAME(@db)+N'; SELECT DB_NAME() AS dbname, s.name AS schemaname, t.name AS tablename, SUM(p.rows) AS rows_total FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id JOIN sys.partitions p ON p.object_id=t.object_id AND p.index_id IN (0,1) GROUP BY s.name,t.name'; EXEC sp_executesql @sql; FETCH NEXT FROM c INTO @db; END; CLOSE c; DEALLOCATE c;"
+            $D exec "$SQLC" "$SQLCMD" -S localhost -U sa -P "$SA_PASS" -C -W -s '|' -Q "$Q" 2>&1 | tail -n 220
+            unset SA_PASS
+            echo "LIVE_PROJECT_MAP_COMPLETE=1"

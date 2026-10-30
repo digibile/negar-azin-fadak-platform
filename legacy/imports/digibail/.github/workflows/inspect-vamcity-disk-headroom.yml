@@ -1,0 +1,38 @@
+name: Inspect VamCity migration disk headroom
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/inspect-vamcity-disk-headroom.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read-only disk and Docker storage report
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            echo "=== FILESYSTEM ==="
+            df -h /
+            echo "=== TOP LEVEL STORAGE ==="
+            du -xhd1 /var/lib/docker /var/lib/mysql /home 2>/dev/null | sort -h | tail -n 35 || true
+            echo "=== DOCKER STORAGE SUMMARY ==="
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; else D='docker'; fi
+            $D system df -v | head -n 100
+            echo "=== VAMCITY SQL CONTAINER MOUNTS ==="
+            $D inspect vamcity-stage-sql --format '{{range .Mounts}}{{println .Type .Source .Destination}}{{end}}'
+            echo "=== OLD TEMP FILE CANDIDATES (NO DELETION) ==="
+            find /tmp -maxdepth 1 -type f -mtime +7 -printf '%s %p\n' 2>/dev/null | sort -nr | head -n 20 || true
+            echo "DISK_INSPECTION_COMPLETE=1"

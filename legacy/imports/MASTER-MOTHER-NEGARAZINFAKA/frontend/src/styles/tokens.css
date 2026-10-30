@@ -1,0 +1,97 @@
+/*
+ * Design tokens for the Persian RTL client.
+ *
+ * Every value here is written with logical properties throughout the stylesheet, so the layout is defined
+ * once and mirrors correctly: `margin-inline-start` is the right-hand side in this document, because the
+ * document is RTL. A physical `left`/`right` would silently point the wrong way the moment a value is
+ * reused, so physical side properties do not appear.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Brand palette. */
+  --color-brand-900: #0b2f28;
+  --color-brand-800: #0f3f36;
+  --color-brand-700: #14594b;
+  --color-brand-600: #1f6f5c;
+  --color-brand-500: #2a8a72;
+  --color-accent-600: #b08a2e;
+  --color-accent-500: #d8b45a;
+  --color-accent-300: #e8d9a8;
+
+  /* Semantic surfaces. */
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f4f6f5;
+  --color-surface-raised: #ffffff;
+  --color-surface-inverse: #0b2f28;
+  --color-border: #dfe4e2;
+  --color-border-strong: #c3ccc8;
+
+  /* Semantic text. */
+  --color-text: #14201d;
+  --color-text-muted: #5c6b66;
+  --color-text-subtle: #8a9793;
+  --color-text-inverse: #f2f7f5;
+
+  /* Status. */
+  --color-positive: #1f7a4d;
+  --color-positive-soft: #e6f4ec;
+  --color-caution: #9a6a12;
+  --color-caution-soft: #fbf1dd;
+  --color-critical: #a83232;
+  --color-critical-soft: #fbeaea;
+  --color-info: #1f5f8f;
+  --color-info-soft: #e8f1f8;
+
+  /* Rhythm. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgb(11 47 40 / 8%);
+  --shadow-md: 0 4px 16px rgb(11 47 40 / 8%);
+  --shadow-lg: 0 18px 48px rgb(11 47 40 / 14%);
+
+  --font-sans: 'Vazirmatn', 'IRANSans', 'Segoe UI', 'Noto Sans Arabic', 'Tahoma', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', monospace;
+
+  --shell-sidebar-inline: 17.5rem;
+  --shell-topbar-block: 4rem;
+  --shell-content-max: 84rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface: #0f1a17;
+    --color-surface-sunken: #0a1310;
+    --color-surface-raised: #16241f;
+    --color-surface-inverse: #e6f0ec;
+    --color-border: #25352f;
+    --color-border-strong: #35473f;
+    --color-text: #e6efeb;
+    --color-text-muted: #9fb0aa;
+    --color-text-subtle: #78887f;
+    --color-text-inverse: #0b2f28;
+    --color-positive: #63c894;
+    --color-positive-soft: #12291f;
+    --color-caution: #dcb45f;
+    --color-caution-soft: #2a2313;
+    --color-critical: #f08a8a;
+    --color-critical-soft: #2e1516;
+    --color-info: #7db8e8;
+    --color-info-soft: #12222e;
+    --color-brand-600: #2a8a72;
+    --color-brand-700: #1f6f5c;
+  }
+}

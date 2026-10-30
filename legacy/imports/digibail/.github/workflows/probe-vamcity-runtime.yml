@@ -1,0 +1,82 @@
+name: Probe VamCity runtime configuration
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/probe-vamcity-runtime.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read runtime config without exposing credentials
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            set -eu
+            echo "=== COMPOSE LABELS ==="
+            docker inspect vamcity-stage-app --format 'COMPOSE_DIR={{index .Config.Labels "com.docker.compose.project.working_dir"}} COMPOSE_FILES={{index .Config.Labels "com.docker.compose.project.config_files"}} IMAGE={{.Config.Image}} NETWORKS={{json .NetworkSettings.Networks}}'
+            echo "=== CONFIG FILES ==="
+            for p in /opt/vamcity-github-stage /opt /home/roofixo/domains/roofixo.ir; do
+              [ -d "$p" ] || continue
+              find "$p" -maxdepth 3 -type f \( -name '*compose*.yml' -o -name '*compose*.yaml' -o -name 'docker-compose.*' -o -name 'appsettings*.json' \) -printf '%p\n' 2>/dev/null | head -n 60
+            done
+            echo "=== CONTAINER MOUNTS AND COMMAND ==="
+            docker inspect vamcity-stage-app --format 'MOUNTS={{json .Mounts}} CMD={{json .Config.Cmd}} ENTRYPOINT={{json .Config.Entrypoint}} WORKDIR={{.Config.WorkingDir}} USER={{.Config.User}} PORTS={{json .HostConfig.PortBindings}} RESTART={{json .HostConfig.RestartPolicy}}'
+            echo "=== STAGE DIRECTORY ==="
+            ls -la /opt/vamcity-github-stage 2>/dev/null | head -n 60 || true
+            echo "=== APP FILES ==="
+            docker exec vamcity-stage-app sh -lc 'find /app -maxdepth 2 -type f \\( -name "*.dll" -o -name "appsettings*.json" -o -name "*.deps.json" -o -name "*.runtimeconfig.json" \\) -printf "%p\\n" 2>/dev/null | head -n 50' || true
+            echo "=== CURRENT RELEASE FILES ==="
+            RELEASE="/home/roofixo/domains/roofixo.ir/vamcity-app/releases/3d2d5546cd79fa77e3807eb5a1a5ea8379ecbbfe"
+            ls -la "$RELEASE" 2>/dev/null | head -n 45 || true
+            echo "=== EF MIGRATIONS EMBEDDED IN CURRENT APP ==="
+            if [ -f "$RELEASE/LoanSystemAvizhe.Site.dll" ]; then
+              strings -a "$RELEASE/LoanSystemAvizhe.Site.dll" | grep -E '20260411123705_Add_ThirdPersonAssuranceAuthorization|20260917120000_Change_ThirdPersonAssurance_To_Many|Migrate\\(' | sort -u | head -n 20 || true
+            fi
+            echo "=== APP DIRECTORY DLLS AND CONFIG ==="
+            docker exec vamcity-stage-app sh -lc 'ls -1 /app 2>/dev/null | grep -E "\\.dll$|appsettings|runtimeconfig|\\.deps\\.json$" | head -n 80' || true
+            echo "=== MIGRATION IDS IN DEPLOYED ASSEMBLIES ==="
+            docker exec vamcity-stage-app sh -lc 'for f in /app/*.dll; do strings "$f" 2>/dev/null | grep -E "20260411123705_Add_ThirdPersonAssuranceAuthorization|20260917120000_Change_ThirdPersonAssurance_To_Many" | sed "s#^#$(basename "$f")|#" ; done | head -n 20' || true
+            echo "=== APP ENV DB NAME ONLY ==="
+            docker inspect vamcity-stage-app --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E '^ConnectionStrings__DefaultConnection=' | sed -E 's/(Server=[^;]+;Database=)[^;]+/\\1[DB_NAME]/; s/(Password|Pwd|Token|Secret)=([^; ]+)/\\1=[REDACTED]/Ig' || true
+            echo "=== APPSETTINGS CONNECTION STRINGS (NAMES AND DB NAMES ONLY) ==="
+            python3 - <<'PY'
+            import glob,json,re,os
+            root="/home/roofixo/domains/roofixo.ir/vamcity-app/releases/3d2d5546cd79fa77e3807eb5a1a5ea8379ecbbfe"
+            for fn in glob.glob(root+"/appsettings*.json"):
+                try: data=json.load(open(fn))
+                except Exception: continue
+                cs=data.get("ConnectionStrings",{})
+                for k,v in cs.items():
+                    if isinstance(v,str):
+                        db=re.search(r"(?:Database|Initial Catalog)=([^;]+)",v,re.I)
+                        server=re.search(r"(?:Server|Data Source)=([^;]+)",v,re.I)
+                        print(os.path.basename(fn)+"|"+k+"|server="+(server.group(1) if server else "?")+"|database="+(db.group(1) if db else "?"))
+            PY
+            echo "=== SQL SERVER LOGICAL FILE NAMES ==="
+            PASS="$(docker inspect vamcity-stage-sql --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^MSSQL_SA_PASSWORD=//p;s/^SA_PASSWORD=//p' | head -n 1)"
+            SQLCMD="$(docker exec vamcity-stage-sql sh -lc 'command -v sqlcmd || test ! -x /opt/mssql-tools18/bin/sqlcmd || echo /opt/mssql-tools18/bin/sqlcmd' 2>/dev/null | head -n 1)"
+            [ -n "$SQLCMD" ] || SQLCMD="/opt/mssql-tools18/bin/sqlcmd"
+            if [ -n "$PASS" ]; then
+              docker exec -e SQLCMDPASSWORD="$PASS" vamcity-stage-sql "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; SELECT DB_NAME(database_id) AS db_name,name,type_desc,physical_name FROM sys.master_files WHERE DB_NAME(database_id) IN ('vamcityc_vamcity_import_20261028','vamcityc_bluvamdb_import_20261028','vamcityc_transferDb_import_20261028','vamcity_stage') ORDER BY db_name,file_id" 2>&1 | tail -n 30 || true
+              echo "=== DATABASE TABLE-NAME DIFFERENCES ==="
+              docker exec -e SQLCMDPASSWORD="$PASS" vamcity-stage-sql "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; SELECT 'STAGE_ONLY' AS diff,TABLE_NAME FROM [vamcity_stage].INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE' AND TABLE_NAME NOT IN (SELECT TABLE_NAME FROM [vamcityc_vamcity_import_20261028].INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE') UNION ALL SELECT 'IMPORT_ONLY',TABLE_NAME FROM [vamcityc_vamcity_import_20261028].INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE' AND TABLE_NAME NOT IN (SELECT TABLE_NAME FROM [vamcity_stage].INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE')" 2>&1 | tail -n 30 || true
+            fi
+            echo "=== HTTP CHECKS ==="
+            if command -v curl >/dev/null 2>&1; then
+              timeout 5 curl --max-time 4 -sS -o /dev/null -w 'ROOT_HTTP=%{http_code}\n' http://127.0.0.1:5187/ || true
+              timeout 5 curl --max-time 4 -sS -o /dev/null -w 'ADMIN_HTTP=%{http_code}\n' http://127.0.0.1:5187/admin || true
+              timeout 5 curl --max-time 4 -sS -o /dev/null -w 'LOGIN_HTTP=%{http_code}\n' http://127.0.0.1:5187/api/v1/security/captcha || true
+            fi
+            echo "=== APP PROCESS ==="
+            docker top vamcity-stage-app -eo pid,comm,args 2>/dev/null | head -n 15 || true
+            echo "PROBE_COMPLETE=1"

@@ -1,0 +1,55 @@
+## .NET
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+artifacts/
+*.user
+*.suo
+*.userprefs
+.vs/
+.vscode/
+.idea/
+
+## Node / frontend
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+## Environment & secrets — never commit real credentials
+.env
+.env.*
+!.env.example
+*.pfx
+*.key
+secrets.json
+appsettings.Production.json
+appsettings.Local.json
+
+## Test / coverage
+TestResults/
+coverage/
+*.coverage
+*.trx
+
+## Local development message inbox — the development SMS sink writes real one-time
+## codes here, so it must never be committed.
+App_Data/
+
+## Local databases — created by `dotnet ef database update` against the design-time
+## placeholder connection string, never by a build.
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+## OS
+.DS_Store
+Thumbs.db

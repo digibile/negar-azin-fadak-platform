@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>NegarAzinFadak.Api</RootNamespace>
+    <AssemblyName>NegarAzinFadak.Api</AssemblyName>
+    <UserSecretsId>negar-azin-fadak-api</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NegarAzinFadak.Application\NegarAzinFadak.Application.csproj" />
+    <ProjectReference Include="..\NegarAzinFadak.Migrations.PostgreSQL\NegarAzinFadak.Migrations.PostgreSQL.csproj" />
+    <ProjectReference Include="..\NegarAzinFadak.Migrations.Sqlite\NegarAzinFadak.Migrations.Sqlite.csproj" />
+    <ProjectReference Include="..\NegarAzinFadak.Infrastructure\NegarAzinFadak.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="NegarAzinFadak.Api.Tests" />
+  </ItemGroup>
+
+</Project>

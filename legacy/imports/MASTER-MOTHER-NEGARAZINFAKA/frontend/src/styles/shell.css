@@ -1,0 +1,365 @@
+/* The management shell: a sidebar, a top bar and a content column. The sidebar is the inline-start edge,
+   which in an RTL document is the right-hand side, so the whole shell is expressed with logical
+   properties and needs no mirrored variant. */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--shell-sidebar-inline) minmax(0, 1fr);
+  grid-template-rows: 100%;
+  min-block-size: 100vh;
+  background: var(--color-surface-sunken);
+}
+
+.shell__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-brand-900);
+  color: #fff;
+  position: sticky;
+  inset-block-start: 0;
+  block-size: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.shell__sidebar .brand__name {
+  color: #fff;
+}
+
+.shell__sidebar .brand__sub {
+  color: rgb(255 255 255 / 62%);
+}
+
+.shell__brand {
+  display: inline-flex;
+  color: #fff;
+}
+
+.shell__brand:hover {
+  color: #fff;
+  text-decoration: none;
+}
+
+.shell__nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.shell__nav-group .shell__group-label {
+  margin-block-start: 0;
+}
+
+.shell__group-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgb(255 255 255 / 48%);
+  padding-inline: var(--space-3);
+  margin-block-start: var(--space-3);
+}
+
+.shell__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shell__nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0.5rem var(--space-3);
+  border-radius: var(--radius-md);
+  color: rgb(255 255 255 / 82%);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: start;
+  inline-size: 100%;
+  /* The sign-out control is a button wearing the link's shape, so it has to shed the UA button styling
+     or the two rows in the same list will not line up. */
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.shell__nav-link:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.shell__nav-link:hover {
+  background: rgb(255 255 255 / 8%);
+  color: #fff;
+  text-decoration: none;
+}
+
+.shell__nav-link[aria-current='page'] {
+  background: var(--color-brand-600);
+  color: #fff;
+}
+
+.shell__nav-link--external {
+  color: rgb(255 255 255 / 60%);
+}
+
+/* A section the platform published without a route. It is a heading, not a link: giving it a click handler
+   would promise a page the platform never registered, so it stays text and keeps the muted treatment. */
+.shell__nav-heading {
+  margin-block: 0.25rem;
+  padding-inline: var(--space-3);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgb(255 255 255 / 55%);
+  text-align: start;
+}
+
+.shell__nav-badge {
+  margin-inline-start: auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.05rem 0.45rem;
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 14%);
+  color: rgb(255 255 255 / 85%);
+  white-space: nowrap;
+}
+
+.shell__nav-link[aria-current='page'] .shell__nav-badge {
+  background: rgb(255 255 255 / 22%);
+}
+
+.shell__main {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.shell__topbar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: var(--shell-topbar-block);
+  padding-inline: var(--space-5);
+  padding-block: var(--space-2);
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-block-end: 1px solid var(--color-border);
+}
+
+.shell__topbar-titles {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  line-height: 1.35;
+}
+
+.shell__topbar-title {
+  font-weight: 700;
+  font-size: 0.98rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell__topbar-sub {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+}
+
+.shell__content {
+  flex: 1 1 auto;
+  inline-size: 100%;
+  max-inline-size: var(--shell-content-max);
+  margin-inline: auto;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-inline-size: 0;
+}
+
+.shell__toggle {
+  display: none;
+}
+
+/* ---------- Mobile: the sidebar becomes a disclosure panel ---------- */
+
+@media (max-width: 64rem) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell__sidebar {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: min(20rem, 86vw);
+    z-index: 40;
+    transform: translateX(100%);
+    transition: transform 180ms ease;
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* In an RTL document the inline-start edge is on the right, so a closed sidebar slides towards +X. */
+  [dir='rtl'] .shell__sidebar {
+    transform: translateX(100%);
+  }
+
+  [dir='ltr'] .shell__sidebar {
+    transform: translateX(-100%);
+  }
+
+  .shell__sidebar[data-open='true'] {
+    transform: translateX(0);
+  }
+
+  .shell__scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    background: rgb(6 26 22 / 45%);
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .shell__toggle {
+    display: inline-flex;
+  }
+
+  .shell__content {
+    padding: var(--space-4);
+  }
+
+  .shell__topbar {
+    padding-inline: var(--space-4);
+  }
+}
+
+@media (min-width: 64.0625rem) {
+  .shell__scrim {
+    display: none;
+  }
+}
+
+/* ---------- Dashboard ---------- */
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-4);
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.metric__label {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.metric__value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.metric__hint {
+  font-size: 0.78rem;
+  color: var(--color-text-subtle);
+}
+
+.metric--ok .metric__value {
+  color: var(--color-positive);
+}
+.metric--bad .metric__value {
+  color: var(--color-critical);
+}
+.metric--wait .metric__value {
+  color: var(--color-text-subtle);
+}
+
+/* ---------- Toolbar ---------- */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.toolbar .field {
+  min-inline-size: 11rem;
+}
+
+.toolbar__grow {
+  flex: 1 1 14rem;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+
+.segmented__item {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  padding: 0.35rem 0.85rem;
+  border-radius: calc(var(--radius-md) - 3px);
+  cursor: pointer;
+}
+
+.segmented__item:hover {
+  color: var(--color-text);
+}
+
+.segmented__item[aria-pressed='true'] {
+  background: var(--color-surface);
+  color: var(--color-brand-700);
+  box-shadow: var(--shadow-sm);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-block-start: 1px solid var(--color-border);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  flex-wrap: wrap;
+}
+
+.pager__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
