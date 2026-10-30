@@ -9,7 +9,7 @@ const audit=(t:string,u:string,e:string,id:string,a:string,b:any,x:any)=>query("
 
 router.get("/api/treasury-bank/overview",requireAuth,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const [banks,receipts,payments,transactions,cashboxes,movements]=await Promise.all([
+ const [banks,receipts,payments,parties,beneficiaryBankAccounts,transactions,cashboxes,movements]=await Promise.all([
   query("select * from treasury_bank_accounts where tenant_id=$1 order by bank_name,account_title",[t.id]),
   query("select r.*,b.bank_name,b.account_title from treasury_receipts r join treasury_bank_accounts b on b.id=r.bank_account_id where r.tenant_id=$1 order by r.receipt_date desc limit 200",[t.id]),
   query("select p.*,b.bank_name,b.account_title,party.title as canonical_party_title,party_bank.iban as beneficiary_iban,party_bank.bank_name as beneficiary_bank_name from treasury_payments p join treasury_bank_accounts b on b.id=p.bank_account_id left join accounting_parties party on party.id=p.party_id and party.tenant_id=p.tenant_id left join accounting_party_bank_accounts party_bank on party_bank.id=p.party_bank_account_id and party_bank.tenant_id=p.tenant_id where p.tenant_id=$1 order by p.payment_date desc limit 200",[t.id]),
