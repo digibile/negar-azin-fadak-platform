@@ -278,4 +278,23 @@ if(!customerInstallmentsUi.includes("/api/lendtech/my-contracts")||!customerInst
 if(!adminLendtechUi.includes("/api/lendtech/payment-declarations?status=pending")||!adminLendtechUi.includes('reviewDeclaration(d.id,"approved")')||!adminLendtechUi.includes('reviewDeclaration(d.id,"rejected")'))throw new Error("Central LendTech admin workspace must review pending payment declarations");
 
 if(!paymentDeclarations.includes("fk_payment_declaration_contract_tenant")||!paymentDeclarations.includes("fk_payment_declaration_repayment_tenant")||!paymentDeclarations.includes("on lendtech_payment_declarations(tenant_ref,payment_ref)"))throw new Error("Payment declarations must enforce tenant-scoped contract/repayment references and unique bank references");
+
+const partyBankMigration=fs.readFileSync(path.join(root,"database/migrations/150_accounting_party_bank_accounts.sql"),"utf8");
+const accountingOperations=fs.readFileSync(path.join(root,"apps/api/src/accounting-finance-operations.ts"),"utf8");
+const accountingWorkspace=fs.readFileSync(path.join(root,"apps/web/app/modules/AccountingFinanceWorkspace.tsx"),"utf8");
+for(const marker of ["create table if not exists accounting_party_bank_accounts","foreign key(tenant_id,party_id)","unique(tenant_id,iban)","verification_status","check(iban ~ '^IR[0-9]{24} 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
+)"])if(!partyBankMigration.includes(marker))throw new Error("Party-owned bank account schema safety marker missing: "+marker);
+for(const route of [
+ 'router.post("/api/accounting-finance/counterparties"',
+ 'router.patch("/api/accounting-finance/counterparties/:id"',
+ 'router.get("/api/accounting-finance/parties/:partyId/bank-accounts"',
+ 'router.post("/api/accounting-finance/parties/:partyId/bank-accounts"',
+ 'router.patch("/api/accounting-finance/parties/:partyId/bank-accounts/:id/verification"'
+])if(!accountingOperations.includes(route))throw new Error("Canonical party/bank-account route missing: "+route);
+if(!accountingOperations.includes("const validIranianIban=")||!accountingOperations.includes("%97")||!accountingOperations.includes("on conflict(tenant_id,iban) do nothing"))throw new Error("Iranian IBAN validation and tenant uniqueness must be enforced in the API");
+if(!accountingOperations.includes("where id=$1 and tenant_id=$2")||!accountingOperations.includes("where id=$1 and party_id=$2 and tenant_id=$3"))throw new Error("Party and bank account APIs must enforce tenant and parent ownership");
+if(!accountingOperations.includes("accounting_finance_audit")||!accountingOperations.includes("verification_status"))throw new Error("Party bank account changes must be auditable and have explicit verification state");
+if(!accountingWorkspace.includes('["parties","طرف‌حساب‌ها و شبا"]')||!accountingWorkspace.includes("/api/accounting-finance/counterparties")||!accountingWorkspace.includes("partyBankAccounts")||!accountingWorkspace.includes("تأیید دستی"))throw new Error("Canonical accounting workspace must expose counterparties and manual bank verification");
+if(accountingOperations.includes("insert into accounting_bank_accounts(tenant_id,code,bank_name")&&accountingOperations.includes("counterparties")){} 
+
 console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
