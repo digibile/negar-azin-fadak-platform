@@ -1,5 +1,6 @@
 import {Router} from "express";
-import {query} from "./db.js";
+import {query,pool} from "./db.js";
+import {randomUUID} from "node:crypto";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
@@ -45,11 +46,40 @@ merchantRouter.post("/api/merchants",requireAuth,requirePermission("merchant:man
   if(!code||!legalName||!displayName)return res.status(400).json({error:"کد، نام حقوقی و نام نمایشی پذیرنده الزامی است"});
   if(!["individual","company","organization"].includes(businessType))return res.status(400).json({error:"نوع پذیرنده نامعتبر است"});
   if(commissionRate===null||commissionRate<0||commissionRate>100)return res.status(400).json({error:"نرخ کارمزد نامعتبر است"});
-  const r=await query(
-    "insert into payment_merchants(tenant_id,code,legal_name,display_name,business_type,national_id,tax_id,iban,settlement_account_ref,contract_ref,commission_rate,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning *",
-    [t.id,code,legalName,displayName,businessType,str(req.body?.nationalId,80)||null,str(req.body?.taxId,80)||null,str(req.body?.iban,50)||null,str(req.body?.settlementAccountRef,120)||null,str(req.body?.contractRef,120)||null,commissionRate,req.body?.metadata&&typeof req.body.metadata==="object"?req.body.metadata:{}]
-  );
-  res.status(201).json(r.rows[0]);
+  const nationalId=str(req.body?.nationalId,80)||null;
+  const taxId=str(req.body?.taxId,80)||null;
+  const client=await pool.connect();
+  try{
+    await client.query("begin");
+    // Reuse a canonical party only when the tenant has exactly one exact identity match.
+    // Ambiguous matches are rejected rather than silently merging two real entities.
+    let partyId:string|null=null;
+    if(nationalId){
+      const matches=await client.query(
+        "select id from accounting_parties where tenant_id=$1 and national_id=$2 order by created_at for update",
+        [t.id,nationalId]
+      );
+      if(matches.rowCount>1)throw Object.assign(new Error("برای این شناسه ملی چند طرف‌حساب وجود دارد؛ ابتدا تطبیق هویت باید تعیین تکلیف شود"),{statusCode:409});
+      if(matches.rowCount===1)partyId=matches.rows[0].id;
+    }
+    if(!partyId){
+      const party=await client.query(
+        "insert into accounting_parties(tenant_id,party_code,party_type,title,national_id,tax_id,status,metadata) values($1,$2,'other',$3,$4,$5,'active',$6) returning id",
+        [t.id,"MER-"+randomUUID().replace(/-/g,"").slice(0,12).toUpperCase(),legalName,nationalId,taxId,{sourceSystem:"payment_merchants",sourceEntity:"payment_merchants"}]
+      );
+      partyId=party.rows[0].id;
+    }
+    const r=await client.query(
+      "insert into payment_merchants(tenant_id,party_id,code,legal_name,display_name,business_type,national_id,tax_id,iban,settlement_account_ref,contract_ref,commission_rate,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning *",
+      [t.id,partyId,code,legalName,displayName,businessType,nationalId,taxId,str(req.body?.iban,50)||null,str(req.body?.settlementAccountRef,120)||null,str(req.body?.contractRef,120)||null,commissionRate,req.body?.metadata&&typeof req.body.metadata==="object"?req.body.metadata:{}]
+    );
+    await client.query("commit");
+    res.status(201).json(r.rows[0]);
+  }catch(error:any){
+    await client.query("rollback");
+    if(error?.statusCode)return res.status(error.statusCode).json({error:error.message});
+    throw error;
+  }finally{client.release();}
 }));
 
 merchantRouter.patch("/api/merchants/:id",requireAuth,requirePermission("merchant:manage"),asyncHandler(async(req,res)=>{
