@@ -185,15 +185,26 @@ lendtechRouter.post("/api/lendtech/applications/:id/decision",requireAuth,requir
 
 lendtechRouter.post("/api/lendtech/applications/:id/committee",requireAuth,requirePermission("modules:lendtech:committee"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const decision=await query("select * from lendtech_decisions where application_id=$1 and tenant_ref=$2 and decision='approve' order by decided_at desc limit 1",[req.params.id,t.id]);
- if(!decision.rowCount)return res.status(409).json({error:"مصوبه قابل تأیید کمیته پیدا نشد"});
- const a=await query("select * from lendtech_applications where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
- if(!a.rowCount)return res.status(404).json({error:"درخواست اعتبار پیدا نشد"});
- const d=decision.rows[0];
- const r=await query(`insert into lendtech_facilities(tenant_ref,application_id,decision_id,facility_no,approved_amount,available_amount)
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const decision=await client.query("select * from lendtech_decisions where application_id=$1 and tenant_ref=$2 and decision='approve' order by decided_at desc limit 1 for update",[req.params.id,t.id]);
+  if(!decision.rowCount){await client.query("rollback");return res.status(409).json({error:"مصوبه قابل تأیید کمیته پیدا نشد"});}
+  const d=decision.rows[0];
+  const existing=await client.query("select * from lendtech_facilities where decision_id=$1 and tenant_ref=$2 limit 1",[d.id,t.id]);
+  if(existing.rowCount){
+   await client.query("rollback");
+   return res.status(200).json({facility:existing.rows[0],alreadyCreated:true});
+  }
+  const a=await client.query("select * from lendtech_applications where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
+  if(!a.rowCount){await client.query("rollback");return res.status(404).json({error:"درخواست اعتبار پیدا نشد"});}
+  const created=await client.query(`insert into lendtech_facilities(tenant_ref,application_id,decision_id,facility_no,approved_amount,available_amount)
    values($1,$2,$3,$4,$5,$5) returning *`,[t.id,a.rows[0].id,d.id,facilityNo(),d.approved_amount]);
- await query("update lendtech_applications set status='approved',updated_at=now() where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
- res.status(201).json(r.rows[0]);
+  await client.query("update lendtech_applications set status='approved',updated_at=now() where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
+  await event(client,t.id,req.params.id,null,"facility.approved",actor(req),{facilityId:created.rows[0].id,decisionId:d.id});
+  await client.query("commit");
+  res.status(201).json(created.rows[0]);
+ }catch(error){await client.query("rollback");throw error;}finally{client.release();}
 }));
 
 lendtechRouter.post("/api/lendtech/facilities/:id/contract",requireAuth,requirePermission("modules:lendtech:write"),asyncHandler(async(req,res)=>{
@@ -243,6 +254,17 @@ lendtechRouter.post("/api/lendtech/contracts/:id/repay",requireAuth,requirePermi
   const duplicate=await client.query("select id from lendtech_repayments where tenant_ref=$1 and payment_ref=$2",[t.id,paymentRef]);
   if(duplicate.rowCount){await client.query("rollback");return res.status(409).json({error:"مرجع پرداخت تکراری است"});}
   let remaining=amount;
+  if(!["active","delinquent"].includes(c.rows[0].status)){
+   await client.query("rollback");
+   return res.status(409).json({error:"بازپرداخت فقط برای قرارداد فعال یا دارای معوقه مجاز است"});
+  }
+  const outstanding=await client.query(`select coalesce(sum(greatest(total_due-principal_paid-interest_paid,0)),0)::text as amount
+   from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status<>'paid'`,[req.params.id,t.id]);
+  const outstandingMinor=parseMoneyToMinorUnits(outstanding.rows[0].amount);
+  if(outstandingMinor===null||amount>outstandingMinor){
+   await client.query("rollback");
+   return res.status(409).json({error:"مبلغ پرداخت از مانده قابل پرداخت قرارداد بیشتر است؛ پرداخت مازاد باید جداگانه تطبیق و ثبت شود",outstanding:outstanding.rows[0].amount});
+  }
   const installments=await client.query("select * from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status<>'paid' order by due_date,installment_no for update",[req.params.id,t.id]);
   const allocation:any[]=[];
   for(const i of installments.rows){
@@ -301,10 +323,20 @@ lendtechRouter.post("/api/lendtech/contracts/:id/restructure",requireAuth,requir
   const contract=c.rows[0];
   if(["closed"].includes(contract.status)){await client.query("rollback");return res.status(409).json({error:"قرارداد مختومه قابل بازسازی نیست"});}
   const outstanding=await client.query(`select
-    coalesce(sum(principal_due-principal_paid),0)::text as principal
+    coalesce(sum(greatest(principal_due-principal_paid,0)),0)::text as principal,
+    coalesce(sum(greatest(interest_due-interest_paid,0)),0)::text as interest
     from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status<>'paid'`,[contract.id,t.id]);
   const remainingPrincipal=parseMoneyToMinorUnits(outstanding.rows[0].principal);
+  const remainingInterest=parseMoneyToMinorUnits(outstanding.rows[0].interest);
+  const openDelinquencies=await client.query("select count(*)::int as count,coalesce(sum(amount_due),0)::text as amount from lendtech_delinquencies where contract_id=$1 and tenant_ref=$2 and status='open'",[contract.id,t.id]);
+  const openDelinquencyAmount=parseMoneyToMinorUnits(openDelinquencies.rows[0].amount);
   if(remainingPrincipal===null||remainingPrincipal<=0n){await client.query("rollback");return res.status(409).json({error:"مانده اصلی قرارداد برای بازسازی وجود ندارد"});}
+  if(remainingInterest===null||remainingInterest>0n||openDelinquencyAmount===null||openDelinquencyAmount>0n){
+   await client.query("rollback");
+   return res.status(409).json({error:"بازسازی تا تعیین تکلیف سود پرداخت‌نشده و معوقات باز مجاز نیست؛ هیچ مبلغی بخشوده یا از دفتر حساب حذف نشد.",unpaidInterest:outstanding.rows[0].interest,openDelinquencyAmount:openDelinquencies.rows[0].amount});
+  }
+  const lastPaid=await client.query("select coalesce(max(installment_no),0)::int as value from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status='paid'",[contract.id,t.id]);
+  const installmentOffset=Number(lastPaid.rows[0].value);
   const months=Number(term);
   const schedule=buildAmortizationSchedule(remainingPrincipal,contract.interest_rate,months);
   await client.query("delete from lendtech_installments where contract_id=$1 and tenant_ref=$2 and status<>'paid'",[contract.id,t.id]);
@@ -314,11 +346,11 @@ lendtechRouter.post("/api/lendtech/contracts/:id/restructure",requireAuth,requir
    const row=schedule.rows[i-1];
    await client.query(`insert into lendtech_installments(tenant_ref,contract_id,installment_no,due_date,principal_due,interest_due,total_due)
      values($1,$2,$3,$4,$5,$6,$7)`,
-    [t.id,contract.id,i,due.toISOString().slice(0,10),formatMinorUnits(row.principalDue),formatMinorUnits(row.interestDue),formatMinorUnits(row.totalDue)]);
+    [t.id,contract.id,installmentOffset+i,due.toISOString().slice(0,10),formatMinorUnits(row.principalDue),formatMinorUnits(row.interestDue),formatMinorUnits(row.totalDue)]);
   }
-  const r=await client.query("insert into lendtech_restructures(tenant_ref,contract_id,old_term_months,new_term_months,reason,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,contract.id,contract.term_months,term,reason,actor(req)]);
-  await client.query("update lendtech_contracts set term_months=$1,status='active',updated_at=now() where id=$2 and tenant_ref=$3",[term,contract.id,t.id]);
-  await client.query("update lendtech_delinquencies set status='resolved',resolved_at=now() where contract_id=$1 and tenant_ref=$2 and status='open'",[contract.id,t.id]);
+  const totalTerm=installmentOffset+months;
+  const r=await client.query("insert into lendtech_restructures(tenant_ref,contract_id,old_term_months,new_term_months,reason,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,contract.id,contract.term_months,totalTerm,reason,actor(req)]);
+  await client.query("update lendtech_contracts set term_months=$1,status='active',updated_at=now() where id=$2 and tenant_ref=$3",[totalTerm,contract.id,t.id]);
   await event(client,t.id,null,contract.id,"contract.restructured",actor(req),{oldTermMonths:contract.term_months,newTermMonths:term,remainingPrincipal:formatMinorUnits(remainingPrincipal)});
   await client.query("commit");
   res.status(201).json({restructure:r.rows[0],remainingPrincipal:formatMinorUnits(remainingPrincipal),newTermMonths:term});
