@@ -104,7 +104,7 @@ create table if not exists lendtech_contract_documents (
   foreign key(tenant_ref,application_id) references lendtech_applications(tenant_ref,id) on delete cascade,
   foreign key(tenant_ref,contract_id) references lendtech_contracts(tenant_ref,id) on delete cascade,
   foreign key(tenant_ref,template_id) references lendtech_contract_templates(tenant_ref,id) on delete restrict,
-  foreign key(tenant_ref,previous_id) references lendtech_contract_documents(tenant_ref,id) on delete set null
+  foreign key(tenant_ref,previous_id) references lendtech_contract_documents(tenant_ref,id) on delete restrict
 );
 create index if not exists idx_lendtech_contract_documents_owner
   on lendtech_contract_documents(tenant_ref,application_id,created_at desc);
