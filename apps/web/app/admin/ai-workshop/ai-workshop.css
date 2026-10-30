@@ -45,3 +45,12 @@
 @media(max-width:1200px){.ai-workshop-main{grid-template-columns:1fr}.ai-workshop-layout{grid-template-columns:240px minmax(0,1fr)}}
 @media(max-width:760px){.ai-workshop{padding:12px}.ai-workshop-layout{grid-template-columns:1fr}.ai-tools-panel{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}.ai-tools-heading{grid-column:1/-1}.ai-tools-panel>button{align-items:flex-start}.ai-workshop-main{grid-template-columns:1fr}.ai-workshop-form,.ai-workshop-output{padding:14px}.ai-workshop-fields{grid-template-columns:1fr 1fr}.ai-report-grid{grid-template-columns:1fr}}
 @media(max-width:430px){.ai-tools-panel{grid-template-columns:1fr}.ai-workshop-fields{grid-template-columns:1fr}.ai-workshop-hero{padding:19px}}
+
+.ai-artifact-actions>div{display:flex;gap:8px;flex-wrap:wrap}
+.ai-artifact-actions .ai-code-button{background:#1d4ed8}
+.ai-source-files{display:grid;gap:8px}
+.ai-source-files>b{font-size:11px}
+.ai-source-files details{border:1px solid var(--border,#e2e8f0);border-radius:10px;overflow:hidden}
+.ai-source-files summary{padding:10px 12px;background:var(--muted,#f8fafc);font-size:10px;font-weight:800;direction:ltr;text-align:left;cursor:pointer}
+.ai-source-files pre{margin:0;padding:12px;max-height:420px;overflow:auto;background:#0b1220;color:#d1fae5;font-size:10px;line-height:1.8;direction:ltr;text-align:left;white-space:pre;tab-size:2}
+@media(max-width:430px){.ai-artifact-actions>div{width:100%}.ai-artifact-actions>div button{flex:1}}
