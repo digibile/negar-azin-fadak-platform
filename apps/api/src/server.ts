@@ -48,6 +48,7 @@ import {platformEnginesRouter,sweepSlaCases} from "./platform-engines.js";
 import {platformUpdatesRouter} from "./platform-updates.js";
 import {platformExperienceRouter} from "./platform-experience.js";
 import {lendtechRouter} from "./lendtech.js";
+import {lendtechContractRouter} from "./lendtech-contract-documents.js";
 import {enterpriseInteractionRouter} from "./enterprise-interaction.js";
 import {commerceIntelligenceRouter} from "./commerce-intelligence.js";
 import {merchantRouter} from "./merchant-management.js";
@@ -152,6 +153,7 @@ app.use(platformOperationsRouter);
 app.use(platformUpdatesRouter);
 app.use(platformExperienceRouter);
 app.use(lendtechRouter);
+app.use(lendtechContractRouter);
 app.use(enterpriseInteractionRouter);
 app.use(commerceIntelligenceRouter);
 
