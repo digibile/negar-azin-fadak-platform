@@ -34,7 +34,10 @@ alter table products
   add column if not exists category_id uuid,
   add column if not exists discount_price numeric(20,2);
 
-do $$
+create unique index if not exists uq_products_tenant_id
+  on products(tenant_id,id);
+
+do $
 begin
   if not exists (select 1 from pg_constraint where conname='fk_products_category_tenant') then
     alter table products
