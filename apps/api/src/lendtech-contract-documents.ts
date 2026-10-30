@@ -266,6 +266,15 @@ lendtechContractRouter.post("/api/lendtech/contracts/:id/render",requireAuth,req
  res.status(201).json({items:created,total:created.length});
 }));
 
+lendtechContractRouter.get("/api/lendtech/contract-documents",requireAuth,requirePermission("modules:lendtech:contract:read"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const status=s(req.query.status,20),params:any[]=[t.id];
+ let where="d.tenant_ref=$1";
+ if(status){params.push(status);where+=" and d.status=$2";}
+ const r=await query("select d.id,d.document_no,d.title,d.stage,d.status,d.template_version,d.requires_review,d.created_at,d.presented_at,d.expires_at,d.signed_at,c.contract_no,c.status as loan_contract_status,a.application_no,a.customer_ref,a.product_code from lendtech_contract_documents d join lendtech_contracts c on c.id=d.contract_id and c.tenant_ref=d.tenant_ref join lendtech_applications a on a.id=d.application_id and a.tenant_ref=d.tenant_ref where "+where+" order by d.created_at desc limit 250",params);
+ res.json({items:r.rows,total:r.rowCount});
+}));
+
 lendtechContractRouter.get("/api/lendtech/contracts/:id/documents",requireAuth,requirePermission("modules:lendtech:contract:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const r=await query("select id,document_no,title,stage,status,template_version,requires_review,created_at,presented_at,signed_at from lendtech_contract_documents where tenant_ref=$1 and contract_id=$2 order by created_at desc",[t.id,req.params.id]);
