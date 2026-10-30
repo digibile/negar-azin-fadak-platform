@@ -55,6 +55,7 @@ export default function CustomerIdentityDocumentsPage(){
  }
 
  const label=(key:string)=>types.find(x=>x[0]===key)?.[1]||"سایر مدارک";
+ const ocrLabel=(status:string)=>status==="queued"?"در صف استخراج متن":status==="processing"?"در حال استخراج متن":status==="completed"?"متن استخراج شد؛ در انتظار بررسی انسانی":status==="needs_review"?"نیازمند بررسی دستی":status==="failed"?"پردازش ناموفق؛ بررسی دستی لازم است":"در انتظار بررسی انسانی";
  return <main className={styles.page} dir="rtl">
   <header className={styles.header}>
    <div><span>پروفایل مشتری · مدارک</span><h1>مدارک هویتی و پرونده‌های من</h1><p>مدارک مستقیماً به پرونده اعتباری متعلق به حساب شما متصل می‌شوند. دسترسی دانلود نیز فقط برای صاحب همان پرونده مجاز است.</p></div>
@@ -76,7 +77,7 @@ export default function CustomerIdentityDocumentsPage(){
    <div className={styles.panelHead}><div><small>MY DOCUMENTS</small><h2>مدارک ثبت‌شده</h2></div><button onClick={load} disabled={loading}>به‌روزرسانی</button></div>
    {loading?<div className={styles.empty}>در حال دریافت مدارک...</div>:items.length?<div className={styles.list}>{items.map(d=><article className={styles.row} key={d.id}>
     <div><strong>{label(d.document_type)}</strong><small>{d.application_no} · {d.original_name}</small><small>{new Date(d.created_at).toLocaleString("fa-IR")} · {(Number(d.size_bytes)/1024).toFixed(0)} کیلوبایت</small></div>
-    <span>ثبت‌شده · در انتظار بررسی</span>
+    <span>{ocrLabel(d.ocr_status)}</span>
     <a href={"/api/lendtech/my-documents/"+d.id+"/file"}>دریافت فایل</a>
    </article>)}</div>:<div className={styles.empty}>هنوز مدرکی برای پرونده‌های شما ثبت نشده است.</div>}
   </section>
