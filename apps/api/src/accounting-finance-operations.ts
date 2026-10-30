@@ -2,6 +2,7 @@ import {Router} from "express";
 import {query,pool} from "./db.js";
 import {requireAuth,requirePermission,requireCsrf} from "./auth.js";
 import {resolveTenant} from "./tenant-context.js";
+import {normalizeAndValidateIranianIban} from "./iranian-iban.js";
 
 const router=Router();
 const tenantOf=async(req:any)=>resolveTenant(req,req.user);
@@ -9,15 +10,6 @@ const idOf=(req:any,k:string)=>Array.isArray(req.params?.[k])?req.params[k][0]:r
 const deny=(res:any,n:number,error:string)=>res.status(n).json({error});
 const actor=(req:any)=>req.user.id;
 const date=(v:any)=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v);
-const validIranianIban=(value:any)=>{
- const iban=String(value||"").replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[\s\u200c-]/g,"").toUpperCase();
- if(!/^IR[0-9]{24}$/.test(iban))return null;
- const rearranged=iban.slice(4)+iban.slice(0,4);
- const numeric=rearranged.replace(/[A-Z]/g,ch=>String(ch.charCodeAt(0)-55));
- let remainder=0;
- for(const digit of numeric)remainder=(remainder*10+Number(digit))%97;
- return remainder===1?iban:null;
-};
 const audit=async(t:string,u:string,type:string,id:string,action:string,b:any,a:any,db:any=pool)=>
  db.query("insert into audit_events(event_type,actor_ref,entity_type,entity_id,payload) values($1,$2,$3,null,$4)",["accounting."+type+"."+action,u,"accounting_"+type,{tenant_id:t,entity_id:id,before:b||null,after:a||null}]);
 
@@ -49,7 +41,7 @@ router.post("/api/accounting-finance/parties",requireAuth,requirePermission("acc
 
 router.post("/api/accounting-finance/counterparties",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const b=req.body||{},name=String(b.name||"").trim(),iban=validIranianIban(b.iban);
+ const b=req.body||{},name=String(b.name||"").trim(),iban=normalizeAndValidateIranianIban(b.iban);
  if(!name||name.length>120)return deny(res,400,"نام طرف تسویه الزامی است و حداکثر ۱۲۰ نویسه دارد");
  if(!iban)return deny(res,400,"شماره شبای ایران معتبر نیست");
  const partyType=["customer","supplier","employee","agent","bank","other"].includes(b.partyType)?b.partyType:"other";
@@ -68,7 +60,7 @@ router.patch("/api/accounting-finance/counterparties/:id",requireAuth,requirePer
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const b=req.body||{},id=idOf(req,"id"),name=String(b.name||"").trim();
  if(!name||name.length>120)return deny(res,400,"نام طرف تسویه الزامی است و حداکثر ۱۲۰ نویسه دارد");
- const iban=b.iban===undefined?null:validIranianIban(b.iban);
+ const iban=b.iban===undefined?null:normalizeAndValidateIranianIban(b.iban);
  if(b.iban!==undefined&&!iban)return deny(res,400,"شماره شبای ایران معتبر نیست");
  const c=await pool.connect();
  try{
@@ -119,7 +111,7 @@ router.get("/api/accounting-finance/parties/:partyId/bank-accounts",requireAuth,
 
 router.post("/api/accounting-finance/parties/:partyId/bank-accounts",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const b=req.body||{},partyId=idOf(req,"partyId"),iban=validIranianIban(b.iban);
+ const b=req.body||{},partyId=idOf(req,"partyId"),iban=normalizeAndValidateIranianIban(b.iban);
  if(!iban)return deny(res,400,"شماره شبای ایران معتبر نیست");
  const party=await query("select id from accounting_parties where id=$1 and tenant_id=$2",[partyId,t.id]);
  if(!party.rowCount)return deny(res,404,"طرف حساب پیدا نشد");
