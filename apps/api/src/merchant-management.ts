@@ -3,7 +3,7 @@ import {query,pool} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
-import {ensureCanonicalParty} from "./canonical-party.js";
+import {ensureCanonicalParty,normalizeNationalId} from "./canonical-party.js";
 
 export const merchantRouter=Router();
 
@@ -76,12 +76,46 @@ merchantRouter.patch("/api/merchants/:id",requireAuth,requirePermission("merchan
   const commissionRate=req.body?.commissionRate===undefined?null:num(req.body?.commissionRate);
   if(businessType!==null&&!["individual","company","organization"].includes(businessType))return res.status(400).json({error:"نوع پذیرنده نامعتبر است"});
   if(commissionRate!==null&&(commissionRate<0||commissionRate>100))return res.status(400).json({error:"نرخ کارمزد نامعتبر است"});
-  const r=await query(
-    "update payment_merchants set legal_name=coalesce($1,legal_name),display_name=coalesce($2,display_name),business_type=coalesce($3,business_type),national_id=coalesce($4,national_id),tax_id=coalesce($5,tax_id),iban=coalesce($6,iban),settlement_account_ref=coalesce($7,settlement_account_ref),contract_ref=coalesce($8,contract_ref),commission_rate=coalesce($9,commission_rate),updated_at=now() where id=$10 and tenant_id=$11 returning *",
-    [str(req.body?.legalName,250)||null,str(req.body?.displayName,250)||null,businessType,str(req.body?.nationalId,80)||null,str(req.body?.taxId,80)||null,str(req.body?.iban,50)||null,str(req.body?.settlementAccountRef,120)||null,str(req.body?.contractRef,120)||null,commissionRate,req.params.id,t.id]
-  );
-  if(!r.rowCount)return res.status(404).json({error:"پذیرنده پیدا نشد"});
-  res.json(r.rows[0]);
+  const client=await pool.connect();
+  try{
+    await client.query("begin");
+    const current=await client.query("select * from payment_merchants where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+    if(!current.rowCount){await client.query("rollback");return res.status(404).json({error:"پذیرنده پیدا نشد"});}
+    const old=current.rows[0];
+    const nationalIdProvided=req.body?.nationalId!==undefined;
+    const nationalId=nationalIdProvided?(str(req.body?.nationalId,80)||null):old.national_id;
+    if(old.party_id&&nationalIdProvided&&normalizeNationalId(nationalId)!==normalizeNationalId(old.national_id)){
+      await client.query("rollback");
+      return res.status(409).json({error:"شناسه ملی پذیرنده پس از اتصال به طرف‌حساب مرکزی قابل تغییر مستقیم نیست؛ ابتدا درخواست اصلاح هویت و تطبیق مستند انجام شود."});
+    }
+    let partyId:string|null=old.party_id||null;
+    if(!partyId&&nationalId){
+      partyId=await ensureCanonicalParty(client,{
+        tenantId:t.id,kind:"other",title:str(req.body?.legalName,250)||old.legal_name,
+        nationalId,taxId:str(req.body?.taxId,80)||old.tax_id||null,
+        sourceSystem:"payment_merchants_legacy_update"
+      });
+    }
+    const legalName=str(req.body?.legalName,250)||null;
+    const taxId=str(req.body?.taxId,80)||null;
+    const updated=await client.query(
+      "update payment_merchants set party_id=coalesce($1,party_id),legal_name=coalesce($2,legal_name),display_name=coalesce($3,display_name),business_type=coalesce($4,business_type),national_id=case when $5::boolean then $6 else national_id end,tax_id=coalesce($7,tax_id),iban=coalesce($8,iban),settlement_account_ref=coalesce($9,settlement_account_ref),contract_ref=coalesce($10,contract_ref),commission_rate=coalesce($11,commission_rate),updated_at=now() where id=$12 and tenant_id=$13 returning *",
+      [partyId,legalName,str(req.body?.displayName,250)||null,businessType,nationalIdProvided,nationalId,taxId,str(req.body?.iban,50)||null,str(req.body?.settlementAccountRef,120)||null,str(req.body?.contractRef,120)||null,commissionRate,req.params.id,t.id]
+    );
+    if(partyId){
+      await client.query(
+        "update accounting_parties set title=coalesce($1,title),tax_id=coalesce($2,tax_id),updated_at=now() where id=$3 and tenant_id=$4",
+        [legalName,taxId,partyId,t.id]
+      );
+    }
+    await client.query("commit");
+    res.json(updated.rows[0]);
+  }catch(error:any){
+    await client.query("rollback");
+    if(error?.statusCode)return res.status(error.statusCode).json({error:error.message});
+    if(error?.code==="23505")return res.status(409).json({error:"شناسه ملی یا پذیرنده با رکورد دیگری تداخل دارد؛ تطبیق مرکزی را بررسی کنید."});
+    throw error;
+  }finally{client.release();}
 }));
 
 merchantRouter.patch("/api/merchants/:id/status",requireAuth,requirePermission("merchant:manage"),asyncHandler(async(req,res)=>{
