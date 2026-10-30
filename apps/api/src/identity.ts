@@ -1,4 +1,5 @@
 import {Router} from "express";
+import {createHash} from "node:crypto";
 import {isValidIranianNationalCode,normalizeIranianDigits} from "./iranian-validation.js";
 import {pool,query} from "./db.js";
 import {requireAuth,requireCsrf} from "./auth.js";
@@ -6,6 +7,7 @@ import {requireAuth,requireCsrf} from "./auth.js";
 const router=Router();
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ROLE_KEY=/^[a-z][a-z0-9_-]{1,40}$/;
+const hashProfileValue=(value:unknown)=>createHash("sha256").update(String(value??""),"utf8").digest("hex");
 const isAdmin=(req:any)=>req.user?.role==="admin";
 
 const guardRead=async(req:any,res:any,next:any)=>{
@@ -69,15 +71,140 @@ router.patch("/api/identity/users/:id",requireAuth,guardWrite,requireCsrf,async(
  if(!UUID.test(String(req.params.id)))return res.status(400).json({error:"شناسه کاربر معتبر نیست"});
  const {fullName,role,status}=req.body||{};
  const nationalIdRaw=req.body?.nationalId;
- const nationalId=nationalIdRaw===undefined?undefined:(typeof nationalIdRaw==="string"&&nationalIdRaw.trim()?normalizeIranianDigits(nationalIdRaw.trim()):null);
+ const nationalId=nationalIdRaw===undefined?undefined:(typeof nationalIdRaw==="string"&&nationalIdRaw.trim()?normalizeIranianDigits(nationalIdRaw.trim()).replace(/\D/g,""):null);
  if(nationalId!==undefined&&nationalId!==null&&!isValidIranianNationalCode(nationalId))return res.status(400).json({error:"کد ملی معتبر نیست"});
- if(fullName!==undefined&&(typeof fullName!=="string"||!fullName.trim()))return res.status(400).json({error:"نام کاربر معتبر نیست"});
+ if(fullName!==undefined&&(typeof fullName!=="string"||fullName.trim().length<2||fullName.trim().length>160))return res.status(400).json({error:"نام کاربر معتبر نیست"});
+ if(!isAdmin(req)){
+  if(String(req.params.id)!==String(req.user.id))return res.status(403).json({error:"ویرایش حساب دیگران مجاز نیست"});
+  if(fullName!==undefined||nationalIdRaw!==undefined)return res.status(409).json({error:"تغییر اطلاعات قانونی باید از مسیر درخواست اصلاح پروفایل و تأیید مدیر انجام شود"});
+ }
  if(!isAdmin(req)&&(role!==undefined||status!==undefined))return res.status(403).json({error:"تغییر نقش یا وضعیت حساب فقط برای مدیر سامانه مجاز است"});
  if(role!==undefined){if(typeof role!=="string")return res.status(400).json({error:"نقش معتبر نیست"});const x=await query("select 1 from identity_roles where role_key=$1 and is_active=true",[role]);if(!x.rowCount)return res.status(400).json({error:"نقش معتبر نیست"});}
- if(status!==undefined&&!["active","pending","suspended"].includes(status))return res.status(400).json({error:"وضعیت حساب معتبر نیست"});
- const r=await query("update users set full_name=coalesce($1,full_name),role=coalesce($2,role),status=coalesce($3,status),national_id=case when $4::boolean then $5 else national_id end,updated_at=now() where id=$6 returning id,email,national_id,full_name,role,status,created_at",[fullName?.trim()||null,role??null,status??null,nationalIdRaw!==undefined,nationalId??null,req.params.id]);
- if(!r.rowCount)return res.status(404).json({error:"کاربر پیدا نشد"});
- res.json(r.rows[0]);
+ if(status!==undefined&&![ "active","pending","suspended"].includes(status))return res.status(400).json({error:"وضعیت حساب معتبر نیست"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const old=await client.query("select id,email,full_name,national_id,role,status from users where id=$1 for update",[req.params.id]);
+  if(!old.rowCount){await client.query("rollback");return res.status(404).json({error:"کاربر پیدا نشد"});}
+  const r=await client.query("update users set full_name=coalesce($1,full_name),role=coalesce($2,role),status=coalesce($3,status),national_id=case when $4::boolean then $5 else national_id end,updated_at=now() where id=$6 returning id,email,national_id,full_name,role,status,created_at",[fullName?.trim()||null,role??null,status??null,nationalIdRaw!==undefined,nationalId??null,req.params.id]);
+  const before={fullName:old.rows[0].full_name,nationalId:old.rows[0].national_id,role:old.rows[0].role,status:old.rows[0].status};
+  const after={fullName:r.rows[0].full_name,nationalId:r.rows[0].national_id,role:r.rows[0].role,status:r.rows[0].status};
+  if(isAdmin(req)){
+   for(const [key,value] of [["full_name",r.rows[0].full_name],["national_id",r.rows[0].national_id]] as const){
+    if(before[key==="full_name"?"fullName":"nationalId"]!==value){
+     await client.query("insert into identity_profile_field_provenance(user_id,field_key,source_type,value_hash,source_reference,confidence,verified_by,verified_at,updated_at) values($1,$2,'reviewer_approved',$3,'identity_admin_update',1,$4,now(),now()) on conflict(user_id,field_key) do update set source_type='reviewer_approved',value_hash=excluded.value_hash,source_reference=excluded.source_reference,confidence=1,verified_by=excluded.verified_by,verified_at=now(),updated_at=now()",[req.params.id,key,hashProfileValue(value),req.user.id]);
+    }
+   }
+   await client.query("insert into identity_profile_change_events(request_id,user_id,actor_user_id,event_type,before_values,after_values,note) values(null,$1,$2,'admin_update',$3,$4,'اصلاح مستقیم توسط مدیر سامانه')",[req.params.id,req.user.id,before,after]);
+  }
+  await client.query("commit");
+  res.json(r.rows[0]);
+ }catch(error:any){
+  await client.query("rollback");
+  if(error?.code==="23505")return res.status(409).json({error:"کد ملی انتخاب‌شده قبلاً به حساب دیگری اختصاص یافته است"});
+  throw error;
+ }finally{client.release();}
+});
+
+router.get("/api/identity/profile",requireAuth,async(req:any,res)=>{
+ const user=await query("select id,email,full_name,national_id,role,status,created_at,updated_at from users where id=$1 and status='active'",[req.user.id]);
+ if(!user.rowCount)return res.status(404).json({error:"پروفایل فعال پیدا نشد"});
+ const [provenance,pending]=await Promise.all([
+  query("select field_key,source_type,source_reference,confidence,verified_by,verified_at,updated_at from identity_profile_field_provenance where user_id=$1 order by field_key",[req.user.id]),
+  query("select id,proposed_values,reason,status,created_at from identity_profile_change_requests where user_id=$1 and status='pending' order by created_at desc limit 1",[req.user.id])
+ ]);
+ res.json({user:user.rows[0],provenance:provenance.rows,pendingRequest:pending.rows[0]||null});
+});
+
+router.get("/api/identity/profile-change-requests",requireAuth,async(req:any,res)=>{
+ const r=isAdmin(req)
+  ? await query("select r.*,u.email,u.full_name,u.national_id from identity_profile_change_requests r join users u on u.id=r.user_id order by case when r.status='pending' then 0 else 1 end,r.created_at desc limit 200")
+  : await query("select * from identity_profile_change_requests where user_id=$1 order by created_at desc limit 50",[req.user.id]);
+ res.json({items:r.rows,total:r.rowCount});
+});
+
+router.post("/api/identity/profile-change-requests",requireAuth,requireCsrf,async(req:any,res)=>{
+ const body=req.body||{},proposed:Record<string,string|null>={},before:Record<string,string|null>={};
+ if(body.fullName!==undefined){
+  if(typeof body.fullName!=="string"||body.fullName.trim().length<2||body.fullName.trim().length>160)return res.status(400).json({error:"نام و نام خانوادگی باید بین ۲ تا ۱۶۰ نویسه باشد"});
+  proposed.fullName=body.fullName.trim();
+ }
+ if(body.nationalId!==undefined){
+  if(typeof body.nationalId!=="string")return res.status(400).json({error:"کد ملی معتبر نیست"});
+  const normalized=normalizeIranianDigits(body.nationalId.trim()).replace(/\D/g,"");
+  if(normalized&&!isValidIranianNationalCode(normalized))return res.status(400).json({error:"کد ملی معتبر نیست"});
+  proposed.nationalId=normalized||null;
+ }
+ if(!Object.keys(proposed).length)return res.status(400).json({error:"حداقل یک فیلد هویتی برای اصلاح لازم است"});
+ const reason=typeof body.reason==="string"?body.reason.trim():"";
+ if(reason.length<10||reason.length>1000)return res.status(400).json({error:"دلیل درخواست باید بین ۱۰ تا ۱۰۰۰ نویسه باشد"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const current=await client.query("select id,full_name,national_id from users where id=$1 and status='active' for update",[req.user.id]);
+  if(!current.rowCount){await client.query("rollback");return res.status(404).json({error:"حساب فعال پیدا نشد"});}
+  if(Object.prototype.hasOwnProperty.call(proposed,"fullName")){
+   before.fullName=current.rows[0].full_name;
+   if(proposed.fullName===before.fullName){await client.query("rollback");return res.status(409).json({error:"نام واردشده با اطلاعات فعلی تفاوتی ندارد"});}
+  }
+  if(Object.prototype.hasOwnProperty.call(proposed,"nationalId")){
+   before.nationalId=current.rows[0].national_id;
+   if(proposed.nationalId===before.nationalId){await client.query("rollback");return res.status(409).json({error:"کد ملی واردشده با اطلاعات فعلی تفاوتی ندارد"});}
+  }
+  const created=await client.query("insert into identity_profile_change_requests(user_id,requested_by,before_values,proposed_values,reason) values($1,$2,$3,$4,$5) returning *",[req.user.id,req.user.id,before,proposed,reason]);
+  await client.query("insert into identity_profile_change_events(request_id,user_id,actor_user_id,event_type,before_values,after_values,note) values($1,$2,$3,'requested',$4,$5,$6)",[created.rows[0].id,req.user.id,req.user.id,before,proposed,reason]);
+  await client.query("commit");
+  res.status(201).json(created.rows[0]);
+ }catch(error:any){
+  await client.query("rollback");
+  if(error?.code==="23505")return res.status(409).json({error:"برای این حساب یک درخواست تغییر اطلاعات در انتظار بررسی وجود دارد"});
+  throw error;
+ }finally{client.release();}
+});
+
+router.patch("/api/identity/profile-change-requests/:id/review",requireAuth,guardAdmin,requireCsrf,async(req:any,res)=>{
+ if(!UUID.test(String(req.params.id)))return res.status(400).json({error:"شناسه درخواست معتبر نیست"});
+ const decision=req.body?.decision;
+ const note=typeof req.body?.note==="string"?req.body.note.trim():"";
+ if(!["approved","rejected"].includes(decision))return res.status(400).json({error:"تصمیم بررسی معتبر نیست"});
+ if(decision==="rejected"&&note.length<5)return res.status(400).json({error:"برای رد درخواست، دلیل حداقل ۵ نویسه‌ای لازم است"});
+ if(note.length>1000)return res.status(400).json({error:"یادداشت بررسی بیش از حد مجاز است"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const request=await client.query("select * from identity_profile_change_requests where id=$1 for update",[req.params.id]);
+  if(!request.rowCount){await client.query("rollback");return res.status(404).json({error:"درخواست تغییر اطلاعات پیدا نشد"});}
+  const item=request.rows[0];
+  if(item.status!=="pending"){await client.query("rollback");return res.status(409).json({error:"این درخواست قبلاً تعیین تکلیف شده است"});}
+  const user=await client.query("select id,full_name,national_id from users where id=$1 for update",[item.user_id]);
+  if(!user.rowCount){await client.query("rollback");return res.status(404).json({error:"حساب کاربری درخواست پیدا نشد"});}
+  const before=(item.before_values||{}) as Record<string,unknown>;
+  const proposed=(item.proposed_values||{}) as Record<string,unknown>;
+  for(const [key,column] of [["fullName","full_name"],["nationalId","national_id"]] as const){
+   if(Object.prototype.hasOwnProperty.call(before,key)&&user.rows[0][column]!==before[key]){
+    await client.query("rollback");
+    return res.status(409).json({error:"اطلاعات حساب پس از ثبت درخواست تغییر کرده است؛ درخواست قدیمی قابل اعمال نیست"});
+   }
+  }
+  if(decision==="approved"){
+   const hasName=Object.prototype.hasOwnProperty.call(proposed,"fullName");
+   const hasNationalId=Object.prototype.hasOwnProperty.call(proposed,"nationalId");
+   await client.query("update users set full_name=case when $2 then $3 else full_name end,national_id=case when $4 then $5 else national_id end,updated_at=now() where id=$1",[item.user_id,hasName,proposed.fullName??null,hasNationalId,proposed.nationalId??null]);
+   for(const [key,value] of Object.entries(proposed)){
+    const fieldKey=key==="fullName"?"full_name":key==="nationalId"?"national_id":null;
+    if(!fieldKey)continue;
+    await client.query("insert into identity_profile_field_provenance(user_id,field_key,source_type,value_hash,source_reference,confidence,verified_by,verified_at,updated_at) values($1,$2,'reviewer_approved',$3,$4,1,$5,now(),now()) on conflict(user_id,field_key) do update set source_type='reviewer_approved',value_hash=excluded.value_hash,source_reference=excluded.source_reference,confidence=1,verified_by=excluded.verified_by,verified_at=now(),updated_at=now()",[item.user_id,fieldKey,hashProfileValue(value),String(item.id),req.user.id]);
+   }
+  }
+  const updated=await client.query("update identity_profile_change_requests set status=$1,reviewed_by=$2,reviewed_at=now(),review_note=$3,updated_at=now() where id=$4 returning *",[decision,req.user.id,note||null,item.id]);
+  await client.query("insert into identity_profile_change_events(request_id,user_id,actor_user_id,event_type,before_values,after_values,note) values($1,$2,$3,$4,$5,$6,$7)",[item.id,item.user_id,req.user.id,decision,before,proposed,note||null]);
+  await client.query("commit");
+  res.json(updated.rows[0]);
+ }catch(error:any){
+  await client.query("rollback");
+  if(error?.code==="23505")return res.status(409).json({error:"کد ملی انتخاب‌شده قبلاً به حساب دیگری اختصاص یافته است"});
+  throw error;
+ }finally{client.release();}
 });
 
 router.post("/api/identity/roles",requireAuth,guardAdmin,requireCsrf,async(req:any,res)=>{

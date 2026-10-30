@@ -308,6 +308,11 @@ if(!treasuryChecksMigration.includes("foreign key(tenant_id,bank_account_id)")||
 for(const marker of ["foreign key(tenant_id,check_id)","references public.treasury_checks(tenant_id,id)","not valid"])if(!treasuryChecksOwnershipMigration.includes(marker))throw new Error("Treasury check event tenant ownership migration is incomplete");
 if(!treasuryChecksApi.includes("select id from treasury_bank_accounts where id=$1 and tenant_id=$2 and status='active' for update")||!treasuryChecksApi.includes("select * from treasury_checks where id=$1 and tenant_id=$2 for update")||!treasuryChecksApi.includes("Number.isFinite(Number(b.amount))"))throw new Error("Treasury check mutations must validate tenant-owned bank accounts and lock status transitions transactionally");
 
+const identityProvenanceMigration=fs.readFileSync(path.join(root,"database/migrations/161_identity_profile_provenance_and_change_requests.sql"),"utf8");
+const identityApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"utf8");
+for(const marker of ["identity_profile_change_requests","identity_profile_field_provenance","identity_profile_change_events","legacy_unknown","identity_profile_one_pending_change_idx"])if(!identityProvenanceMigration.includes(marker))throw new Error("Identity provenance and change-request schema is incomplete");
+for(const marker of ["/api/identity/profile-change-requests","reviewer_approved","for update","ویرایش حساب دیگران مجاز نیست","تغییر اطلاعات قانونی باید از مسیر درخواست اصلاح پروفایل"])if(!identityApi.includes(marker))throw new Error("Legal identity changes must be provenance-tracked, owner-scoped and approval-gated");
+
 const verificationFoundation=fs.readFileSync(path.join(root,"database/migrations/112_verification_and_insurance_foundation.sql"),"utf8");
 const lendtechInquiryUi=fs.readFileSync(path.join(root,"apps/web/app/admin/lendtech/page.tsx"),"utf8");
 for(const route of [
