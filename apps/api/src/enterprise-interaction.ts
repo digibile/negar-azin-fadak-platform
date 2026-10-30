@@ -131,7 +131,7 @@ enterpriseInteractionRouter.post("/api/enterprise/attachments",requireAuth,requi
  }
  if(b.requestOcr===true && mime.startsWith("image/")){
   await query("update platform_attachments set ocr_status='queued',updated_at=now() where id=$1",[a.id]);
-  await query("insert into platform_ocr_jobs(tenant_id,attachment_id,language_hint,requested_by) values($1,$2,$3,$4)",[t.id,a.id,b.languageHint||"fa",(req as any).user.id]);
+  await query("insert into platform_ocr_jobs(tenant_id,attachment_id,provider_code,language_hint,requested_by) values($1,$2,'tesseract-local',$3,$4)",[t.id,a.id,b.languageHint==="fa"?"fas+eng":b.languageHint||"fas+eng",(req as any).user.id]);
  }
  res.status(201).json({...a,downloadUrl:"/api/enterprise/attachments/"+a.id});
 }));
@@ -146,9 +146,10 @@ enterpriseInteractionRouter.get("/api/enterprise/attachments/:id",requireAuth,re
 
 enterpriseInteractionRouter.post("/api/enterprise/attachments/:id/ocr",requireAuth,requirePermission("documents:manage"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await mustTenant(req,res);if(!t)return;
- const a=await query("select id,ocr_status from platform_attachments where id=$1 and tenant_id=$2",[req.params.id,t.id]);if(!a.rowCount)return res.status(404).json({error:"سند پیدا نشد"});
+ const a=await query("select id,ocr_status,mime_type from platform_attachments where id=$1 and tenant_id=$2",[req.params.id,t.id]);if(!a.rowCount)return res.status(404).json({error:"سند پیدا نشد"});
+ if(!String(a.rows[0].mime_type||"").startsWith("image/"))return res.status(415).json({error:"پردازش OCR فقط برای فایل تصویری پشتیبانی می‌شود"});
  await query("update platform_attachments set ocr_status='queued',updated_at=now() where id=$1",[req.params.id]);
- const job=await query("insert into platform_ocr_jobs(tenant_id,attachment_id,language_hint,requested_by) values($1,$2,$3,$4) returning *",[t.id,req.params.id,req.body?.languageHint||"fa",(req as any).user.id]);
+ const job=await query("insert into platform_ocr_jobs(tenant_id,attachment_id,provider_code,language_hint,requested_by) values($1,$2,'tesseract-local',$3,$4) returning *",[t.id,req.params.id,req.body?.languageHint==="fa"?"fas+eng":req.body?.languageHint||"fas+eng",(req as any).user.id]);
  res.status(202).json({job:job.rows[0],status:"queued"});
 }));
 
