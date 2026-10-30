@@ -170,7 +170,7 @@ lendtechRouter.post("/api/lendtech/applications/:id/decision",requireAuth,requir
  const approvedAmount=decision==="approve"&&requestedAmount!==null&&submittedAmount!==null
    ?formatMinorUnits(submittedAmount<requestedAmount?submittedAmount:requestedAmount):null;
  const requestedApprovedTerm=decision==="approve"?Number(req.body?.approvedTermMonths??a.term_months):null;
- const approvedTerm=decision==="approve"&&Number.isInteger(requestedApprovedTerm)&&requestedApprovedTerm>0?Math.min(Number(a.term_months),requestedApprovedTerm):null;
+ const approvedTerm=decision==="approve"&&typeof requestedApprovedTerm==="number"&&Number.isInteger(requestedApprovedTerm)&&requestedApprovedTerm>0?Math.min(Number(a.term_months),requestedApprovedTerm):null;
  const rateScaled=decision==="approve"?parsePercentToScaledInteger(req.body?.interestRate??"18"):null;
  const rate=rateScaled===null?null:formatScaledPercent(rateScaled,10000n);
  const approvedMinor=approvedAmount===null?null:parseMoneyToMinorUnits(approvedAmount);
