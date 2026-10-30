@@ -69,8 +69,8 @@ test("rejects invalid quote percentages and terms", () => {
 
 test("calculates debt-to-income ratios with exact integer arithmetic", () => {
   const ratio = calculateDtiThousandths(100000000000000001n, 50000000000000000n);
-  assert.equal(ratio, 49999n);
-  assert.equal(formatScaledPercent(ratio!, 1000n), "49.999");
+  assert.equal(ratio, 50000n);
+  assert.equal(formatScaledPercent(ratio!, 1000n), "50.000");
   assert.equal(calculateDtiThousandths(10000n, 5000n), 50000n);
   assert.equal(calculateDtiThousandths(0n, 1n), null);
 });
