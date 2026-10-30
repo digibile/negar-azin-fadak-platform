@@ -16,6 +16,8 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/deploy-sookar-main.yml"
+      - "integrations/**"
+      - "docs/audits/**"
   workflow_dispatch:
     inputs:
       target_sha:
