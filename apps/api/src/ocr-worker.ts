@@ -7,7 +7,7 @@ import {parseIranianIdentityText} from "./identity-ocr-parser.js";
 import "dotenv/config";
 
 type OcrJob={id:string;tenant_id:string;attachment_id:string;language_hint:string|null;attempts:number};
-type OcrAttachment={mime_type:string;binary_data:Buffer};
+type OcrAttachment={mime_type:string;storage_kind:string;binary_data:Buffer|null};
 
 const BATCH_SIZE=Math.min(8,Math.max(1,Number(process.env.OCR_WORKER_BATCH||2)));
 const POLL_MS=Math.max(1000,Number(process.env.OCR_WORKER_POLL_MS||3000));
@@ -82,9 +82,14 @@ async function failJob(job:OcrJob,error:unknown){
 }
 
 async function processJob(job:OcrJob){
- const attachment=await pool.query<OcrAttachment>("select mime_type,binary_data from platform_attachments where id=$1 and tenant_id=$2",[job.attachment_id,job.tenant_id]);
+ const attachment=await pool.query<OcrAttachment>("select mime_type,storage_kind,binary_data from platform_attachments where id=$1 and tenant_id=$2",[job.attachment_id,job.tenant_id]);
  if(!attachment.rowCount){await failJob(job,new Error("پیوست OCR پیدا نشد"));return;}
- const row=attachment.rows[0],extension=imageExtension(row.binary_data);
+ const row=attachment.rows[0];
+ if(row.storage_kind!=="database"||!row.binary_data){
+  await completeJob(job,"needs_review","",{fields:{},validatedFields:[],kycUpdated:false,note:"فایل در مخزن محلی در دسترس OCR نیست؛ بررسی انسانی لازم است."},"مخزن فایل برای OCR محلی پشتیبانی نمی‌شود");
+  return;
+ }
+ const extension=imageExtension(row.binary_data);
  if(!extension||!String(row.mime_type||"").startsWith("image/")){
   await completeJob(job,"needs_review","",{fields:{},validatedFields:[],kycUpdated:false,note:"فایل تصویری قابل پردازش نیست؛ بررسی انسانی لازم است."},"نوع فایل برای OCR محلی پشتیبانی نمی‌شود");
   return;
