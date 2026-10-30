@@ -32,9 +32,10 @@ API موجود در `accounting-finance-operations.ts`:
 - `PATCH /api/accounting-finance/parties/:id` اطلاعات عمومی party را ویرایش می‌کند.
 - `GET/POST /api/accounting-finance/parties/:partyId/bank-accounts` مدیریت چند حساب بانکی برای یک party را فراهم می‌کند.
 - `PATCH /api/accounting-finance/parties/:partyId/bank-accounts/:id/verification` نتیجه بررسی دستی را با actor و audit ثبت می‌کند.
-- اعتبارسنجی API شامل نرمال‌سازی و MOD-97 است؛ DB نیز unique tenant+IBAN و FK مرکب را enforce می‌کند.
+- `PATCH /api/accounting-finance/parties/:partyId/bank-accounts/:id/status` وضعیت active/inactive/blocked را تغییر می‌دهد و رویداد ممیزی ثبت می‌کند.
+- اعتبارسنجی API شامل نرمال‌سازی ارقام فارسی/عربی و MOD-97 است؛ DB قالب IR+24 رقم، unique tenant+IBAN و FK مرکب را enforce می‌کند. MOD-97 در تست واحد مستقل پوشش داده شده است.
 
-UI در تب «طرف‌حساب‌ها و شبا» در همان `AccountingFinanceWorkspace` قرار گرفته است. مسیر تأیید دستی اکنون `verification_method='manual'`، actor و زمان را ثبت می‌کند. API و UI مدیریت وضعیت active/inactive/blocked و افزودن چند حساب برای هر طرف را دارند. خزانه/چک هنوز مصرف‌کننده حساب بانکی تأییدشده نشده‌اند.
+UI در تب «طرف‌حساب‌ها و شبا» در همان `AccountingFinanceWorkspace` قرار گرفته است. مسیر تأیید دستی اکنون `verification_method='manual'`، actor و زمان را ثبت می‌کند. API و UI افزودن چند حساب، تغییر شبا با حفظ سابقه، فعال/غیرفعال‌سازی و مسدودسازی را دارند. خزانه/چک هنوز مصرف‌کننده حساب بانکی تأییدشده نشده‌اند.
 
 API خرید `purchasing-supply.ts` از `purchase_suppliers` به‌عنوان مرجع FK برای RFQ، سفارش خرید، فاکتور، ارزیابی و قرارداد استفاده می‌کند. این زیرسیستم نباید با حذف یا rename جدول از کار بیفتد.
 
@@ -42,7 +43,7 @@ API خرید `purchasing-supply.ts` از `purchase_suppliers` به‌عنوان 
 
 1. **مرجع هویت واحد:** `accounting_parties` مرجع canonical هویت طرف‌حساب در هر tenant باشد. کد و هویت اصلی شخص/شرکت فقط یک‌بار ثبت شود.
 2. **نقش‌ها:** نقش‌هایی مانند مشتری، تأمین‌کننده، پذیرنده، فروشنده بازارگاه، بازاریاب، نماینده و ذی‌نفع به party متصل شوند. نقش‌های عملیاتی و وضعیت تخصصی هر زیرسیستم در همان ماژول باقی بمانند؛ party نباید به انبار تمام فیلدهای همه دامنه‌ها تبدیل شود.
-3. **حساب‌های بانکی بیرونی:** رابطه‌ای مستقل و tenant-scoped برای یک party و چند حساب بانکی تعریف شود. حداقل شامل بانک، IBAN نرمال‌شده، عنوان صاحب حساب/نام ذی‌نفع، وضعیت active/pending/blocked، منبع تأیید، زمان تأیید، actor تأییدکننده، زمان اعتبار و audit تغییرات باشد. محدودیت یکتایی IBAN در محدوده‌ای که سیاست کسب‌وکار تعیین می‌کند در DB enforce شود.
+3. **حساب‌های بانکی بیرونی:** رابطه‌ای مستقل و tenant-scoped برای یک party و چند حساب بانکی تعریف شده است. جدول شامل بانک، IBAN، عنوان صاحب حساب، وضعیت عملیاتی active/inactive/blocked، وضعیت احراز pending/verified/rejected، روش و یادداشت بررسی، زمان تأیید، actor تأییدکننده و زمان ایجاد/ویرایش است. یکتایی IBAN در محدوده tenant در DB enforce می‌شود.
 4. **تفکیک حساب سازمان و حساب ذی‌نفع:** `accounting_bank_accounts` و `treasury_bank_accounts` برای حساب‌های خود سازمان باقی بمانند. حساب بانکی طرف‌حساب نباید به‌عنوان حساب بانکی سازمان ثبت شود.
 5. **اتصال تدریجی رجیستری‌ها:** `purchase_suppliers`, `sales_partners`, `payment_merchants` و `sellers` در مرحله تطبیق داده، به party canonical وصل شوند. در ابتدا FK nullable و dual-read/validation کنترل‌شده ممکن است؛ حذف جدول یا backfill کورکورانه ممنوع است.
 6. **مصرف در پرداخت:** پرداخت خزانه و چک باید به party و حساب بانکی تأییدشده ارجاع دهند. فیلدهای متنی قبلی تا زمان نگاشت، reconciliation و سازگاری backward حذف نشوند.
@@ -51,9 +52,9 @@ API خرید `purchasing-supply.ts` از `purchase_suppliers` به‌عنوان 
 ## مراحل باقی‌مانده
 
 ### مرحله A: تکمیل API/UI
-- تست رفتاری تأیید دستی و audit، و سپس افزودن مسیر provider برای احراز مالکیت؛ note برای رد اجباری است.
-- UI کامل مدیریت چند حساب، فعال/غیرفعال/مسدودسازی و نمایش تاریخچه حساب‌های قبلی.
-- افزودن تست API واقعی برای tenant isolation، duplicate IBAN، MOD-97 و تغییر شبا؛ integrity script به‌تنهایی جای تست رفتار را نمی‌گیرد.
+- تست واحد MOD-97، نرمال‌سازی ارقام فارسی/عربی و رد شبا نامعتبر اضافه شده است؛ تست API رفتاری برای tenant isolation، duplicate IBAN، تغییر شبا و audit هنوز لازم است.
+- مسیر provider برای احراز مالکیت حساب بانکی هنوز به انتخاب ارائه‌دهنده و قرارداد فنی نیاز دارد؛ note برای رد اجباری است.
+- UI/API چندحسابی، فعال/غیرفعال/مسدودسازی و حفظ حساب‌های قبلی پیاده شده‌اند؛ خزانه هنوز مصرف‌کننده حساب verified نیست.
 
 ### مرحله B: اتصال رجیستری‌های تخصصی
 - شمارش رکوردها و reconciliation بر اساس شناسه ملی/اقتصادی؛ نام مشابه به‌تنهایی مبنای merge نیست.
