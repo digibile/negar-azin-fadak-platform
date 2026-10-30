@@ -1,0 +1,40 @@
+name: Accounting archive source audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "integrations/source-archives/negarazin-accounting-files-3.zip"
+      - "scripts/audit-accounting-archive.py"
+      - ".github/workflows/accounting-archive-audit.yml"
+  push:
+    branches:
+      - "integration/repository-consolidation-audit-2026-10-30"
+    paths:
+      - "integrations/source-archives/negarazin-accounting-files-3.zip"
+      - "scripts/audit-accounting-archive.py"
+      - ".github/workflows/accounting-archive-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Inventory and safely extract source files
+        run: |
+          python scripts/audit-accounting-archive.py \
+            --archive integrations/source-archives/negarazin-accounting-files-3.zip \
+            --out /tmp/accounting-audit
+      - name: Upload reviewable source and inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: accounting-source-audit
+          path: /tmp/accounting-audit/
+          if-no-files-found: error
+          retention-days: 7
