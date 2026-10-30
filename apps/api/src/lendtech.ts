@@ -331,7 +331,7 @@ lendtechRouter.post("/api/lendtech/contracts/:id/restructure",requireAuth,requir
   const openDelinquencies=await client.query("select count(*)::int as count,coalesce(sum(amount_due),0)::text as amount from lendtech_delinquencies where contract_id=$1 and tenant_ref=$2 and status='open'",[contract.id,t.id]);
   const openDelinquencyAmount=parseMoneyToMinorUnits(openDelinquencies.rows[0].amount);
   if(remainingPrincipal===null||remainingPrincipal<=0n){await client.query("rollback");return res.status(409).json({error:"مانده اصلی قرارداد برای بازسازی وجود ندارد"});}
-  if(remainingInterest===null||remainingInterest>0n||openDelinquencyAmount===null||openDelinquencyAmount>0n){
+  if(remainingInterest===null||remainingInterest>0n||Number(openDelinquencies.rows[0].count)>0||openDelinquencyAmount===null||openDelinquencyAmount>0n){
    await client.query("rollback");
    return res.status(409).json({error:"بازسازی تا تعیین تکلیف سود پرداخت‌نشده و معوقات باز مجاز نیست؛ هیچ مبلغی بخشوده یا از دفتر حساب حذف نشد.",unpaidInterest:outstanding.rows[0].interest,openDelinquencyAmount:openDelinquencies.rows[0].amount});
   }
