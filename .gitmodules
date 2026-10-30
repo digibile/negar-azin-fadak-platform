@@ -1,0 +1,38 @@
+# Imported source repositories
+# These remain independent Git repositories so their commit histories and ownership are preserved.
+
+[submodule "legacy/source-repositories/uminex"]
+	path = legacy/source-repositories/uminex
+	url = https://github.com/digibile/uminex.git
+
+[submodule "legacy/source-repositories/tejarhstore"]
+	path = legacy/source-repositories/tejarhstore
+	url = https://github.com/digibile/tejarhstore.git
+
+[submodule "legacy/source-repositories/negarazin-accounting"]
+	path = legacy/source-repositories/negarazin-accounting
+	url = https://github.com/digibile/negarazin-accounting.git
+
+[submodule "legacy/source-repositories/MASTER-MOTHER-NEGARAZINFAKA"]
+	path = legacy/source-repositories/MASTER-MOTHER-NEGARAZINFAKA
+	url = https://github.com/digibile/MASTER-MOTHER-NEGARAZINFAKA.git
+
+[submodule "legacy/source-repositories/vamcity"]
+	path = legacy/source-repositories/vamcity
+	url = https://github.com/digibile/vamcity.git
+
+[submodule "legacy/source-repositories/sitnela"]
+	path = legacy/source-repositories/sitnela
+	url = https://github.com/digibile/sitnela.git
+
+[submodule "legacy/source-repositories/aqayevam"]
+	path = legacy/source-repositories/aqayevam
+	url = https://github.com/digibile/aqayevam.git
+
+[submodule "legacy/source-repositories/digibail"]
+	path = legacy/source-repositories/digibail
+	url = https://github.com/digibile/digibail.git
+
+[submodule "legacy/source-repositories/sarajon"]
+	path = legacy/source-repositories/sarajon
+	url = https://github.com/digibile/sarajon.git
