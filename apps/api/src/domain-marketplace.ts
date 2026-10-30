@@ -315,7 +315,7 @@ domainMarketplaceRouter.get("/api/marketplace/categories",requireAuth,requirePer
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const result=await query(
-    "select id,code,name,status,sort_order from marketplace_categories where tenant_id=$1 order by sort_order,name",
+    "select id,code,name,slug,icon_url,parent_category_id,status,sort_order from marketplace_categories where tenant_id=$1 order by sort_order,name",
     [ctx.id]
   );
   res.json({tenant:ctx,items:result.rows,total:result.rowCount});
@@ -328,12 +328,20 @@ domainMarketplaceRouter.post("/api/marketplace/categories",requireAuth,requirePe
   const code=bodyString(req.body?.code,80).toLowerCase();
   const status=bodyString(req.body?.status,20)||"active";
   const sortOrder=bodyNumber(req.body?.sortOrder)??0;
+  const slug=bodyString(req.body?.slug,120).toLowerCase()||code;
+  const iconUrl=bodyString(req.body?.iconUrl,500)||null;
+  const parentId=bodyString(req.body?.parentCategoryId,100)||null;
   if(!name||!code)return res.status(400).json({error:"نام و کد دسته‌بندی الزامی است"});
-  if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(code))return res.status(400).json({error:"کد باید انگلیسی، کوچک و با خط تیره جدا شده باشد"});
+  if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(code)||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return res.status(400).json({error:"کد و نشانی دسته‌بندی باید انگلیسی و با خط تیره جدا شده باشند"});
   if(!["active","inactive"].includes(status))return res.status(400).json({error:"وضعیت دسته‌بندی نامعتبر است"});
-  const duplicate=await query("select id from marketplace_categories where tenant_id=$1 and (code=$2 or name=$3) limit 1",[ctx.id,code,name]);
-  if(duplicate.rowCount)return res.status(409).json({error:"کد یا نام این دسته‌بندی قبلاً ثبت شده است"});
-  const result=await query("insert into marketplace_categories(tenant_id,code,name,status,sort_order) values($1,$2,$3,$4,$5) returning id,code,name,status,sort_order",[ctx.id,code,name,status,sortOrder]);
+  if(iconUrl&&!/^\/api\/public\/media\/[a-zA-Z0-9/_-]+\.(?:webp|png|jpe?g|svg)$/i.test(iconUrl))return res.status(400).json({error:"نشانی آیکون باید به رسانه داخلی پلتفرم اشاره کند"});
+  if(parentId){
+    const parent=await query("select id from marketplace_categories where id=$1 and tenant_id=$2",[parentId,ctx.id]);
+    if(!parent.rowCount)return res.status(400).json({error:"دسته‌بندی والد در این سازمان پیدا نشد"});
+  }
+  const duplicate=await query("select id from marketplace_categories where tenant_id=$1 and (code=$2 or name=$3 or slug=$4) limit 1",[ctx.id,code,name,slug]);
+  if(duplicate.rowCount)return res.status(409).json({error:"کد، نام یا نشانی این دسته‌بندی قبلاً ثبت شده است"});
+  const result=await query("insert into marketplace_categories(tenant_id,code,name,slug,icon_url,parent_category_id,status,sort_order) values($1,$2,$3,$4,$5,$6,$7,$8) returning id,code,name,slug,icon_url,parent_category_id,status,sort_order",[ctx.id,code,name,slug,iconUrl,parentId,status,sortOrder]);
   res.status(201).json({item:result.rows[0]});
 }));
 
