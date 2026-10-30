@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Safely inventory and extract source-only files from the accounting ZIP."""
+"""Safely inventory source-only files in the accounting archive and nested ZIPs."""
 from __future__ import annotations
-import argparse, hashlib, json, re, zipfile
+import argparse, hashlib, io, json, re, zipfile
 from collections import Counter
 from pathlib import Path, PurePosixPath
 
@@ -21,7 +21,13 @@ SECRET_PATTERNS = [
     re.compile(rb"\bsk_live_[A-Za-z0-9]{16,}\b"),
     re.compile(rb"(?i)(password|pwd)\s*[:=]\s*['\"][^'\"]{8,}['\"]"),
 ]
-MAX_FILES, MAX_TOTAL, MAX_FILE = 5000, 100 * 1024 * 1024, 10 * 1024 * 1024
+MAX_FILES, MAX_TOTAL, MAX_FILE, MAX_DEPTH = 5000, 100 * 1024 * 1024, 10 * 1024 * 1024, 3
+
+def safe_path(name: str):
+    rel = PurePosixPath(name.replace("\\", "/"))
+    if rel.is_absolute() or ".." in rel.parts or not rel.parts:
+        return None
+    return rel
 
 def main() -> None:
     ap = argparse.ArgumentParser()
@@ -31,58 +37,68 @@ def main() -> None:
     archive, out = Path(args.archive), Path(args.out)
     extracted = out / "source"
     extracted.mkdir(parents=True, exist_ok=True)
-    manifest = []
+    manifest, blocked, secret_hits = [], [], []
     ext_counts = Counter()
     total = 0
-    blocked = []
-    secret_hits = []
-    with zipfile.ZipFile(archive) as zf:
-        infos = zf.infolist()
-        if len(infos) > MAX_FILES:
-            raise SystemExit(f"Archive has too many entries: {len(infos)}")
-        for info in infos:
+    seen_entries = 0
+
+    def walk_zip(zf: zipfile.ZipFile, prefix: str = "", depth: int = 0):
+        nonlocal total, seen_entries
+        if depth > MAX_DEPTH:
+            blocked.append({"path": prefix or "[nested archive]", "reason": "nested_depth_limit"})
+            return
+        for info in zf.infolist():
+            seen_entries += 1
             raw = info.filename.replace("\\", "/")
-            rel = PurePosixPath(raw)
-            if rel.is_absolute() or ".." in rel.parts:
-                blocked.append({"path": raw, "reason": "unsafe_path"})
+            rel = safe_path(raw)
+            display = f"{prefix}{raw}"
+            if rel is None:
+                blocked.append({"path": display, "reason": "unsafe_path"})
                 continue
             if info.is_dir():
                 continue
             size = info.file_size
             total += size
-            if total > MAX_TOTAL or size > MAX_FILE:
-                blocked.append({"path": raw, "reason": "size_limit"})
+            if seen_entries > MAX_FILES or total > MAX_TOTAL or size > MAX_FILE:
+                blocked.append({"path": display, "reason": "size_or_count_limit"})
                 continue
             name = rel.name.lower()
             suffix = Path(name).suffix.lower()
             ext_counts[suffix or "[no extension]"] += 1
             if name in DENY_NAMES or suffix in DENY_SUFFIXES:
-                blocked.append({"path": raw, "reason": "sensitive_or_binary_file"})
-                continue
-            if suffix not in SOURCE_EXTS:
-                blocked.append({"path": raw, "reason": "non_source_file"})
+                blocked.append({"path": display, "reason": "sensitive_or_binary_file"})
                 continue
             data = zf.read(info)
+            if suffix == ".zip":
+                try:
+                    with zipfile.ZipFile(io.BytesIO(data)) as nested:
+                        walk_zip(nested, prefix=f"{display}!/", depth=depth + 1)
+                except zipfile.BadZipFile:
+                    blocked.append({"path": display, "reason": "invalid_nested_zip"})
+                continue
+            if suffix not in SOURCE_EXTS:
+                blocked.append({"path": display, "reason": "non_source_file"})
+                continue
             hits = [p.pattern.decode("ascii", "ignore") for p in SECRET_PATTERNS if p.search(data)]
             if hits:
-                secret_hits.append({"path": raw, "patterns": hits})
+                secret_hits.append({"path": display, "patterns": hits})
                 continue
-            target = extracted.joinpath(*rel.parts)
+            output_rel = PurePosixPath(prefix.replace("!/", "/")) / rel
+            target = extracted.joinpath(*output_rel.parts)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
             manifest.append({
-                "path": raw, "size": size, "sha256": hashlib.sha256(data).hexdigest(),
+                "path": display, "size": size, "sha256": hashlib.sha256(data).hexdigest(),
                 "extension": suffix or "[no extension]"
             })
+
+    with zipfile.ZipFile(archive) as outer:
+        walk_zip(outer)
     report = {
-        "archive": archive.name,
-        "entries": len(manifest) + len(blocked) + len(secret_hits),
-        "extracted_source_files": len(manifest),
-        "uncompressed_bytes_seen": total,
-        "extensions": dict(ext_counts),
-        "blocked": blocked,
-        "secret_findings": secret_hits,
-        "files": manifest,
+        "archive": archive.name, "entries_seen": seen_entries,
+        "extracted_source_files": len(manifest), "uncompressed_bytes_seen": total,
+        "extensions": dict(ext_counts), "blocked": blocked,
+        "secret_findings": secret_hits, "files": manifest,
         "safe_to_review": not secret_hits and not any(x["reason"] == "unsafe_path" for x in blocked),
     }
     out.mkdir(parents=True, exist_ok=True)
@@ -90,6 +106,7 @@ def main() -> None:
     lines = [
         "# Accounting archive source inventory", "",
         f"- Archive: `{archive.name}`",
+        f"- Entries seen: {seen_entries}",
         f"- Extracted source files: {len(manifest)}",
         f"- Blocked entries: {len(blocked)}",
         f"- Potential secret findings: {len(secret_hits)}",
