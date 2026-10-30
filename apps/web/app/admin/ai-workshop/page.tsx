@@ -16,7 +16,7 @@ const tools=[
  {id:"template",name:"قالب‌ساز",icon:"✳",desc:"سیستم طراحی و قالب کامل"}
 ] as const;
 type ToolId=typeof tools[number]["id"];
-type Artifact={title:string;summary:string;slug:string;sections:any[];components:any[];fields:any[];menuItems:any[];layout:any;breakpoints:any[];tokens:any;seo:any;content:any;filters:any[];metrics:any[];charts:any[];acceptanceCriteria:any[]};
+type Artifact={title:string;summary:string;slug:string;sections:any[];components:any[];fields:any[];menuItems:any[];layout:any;breakpoints:any[];tokens:any;seo:any;content:any;filters:any[];metrics:any[];charts:any[];acceptanceCriteria:any[];sourceFiles?:{path:string;language:string;content:string}[]};
 const defaults:Record<ToolId,string>={
  page:"برای یک صفحه حرفه‌ای سوکار ساختار کامل و قابل ویرایش بساز. هدر، معرفی، بخش‌های محتوایی، کارت‌ها، فراخوان اقدام، سؤالات متداول، فوتر، نسخه موبایل و تنظیمات سئو را در نظر بگیر.",
  menu:"برای بخش موردنظر یک درخت منوی واضح و چندسطحی بساز. گروه‌ها و زیرمنوها عنوان فارسی، مسیر داخلی معتبر، آیکون و مجوز پیشنهادی داشته باشند. منوی موجود را حذف یا بازنویسی نکن.",
@@ -30,11 +30,12 @@ const defaults:Record<ToolId,string>={
 };
 export default function AiWorkshop(){
  const [tool,setTool]=useState<ToolId>("page"),[name,setName]=useState("طراحی جدید سوکار"),[framework,setFramework]=useState("Next.js + TypeScript"),[language,setLanguage]=useState("فارسی"),[prompt,setPrompt]=useState(defaults.page);
- const [artifact,setArtifact]=useState<Artifact|null>(null),[busy,setBusy]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
+ const [artifact,setArtifact]=useState<Artifact|null>(null),[busy,setBusy]=useState(false),[codeBusy,setCodeBusy]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const current=useMemo(()=>tools.find(x=>x.id===tool)!,[tool]);
  useEffect(()=>{const value=new URLSearchParams(window.location.search).get("tool") as ToolId|null;if(value&&tools.some(x=>x.id===value)){setTool(value);setPrompt(defaults[value]);setName("طراحی "+tools.find(x=>x.id===value)!.name+" سوکار");}},[]);
  function choose(id:ToolId){setTool(id);setPrompt(defaults[id]);setName("طراحی "+tools.find(x=>x.id===id)!.name+" سوکار");setArtifact(null);setError("");setNotice("");}
  async function generate(){setBusy(true);setError("");setNotice("");setArtifact(null);try{const r=await api<{artifact:Artifact}>("/api/ai/workshop/generate",{method:"POST",body:JSON.stringify({tool,name,framework,language,prompt})});setArtifact(r.artifact);setNotice("خروجی آماده بررسی است. هنوز در سایت منتشر نشده است.");}catch(e){setError(e instanceof Error?e.message:"تولید خروجی ناموفق بود.");}finally{setBusy(false);}}
+ async function generateCode(){if(!artifact)return;setCodeBusy(true);setError("");setNotice("");try{const r=await api<{files:{path:string;language:string;content:string}[];notes:string[]}>("/api/ai/workshop/code",{method:"POST",body:JSON.stringify({tool,framework,artifact})});setArtifact(current=>current?{...current,sourceFiles:r.files}:current);setNotice("فایل‌های منبع تولید شدند و به پیش‌نویس اضافه شدند؛ هنوز اجرا یا منتشر نشده‌اند.");}catch(e){setError(e instanceof Error?e.message:"تولید فایل‌های منبع ناموفق بود.");}finally{setCodeBusy(false);}}
  async function save(){if(!artifact)return;setSaving(true);setError("");setNotice("");try{const r=await api<{message:string}>("/api/ai/workshop/save",{method:"POST",body:JSON.stringify({tool,name,framework,artifact})});setNotice(r.message);}catch(e){setError(e instanceof Error?e.message:"ذخیره خروجی ناموفق بود.");}finally{setSaving(false);}}
  return <main className="ai-workshop" dir="rtl">
   <header className="ai-workshop-hero"><div><span>SOOKAR · AI WORKSHOP</span><h1>کارگاه هوشمند ساخت سامانه</h1><p>برای هر بخش ابزار تخصصی خودش را انتخاب کن. نیاز را بنویس، خروجی ساختاریافته بگیر، بررسی کن و در ماژول مرکزی ذخیره کن.</p></div><Link href="/admin/templates">مدیریت قالب‌ها ↗</Link></header>
@@ -58,8 +59,9 @@ export default function AiWorkshop(){
        {tool==="advertorial"&&<div className="ai-advertorial"><b>{artifact.content?.headline||artifact.title}</b><p>{artifact.content?.body||artifact.summary}</p><small>{artifact.content?.disclosure||"محتوای تبلیغاتی باید با برچسب رپورتاژ یا محتوای حمایت‌شده منتشر شود."}</small></div>}
        {tool==="report"&&<div className="ai-report-grid">{[...artifact.metrics,...artifact.filters,...artifact.charts].map((x:any,i:number)=><article key={i}><b>{x.label||x.name||x.title||"عنصر گزارش"}</b><small>{x.description||x.type||x.aggregation||""}</small></article>)}</div>}
        {artifact.seo&&Object.keys(artifact.seo).length>0&&<div className="ai-seo-box"><b>تنظیمات سئو</b><p>{artifact.seo.title||""}</p><small>{artifact.seo.description||""}</small></div>}
+       {artifact.sourceFiles?.length?<div className="ai-source-files"><b>فایل‌های منبع تولیدشده</b>{artifact.sourceFiles.map((file,i)=><details key={i}><summary>{file.path}</summary><pre>{file.content}</pre></details>)}</div>:null}
        <div className="ai-acceptance"><b>معیارهای پذیرش</b><ul>{artifact.acceptanceCriteria.map((x:any,i:number)=><li key={i}>{typeof x==="string"?x:JSON.stringify(x)}</li>)}</ul></div>
-      </div><div className="ai-artifact-actions"><span>خروجی هنوز پیش‌نویس است</span><button onClick={save} disabled={saving}>{saving?"در حال ذخیره...":"ذخیره در ماژول مرکزی"}</button></div></>:<div className="ai-workshop-empty"><span>✳</span><h3>هنوز خروجی ساخته نشده</h3><p>ابزار را انتخاب کن و درخواستت را بنویس. هر ابزار خروجی مخصوص همان بخش را تولید می‌کند.</p></div>}
+      </div><div className="ai-artifact-actions"><span>خروجی هنوز پیش‌نویس است</span><div><button type="button" className="ai-code-button" onClick={generateCode} disabled={codeBusy}>{codeBusy?"در حال تولید کد...":"تولید فایل‌های کد"}</button><button onClick={save} disabled={saving}>{saving?"در حال ذخیره...":"ذخیره در ماژول مرکزی"}</button></div></div></>:<div className="ai-workshop-empty"><span>✳</span><h3>هنوز خروجی ساخته نشده</h3><p>ابزار را انتخاب کن و درخواستت را بنویس. هر ابزار خروجی مخصوص همان بخش را تولید می‌کند.</p></div>}
     </div>
    </section>
   </div>
