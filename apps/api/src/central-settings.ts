@@ -39,7 +39,7 @@ router.get("/api/public/mobile-config",async(req:Request,res:Response)=>{
  const keys=["mobile.latest_version","mobile.minimum_version","mobile.apk_url","mobile.support_phone","mobile.force_update","mobile.maintenance"];
  const r=await query("select setting_key,value from central_settings where tenant_id=$1 and setting_key=any($2::text[])",[t.id,keys]);
  const values=new Map<string,any>(r.rows.map((x:any)=>[x.setting_key,x.value]));
- const read=(key:string,fallback:any)=>{const raw=values.get(key);if(raw===undefined||raw===null)return fallback;try{return typeof raw==="string"?JSON.parse(raw):raw}catch{return fallback}};
+ const read=(key:string,fallback:any)=>{const raw=values.get(key);return raw===undefined||raw===null?fallback:raw};
  const apk=String(read("mobile.apk_url",""));
  const safeApk=apk.startsWith("https://")?apk:"";
  res.setHeader("Cache-Control","public, max-age=30, stale-while-revalidate=60");
