@@ -67,9 +67,14 @@ lendtechRouter.get("/api/lendtech/applications",requireAuth,requirePermission("m
  let where="a.tenant_ref=$1";
  if(status){params.push(status);where+=" and a.status=$2";}
  const r=await query(`select a.*,
+   case when c.id is null then null else jsonb_build_object('id',c.id,'customer_no',c.customer_no,'full_name',c.full_name,'mobile',c.mobile,'email',c.email,'national_id',c.national_id) end as customer,
+   case when p.id is null then null else jsonb_build_object('id',p.id,'code',p.code,'title',p.title,'rate_percent',p.rate_percent,'max_amount',p.max_amount,'min_term_months',p.min_term_months,'max_term_months',p.max_term_months,'status',p.status) end as financing_program,
    (select row_to_json(x) from (select score,band,model_version,created_at from lendtech_scores where application_id=a.id and tenant_ref=a.tenant_ref order by created_at desc limit 1)x) as latest_score,
    (select row_to_json(x) from (select decision,approved_amount,approved_term_months,interest_rate,decided_at from lendtech_decisions where application_id=a.id and tenant_ref=a.tenant_ref order by decided_at desc limit 1)x) as latest_decision
-   from lendtech_applications a where ${where} order by a.created_at desc`,params);
+   from lendtech_applications a
+   left join crm_customers c on c.id::text=a.customer_ref and c.tenant_id::text=a.tenant_ref
+   left join financing_programs p on p.code=a.product_code and p.tenant_id::text=a.tenant_ref
+   where ${where} order by a.created_at desc`,params);
  res.json({tenant:t,items:r.rows,total:r.rowCount});
 }));
 
@@ -88,7 +93,13 @@ lendtechRouter.post("/api/lendtech/applications",requireAuth,requirePermission("
 
 lendtechRouter.get("/api/lendtech/applications/:id",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const a=await query("select * from lendtech_applications where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
+ const a=await query(`select a.*,
+  case when c.id is null then null else jsonb_build_object('id',c.id,'customer_no',c.customer_no,'full_name',c.full_name,'mobile',c.mobile,'email',c.email,'national_id',c.national_id) end as customer,
+  case when p.id is null then null else jsonb_build_object('id',p.id,'code',p.code,'title',p.title,'rate_percent',p.rate_percent,'max_amount',p.max_amount,'min_term_months',p.min_term_months,'max_term_months',p.max_term_months,'status',p.status) end as financing_program
+  from lendtech_applications a
+  left join crm_customers c on c.id::text=a.customer_ref and c.tenant_id::text=a.tenant_ref
+  left join financing_programs p on p.code=a.product_code and p.tenant_id::text=a.tenant_ref
+  where a.id=$1 and a.tenant_ref=$2`,[req.params.id,t.id]);
  if(!a.rowCount)return res.status(404).json({error:"درخواست اعتبار پیدا نشد"});
  const [scores,decisions,facility,contract,events]=await Promise.all([
   query("select * from lendtech_scores where application_id=$1 and tenant_ref=$2 order by created_at desc",[req.params.id,t.id]),
