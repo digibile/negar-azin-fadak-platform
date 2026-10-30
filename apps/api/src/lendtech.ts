@@ -597,10 +597,12 @@ lendtechRouter.post("/api/lendtech/my-documents",requireAuth,requireCsrf,asyncHa
   if(!application.rowCount){await client.query("rollback");return res.status(404).json({error:"پرونده اعتباری متعلق به حساب شما پیدا نشد"});}
   const attachment=await client.query("insert into platform_attachments(tenant_id,original_name,storage_name,mime_type,stored_mime_type,size_bytes,original_size_bytes,sha256,storage_kind,binary_data,metadata,uploaded_by) values($1,$2,$3,$4,$4,$5,$6,$7,'database',$8,$9,$10) returning id,original_name,mime_type,size_bytes,ocr_status,created_at",[t.id,fileName,randomUUID(),decoded.mimeType,decoded.bytes.length,originalSizeBytes,sha,decoded.bytes,{source:"customer-self-service",document_type:documentType},actor(req)]);
   const saved=attachment.rows[0];
+  const shouldOcr=decoded.mimeType.startsWith("image/");
+  if(shouldOcr){await client.query("update platform_attachments set ocr_status='queued',updated_at=now() where id=$1 and tenant_id=$2",[saved.id,t.id]);await client.query("insert into platform_ocr_jobs(tenant_id,attachment_id,provider_code,language_hint,requested_by) values($1,$2,'tesseract-local','fas+eng',$3)",[t.id,saved.id,actor(req)]);}
   await client.query("insert into platform_attachment_links(tenant_id,attachment_id,entity_type,entity_id,relation_type,title,created_by) values($1,$2,'lendtech_application',$3,'identity-document',$4,$5)",[t.id,saved.id,applicationId,documentType,actor(req)]);
   await event(client,t.id,applicationId,null,"identity_document_uploaded",actor(req),{attachmentId:saved.id,documentType,mimeType:decoded.mimeType,sizeBytes:decoded.bytes.length});
   await client.query("commit");
-  res.status(201).json({item:{...saved,document_type:documentType,application_no:application.rows[0].application_no}});
+  res.status(201).json({item:{...saved,ocr_status:shouldOcr?"queued":saved.ocr_status,document_type:documentType,application_no:application.rows[0].application_no}});
  }catch(error){await client.query("rollback");throw error}finally{client.release()}
 }));
 
