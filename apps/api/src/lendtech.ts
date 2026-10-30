@@ -582,7 +582,7 @@ lendtechRouter.get("/api/lendtech/my-documents",requireAuth,asyncHandler(async(r
 
 lendtechRouter.post("/api/lendtech/my-documents",requireAuth,requireCsrf,asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const b=req.body||{},applicationId=s(b.applicationId,36),documentType=s(b.documentType,40),documentNumber=s(b.documentNumber,60);
+ const b=req.body||{},applicationId=s(b.applicationId,36),documentType=s(b.documentType,40);
  if(!isUuid(applicationId))return res.status(400).json({error:"پرونده اعتباری معتبر نیست"});
  if(!["national-id-front","national-id-back","birth-certificate","passport","address-proof","other"].includes(documentType))return res.status(400).json({error:"نوع مدرک معتبر نیست"});
  const decoded=decodeIdentityDocument(b.data);
@@ -595,7 +595,7 @@ lendtechRouter.post("/api/lendtech/my-documents",requireAuth,requireCsrf,asyncHa
   await client.query("begin");
   const application=await client.query("select id,application_no from lendtech_applications where id=$1 and tenant_ref=$2 and customer_ref=$3 for share",[applicationId,t.id,actor(req)]);
   if(!application.rowCount){await client.query("rollback");return res.status(404).json({error:"پرونده اعتباری متعلق به حساب شما پیدا نشد"});}
-  const attachment=await client.query("insert into platform_attachments(tenant_id,original_name,storage_name,mime_type,stored_mime_type,size_bytes,original_size_bytes,sha256,storage_kind,binary_data,metadata,uploaded_by) values($1,$2,$3,$4,$4,$5,$6,$7,'database',$8,$9,$10) returning id,original_name,mime_type,size_bytes,ocr_status,created_at",[t.id,fileName,randomUUID(),decoded.mimeType,decoded.bytes.length,originalSizeBytes,sha,decoded.bytes,{source:"customer-self-service",document_type:documentType,document_number:documentNumber||null},actor(req)]);
+  const attachment=await client.query("insert into platform_attachments(tenant_id,original_name,storage_name,mime_type,stored_mime_type,size_bytes,original_size_bytes,sha256,storage_kind,binary_data,metadata,uploaded_by) values($1,$2,$3,$4,$4,$5,$6,$7,'database',$8,$9,$10) returning id,original_name,mime_type,size_bytes,ocr_status,created_at",[t.id,fileName,randomUUID(),decoded.mimeType,decoded.bytes.length,originalSizeBytes,sha,decoded.bytes,{source:"customer-self-service",document_type:documentType},actor(req)]);
   const saved=attachment.rows[0];
   await client.query("insert into platform_attachment_links(tenant_id,attachment_id,entity_type,entity_id,relation_type,title,created_by) values($1,$2,'lendtech_application',$3,'identity-document',$4,$5)",[t.id,saved.id,applicationId,documentType,actor(req)]);
   await event(client,t.id,applicationId,null,"identity_document_uploaded",actor(req),{attachmentId:saved.id,documentType,mimeType:decoded.mimeType,sizeBytes:decoded.bytes.length});
