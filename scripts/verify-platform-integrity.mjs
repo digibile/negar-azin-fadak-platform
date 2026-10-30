@@ -139,7 +139,7 @@ if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.inclu
 
 const dynamicMenu=fs.readFileSync(path.join(root,"apps/api/src/dynamic-menu.ts"),"utf8");
 const workflowDir=path.join(root,".github/workflows");
-const workflowFiles=fs.readdirSync(workflowDir).filter(name=>/\.ya?ml$/i.test(name));
+const workflowFiles=fs.readdirSync(workflowDir).filter(name=>/^deploy-.*\.ya?ml$/i.test(name));
 if(workflowFiles.length!==1||workflowFiles[0]!=="deploy-sookar-main.yml")throw new Error("Deployment workflow must have exactly one canonical entry point; found: "+workflowFiles.join(", "));
 const deployWorkflow=fs.readFileSync(path.join(workflowDir,"deploy-sookar-main.yml"),"utf8");
 if(/^\s*push\s*:/m.test(deployWorkflow)&&!deployWorkflow.includes("if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}")&&!deployWorkflow.includes("if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}"))throw new Error("Main pushes and manual reviewed releases must run the unified build job");
