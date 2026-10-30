@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useState} from "react";
+import {api} from "../../lib/api";
 import styles from "./TreasuryBankWorkspace.module.css";
 type Bank={id:string;bank_name:string;account_title:string;account_number:string;iban?:string;currency:string;current_balance:string;status:string};
 type Receipt={id:string;receipt_no:string;receipt_date:string;amount:string;payer_name:string;status:string;bank_name:string};
@@ -8,9 +9,7 @@ type PartyBank={id:string;party_id:string;account_title?:string|null;bank_name?:
 type Payment={id:string;payment_no:string;payment_date:string;amount:string;payee_name:string;status:string;bank_name:string;canonical_party_title?:string|null;beneficiary_iban?:string|null;beneficiary_bank_name?:string|null};
 type Tx={id:string;transaction_date:string;reference_no:string;description:string;amount:string;direction:string;reconciliation_status:string;bank_name:string};
 type Cash={id:string;code:string;title:string;current_balance:string;status:string};
-const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
-const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
-async function req(path:string,opt:RequestInit={}){const r=await fetch(api+path,{credentials:"include",...opt,headers:{"Content-Type":"application/json","X-CSRF-Token":csrf(),...(opt.headers||{})}});const b=await r.json().catch(()=>null);if(!r.ok)throw Error(b?.error||"عملیات ناموفق بود");return b}
+const req=(path:string,opt:RequestInit={})=>api<any>(path,opt);
 export default function TreasuryBankWorkspace(){
  const [tab,setTab]=useState("accounts"),[banks,setBanks]=useState<Bank[]>([]),[receipts,setReceipts]=useState<Receipt[]>([]),[payments,setPayments]=useState<Payment[]>([]),[tx,setTx]=useState<Tx[]>([]),[cash,setCash]=useState<Cash[]>([]),[parties,setParties]=useState<Party[]>([]),[partyBanks,setPartyBanks]=useState<PartyBank[]>([]),[error,setError]=useState(""),[saving,setSaving]=useState(false);
  const today=new Date().toISOString().slice(0,10);
