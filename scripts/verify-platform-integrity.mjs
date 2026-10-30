@@ -280,7 +280,7 @@ if(!accountingOperations.includes('router.post("/api/accounting-finance/party-li
 const treasuryPaymentMigration=fs.readFileSync(path.join(root,"database/migrations/156_treasury_payments_canonical_beneficiary.sql"),"utf8");
 const treasuryBankApi=fs.readFileSync(path.join(root,"apps/api/src/treasury-bank.ts"),"utf8");
 const treasuryBankUi=fs.readFileSync(path.join(root,"apps/web/app/modules/TreasuryBankWorkspace.tsx"),"utf8");
-for(const marker of ["unique(tenant_id,party_id,id)","foreign key(tenant_id,party_id,party_bank_account_id)","treasury_payments_beneficiary_requires_party"])if(!treasuryPaymentMigration.includes(marker))throw new Error("Treasury beneficiary migration is missing tenant-safe party/account constraints");
+for(const marker of ["unique(tenant_id,id)","foreign key(tenant_id,bank_account_id)","unique(tenant_id,party_id,id)","foreign key(tenant_id,party_id,party_bank_account_id)","treasury_payments_beneficiary_requires_party"])if(!treasuryPaymentMigration.includes(marker))throw new Error("Treasury beneficiary migration is missing tenant-safe party/account constraints");
 for(const marker of ["verification_status='verified'","status='active'","for update","current_balance)<Number(old.amount)","party_bank_account_id"])if(!treasuryBankApi.includes(marker))throw new Error("Treasury outgoing payments must enforce verified beneficiary accounts and safe settlement");
 if(!treasuryBankApi.includes("beneficiaryBankAccounts:beneficiaryBankAccounts.rows")||!treasuryBankApi.includes("canonical_party_title")||!treasuryBankUi.includes("شبای تأییدشده ذی‌نفع")||!treasuryBankUi.includes("طرف‌حساب مرکزی"))throw new Error("Treasury workspace must display and select canonical payment beneficiaries");
  

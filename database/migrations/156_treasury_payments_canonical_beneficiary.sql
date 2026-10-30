@@ -15,12 +15,36 @@ begin
   end if;
 end $$;
 
+do $
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname='treasury_bank_accounts_tenant_id_unique'
+      and conrelid='public.treasury_bank_accounts'::regclass
+  ) then
+    alter table public.treasury_bank_accounts
+      add constraint treasury_bank_accounts_tenant_id_unique unique(tenant_id,id);
+  end if;
+end $;
+
 alter table public.treasury_payments
   add column if not exists party_id uuid,
   add column if not exists party_bank_account_id uuid;
 
+
 do $$
 begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname='treasury_payments_own_bank_tenant_fk'
+      and conrelid='public.treasury_payments'::regclass
+  ) then
+    alter table public.treasury_payments
+      add constraint treasury_payments_own_bank_tenant_fk
+      foreign key(tenant_id,bank_account_id)
+      references public.treasury_bank_accounts(tenant_id,id)
+      on delete restrict;
+  end if;
   if not exists (
     select 1 from pg_constraint
     where conname='treasury_payments_party_tenant_fk'
