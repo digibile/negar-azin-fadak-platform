@@ -10,7 +10,8 @@
     "start": "node dist/server.js",
     "migrate": "tsx src/migrate.ts",
     "test": "tsx --test src/**/*.test.ts",
-    "worker:notifications": "node dist/notification-worker.js"
+    "worker:notifications": "node dist/notification-worker.js",
+    "worker:ocr": "node dist/ocr-worker.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
