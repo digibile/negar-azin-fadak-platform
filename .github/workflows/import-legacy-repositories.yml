@@ -54,9 +54,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          find legacy-imports/repositories -type f \(
-            -name '.env' -o -name '*.pem' -o -name '*.key' -o -name 'id_rsa*' -o -name 'id_ed25519*'
-          \) -delete
+          find legacy-imports/repositories -type f \\\n            \\( -name '.env' -o -name '*.pem' -o -name '*.key' -o -name 'id_rsa*' -o -name 'id_ed25519*' \\) -delete
           find legacy-imports/repositories -type d \( -name node_modules -o -name .git -o -name bin -o -name obj -o -name .next \) -prune -exec rm -rf {} +
           printf 'Imported files: '
           find legacy-imports/repositories -type f | wc -l
