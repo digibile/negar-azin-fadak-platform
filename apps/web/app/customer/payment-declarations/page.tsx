@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect,useState} from "react";
+import {useEffect,useState,type FormEvent} from "react";
 import {api} from "../../../lib/api";
 
 type Contract={id:string;contract_no:string;principal:string;status:string;installments:Array<{installmentNo:number;dueDate:string;totalDue:string;status:string}>};
@@ -23,7 +23,7 @@ export default function CustomerPaymentDeclarations(){
   finally{setLoading(false);}
  }
  useEffect(()=>{void load();},[]);
- async function submit(e:React.FormEvent){
+ async function submit(e:FormEvent){
   e.preventDefault();setSaving(true);setError("");setMessage("");
   try{
    await api("/api/lendtech/my-payment-declarations",{method:"POST",body:JSON.stringify({contractId,amount,method,reference,paidAt,note})});
