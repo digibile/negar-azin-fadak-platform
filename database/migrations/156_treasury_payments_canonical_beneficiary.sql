@@ -15,7 +15,7 @@ begin
       add constraint accounting_party_bank_accounts_tenant_party_id_unique
       unique(tenant_id,party_id,id);
   end if;
-end $$;
+end; $;
 
 do $$
 begin
@@ -27,7 +27,7 @@ begin
     alter table public.treasury_bank_accounts
       add constraint treasury_bank_accounts_tenant_id_unique unique(tenant_id,id);
   end if;
-end $$;
+end; $;
 
 alter table public.treasury_payments
   add column if not exists party_id uuid,
@@ -78,7 +78,7 @@ begin
       add constraint treasury_payments_beneficiary_requires_party
       check(party_bank_account_id is null or party_id is not null);
   end if;
-end $$;
+end; $;
 
 create index if not exists treasury_payments_party_idx
   on public.treasury_payments(tenant_id,party_id,payment_date desc);
