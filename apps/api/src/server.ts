@@ -54,6 +54,7 @@ import {commerceIntelligenceRouter} from "./commerce-intelligence.js";
 import {merchantRouter} from "./merchant-management.js";
 import {formBuilderRouter} from "./form-builder.js";
 import {aiTemplateStudioRouter} from "./ai-template-studio.js";
+import {aiWorkshopRouter} from "./ai-workshop.js";
 import {issueHumanCheck,verifyHumanCheck} from "./human-check.js";
 import "./payment-provider.js";
 
@@ -146,6 +147,7 @@ app.use(domainMarketplaceRouter);
 app.use(merchantRouter);
 app.use(formBuilderRouter);
 app.use(aiTemplateStudioRouter);
+app.use(aiWorkshopRouter);
 app.use(sellerSurfaceRouter);
 app.use("/api/content",tenantContentRouter);
 app.use(checkoutRouter);
