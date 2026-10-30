@@ -1,0 +1,42 @@
+name: Inspect legacy Digibail database settings
+on:
+  push:
+    paths:
+      - .github/workflows/inspect-legacy-database.yml
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect legacy schema and SMS configuration presence
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            if sudo -n docker info >/dev/null 2>&1; then D="sudo -n docker"; else D="docker"; fi
+            SQLC="public_html-db-1"
+            SQLCMD="/opt/mssql-tools18/bin/sqlcmd"
+            $D exec "$SQLC" test -x "$SQLCMD" || SQLCMD="/opt/mssql-tools/bin/sqlcmd"
+            CONN="$($D inspect --format '{{range .Config.Env}}{{println .}}{{end}}' public_html-web-1 | sed -n 's/^ConnectionStrings__DefaultConnection=//p' | head -1)"
+            if [ -z "$CONN" ]; then echo "LEGACY_CONNECTION_STRING_MISSING=1"; exit 20; fi
+            CREDS="$(CONN="$CONN" node -e 'const s=process.env.CONN;const o={};for(const p of s.split(";")){const i=p.indexOf("=");if(i>0)o[p.slice(0,i).trim().toLowerCase()]=p.slice(i+1).trim()}const pick=(...k)=>k.map(x=>o[x]).find(Boolean)||"";console.log(pick("initial catalog","database"));console.log(pick("user id","uid","user"));console.log(pick("password","pwd"));')"
+            DB="$(printf '%s\n' "$CREDS" | sed -n '1p')"
+            USER="$(printf '%s\n' "$CREDS" | sed -n '2p')"
+            PASS="$(printf '%s\n' "$CREDS" | sed -n '3p')"
+            if [ -z "$DB" ] || [ -z "$USER" ] || [ -z "$PASS" ]; then echo "LEGACY_SQL_AUTH_PARSE_FAILED=1"; exit 21; fi
+            echo "LEGACY_DB_NAME=$DB"
+            echo "=== legacy tables and SMS/config columns ==="
+            Q="SET NOCOUNT ON; SELECT s.name+'.'+t.name+'.'+c.name FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id JOIN sys.columns c ON c.object_id=t.object_id WHERE t.name LIKE '%Sms%' OR t.name LIKE '%Setting%' OR t.name LIKE '%Panel%' OR t.name IN ('AspNetUsers','AspNetRoles','Customers') OR c.name LIKE '%Sms%' OR c.name LIKE '%Provider%' OR c.name LIKE '%Panel%' ORDER BY t.name,c.column_id;"
+            $D exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U "$USER" -C -b -h -1 -W -w 8000 -d "$DB" -Q "$Q" | head -180
+            echo "=== SMS panel enum definitions ==="
+            grep -RIn --include='*.cs' -E 'enum SmsPanel|enum SmsPatternCategory|enum SmsPatternStatus|enum AppSmsType' /home/digibail/domains/digebail.ir/public_html/recovered-source 2>/dev/null | head -30 || true
+            echo "=== old settings field presence only ==="
+            Q2="SET NOCOUNT ON; SELECT TOP 1 CASE WHEN COL_LENGTH('dbo.AppSettings','KaveNegarJson') IS NOT NULL THEN 'KaveNegarJson_COLUMN=YES' ELSE 'KaveNegarJson_COLUMN=NO' END, CASE WHEN COL_LENGTH('dbo.AppSettings','MelliPayamakJson') IS NOT NULL THEN 'MelliPayamakJson_COLUMN=YES' ELSE 'MelliPayamakJson_COLUMN=NO' END FROM sys.tables WHERE name='AppSettings';"
+            $D exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U "$USER" -C -b -h -1 -W -w 1000 -d "$DB" -Q "$Q2" 2>/dev/null || true
+            unset PASS CONN CREDS
+            echo "LEGACY_DATABASE_INSPECTION_COMPLETED=1"

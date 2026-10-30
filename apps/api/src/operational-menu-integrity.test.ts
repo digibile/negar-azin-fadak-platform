@@ -161,3 +161,19 @@ test("frontend management panel 17 has its dedicated real runtime contract",asyn
  const actions=(await query(`select action_code from module_actions where module_id=(select id from platform_modules where code='17-frontend-management') and is_active=true and action_code=any($1)`,[["read","write","delete"]])).rows;
  assert.equal(actions.length,3,"frontend management must expose read/write/delete actions");
 });
+
+
+test("operational party registries share the canonical accounting party without losing their own records",async()=>{
+ const tables=["purchase_suppliers","sales_partners","payment_merchants","sellers"];
+ const columns=(await query(`select table_name,column_name from information_schema.columns where table_schema='public' and table_name=any($1) and column_name='party_id'`,[tables])).rows;
+ assert.equal(columns.length,4,"all operational registries must expose the canonical party link");
+ const constraints=(await query(`select conrelid::regclass::text as table_name,conname,contype from pg_constraint where conname=any($1)`,[tables.map(t=>t+"_canonical_party_fk")])).rows;
+ assert.equal(constraints.length,4,"every operational registry must enforce the tenant-safe canonical party foreign key");
+ for(const table of tables){
+  const fk=constraints.find((x:any)=>x.table_name===table&&x.conname===table+"_canonical_party_fk");
+  assert.ok(fk,"missing canonical party FK for "+table);
+  assert.equal(fk.contype,"f","canonical party link must be a foreign key");
+ }
+ const idx=(await query(`select indexname from pg_indexes where schemaname='public' and indexname=any($1)`,[tables.map(t=>t+"_canonical_party_idx")])).rows;
+ assert.equal(idx.length,4,"canonical party links must be unique per tenant and registry");
+});

@@ -1,0 +1,117 @@
+name: Import every verified legacy database into Digibail PostgreSQL
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/import-all-legacy-databases.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: digibail-all-legacy-db-import
+  cancel-in-progress: false
+
+jobs:
+  import-all:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Back up target PostgreSQL and import all three restored legacy databases without deleting source data
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 55m
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            cd "$ROOT"
+            if sudo -n docker info >/dev/null 2>&1; then D="sudo -n docker"; elif docker info >/dev/null 2>&1; then D="docker"; else echo "BLOCKED: Docker unavailable"; exit 20; fi
+            SQLC="vamcity-stage-sql"
+            SQLCMD="$($D exec "$SQLC" sh -lc 'command -v /opt/mssql-tools18/bin/sqlcmd || command -v /opt/mssql-tools/bin/sqlcmd || command -v sqlcmd' 2>/dev/null | head -n 1)"
+            SA_PASS="$($D exec "$SQLC" printenv MSSQL_SA_PASSWORD 2>/dev/null || true)"
+            [ -n "$SQLCMD" ] && [ -n "$SA_PASS" ] || { echo "BLOCKED: isolated legacy SQL Server or credentials unavailable"; exit 21; }
+            APP_ID=""
+            READY=0
+            for n in $(seq 1 90); do
+              APP_ID="$($D compose ps -q app 2>/dev/null || true)"
+              if [ -n "$APP_ID" ] && $D exec "$APP_ID" test -f /app/scripts/migrate-legacy-digibail.js 2>/dev/null; then
+                if $D compose exec -T db sh -lc 'export PGPASSWORD="$POSTGRES_PASSWORD"; psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT to_regclass('\''public.legacy_source_data'\'') IS NOT NULL"' 2>/dev/null | grep -qx t; then READY=1; break; fi
+              fi
+              sleep 10
+            done
+            [ "$READY" -eq 1 ] || { echo "BLOCKED: target app/schema not ready; no import performed"; exit 22; }
+            echo "TARGET_RELEASE_READY=1"
+            BACKUP_DIR="$ROOT/.migration-backups"
+            mkdir -p "$BACKUP_DIR"; chmod 700 "$BACKUP_DIR"
+            BACKUP="$BACKUP_DIR/digibail-before-all-legacy-$(date +%Y%m%d%H%M%S).sql.gz"
+            $D compose exec -T db sh -lc 'export PGPASSWORD="$POSTGRES_PASSWORD"; pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' | gzip > "$BACKUP"
+            chmod 600 "$BACKUP"; test -s "$BACKUP"
+            echo "TARGET_BACKUP_CREATED=1"
+            TMP="$(mktemp -d /tmp/digibail-all-legacy.XXXXXX)"
+            chmod 700 "$TMP"
+            trap 'rm -rf "$TMP"; $D exec "$APP_ID" rm -f /tmp/legacy-migration.json >/dev/null 2>&1 || true; unset SA_PASS' EXIT
+            for DBNAME in vamcityc_vamcity_import_20261028 vamcityc_bluvamdb_import_20261028 vamcityc_transferDb_import_20261028; do
+              echo "VERIFY_SOURCE_DATABASE=$DBNAME"
+              $D exec -e SQLCMDPASSWORD="$SA_PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -b -d "$DBNAME" -Q "SET NOCOUNT ON; SELECT DB_NAME();" | grep -F "$DBNAME" >/dev/null
+              TABLE_FILE="$TMP/tables-$DBNAME.txt"
+              $D exec -e SQLCMDPASSWORD="$SA_PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -b -h -1 -W -w 65535 -d "$DBNAME" -Q "SET NOCOUNT ON; SELECT s.name + '.' + t.name FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE t.is_ms_shipped=0 ORDER BY s.name,t.name" | tr -d '\r' | sed '/^[[:space:]]*$/d' > "$TABLE_FILE"
+              echo "SOURCE_TABLE_COUNT=$DBNAME:$(wc -l < "$TABLE_FILE" | tr -d ' ')"
+              while IFS= read -r full_table; do
+                [ -n "$full_table" ] || continue
+                schema_name="${full_table%%.*}"
+                table_name="${full_table#*.}"
+                schema_quoted="$(printf '%s' "$schema_name" | sed 's/]/]]/g')"
+                table_quoted="$(printf '%s' "$table_name" | sed 's/]/]]/g')"
+                safe_name="$(printf '%s' "$DBNAME.$full_table" | tr -c 'A-Za-z0-9_.' '_' | cut -c1-120)"
+                out="$TMP/$safe_name.json"
+                query="SET NOCOUNT ON; SELECT * FROM [$schema_quoted].[$table_quoted] FOR JSON PATH, INCLUDE_NULL_VALUES;"
+                echo "EXPORT_LEGACY_TABLE=$DBNAME.$full_table"
+                if ! $D exec -e SQLCMDPASSWORD="$SA_PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -b -w 65535 -y 0 -d "$DBNAME" -Q "$query" > "$out.raw" 2> "$out.err"; then
+                  echo "BLOCKED_EXPORT_FAILED=$DBNAME.$full_table"
+                  tail -n 10 "$out.err"
+                  exit 23
+                fi
+                node - "$out.raw" "$out" <<'NODEJSON'
+            const fs=require("node:fs");
+            const raw=fs.readFileSync(process.argv[2],"utf8").replace(/\r/g,"");
+            const first=raw.indexOf("[");
+            const last=raw.lastIndexOf("]");
+            if(first<0||last<first) {
+              if(!raw.trim()) { fs.writeFileSync(process.argv[3],"[]",{mode:0o600}); process.exit(0); }
+              console.error("SQLCMD output did not contain a complete JSON array"); process.exit(1);
+            }
+            const json=raw.slice(first,last+1).replace(/[\r\n]/g,"");
+            JSON.parse(json);
+            fs.writeFileSync(process.argv[3],json,{mode:0o600});
+            NODEJSON
+                count="$(node -e 'const fs=require("node:fs");process.stdout.write(String(JSON.parse(fs.readFileSync(process.argv[1],"utf8")).length))' "$out")"
+                echo "LEGACY_TABLE_ROW_COUNT=$DBNAME.$full_table:$count"
+                printf '%s\t%s\n' "$DBNAME.$full_table" "$out" >> "$TMP/manifest.tsv"
+              done < "$TABLE_FILE"
+            done
+            node - "$TMP" <<'NODE'
+            const fs=require("node:fs"),path=require("node:path"),dir=process.argv[2];
+            const genericTables=[];
+            for(const line of fs.readFileSync(path.join(dir,"manifest.tsv"),"utf8").split(/\r?\n/).filter(Boolean)){
+              const [sourceTable,file]=line.split("\t");
+              const rows=JSON.parse(fs.readFileSync(file,"utf8"));
+              genericTables.push({sourceTable,rows});
+            }
+            const schemaDefinitions=genericTables.map(t=>({sourceTable:t.sourceTable,rowCount:t.rows.length,columns:[...new Set(t.rows.flatMap(r=>Object.keys(r)))]}));
+            const input={users:[],customers:[],smsPatterns:[],purchasePlans:[],loanRequestStatuses:[],identityRoles:[],identityUserRoles:[],identityClaims:[],genericTables,schemaDefinitions};
+            fs.writeFileSync(path.join(dir,"input.json"),JSON.stringify(input),{mode:0o600});
+            console.log("ALL_LEGACY_DATABASE_EXPORT_SUMMARY="+JSON.stringify({databaseCount:3,tableCount:genericTables.length,rowCount:genericTables.reduce((n,t)=>n+t.rows.length,0),schemaDefinitions:schemaDefinitions.length}));
+            NODE
+            chmod 600 "$TMP/input.json"
+            $D cp "$TMP/input.json" "$APP_ID:/tmp/legacy-migration.json"
+            $D exec -u 0 "$APP_ID" chown node:node /tmp/legacy-migration.json
+            $D exec "$APP_ID" node /app/scripts/migrate-legacy-digibail.js /tmp/legacy-migration.json
+            echo "=== VERIFY DATABASE-SCOPED LEGACY ROW COUNTS ==="
+            $D compose exec -T db sh -lc 'export PGPASSWORD="$POSTGRES_PASSWORD"; psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT source_table||'|'||COUNT(*) FROM legacy_source_data WHERE source_table LIKE 'vamcityc_%' GROUP BY source_table ORDER BY source_table"'
+            echo "ALL_THREE_LEGACY_DATABASES_IMPORTED_WITHOUT_SOURCE_DELETION=1"

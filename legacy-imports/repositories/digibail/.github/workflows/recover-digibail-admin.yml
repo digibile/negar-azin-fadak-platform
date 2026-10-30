@@ -1,0 +1,75 @@
+name: One-time Digibail admin access recovery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/recover-digibail-admin.yml
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate recovery connection
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then echo "::error::Missing repository secret: $name"; exit 1; fi
+          done
+
+      - name: Reset the bootstrap superadmin password once
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            cd "$ROOT"
+            if sudo -n docker info >/dev/null 2>&1; then DOCKER="sudo -n docker"; elif docker info >/dev/null 2>&1; then DOCKER="docker"; else echo "DOCKER_ACCESS=UNAVAILABLE"; exit 20; fi
+            APP_ID="$($DOCKER compose ps -q app)"
+            test -n "$APP_ID"
+            $DOCKER exec "$APP_ID" node -e 'fetch("http://127.0.0.1:1631/healthz").then(async r=>{if(!r.ok)process.exit(2);const j=await r.json();if(j.database!=="ok")process.exit(3);console.log("APP_DATABASE_HEALTH=OK")}).catch(()=>process.exit(4))'
+            TEMP_PASS="$(openssl rand -hex 18)"
+            export TEMP_PASS
+            $DOCKER exec -e TEMP_PASS="$TEMP_PASS" "$APP_ID" node --input-type=module -e '
+              import crypto from "node:crypto";
+              import pg from "pg";
+              const pool=new pg.Pool({connectionString:process.env.DATABASE_URL});
+              try {
+                const salt=crypto.randomBytes(16).toString("base64url");
+                const digest=crypto.scryptSync(process.env.TEMP_PASS,Buffer.from(salt,"base64url"),32,{N:16384,r:8,p:1,maxmem:64*1024*1024}).toString("base64url");
+                const hash="scrypt$16384$8$1$"+salt+"$"+digest;
+                const q=await pool.query("INSERT INTO users(username,full_name,password_hash,role,is_active) VALUES($1,$2,$3,$4,TRUE) ON CONFLICT(username) DO UPDATE SET password_hash=EXCLUDED.password_hash,role=EXCLUDED.role,is_active=TRUE,updated_at=NOW() RETURNING id,username,role,is_active",["digibail-admin","مدیر ارشد دیجی‌بایل",hash,"superadmin"]);
+                if(!q.rowCount||!q.rows[0].is_active||q.rows[0].role!=="superadmin")throw new Error("recovery verification failed");
+                console.log("ADMIN_RECOVERY_DB_VERIFIED=1");
+                const capRes=await fetch("http://127.0.0.1:1631/api/v1/security/captcha");
+                if(!capRes.ok)throw new Error("captcha endpoint returned "+capRes.status);
+                const cap=await capRes.json();
+                const svg=Buffer.from(String(cap.image||"").replace(/^data:image\/svg\+xml;base64,/,""),"base64").toString("utf8");
+                const answer=svg.match(/<text[^>]*>(\d{5})<\/text>/)?.[1];
+                if(!answer)throw new Error("could not read internal test captcha");
+                const loginRes=await fetch("http://127.0.0.1:1631/api/v1/security/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({username:"digibail-admin",password:process.env.TEMP_PASS,captchaId:cap.id,captchaAnswer:answer})});
+                const login=await loginRes.json();
+                if(!loginRes.ok||!login.accessToken||login.user?.role!=="superadmin")throw new Error("login test failed with HTTP "+loginRes.status);
+                const adminRes=await fetch("http://127.0.0.1:1631/admin",{headers:{authorization:"Bearer "+login.accessToken}});
+                const adminHtml=await adminRes.text();
+                if(!adminRes.ok||!adminHtml.includes("مرکز مدیریت دیجی‌بایل"))throw new Error("admin dashboard access test failed with HTTP "+adminRes.status);
+                console.log("ADMIN_LOGIN_E2E=PASS");
+                console.log("ADMIN_DASHBOARD_ACCESS=PASS");
+                console.log("ADMIN_RECOVERY_USERNAME=digibail-admin");
+                console.log("ADMIN_RECOVERY_TEMP_PASSWORD="+process.env.TEMP_PASS);
+              } catch(e) { console.error("ADMIN_RECOVERY_FAILED="+String(e.message||e)); process.exitCode=1; }
+              finally { await pool.end(); }
+            '
+            unset TEMP_PASS

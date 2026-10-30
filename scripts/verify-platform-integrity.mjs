@@ -15,7 +15,6 @@ const stage2835=fs.readFileSync(path.join(root,"database/migrations/013_stage_28
 const stage3645=fs.readFileSync(path.join(root,"database/migrations/014_stage_36_45_operational.sql"),"utf8");
 const organization=fs.readFileSync(path.join(root,"apps/api/src/domain-organization.ts"),"utf8");
 const commandPage=fs.readFileSync(path.join(root,"apps/web/app/command-center/page.tsx"),"utf8");
-const masterMenu=fs.readFileSync(path.join(root,"apps/web/app/admin/master-menu.ts"),"utf8");
 const sidebar=fs.readFileSync(path.join(root,"apps/web/app/admin/AdminSidebar.tsx"),"utf8");
 const modulePage=fs.readFileSync(path.join(root,"apps/web/app/modules/page.tsx"),"utf8");
 
@@ -51,38 +50,14 @@ for(const marker of ["idx_command_actions_type_updated","idx_monitoring_events_s
 if(!commandPage.includes("/api/domain/monitoring-events")||!commandPage.includes("/api/domain/command-center"))throw new Error("Stage 38-45 command center missing");
 if(!operationsPage.includes('const target=[')||!operationsPage.includes('مرکز عملیات ۱۹ تا ۲۷'))throw new Error("Stage 19-27 operations page missing");
 const forbidden=new RegExp("(^|[^A-Za-z])"+String.fromCharCode(69,82,80)+"([^A-Za-z]|$)","i");
-for(const file of [migration,storage,runtime,stage1927,stage2835,stage3645,server,command,commerce,communication,organization,operationsPage,commandPage,masterMenu,sidebar])if(forbidden.test(file))throw new Error("Forbidden terminology detected");
-for(const [index,item] of [...masterMenu.matchAll(/\{code:"([^"]+)",number:"([0-9]{2})",title:"([^"]+)"[^\n]*children:\[/g)].entries())if(!item[1]||!item[3])throw new Error("Canonical panel has a missing code or title at index "+index);
-const panelEntries=[...masterMenu.matchAll(/code:"([^"]+)",number:"([0-9]{2})",title:/g)];
-if(panelEntries.length!==20)throw new Error("Master menu must contain exactly 20 canonical panels; found "+panelEntries.length);
-const panelRoutes=[...masterMenu.matchAll(/code:"([^"]+)",number:"([0-9]{2})",title:"([^"]+)"[^}]*route:"([^"]+)"/g)];
-if(panelRoutes.length!==20)throw new Error("All 20 canonical panels must define a route; found "+panelRoutes.length);
-if(new Set(panelRoutes.map(x=>x[1])).size!==20)throw new Error("Canonical panel route codes must be unique");
-if(panelRoutes.some(x=>!x[4].startsWith("/")))throw new Error("Canonical panel route must be an internal application path");
-const panelNumbers=panelEntries.map(x=>x[2]);
-if(new Set(panelNumbers).size!==20||panelNumbers.some((x,i)=>x!==String(i+1).padStart(2,"0")))throw new Error("Canonical panel numbers must be unique and ordered 01-20");
-if(new Set(panelEntries.map(x=>x[1])).size!==20)throw new Error("Canonical panel codes must be unique");
-const panelObjects=masterMenu.split("\n").flatMap(line=>{
- const head=line.match(/\{code:"([^"]+)",number:"([0-9]{2})",title:"([^"]+)"/);
- if(!head||!line.includes("children:["))return [];
- const start=line.indexOf("children:[")+"children:[".length;
- const end=line.lastIndexOf("]");
- if(end<start)return [];
- return [[head[0],head[1],head[2],head[3],line.slice(start,end)]];
-});
-if(panelObjects.length!==20)throw new Error("All 20 canonical panels must have a readable child list");
-const canonicalChildTitles=panelObjects.flatMap(panel=>[...panel[4].matchAll(/child\("([^"]+)"/g)].map(match=>({title:match[1],panel:panel[2]})));
-const duplicateChildTitles=[...canonicalChildTitles.reduce((map,item)=>map.set(item.title,[...(map.get(item.title)||[]),item.panel]),new Map())].filter(([,panels])=>panels.length>1);
-if(duplicateChildTitles.length)throw new Error("Duplicate canonical child titles must be merged into one destination: "+duplicateChildTitles.map(([title,panels])=>title+" (panels "+panels.join(", ")+")").join("; "));
-for(const panel of panelObjects){
- const children=[...panel[4].matchAll(/child\("([^"]+)"(?:,\s*(?:"([^"]*)"|undefined))?(?:,\s*(?:"([^"]*)"|undefined))?(?:,\s*"([^"]*)")?\)/g)];
- if(children.length===0)throw new Error("Canonical panel has no children: "+panel[1]);
- for(const child of children){
-  if(!child[1].trim())throw new Error("Canonical child title is empty in panel "+panel[1]);
-  if(!child[2]&&!child[3])throw new Error("Canonical child has no destination mapping: "+panel[1]+" / "+child[1]);
- }
-}
-
+for(const file of [migration,storage,runtime,stage1927,stage2835,stage3645,server,command,commerce,communication,organization,operationsPage,commandPage,sidebar])if(forbidden.test(file))throw new Error("Forbidden terminology detected");
+const canonicalPanelMigration=fs.readFileSync(path.join(root,"database/migrations/099_canonical_enterprise_menu_01_50.sql"),"utf8");
+const canonicalMenuMigration=fs.readFileSync(path.join(root,"database/migrations/153_canonical_backend_menu_children.sql"),"utf8");
+const expectedPanelKeys=["01-dashboard","02-organizations","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla","08-accounting-finance","09-commerce-stores","10-domains","11-merchants","12-sellers","13-payments-settlement","14-form-builder","15-menu-builder","16-page-builder","17-frontend-management","18-notifications","19-documents-governance","20-system-settings"];
+for(const key of expectedPanelKeys)if(!canonicalPanelMigration.includes("values ('"+key+"'"))throw new Error("Canonical database menu is missing panel: "+key);
+for(const [title,route] of [["مرکز فرماندهی عملیاتی","/command-center"],["مدیریت دسته‌بندی‌های بازارگاه","/marketplace/categories"],["ورود محصول از کاتالوگ مرجع","/marketplace/products?tab=import"]])if(!canonicalMenuMigration.includes(title)||!canonicalMenuMigration.includes(route))throw new Error("Canonical backend menu entry missing: "+title);
+if(sidebar.includes('import {MASTER_MENU} from "./master-menu"')||!sidebar.includes('api<{items:MenuNode[]}>("/api/dashboard/menu-tree?panel=admin")'))throw new Error("Sidebar must use the canonical backend menu API instead of a frontend menu registry");
+if(!sidebar.includes("const canonical=useMemo(()=>menuItems.map(item=>")||!sidebar.includes("normalize(item.child_items||[])"))throw new Error("Sidebar must derive panels and child navigation from backend menu records");
 const expectedLegacyCodes=[
 "02-organizations","02-identity","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla",
 "08-accounting-finance","08-check-documents","09-commerce-stores","10-wallet-ledger","12-logistics-supply",
@@ -93,8 +68,6 @@ const expectedLegacyCodes=[
 "42-audit-internal-control","43-communication-hub","44-marketing-content","45-search-analytics","46-unified-applications","47-contracts-legal",
 "48-shipping-delivery","49-reconciliation","50-release-health"
 ];
-const missingLegacy=expectedLegacyCodes.filter(code=>!masterMenu.includes('"'+code+'"'));
-if(missingLegacy.length)throw new Error("Legacy menu codes missing from canonical panels: "+missingLegacy.join(", "));
 const routeRegistryBlock=modulePage.match(/const MODULE_ROUTE_REGISTRY\s*:\s*Record<string,\s*\(context:\s*ModuleRouteContext\)\s*=>\s*React\.ReactNode>\s*=\s*\{([\s\S]*?)\n\};/);
 const operationalCodesBlock=modulePage.match(/const operationalModuleCodes\s*=\s*\[([\s\S]*?)\];/);
 const landingCodesBlock=modulePage.match(/const canonicalLandingCodes\s*=\s*\[([\s\S]*?)\];/);
@@ -105,39 +78,13 @@ const declaredCodes=new Set([
   ...[operationalCodesBlock[1],landingCodesBlock[1]].flatMap(block=>[...block.matchAll(/"([^"]+)"/g)].map(match=>match[1])),
   ...[...modulePage.matchAll(/if\(code===["']([^"']+)["']\)/g)].map(match=>match[1])
 ]);
-for(const panel of panelObjects){
- const children=[...panel[4].matchAll(/child\("([^"]+)"(?:,\s*"([^"]*)")?(?:,\s*"([^"]*)")?\)/g)];
- for(const child of children){
-  if(child[2]&&!declaredCodes.has(child[2]))throw new Error("Canonical child legacy route is not registered: "+panel[1]+" / "+child[1]+" -> "+child[2]);
-  if(child[3]&&!declaredCodes.has(child[3]))throw new Error("Canonical child module is not routed: "+panel[1]+" / "+child[1]+" -> "+child[3]);
- }
-}
-for(const panel of panelRoutes){
- const route=panel[4];
- const match=route.match(/[?&]code=([^&]+)/);
- if(route==="/admin")continue;
- if(match){
-  if(!declaredCodes.has(decodeURIComponent(match[1])))throw new Error("Canonical panel route has no registered module destination: "+panel[1]+" -> "+route);
-  continue;
- }
-  const pathname=route.split("?")[0].split("/").filter(Boolean).join("/");
- const routeFile=path.join(root,"apps/web/app",pathname,"page.tsx");
- if(!fs.existsSync(routeFile))throw new Error("Canonical panel direct route has no page implementation: "+panel[1]+" -> "+route);
-}
-const firstPanel=panelObjects.find(panel=>panel[2]==="01");
-if(!firstPanel)throw new Error("Panel 01 is missing");
-const firstChildren=[...firstPanel[4].matchAll(/child\("([^"]+)"(?:,\s*(?:"([^"]*)"|undefined))?(?:,\s*(?:"([^"]*)"|undefined))?(?:,\s*"([^"]*)")?\)/g)];
-const firstDestinations=firstChildren.map(child=>child[2]||child[3]).filter(Boolean);
-if(new Set(firstDestinations).size!==firstDestinations.length)throw new Error("Panel 01 contains duplicate child destinations");
-if(!masterMenu.includes('child("مرکز فرماندهی عملیاتی","","command-center","/command-center")'))throw new Error("Panel 01 command center route is not explicitly registered");
-if(!sidebar.includes("const childRoute=child.route"))throw new Error("Sidebar does not honor explicit canonical child routes");
 const unroutedLegacy=expectedLegacyCodes.filter(code=>!declaredCodes.has(code));
 if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered in a real dispatcher branch/workspace: "+unroutedLegacy.join(", "));
-
-if(!sidebar.includes("const visit=(nodes:MenuNode[])")||!sidebar.includes("visit(node.child_items||[])"))throw new Error("Legacy menu merge must index every nested level");
-if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.includes("...flattenTitles(x.dbChildren)"))throw new Error("Menu search must include all nested legacy levels");
+if(!sidebar.includes("normalize(item.child_items||[])")||!sidebar.includes("children.some(x=>hasPath(x,pathname))"))throw new Error("Canonical sidebar must render recursive child routes from the backend menu tree");
+if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.includes("...flattenTitles(node.child_items||[])"))throw new Error("Menu search must include all nested backend levels");
 
 const dynamicMenu=fs.readFileSync(path.join(root,"apps/api/src/dynamic-menu.ts"),"utf8");
+if(!sidebar.includes("code.match(/^\\d{2}/)"))throw new Error("Sidebar panel numbering must parse the two-digit canonical menu key");
 const workflowDir=path.join(root,".github/workflows");
 const workflowFiles=fs.readdirSync(workflowDir).filter(name=>/\.ya?ml$/i.test(name));
 if(workflowFiles.length!==1||workflowFiles[0]!=="deploy-sookar-main.yml")throw new Error("Deployment workflow must have exactly one canonical entry point; found: "+workflowFiles.join(", "));
@@ -181,8 +128,7 @@ const storeDirectory=path.join(root,"apps/web/app/marketplace/directory/page.tsx
 if(!publicCatalogApi.includes('domainMarketplaceRouter.get("/api/public/marketplace"')||!publicCatalogApi.includes("p.status='active'")||!publicCatalogApi.includes("sl.status='active'"))throw new Error("Public catalog must expose only published products from active sellers");
 if(!categoryMigration.includes("create table if not exists marketplace_categories")||!categoryMigration.includes("unique(tenant_id,code)")||!categoryMigration.includes("where t.status='active'"))throw new Error("Persistent tenant-scoped category taxonomy migration is incomplete");
 const storefrontTaxonomy=fs.readFileSync(path.join(root,"database/migrations/136_digikala_reference_storefront_categories.sql"),"utf8");
-const masterMenuForCategory=fs.readFileSync(path.join(root,"apps/web/app/admin/master-menu.ts"),"utf8");
-if(!storefrontTaxonomy.includes("('pet-shop','پت شاپ',180)")||!storefrontTaxonomy.includes("on conflict(tenant_id,code) do update")||!masterMenuForCategory.includes('"/marketplace/categories"'))throw new Error("Persistent Digikala-reference category taxonomy and central-menu route are incomplete");
+if(!storefrontTaxonomy.includes("('pet-shop','پت شاپ',180)")||!storefrontTaxonomy.includes("on conflict(tenant_id,code) do update")||!canonicalMenuMigration.includes("/marketplace/categories"))throw new Error("Persistent Digikala-reference category taxonomy and central-menu route are incomplete");
 if(!publicCatalogApi.includes('domainMarketplaceRouter.get("/api/marketplace/categories"')||!publicCatalogApi.includes("from marketplace_categories where tenant_id=$1 and status='active'"))throw new Error("Authenticated category API must read the tenant-scoped taxonomy");
 if(!productManagement.includes('api<{items:Category[]}>("/api/marketplace/categories")')||!productManagement.includes("categories.map(item => <option"))throw new Error("Product entry must select categories from the central database taxonomy");
 
@@ -191,7 +137,8 @@ const expectedStorefrontCategories=["موبایل","ابزارآلات","لپ ت
 if(!storefront.includes('role="menu" aria-label="دسته‌بندی کالاها"')||expectedStorefrontCategories.some(name=>!storefront.includes(name)||!storefrontTaxonomy.includes(name)))throw new Error("Storefront category dropdown must expose the approved 18-category navigation in the public UI and persisted taxonomy");
 if(storefront.includes("/api/public/digikala-catalog")||storefront.includes("sk-source-catalog"))throw new Error("Public storefront must not expose the authenticated source-catalog management endpoint");
 if(storefront.includes("product.source_url")&&(!storefront.includes('"/store/product/" + encodeURIComponent(product.sku || product.id)')||storefront.includes("href={product.source_url}")||!storefront.includes("!product.is_reference && <AddToCartButton")))throw new Error("Public catalog items must use internal product routes and reference-only items must not enter the cart");
-if(!publicCatalogApi.includes('domainMarketplaceRouter.post("/api/marketplace/products/import-demo-catalog",requireAuth,requirePermission("product:manage")')||!publicCatalogApi.includes('demoCatalog:true')||!publicCatalogApi.includes('sourceType:"demo-reference-import"')||!publicCatalogApi.includes('SOOKAR-DEMO-')||!publicCatalogApi.includes("importDigikalaImage(source.image_url,mediaDir,tenantId)")||!publicCatalogApi.includes("const ctx=await tenantContext(req,(req as any).user)")||!publicCatalogApi.includes("coalesce(p.attributes->>'demoCatalog','false') <> 'true'"))throw new Error("Sookar demo/reference imports must be tenant-scoped, explicitly marked, locally imaged, and excluded from the live-purchase catalog");
+const storeCartActions=fs.readFileSync(path.join(root,"apps/web/app/store/cart-actions.tsx"),"utf8");
+if(!publicCatalogApi.includes('domainMarketplaceRouter.post("/api/marketplace/products/import-demo-catalog",requireAuth,requirePermission("product:manage")')||!publicCatalogApi.includes('demoCatalog:true')||!publicCatalogApi.includes('sourceType:"demo-reference-import"')||!publicCatalogApi.includes('SOOKAR-DEMO-')||!publicCatalogApi.includes("importDigikalaImage(source.image_url,mediaDir,tenantId)")||!publicCatalogApi.includes("const ctx=await tenantContext(req,(req as any).user)")||!publicCatalogApi.includes("coalesce(p.attributes->>'demoCatalog','false')='true'")||!storeCartActions.includes("if (product.is_demo_product)")||!storeCartActions.includes("disabled={Boolean(product.is_demo_product)}"))throw new Error("Sookar demo/reference imports must be tenant-scoped, explicitly marked, locally imaged, visible in the preview catalog, and blocked from cart purchases");
 if(!storefront.includes("product.is_demo_product"))throw new Error("Storefront must distinguish demo products programmatically");
 const digibileTemplate=fs.readFileSync(path.join(root,"apps/web/public/templates/digibile-marketplace/index.html"),"utf8");
 if(digibileTemplate.includes("قیمت منبع")||!digibileTemplate.includes("مشاهده محصول")||!digibileTemplate.includes("dgDetailOverlay")||!digibileTemplate.includes("افزودن به سبد"))throw new Error("Digibile storefront must hide technical source-price labels and provide product details and cart actions");
@@ -206,7 +153,7 @@ if(!publicCatalogApi.includes('domainMarketplaceRouter.patch("/api/marketplace/p
 if(!productManagement.includes('api<SourceCatalog>("/api/marketplace/digikala-catalog")')||!productManagement.includes("url.pathname.match")||!productManagement.includes("دسته‌بندی مرجع"))throw new Error("Admin import must support authenticated reference browsing, product links, and category filtering");
 if(!publicCatalogApi.includes('domainMarketplaceRouter.post("/api/marketplace/digikala-category",requireAuth,requirePermission("product:manage")')||!publicCatalogApi.includes("getDigikalaCategoryProducts")||!productManagement.includes('"/api/marketplace/digikala-category"')||!productManagement.includes("mp-source-category-url"))throw new Error("Admin must support authenticated category URL import into internal drafts");
 const categoryManagement=fs.readFileSync(path.join(root,"apps/web/app/marketplace/categories/page.tsx"),"utf8");
-if(!categoryManagement.includes('api<CategoryList>("/api/marketplace/categories")')||!categoryManagement.includes('method:"POST"')||!categoryManagement.includes('method:"PATCH"')||!productManagement.includes("/api/marketplace/digikala-product/")||!productManagement.includes("شناسه یا لینک محصول دیجی‌کالا")||!productManagement.includes('get("tab") === "import"')||!masterMenuForCategory.includes("/marketplace/products?tab=import"))throw new Error("Admin category CRUD and direct Digikala product URL lookup must be available from the central menu");
+if(!categoryManagement.includes('api<CategoryList>("/api/marketplace/categories")')||!categoryManagement.includes('method:"POST"')||!categoryManagement.includes('method:"PATCH"')||!productManagement.includes("/api/marketplace/digikala-product/")||!productManagement.includes("شناسه یا لینک محصول دیجی‌کالا")||!productManagement.includes('get("tab") === "import"')||!canonicalMenuMigration.includes("/marketplace/products?tab=import"))throw new Error("Admin category CRUD and direct Digikala product URL lookup must be available from the central menu");
 if(!fs.readFileSync(path.join(root,"apps/api/src/server.ts"),"utf8").includes('app.use("/api/public/media"')||!fs.readFileSync(path.join(root,"docker-compose.production.yml"),"utf8").includes("catalog_media:/app/media"))throw new Error("First-party catalog media must be served and persisted");
 if(!productManagement.includes('/api/marketplace/products/import-reference')||!productManagement.includes("ورود به کاتالوگ داخلی"))throw new Error("Product workspace must support selected reference import into the internal catalog");
 if(!fs.existsSync(path.join(root,"apps/web/app/marketplace/products/products-workspace.css")))throw new Error("Responsive enterprise product workspace styles are missing");
@@ -215,7 +162,7 @@ if(!sellerManagement.includes("/status")||!sellerManagement.includes("فعال�
 if(!fs.existsSync(storeDirectory))throw new Error("Public store directory route is missing");
 if(!fs.readFileSync(storeDirectory,"utf8").includes("/api/public/marketplace"))throw new Error("Public store directory must use real public catalog data");
 const adminDashboard=fs.readFileSync(path.join(root,"apps/web/app/admin/page.tsx"),"utf8");
-if(!adminDashboard.includes('import {MASTER_MENU} from "./master-menu"')||adminDashboard.includes("const GROUPS=")||!adminDashboard.includes("canonical-panel-grid"))throw new Error("Management dashboard must use the canonical 20-panel menu source");
+if(adminDashboard.includes('import {MASTER_MENU} from "./master-menu"')||!adminDashboard.includes('api<any>("/api/dashboard/menu-tree?panel=admin")')||!adminDashboard.includes("menuItems.filter(panel=>")||!adminDashboard.includes("canonical-panel-grid"))throw new Error("Management dashboard must render the canonical 20-panel menu from the backend API");
 
 
 const identityApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"utf8");
@@ -228,7 +175,215 @@ if(!identityApi.includes('router.put("/api/identity/roles/:roleKey/permissions",
 const identityWorkspace=fs.readFileSync(path.join(root,"apps/web/app/modules/IdentityWorkspace.tsx"),"utf8");
 if(!modulePage.includes('"03-users-access": () => <IdentityWorkspace />'))throw new Error("Canonical Panel 03 must use the unified identity workspace");
 for(const tab of ["users","profiles","roles","groups","permissions","policies","auth","twofa","sessions","audit"])if(!identityWorkspace.includes('["'+tab+'"'))throw new Error("Panel 03 workspace tab missing: "+tab);
-for(const title of ["مدیریت کاربران و حساب‌ها","پروفایل کاربران","نقش‌ها و مسئولیت‌ها","گروه‌های کاربری","کاتالوگ مجوزها و دسترسی‌ها","سیاست‌های امنیتی","احراز هویت دومرحله‌ای","نشست‌ها و دستگاه‌های مجاز","تاریخچه ورود و ممیزی امنیتی"])if(!masterMenu.includes(title))throw new Error("Panel 03 child menu missing: "+title);
+for(const title of ["مدیریت کاربران و حساب‌ها","پروفایل کاربران","نقش‌ها و مسئولیت‌ها","گروه‌های کاربری","کاتالوگ مجوزها و دسترسی‌ها","سیاست‌های امنیتی","احراز هویت دومرحله‌ای","نشست‌ها و دستگاه‌های مجاز","تاریخچه ورود و ممیزی امنیتی"])if(!canonicalMenuMigration.includes(title))throw new Error("Panel 03 backend child menu missing: "+title);
 if(fs.existsSync(path.join(root,"apps/web/app/modules/SecurityWorkspace.tsx"))||fs.existsSync(path.join(root,"apps/web/app/modules/SecurityWorkspace.module.css")))throw new Error("Duplicate security workspace must be removed after consolidation");
 
-console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
+const marketerApi=fs.readFileSync(path.join(root,"apps/api/src/customer-360.ts"),"utf8");
+const marketerUi=fs.readFileSync(path.join(root,"apps/web/app/modules/Customer360Workspace.tsx"),"utf8");
+const marketerMigration=fs.readFileSync(path.join(root,"database/migrations/148_crm_marketer_registry_from_vamcity.sql"),"utf8");
+if(!server.includes("customer360Router"))throw new Error("Canonical CRM router is not mounted");
+for(const route of [
+ 'router.get("/api/marketing/marketers",requireAuth,marketingRead',
+ 'router.post("/api/marketing/marketers",requireAuth,marketingManage,requireCsrf',
+ 'router.patch("/api/marketing/marketers/:id",requireAuth,marketingManage,requireCsrf',
+ 'router.get("/api/marketing/marketers/audit",requireAuth,marketingRead'
+])if(!marketerApi.includes(route))throw new Error("Central marketer API route missing: "+route);
+if(!marketerMigration.includes("create table if not exists crm_marketers")||!marketerMigration.includes("create table if not exists crm_marketer_audit"))throw new Error("Canonical marketer registry and audit storage are missing");
+for(const permission of ["marketing:read","marketing:manage"])if(!marketerMigration.includes(permission))throw new Error("Marketer permission seed missing: "+permission);
+if(!marketerUi.includes('["customer-360-6","بازاریاب‌ها"]')||!marketerUi.includes("/api/marketing/marketers"))throw new Error("Marketer registry is not exposed in the canonical CRM workspace");
+if(!marketerUi.includes("editMarketer=")||!marketerUi.includes('method:editing?"PATCH":"POST"')||!marketerUi.includes("toggleMarketer"))throw new Error("Marketer workspace must support create, edit and activation controls");
+if(marketerApi.includes("postLedgerEntry")||marketerApi.includes("lendtech_repayments"))throw new Error("Marketer registry must not post money or bypass central ledger/repayment workflows");
+const crmPartyMigration=fs.readFileSync(path.join(root,"database/migrations/155_crm_customers_canonical_party.sql"),"utf8");
+if(!crmPartyMigration.includes("add column if not exists party_id uuid")||!crmPartyMigration.includes("foreign key(tenant_id,party_id)")||!crmPartyMigration.includes("crm_customers_canonical_party_idx"))throw new Error("Customer 360 canonical party migration is missing tenant-safe links");
+if(!marketerApi.includes("ensureCanonicalParty")||!marketerApi.includes("party_id,customer_no")||!marketerApi.includes('sourceSystem:"crm_customers"'))throw new Error("Customer 360 must create and expose the canonical party link");
+if(!marketerUi.includes("nationalId")||!marketerUi.includes("canonical_party_title")||!marketerUi.includes('import {api} from "../../lib/api"')||!marketerUi.includes("CanonicalPartyReference"))throw new Error("Customer 360 must use shared API and canonical party UI");
+if(!marketerApi.includes("update accounting_parties set title=coalesce($1,title)")||!marketerApi.includes("for update"))throw new Error("Customer 360 updates must keep the canonical party profile synchronized transactionally");
+const accountingOperations=fs.readFileSync(path.join(root,"apps/api/src/accounting-finance-operations.ts"),"utf8");
+if(!accountingOperations.includes('crm_customers:{table:"crm_customers"'))throw new Error("Customer 360 records must be available in the central registry reconciliation queue");
+if(!accountingOperations.includes('treasury_receipts:{table:"treasury_receipts"')||!accountingOperations.includes('treasury_checks:{table:"treasury_checks"')||!accountingOperations.includes('partyColumn:"counterparty_party_id"')||!accountingOperations.includes("allowMultipleLinks:true"))throw new Error("Treasury receipts and checks must be available for evidence-backed multi-transaction party reconciliation");
+if(!accountingOperations.includes('lendtech_applications:{table:"lendtech_applications"')||!accountingOperations.includes('tenantColumn:"tenant_ref"')||!accountingOperations.includes('partyTenantColumn:"party_tenant_id"'))throw new Error("Legacy lending applications must be reconciled to canonical parties with tenant-safe dual-key updates");
+
+const centralSettings=fs.readFileSync(path.join(root,"apps/api/src/central-settings.ts"),"utf8");
+const centralSettingsUi=fs.readFileSync(path.join(root,"apps/web/app/modules/CentralSettingsWorkspace.tsx"),"utf8");
+for(const key of ["mobile.latest_version","mobile.minimum_version","mobile.apk_url","mobile.support_phone","mobile.force_update","mobile.maintenance"])if(!centralSettings.includes('key:"'+key+'"'))throw new Error("Central mobile setting missing: "+key);
+if(!centralSettings.includes('router.get("/api/public/mobile-config"'))throw new Error("Public mobile configuration endpoint missing");
+if(!centralSettings.includes('apk.startsWith("https://")'))throw new Error("Public mobile APK URL is not restricted to HTTPS");
+if(!centralSettings.includes('resolvePublicTenant(req'))throw new Error("Public mobile configuration must resolve the canonical tenant");
+if(!centralSettingsUi.includes('"mobile-app":"تنظیمات اپلیکیشن موبایل"'))throw new Error("Central settings UI mobile category label missing");
+
+
+
+const purchasingApi=fs.readFileSync(path.join(root,"apps/api/src/purchasing-supply.ts"),"utf8");
+const merchantManagementApi=fs.readFileSync(path.join(root,"apps/api/src/merchant-management.ts"),"utf8");
+for(const marker of ['merchantRouter.post("/api/merchants",requireAuth,requirePermission("merchant:manage"),requireCsrf','merchantRouter.patch("/api/merchants/:id",requireAuth,requirePermission("merchant:manage"),requireCsrf','merchantRouter.patch("/api/merchants/:id/status",requireAuth,requirePermission("merchant:manage"),requireCsrf','merchantRouter.post("/api/merchants/:id/verify",requireAuth,requirePermission("merchant:verify"),requireCsrf'])if(!merchantManagementApi.includes(marker))throw new Error("All merchant create/update/status/verification mutations must enforce CSRF protection");
+const marketplaceApi=fs.readFileSync(path.join(root,"apps/api/src/domain-marketplace.ts"),"utf8");
+const marketplaceRouteKeys=[...marketplaceApi.matchAll(/domainMarketplaceRouter\.(get|post|put|patch|delete)\(\s*["']([^"']+)["']/g)].map(match=>match[1].toUpperCase()+" "+match[2]);
+if(new Set(marketplaceRouteKeys).size!==marketplaceRouteKeys.length)throw new Error("Marketplace API contains duplicate route registrations");
+const purchasingUi=fs.readFileSync(path.join(root,"apps/web/app/modules/PurchasingSupplyWorkspace.tsx"),"utf8");
+const sellerUi=fs.readFileSync(path.join(root,"apps/web/app/marketplace/sellers/page.tsx"),"utf8");
+if(!purchasingApi.includes("ensureCanonicalParty")||!purchasingApi.includes("party_id,code,name")||!purchasingUi.includes("nationalId")||!purchasingUi.includes("canonical_party_title"))throw new Error("Purchasing suppliers must use and display canonical party identity");
+if(!marketplaceApi.includes("ensureCanonicalParty")||!marketplaceApi.includes("party_id,legal_name")||!sellerUi.includes("nationalId")||!sellerUi.includes("canonical_party_title"))throw new Error("Marketplace sellers must use and display canonical party identity");
+
+const lendtech=fs.readFileSync(path.join(root,"apps/api/src/lendtech.ts"),"utf8");
+const paymentDeclarations=fs.readFileSync(path.join(root,"database/migrations/149_vamcity_payment_declarations.sql"),"utf8");
+if(!server.includes("lendtechRouter"))throw new Error("Canonical lendtech router is not mounted");
+for(const route of [
+ 'lendtechRouter.get("/api/lendtech/my-payment-declarations"',
+ 'lendtechRouter.post("/api/lendtech/my-payment-declarations"',
+ 'lendtechRouter.get("/api/lendtech/payment-declarations"',
+ 'lendtechRouter.post("/api/lendtech/payment-declarations/:id/review"',
+ 'lendtechRouter.post("/api/lendtech/contracts/:id/repay"'
+])if(!lendtech.includes(route))throw new Error("Central payment declaration/repayment route missing: "+route);
+for(const marker of ["create table if not exists lendtech_payment_declarations","uq_lendtech_payment_declaration_ref","uq_lendtech_payment_declaration_repayment","fk_payment_declaration_contract_tenant","fk_payment_declaration_repayment_tenant","status='approved' and repayment_id is not null"])if(!paymentDeclarations.includes(marker))throw new Error("Payment declaration intake schema missing safety constraint: "+marker);
+if(!lendtech.includes("applyRepayment(client")||!lendtech.includes('paymentRef:"DECL-"+String(d.rows[0].id)')||!lendtech.includes("a.customer_ref=$3")||!lendtech.includes('requireCsrf'))throw new Error("Payment declaration approval must use central transactional repayment, customer-contract ownership and CSRF");
+if(lendtech.includes('status="approved"')&& !lendtech.includes("lendtech_repayments"))throw new Error("Payment declaration approval must not be a status-only payment confirmation");
+
+
+const customerInstallmentsUi=fs.readFileSync(path.join(root,"apps/web/app/account/installments/page.tsx"),"utf8");
+const adminLendtechUi=fs.readFileSync(path.join(root,"apps/web/app/admin/lendtech/page.tsx"),"utf8");
+if(!lendtech.includes('lendtechRouter.get("/api/lendtech/my-contracts"'))throw new Error("Customer-owned central contract listing route is missing");
+if(!customerInstallmentsUi.includes("/api/lendtech/my-contracts")||!customerInstallmentsUi.includes("/api/lendtech/my-payment-declarations")||!customerInstallmentsUi.includes('"/api/lendtech/my-payment-declarations"')||!customerInstallmentsUi.includes("اعلام واریز ثبت شد"))throw new Error("Customer installment workspace must list owned contracts and submit/track payment declarations");
+if(!adminLendtechUi.includes("/api/lendtech/payment-declarations?status=pending")||!adminLendtechUi.includes('reviewDeclaration(d.id,"approved")')||!adminLendtechUi.includes('reviewDeclaration(d.id,"rejected")'))throw new Error("Central LendTech admin workspace must review pending payment declarations");
+
+if(!paymentDeclarations.includes("fk_payment_declaration_contract_tenant")||!paymentDeclarations.includes("fk_payment_declaration_repayment_tenant")||!paymentDeclarations.includes("on lendtech_payment_declarations(tenant_ref,payment_ref)"))throw new Error("Payment declarations must enforce tenant-scoped contract/repayment references and unique bank references");
+
+const partyBankMigration=fs.readFileSync(path.join(root,"database/migrations/150_accounting_party_bank_accounts.sql"),"utf8");
+const accountingWorkspace=fs.readFileSync(path.join(root,"apps/web/app/modules/AccountingFinanceWorkspace.tsx"),"utf8");
+for(const marker of ["create table if not exists accounting_party_bank_accounts","foreign key(tenant_id,party_id)","unique(tenant_id,iban)","verification_status","check(iban ~ '^IR[0-9]{24}$')"])if(!partyBankMigration.includes(marker))throw new Error("Party-owned bank account schema safety marker missing: "+marker);
+for(const route of [
+ 'router.post("/api/accounting-finance/counterparties"',
+ 'router.patch("/api/accounting-finance/counterparties/:id"',
+ 'router.get("/api/accounting-finance/parties/:partyId/bank-accounts"',
+ 'router.post("/api/accounting-finance/parties/:partyId/bank-accounts"',
+ 'router.patch("/api/accounting-finance/parties/:partyId/bank-accounts/:id/verification"',
+ 'router.patch("/api/accounting-finance/parties/:partyId/bank-accounts/:id/status"'
+])if(!accountingOperations.includes(route))throw new Error("Canonical party/bank-account route missing: "+route);
+const ibanValidator=fs.readFileSync(path.join(root,"apps/api/src/iranian-iban.ts"),"utf8");
+const ibanTests=fs.readFileSync(path.join(root,"apps/api/src/iranian-iban.test.ts"),"utf8");
+if(!accountingOperations.includes("normalizeAndValidateIranianIban(")||!ibanValidator.includes("%97")||!ibanValidator.includes("replace(/[۰-۹]/g")||!ibanTests.includes("rejects incorrect check digits")||!accountingOperations.includes("on conflict(tenant_id,iban) do nothing"))throw new Error("Iranian IBAN validation, normalization, behavior tests and tenant uniqueness must be enforced");
+if(!accountingOperations.includes("where id=$1 and tenant_id=$2")||!accountingOperations.includes("where id=$1 and party_id=$2 and tenant_id=$3"))throw new Error("Party and bank account APIs must enforce tenant and parent ownership");
+if(!accountingOperations.includes("insert into audit_events(event_type,actor_ref,entity_type,entity_id,payload)")||!accountingOperations.includes("values($1,$2,$3,null,$4)")||!accountingOperations.includes("entity_id:id")||!accountingOperations.includes("tenant_id:t")||accountingOperations.includes("accounting_finance_audit")||!accountingOperations.includes("verification_status")||!accountingOperations.includes("verification_method=case when $1='verified' then 'manual'"))throw new Error("Party bank account changes must use the canonical audit_events stream, tenant-scoped UUID references and explicit manual verification state");
+if(!accountingOperations.includes("requireCsrf")||!accountingOperations.includes('requirePermission("accounting-finance.write"),requireCsrf'))throw new Error("Party and bank account mutations must enforce CSRF protection");
+if((partyBankMigration.match(/create table if not exists accounting_party_bank_accounts/g)||[]).length!==1||partyBankMigration.includes("  add constraint accounting_parties_tenant_id_unique unique(tenant_id,id);\n\ncreate table"))throw new Error("Party bank migration must contain one clean canonical table definition");
+if(!accountingWorkspace.includes('["parties","طرف‌حساب‌ها و شبا"]')||!accountingWorkspace.includes("/api/accounting-finance/counterparties")||!accountingWorkspace.includes("partyBankAccounts")||!accountingWorkspace.includes("تأیید دستی")||!accountingWorkspace.includes("افزودن حساب بانکی")||!accountingWorkspace.includes("مسدودسازی"))throw new Error("Canonical accounting workspace must expose counterparties and manual bank verification");
+if(!accountingOperations.includes('requirePermission("accounting-finance.read")'))throw new Error("Party and bank account reads must require accounting read permission");
+
+const partyLinkMigration=fs.readFileSync(path.join(root,"database/migrations/152_operational_registries_canonical_party_links.sql"),"utf8");
+for(const table of ["purchase_suppliers","sales_partners","payment_merchants","sellers"]){
+ if(!partyLinkMigration.includes("'"+table+"'")||!partyLinkMigration.includes("alter table public.%I add column if not exists party_id uuid")||
+    !partyLinkMigration.includes("foreign key (tenant_id, party_id)")||
+    !partyLinkMigration.includes("create unique index if not exists %I on public.%I (tenant_id, party_id)"))
+  throw new Error("Operational registry canonical-party migration is missing tenant-safe constraints");
+}
+if(!accountingOperations.includes('router.get("/api/accounting-finance/party-links"')||!accountingWorkspace.includes('["registry-links","تطبیق رجیستری‌ها"]')||!accountingWorkspace.includes("/api/accounting-finance/party-links?unlinked=true"))throw new Error("Canonical registry reconciliation queue and UI are missing");
+if(!accountingWorkspace.includes('parties.filter(p=>p.status==="active").map(p=><option'))throw new Error("New bank-account and registry-link selectors must exclude inactive canonical parties");
+if(!accountingOperations.includes('router.post("/api/accounting-finance/party-links/:registry/:id"')||
+   !accountingOperations.includes('if(method==="national_id")')||
+   !accountingOperations.includes('b.confirmMatch!==true')||
+   !accountingOperations.includes('error?.code==="23505"')||
+   !accountingOperations.includes('requirePermission("accounting-finance.write"),requireCsrf'))
+ throw new Error("Canonical party linking must require explicit evidence, tenant checks, CSRF, audit and duplicate protection");
+
+
+
+const treasuryPaymentMigration=fs.readFileSync(path.join(root,"database/migrations/156_treasury_payments_canonical_beneficiary.sql"),"utf8");
+const treasuryBankApi=fs.readFileSync(path.join(root,"apps/api/src/treasury-bank.ts"),"utf8");
+const treasuryBankUi=fs.readFileSync(path.join(root,"apps/web/app/modules/TreasuryBankWorkspace.tsx"),"utf8");
+for(const marker of ["on public.treasury_bank_accounts(tenant_id,id)","foreign key(tenant_id,bank_account_id)","on public.accounting_party_bank_accounts(tenant_id,party_id,id)","foreign key(tenant_id,party_id,party_bank_account_id)","treasury_payments_beneficiary_requires_party"])if(!treasuryPaymentMigration.includes(marker))throw new Error("Treasury beneficiary migration is missing tenant-safe party/account constraints");
+for(const marker of ["verification_status='verified'","status='active'","for update","current_balance)<Number(old.amount)","party_bank_account_id"])if(!treasuryBankApi.includes(marker))throw new Error("Treasury outgoing payments must enforce verified beneficiary accounts and safe settlement");
+if(!treasuryBankApi.includes("beneficiaryBankAccounts:beneficiaryBankAccounts.rows")||!treasuryBankApi.includes("canonical_party_title")||!treasuryBankUi.includes("شبای تأییدشده ذی‌نفع")||!treasuryBankUi.includes("طرف‌حساب مرکزی"))throw new Error("Treasury workspace must display and select canonical payment beneficiaries");
+const treasuryChecksMigration=fs.readFileSync(path.join(root,"database/migrations/158_treasury_checks_canonical_party.sql"),"utf8");
+const treasuryChecksApi=fs.readFileSync(path.join(root,"apps/api/src/treasury-checks.ts"),"utf8");
+const treasuryChecksUi=fs.readFileSync(path.join(root,"apps/web/app/modules/TreasuryChecksWorkspace.tsx"),"utf8");
+for(const marker of ["unique(tenant_id,id)","foreign key(tenant_id,bank_account_id)","foreign key(tenant_id,counterparty_party_id)","foreign key(tenant_id,counterparty_party_id,counterparty_bank_account_id)","treasury_checks_counterparty_bank_requires_party"])if(!treasuryChecksMigration.includes(marker))throw new Error("Treasury checks migration is missing tenant-safe canonical party/account constraints");
+const treasuryCheckOwnershipMigration=fs.readFileSync(path.join(root,"database/migrations/160_treasury_checks_tenant_ownership.sql"),"utf8");
+if(!treasuryCheckOwnershipMigration.includes("treasury_check_events_tenant_check_fk")||treasuryCheckOwnershipMigration.includes("treasury_checks_own_bank_tenant_fk"))throw new Error("Treasury check ownership migration must protect event tenancy without duplicating the source-bank constraint already installed by migration 158");
+for(const marker of ["counterpartyPartyId","counterpartyBankAccountId","verification_status='verified'","canonical_counterparty_title","requireCsrf","for update"])if(!treasuryChecksApi.includes(marker))throw new Error("Treasury checks API must validate canonical counterparty links, enforce CSRF and serialize status transitions");
+for(const marker of ["counterpartyPartyId","counterpartyBankAccountId","bankAccountId","حساب بانکی سازمان","CanonicalPartyReference"])if(!treasuryChecksUi.includes(marker))throw new Error("Treasury checks UI must select canonical counterparties and treasury accounts");
+ 
+const treasuryReceiptMigration=fs.readFileSync(path.join(root,"database/migrations/157_treasury_receipts_canonical_payer.sql"),"utf8");
+if(!treasuryReceiptMigration.includes("foreign key(tenant_id,party_id)")||!treasuryReceiptMigration.includes("foreign key(tenant_id,bank_account_id)")||!treasuryBankApi.includes("party.title as canonical_party_title")||!treasuryBankApi.includes("for update")||!treasuryBankUi.includes("طرف‌حساب مرکزی"))throw new Error("Treasury receipts must preserve payer history and use tenant-safe canonical payer links");
+const treasuryMutations=treasuryBankApi.split("\n").filter(line=>line.includes('router.post("/api/treasury-bank/')||line.includes('router.patch("/api/treasury-bank/'));
+if(treasuryMutations.length!==10||treasuryMutations.some(line=>!line.includes("requireCsrf")))throw new Error("Every treasury mutation route must enforce CSRF protection");
+if(!treasuryBankUi.includes("CanonicalPartyReference"))throw new Error("Treasury receipts and payments must use the shared canonical party reference UI");
+const treasuryChecksOwnershipMigration=fs.readFileSync(path.join(root,"database/migrations/160_treasury_checks_tenant_ownership.sql"),"utf8");
+if(!treasuryChecksMigration.includes("foreign key(tenant_id,bank_account_id)")||!treasuryChecksMigration.includes("treasury_checks_own_bank_tenant_fk"))throw new Error("Treasury check source bank must be tenant-owned in migration 158");
+for(const marker of ["foreign key(tenant_id,check_id)","references public.treasury_checks(tenant_id,id)","not valid"])if(!treasuryChecksOwnershipMigration.includes(marker))throw new Error("Treasury check event tenant ownership migration is incomplete");
+if(!treasuryChecksApi.includes("select id from treasury_bank_accounts where id=$1 and tenant_id=$2 and status='active' for update")||!treasuryChecksApi.includes("select * from treasury_checks where id=$1 and tenant_id=$2 for update")||!treasuryChecksApi.includes("Number.isFinite(Number(b.amount))"))throw new Error("Treasury check mutations must validate tenant-owned bank accounts and lock status transitions transactionally");
+
+const identityProvenanceMigration=fs.readFileSync(path.join(root,"database/migrations/161_identity_profile_provenance_and_change_requests.sql"),"utf8");
+const identityProfileApi=fs.readFileSync(path.join(root,"apps/api/src/identity.ts"),"utf8");
+for(const marker of ["identity_profile_change_requests","identity_profile_field_provenance","identity_profile_change_events","legacy_unknown","identity_profile_one_pending_change_idx"])if(!identityProvenanceMigration.includes(marker))throw new Error("Identity provenance and change-request schema is incomplete");
+for(const marker of ["/api/identity/profile-change-requests","reviewer_approved","for update","ویرایش حساب دیگران مجاز نیست","تغییر اطلاعات قانونی باید از مسیر درخواست اصلاح پروفایل"])if(!identityProfileApi.includes(marker))throw new Error("Legal identity changes must be provenance-tracked, owner-scoped and approval-gated");
+
+const identityProfilePage=fs.readFileSync(path.join(root,"apps/web/app/profile/page.tsx"),"utf8");
+const identityProfileTests=fs.readFileSync(path.join(root,"apps/api/src/identity.test.ts"),"utf8");
+if(!identityProfilePage.includes("/api/identity/profile-change-requests")||!identityProfilePage.includes("درخواست اصلاح پروفایل")||!identityProfilePage.includes("منشأ اطلاعات هویتی"))throw new Error("Customer profile must submit reviewed identity changes and show provenance");
+if(!identityWorkspace.includes("profileChanges")||!identityWorkspace.includes("reviewChange")||!identityWorkspace.includes("تأیید و اعمال"))throw new Error("Identity workspace must provide an administrator review queue");
+if(!identityProfileTests.includes("legal identity edits are routed through a reviewed")||!identityProfileTests.includes("identity change approval checks stale snapshots"))throw new Error("Identity profile change workflow tests are missing");
+
+const verificationFoundation=fs.readFileSync(path.join(root,"database/migrations/112_verification_and_insurance_foundation.sql"),"utf8");
+const lendtechInquiryUi=fs.readFileSync(path.join(root,"apps/web/app/admin/lendtech/page.tsx"),"utf8");
+for(const route of [
+ 'lendtechRouter.get("/api/lendtech/inquiry-requests"',
+ 'lendtechRouter.post("/api/lendtech/inquiry-requests"',
+ 'lendtechRouter.post("/api/lendtech/inquiry-requests/:id/result"'
+])if(!lendtech.includes(route))throw new Error("Central manual inquiry route missing: "+route);
+if(!verificationFoundation.includes("create table if not exists platform_verification_requests")||!lendtech.includes("provider_code='manual-review'")||!lendtech.includes("'needs_review'"))throw new Error("VamCity inquiry intake must reuse the canonical verification queue");
+if(!lendtech.includes("kycUpdated:false,creditDecisionUpdated:false")||!lendtech.includes("manual_result_recorded"))throw new Error("Manual inquiry results must not silently verify KYC or alter credit decisions");
+if(!lendtechInquiryUi.includes("/api/lendtech/inquiry-requests?status=needs_review")||!lendtechInquiryUi.includes("ثبت نتیجه بررسی دستی")&&!lendtechInquiryUi.includes("ثبت نتیجه"))throw new Error("LendTech admin must expose the canonical manual inquiry queue");
+
+
+const verificationReadPermissions=fs.readFileSync(path.join(root,"database/migrations/151_verification_queue_read_permissions.sql"),"utf8");
+if(!verificationReadPermissions.includes("('admin','verification:read')")||!verificationReadPermissions.includes("('manager','verification:read')"))throw new Error("Admin and manager must be able to read the central verification queue");
+
+const lendtechIdentity=fs.readFileSync(path.join(root,"apps/api/src/lendtech.ts"),"utf8");
+const identityFileValidation=fs.readFileSync(path.join(root,"apps/api/src/identity-document-file.ts"),"utf8");
+const identityFileTests=fs.readFileSync(path.join(root,"apps/api/src/identity-document-file.test.ts"),"utf8");
+const customerIdentityPage=fs.readFileSync(path.join(root,"apps/web/app/customer/documents/page.tsx"),"utf8");
+const customerDashboard=fs.readFileSync(path.join(root,"apps/web/app/customer/page.tsx"),"utf8");
+const lendtechAdminPage=fs.readFileSync(path.join(root,"apps/web/app/admin/lendtech/page.tsx"),"utf8");
+for(const route of [
+ 'lendtechRouter.get("/api/lendtech/my-applications"',
+ 'lendtechRouter.get("/api/lendtech/my-documents"',
+ 'lendtechRouter.post("/api/lendtech/my-documents"',
+ 'lendtechRouter.get("/api/lendtech/my-documents/:id/file"',
+ 'lendtechRouter.get("/api/lendtech/applications/:id/documents"',
+ 'lendtechRouter.get("/api/lendtech/application-documents/:id/file"'
+])if(!lendtechIdentity.includes(route))throw new Error("Customer identity document route missing: "+route);
+if(!lendtechIdentity.includes("customer_ref=$3")||!lendtechIdentity.includes("for share")||!lendtechIdentity.includes("l.relation_type='identity-document'"))throw new Error("Customer document upload and download must be bound to the owning customer and application");
+if(!lendtechIdentity.includes("platform_attachments")||!lendtechIdentity.includes("platform_attachment_links")||lendtechIdentity.includes("finance_document_files"))throw new Error("Customer documents must reuse the canonical platform attachment store");
+if(!lendtechIdentity.includes("requireCsrf")||!lendtechIdentity.includes("decodeIdentityDocument(b.data)")||!lendtechIdentity.includes("safeDocumentFileName(b.fileName)"))throw new Error("Customer uploads must enforce CSRF, safe filenames and server-side file validation");
+for(const signature of ['"%PDF-"','"RIFF"','"WEBP"',"0xff","0x89"])if(!identityFileValidation.includes(signature))throw new Error("Identity document signature validation missing: "+signature);
+if(!identityFileValidation.includes("8*1024*1024")||!identityFileTests.includes("rejects forged MIME payloads")||!identityFileTests.includes("oversized documents"))throw new Error("Identity document size and signature behavior tests are required");
+if(!customerIdentityPage.includes("/api/lendtech/my-applications")||!customerIdentityPage.includes("/api/lendtech/my-documents")||!customerIdentityPage.includes("/api/lendtech/my-documents/")||!customerDashboard.includes("/customer/documents"))throw new Error("Customer dashboard must expose the secure identity document workspace");
+if(!lendtechAdminPage.includes("/api/lendtech/applications/")||!lendtechAdminPage.includes("/api/lendtech/application-documents/")||!lendtechAdminPage.includes("مدارک هویتی مشتری"))throw new Error("LendTech admin must review and securely download documents attached to its application");
+
+
+const ocrWorker=fs.readFileSync(path.join(root,"apps/api/src/ocr-worker.ts"),"utf8");
+const ocrParser=fs.readFileSync(path.join(root,"apps/api/src/identity-ocr-parser.ts"),"utf8");
+const ocrParserTests=fs.readFileSync(path.join(root,"apps/api/src/identity-ocr-parser.test.ts"),"utf8");
+const ocrDocker=fs.readFileSync(path.join(root,"apps/api/OcrWorker.Dockerfile"),"utf8");
+const ocrCompose=fs.readFileSync(path.join(root,"docker-compose.production.yml"),"utf8");
+const apiPackage=JSON.parse(fs.readFileSync(path.join(root,"apps/api/package.json"),"utf8"));
+const enterpriseInteraction=fs.readFileSync(path.join(root,"apps/api/src/enterprise-interaction.ts"),"utf8");
+const deploymentWorkflow=fs.readFileSync(path.join(root,".github/workflows/deploy-sookar-main.yml"),"utf8");
+if(!ocrWorker.includes("for update skip locked")||!ocrWorker.includes("execFile(")||!ocrWorker.includes("timeout:OCR_TIMEOUT_MS")||!ocrWorker.includes("provider_code='tesseract-local'"))throw new Error("OCR worker must claim jobs safely and execute Tesseract without a shell and with a timeout");
+if(!ocrWorker.includes("kycUpdated:false")||!ocrWorker.includes("needs_review")||!ocrWorker.includes("imageExtension"))throw new Error("OCR results must remain human-reviewed and accept only verified image signatures");
+if(!ocrParser.includes("isValidIranianNationalCode")||!ocrParser.includes("validatedFields")||!ocrParser.includes("به‌تنهایی احراز هویت"))throw new Error("OCR parser must validate national-code checksum and never approve KYC");
+if(!ocrParserTests.includes("invalid national code remains in human review")||!ocrParserTests.includes("checksum-validates"))throw new Error("OCR parser checksum tests are required");
+if(!ocrDocker.includes("tesseract-ocr-fas")||!ocrDocker.includes("tesseract --list-langs")||!ocrDocker.includes("apps/api/dist/ocr-worker.js"))throw new Error("OCR worker image must include and verify Persian Tesseract language data");
+if(!ocrCompose.includes("  ocr-worker:")||!ocrCompose.includes("apps/api/OcrWorker.Dockerfile")||!ocrCompose.includes("OCR_WORKER_MAX_ATTEMPTS"))throw new Error("Production compose must run the independent OCR worker");
+if(apiPackage.scripts?.["worker:ocr"]!=="node dist/ocr-worker.js")throw new Error("API package must expose the OCR worker command");
+if(!enterpriseInteraction.includes("'tesseract-local'")||!lendtechIdentity.includes("'tesseract-local'"))throw new Error("Admin and customer image uploads must enqueue the same local OCR provider");
+if(!deploymentWorkflow.includes("Build Persian OCR worker image"))throw new Error("CI must build the Persian OCR worker image");
+
+const publicMarketplaceApi=fs.readFileSync(path.join(root,"apps/api/src/domain-marketplace.ts"),"utf8");
+const storefrontPage=fs.readFileSync(path.join(root,"apps/web/app/store/page.tsx"),"utf8");
+const storeCartPurchaseGuard=fs.readFileSync(path.join(root,"apps/web/app/store/cart-actions.tsx"),"utf8");
+if(!publicMarketplaceApi.includes("importDemoCatalogForTenant(tenantId,120)")||!publicMarketplaceApi.includes('currentHost==="sookar.ir"')||!publicMarketplaceApi.includes("coalesce(p.attributes->>'demoCatalog','false')='true'"))throw new Error("Sookar public catalog must restore its explicitly marked preview products only on the Sookar host");
+if(!publicMarketplaceApi.includes("inventoryVerified")||!publicMarketplaceApi.includes("inventoryQuantity")||!publicMarketplaceApi.includes("demoNotice"))throw new Error("Public catalog must retain verified-stock requirements and explicit preview disclosure");
+if(!storeCartPurchaseGuard.includes("disabled={Boolean(product.is_demo_product)}")||!storeCartPurchaseGuard.includes("کالای مرجع · خرید غیرفعال"))throw new Error("Reference/demo products must never be addable to the real cart");
+if(!storefrontPage.includes("/api/public/marketplace")||!storefrontPage.includes("is_demo_product"))throw new Error("Sookar storefront must render the canonical public marketplace catalog and distinguish preview products");
+
+console.log("Platform integrity OK: 45 modules, 20 canonical panels, database-driven recursive menu navigation/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");

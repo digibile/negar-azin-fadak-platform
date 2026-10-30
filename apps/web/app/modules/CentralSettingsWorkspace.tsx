@@ -5,7 +5,7 @@ import styles from "./CentralSettingsWorkspace.module.css";
 type Setting={id:string;setting_key:string;category:string;title:string;value:any;is_sensitive:boolean;is_editable:boolean;updated_at:string};
 const base=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
 const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
-const labels:any={general:"عمومی",localization:"تقویم و منطقه",numbering:"شماره‌گذاری",notifications:"اعلان‌ها",security:"امنیت",files:"فایل‌ها",workflow:"گردش‌کار",maintenance:"نگهداری"};
+const labels:any={general:"عمومی",localization:"تقویم و منطقه",numbering:"شماره‌گذاری",notifications:"اعلان‌ها",security:"امنیت",files:"فایل‌ها",workflow:"گردش‌کار",maintenance:"نگهداری", "mobile-app":"تنظیمات اپلیکیشن موبایل"};
 export default function CentralSettingsWorkspace(){
  const searchParams=useSearchParams();
  const [items,setItems]=useState<Setting[]>([]),[audit,setAudit]=useState<any[]>([]),[tab,setTab]=useState("general"),[error,setError]=useState(""),[saving,setSaving]=useState<string|null>(null);

@@ -1,0 +1,46 @@
+name: Check Digibail admin login endpoints and production DB
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/check-digibail-admin-login.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check actual admin endpoints and production database metadata
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -eu
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; else D='docker'; fi
+            TMP="$(mktemp -d /tmp/digibail-admin-check.XXXXXX)"; trap 'rm -rf "$TMP"' EXIT
+            echo "=== ACTUAL DIGEBAIL ADMIN ROUTES ==="
+            for path in /admin /admin/ /admin/login /admin/userLoanRequests/ /admin/loans/ /admin/appSettings/get /Account/Login /account/login /login.html /appSettings/GetLandingSettings/0; do
+              code="$(curl -sS -o "$TMP/body" -w '%{http_code}' --max-time 10 "http://127.0.0.1:1361$path" || true)"
+              bytes="$(wc -c < "$TMP/body" 2>/dev/null || echo 0)"
+              type="$(curl -sSI --max-time 5 "http://127.0.0.1:1361$path" 2>/dev/null | awk 'BEGIN{IGNORECASE=1}/^Content-Type:/{gsub("\r","");print $2;exit}' || true)"
+              title="$(grep -oiE '<title[^>]*>[^<]+' "$TMP/body" 2>/dev/null | head -n 1 | sed 's/<[^>]*>//g' | cut -c1-80 || true)"
+              echo "PATH=$path HTTP=$code BYTES=$bytes TYPE=$type TITLE=$title"
+            done
+            echo "=== PRODUCTION SQL SERVER DATABASES ==="
+            SQLC="public_html-db-1"
+            SQLCMD="$($D exec "$SQLC" sh -lc 'command -v /opt/mssql-tools18/bin/sqlcmd || command -v /opt/mssql-tools/bin/sqlcmd || command -v sqlcmd' 2>/dev/null | head -n 1)"
+            SA_PASS="$($D exec "$SQLC" printenv MSSQL_SA_PASSWORD 2>/dev/null || true)"
+            [ -n "$SQLCMD" ] && [ -n "$SA_PASS" ] || { echo "SQL_ACCESS_UNAVAILABLE"; exit 6; }
+            $D exec "$SQLC" "$SQLCMD" -S localhost -U sa -P "$SA_PASS" -C -W -s '|' -Q "SET NOCOUNT ON; SELECT DB_NAME() AS current_db; SELECT name,state_desc FROM sys.databases ORDER BY name; USE [Digibail]; SELECT s.name AS schema_name,t.name AS table_name,SUM(p.rows) AS rows_total FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id JOIN sys.partitions p ON p.object_id=t.object_id AND p.index_id IN (0,1) GROUP BY s.name,t.name ORDER BY t.name;" 2>&1 | tail -n 160
+            unset SA_PASS
+            echo "=== APP RECENT ERROR LOGS ==="
+            ($D logs --since 2h public_html-web-1 2>&1 || true) | grep -Ei 'error|exception|failed|unauthorized|forbidden|login|GetClaims|appSettings/get|userLoanRequests|/admin/loans' | sed -E 's/((PASSWORD|PASS|TOKEN|SECRET|KEY|CONNECTIONSTRING)[^= :]*[=:])[[:space:]]*[^[:space:]]+/\1[REDACTED]/Ig' | tail -n 80 || true
+            echo "DIGIBAIL_ADMIN_CHECK_COMPLETE=1"

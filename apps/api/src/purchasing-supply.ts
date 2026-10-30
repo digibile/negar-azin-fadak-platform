@@ -1,5 +1,6 @@
 import {Router,type Request,type Response} from "express";
 import {pool,query} from "./db.js";
+import {ensureCanonicalParty} from "./canonical-party.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {resolveTenant} from "./tenant-context.js";
 const router=Router();
@@ -14,7 +15,7 @@ const orderTransitions:Record<string,string[]>={draft:["approved","cancelled"],a
 router.get("/api/purchasing/overview",requireAuth,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const [suppliers,requests,rfqs,quotes,orders,receipts,invoices,payments,returns,evaluations,contracts,events]=await Promise.all([
-  query("select * from purchase_suppliers where tenant_id=$1 order by created_at desc limit 500",[t.id]),
+  query("select s.*,p.title as canonical_party_title from purchase_suppliers s left join accounting_parties p on p.id=s.party_id and p.tenant_id=s.tenant_id where s.tenant_id=$1 order by s.created_at desc limit 500",[t.id]),
   query("select * from purchase_requests where tenant_id=$1 order by created_at desc limit 500",[t.id]),
   query("select r.*,s.request_no from purchase_rfqs r join purchase_requests s on s.id=r.request_id where r.tenant_id=$1 order by r.created_at desc limit 300",[t.id]),
   query("select q.*,s.name supplier_name,r.rfq_no from purchase_supplier_quotes q join purchase_suppliers s on s.id=q.supplier_id join purchase_rfqs r on r.id=q.rfq_id join purchase_requests pr on pr.id=r.request_id where pr.tenant_id=$1 order by q.created_at desc limit 500",[t.id]),
@@ -31,7 +32,7 @@ router.get("/api/purchasing/overview",requireAuth,async(req,res)=>{
 });
 router.post("/api/purchasing/suppliers",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{
  const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");if(!b.code||!b.name)return deny(res,400,"کد و نام تأمین‌کننده الزامی است");
- const r=await query("insert into purchase_suppliers(tenant_id,code,name,national_id,phone,email,payment_terms_days) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,b.code,b.name,b.nationalId||null,b.phone||null,b.email||null,n(b.paymentTermsDays)]);res.status(201).json(r.rows[0]);
+ const c=await pool.connect();try{await c.query("begin");const partyId=await ensureCanonicalParty(c,{tenantId:t.id,kind:"supplier",title:String(b.name),nationalId:b.nationalId||null,phone:b.phone||null,email:b.email||null,sourceSystem:"purchase_suppliers"});const r=await c.query("insert into purchase_suppliers(tenant_id,party_id,code,name,national_id,phone,email,payment_terms_days) values($1,$2,$3,$4,$5,$6,$7,$8) returning *",[t.id,partyId,b.code,b.name,b.nationalId||null,b.phone||null,b.email||null,n(b.paymentTermsDays)]);await c.query("commit");res.status(201).json(r.rows[0]);}catch(error:any){await c.query("rollback");if(error?.statusCode)return deny(res,error.statusCode,error.message);throw error}finally{c.release()}
 });
 router.post("/api/purchasing/requests",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{
  const t=await tenantOf(req),b=req.body||{},items=Array.isArray(b.items)?b.items:[];if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");if(!items.length)return deny(res,400,"حداقل یک قلم خرید الزامی است");

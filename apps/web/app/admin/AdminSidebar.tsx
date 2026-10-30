@@ -4,7 +4,6 @@ import Link from "next/link";
 import {useEffect,useMemo,useState} from "react";
 import {usePathname} from "next/navigation";
 import {api} from "../../lib/api";
-import {MASTER_MENU} from "./master-menu";
 import styles from "./AdminSidebar.module.css";
 
 type MenuNode={
@@ -13,6 +12,7 @@ type MenuNode={
  parent_id:string|number|null;
  title:string;
  path:string;
+ route?:string;
  icon?:string|null;
  sort_order:number;
  permission:string|null;
@@ -21,15 +21,13 @@ type MenuNode={
  is_shared?:boolean;
 };
 
-type ModuleItem={code:string;title:string;is_active?:boolean;route?:string|null};
-type MasterChild={title:string;legacyCode?:string;moduleCode?:string;route?:string};
 
 function SearchIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m16 16 4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
 function ChevronIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
 function HomeIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v10.5a1 1 0 0 1-1 1h-5.5v-6h-4v6H4.5a1 1 0 0 1-1-1V10Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>}
 function CloseIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>}
 
-function normalize(nodes:MenuNode[]):MenuNode[]{return [...nodes].sort((a,b)=>a.sort_order-b.sort_order||String(a.id).localeCompare(String(b.id)))}
+function normalize(nodes:MenuNode[]):MenuNode[]{return [...nodes].sort((a,b)=>a.sort_order-b.sort_order||String(a.id).localeCompare(String(b.id))).map(node=>({...node,route:node.path&&node.path!=="#"?node.path:undefined,child_items:normalize(node.child_items||[])}))}
 function flattenTitles(nodes:MenuNode[]):string[]{return nodes.flatMap(node=>[node.title,...flattenTitles(node.child_items||[])])}
 function menuHref(path:string|undefined,parent:string,title:string){
  if(path&&path!=="#")return path;
@@ -52,7 +50,7 @@ function TreeNode({node,href,pathname,closeMobile,depth}:{node:MenuNode;href:str
    {children.length>0&&<button type="button" className={styles["master-chevron-button"]} onClick={()=>setExpanded(x=>!x)} aria-expanded={expanded} aria-label={(expanded?"بستن ":"باز کردن ")+node.title}><span className={styles["master-chevron"]}><ChevronIcon/></span></button>}
   </div>
   {expanded&&children.length>0&&<div className={styles["tree-grandchildren"]}>
-   {children.map(child=><TreeNode key={child.id} node={child} href={menuHref(child.path,href,child.title)} pathname={pathname} closeMobile={closeMobile} depth={depth+1}/>)}
+   {children.map(child=>{const childRoute=child.route;return <TreeNode key={child.id} node={child} href={menuHref(childRoute,href,child.title)} pathname={pathname} closeMobile={closeMobile} depth={depth+1}/>})}
   </div>}
  </div>;
 }
@@ -61,7 +59,6 @@ function TreeNode({node,href,pathname,closeMobile,depth}:{node:MenuNode;href:str
 export default function AdminSidebar(){
  const pathname=usePathname();
  const [menuItems,setMenuItems]=useState<MenuNode[]>([]);
- const [modules,setModules]=useState<ModuleItem[]>([]);
  const [query,setQuery]=useState("");
  const [error,setError]=useState("");
  const [open,setOpen]=useState<Record<string,boolean>>({});
@@ -70,14 +67,9 @@ export default function AdminSidebar(){
 
  useEffect(()=>{
   let alive=true;
-  Promise.all([
-   api<{items:MenuNode[]}>("/api/dashboard/menu-tree?panel=admin"),
-   api<{items:ModuleItem[]}>("/api/platform/modules")
-  ]).then(([tree,mods])=>{
-   if(!alive)return;
-   setMenuItems(normalize(tree.items||[]));
-   setModules(mods.items||[]);
-  }).catch(e=>{if(alive)setError(e instanceof Error?e.message:"خطا در دریافت ساختار منوی مرکزی")});
+  api<{items:MenuNode[]}>("/api/dashboard/menu-tree?panel=admin")
+   .then(tree=>{if(alive)setMenuItems(normalize(tree.items||[]))})
+   .catch(e=>{if(alive)setError(e instanceof Error?e.message:"خطا در دریافت ساختار منوی مرکزی")});
   api<{updateAvailable?:boolean}>("/api/platform/update-status")
    .then(x=>{if(alive)setUpdateAvailable(Boolean(x.updateAvailable))}).catch(()=>{});
   const timer=window.setInterval(async()=>{
@@ -86,37 +78,18 @@ export default function AdminSidebar(){
   return()=>{alive=false;window.clearInterval(timer)};
  },[]);
 
- const moduleSet=useMemo(()=>new Set(modules.filter(x=>x.is_active!==false).map(x=>x.code)),[modules]);
- const dbByLegacy=useMemo(()=>{const map=new Map<string,MenuNode>();const visit=(nodes:MenuNode[])=>{for(const node of nodes){if(node.menu_key)map.set(node.menu_key,node);visit(node.child_items||[])}};visit(menuItems);return map},[menuItems]);
-
- const canonical=useMemo(()=>MASTER_MENU.map(item=>{
-  const route=item.route||(
-   item.moduleCode&&moduleSet.has(item.moduleCode)
-    ? "/modules/?code="+encodeURIComponent(item.moduleCode)
-    : "#"
-  );
-  const children=item.children.map((child:MasterChild,i)=>{
-   const legacyCode=child.legacyCode||"";
-   const db=dbByLegacy.get(legacyCode);
-   // The canonical menu owns navigation. Database menu paths are retained only as
-   // legacy metadata, never allowed to override the approved 20-panel route map.
-   const childRoute=child.route
-    ? child.route
-    : legacyCode
-      ? "/modules/?code="+encodeURIComponent(legacyCode)+(item.panel?"&panel="+encodeURIComponent(item.panel):"")
-      : (child.moduleCode&&moduleSet.has(child.moduleCode)
-        ? "/modules/?code="+encodeURIComponent(child.moduleCode)+(item.panel?"&panel="+encodeURIComponent(item.panel):"")
-        : route+(route.includes("?")?"&":"?")+"menu="+encodeURIComponent(child.title));
-   return {id:item.code+"-"+i,title:child.title,path:childRoute,sort_order:i,db,dbChildren:normalize(db?.child_items||[])};
-  });
-  return {...item,route,children};
- }),[dbByLegacy,moduleSet]);
+ const canonical=useMemo(()=>menuItems.map(item=>{
+  const code=item.menu_key||String(item.id);
+  const number=code.match(/^\d{2}/)?.[0]||String(item.sort_order).padStart(2,"0");
+  const route=item.path&&item.path!=="#"?item.path:"/admin";
+  return {code,number,title:item.title,route,moduleCode:code,children:normalize(item.child_items||[])};
+ }),[menuItems]);
 
  const filtered=useMemo(()=>{
   const q=query.trim().toLocaleLowerCase("fa-IR");
   if(!q)return canonical;
   return canonical.filter(item=>{
-   const hay=[item.number,item.title,...item.children.flatMap(x=>[x.title,...flattenTitles(x.dbChildren)])].join(" ").toLocaleLowerCase("fa-IR");
+   const hay=[item.number,item.title,...item.children.flatMap(x=>[x.title,...flattenTitles(x.child_items||[])])].join(" ").toLocaleLowerCase("fa-IR");
    return hay.includes(q);
   });
  },[canonical,query]);
@@ -124,7 +97,7 @@ export default function AdminSidebar(){
  useEffect(()=>{
   const activeKeys:Record<string,boolean>={};
   for(const item of canonical){
-   const active=item.route===pathname||item.children.some(x=>x.path===pathname||x.dbChildren.some((db:MenuNode)=>hasPath(db,pathname)));
+   const active=item.route===pathname||item.children.some(x=>hasPath(x,pathname));
    if(active)activeKeys[item.code]=true;
   }
   setOpen(v=>({...v,...activeKeys}));
@@ -163,26 +136,13 @@ export default function AdminSidebar(){
        {item.children.length>0?<button type="button" className={styles["master-chevron-button"]} onClick={()=>toggle(item.code)} aria-expanded={expanded} aria-label={(expanded?"بستن ":"باز کردن ")+item.title}><span className={styles["master-chevron"]}><ChevronIcon/></span></button>:<span className={styles["master-chevron-button"]+" "+styles["empty-chevron"]}/>}
       </div>
       {expanded&&item.children.length>0&&<div className={styles["master-children"]}>
-       {item.children.map((child,i)=>{
-        const href=child.path;
-        const synthetic:MenuNode={id:child.id,menu_key:child.db?.menu_key||null,parent_id:child.db?.parent_id||null,title:child.title,path:href,sort_order:i,permission:child.db?.permission||null,child_items:child.dbChildren};
-        return <TreeNode key={child.id} node={synthetic} href={href} pathname={pathname} closeMobile={closeMobile} depth={0}/>;
+       {item.children.map(child=>{
+        const href=menuHref(child.path,item.route,child.title);
+        return <TreeNode key={child.id} node={child} href={href} pathname={pathname} closeMobile={closeMobile} depth={0}/>;
        })}
       </div>}
      </section>;
     })}
-   </nav>
-   <div className={styles["sidebar-caption"]}><span>امکانات تکمیلی پنل قبلی</span></div>
-   <nav className={styles["master-nav"]} aria-label="امکانات تکمیلی پنل قبلی">
-    <div className={styles["master-children"]}>
-     <Link className={styles["master-child"]} href="/admin" onClick={closeMobile}><span className={styles["master-child-index"]}>01</span>داشبورد مدیریت و مرکز فرماندهی</Link>
-     <Link className={styles["master-child"]} href="/admin/lendtech" onClick={closeMobile}><span className={styles["master-child-index"]}>02</span>مدیریت وام و لندتک</Link>
-     <Link className={styles["master-child"]} href="/admin/templates" onClick={closeMobile}><span className={styles["master-child-index"]}>03</span>قالب‌ها و پوسته‌های سایت</Link>
-     <Link className={styles["master-child"]} href="/admin/editors" onClick={closeMobile}><span className={styles["master-child-index"]}>04</span>ویرایشگر صفحه، فرم و منو</Link>
-     <Link className={styles["master-child"]} href="/admin/updates" onClick={closeMobile}><span className={styles["master-child-index"]}>05</span>نسخه‌ها و به‌روزرسانی سامانه</Link>
-     <Link className={styles["master-child"]} href="/modules/?code=20-system-settings" onClick={closeMobile}><span className={styles["master-child-index"]}>06</span>تنظیمات اپلیکیشن و سامانه</Link>
-     <Link className={styles["master-child"]} href="/modules/?code=50-release-health" onClick={closeMobile}><span className={styles["master-child-index"]}>07</span>پشتیبان‌گیری، بازیابی و سلامت سامانه</Link>
-    </div>
    </nav>
    <footer className={styles["sidebar-footer"]}>
     <Link href="/admin/templates" onClick={closeMobile}><span>▦</span><div><b>کتابخانه مرکزی قالب‌ها</b><small>قالب پایه، فروشگاه، لندتک و پرداخت</small></div></Link>

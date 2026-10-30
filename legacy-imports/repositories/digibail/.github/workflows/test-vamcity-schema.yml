@@ -1,0 +1,76 @@
+name: Validate VamCity MariaDB schema files
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - database/mysql/schema.sql
+      - database/mysql/schema-main.sql
+      - database/mysql/schema-bluvamdb.sql
+      - database/mysql/schema-transfer.sql
+      - .github/workflows/test-vamcity-schema.yml
+      - .github/workflows/test-vamcity-schema.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mariadb-schema-test:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.6
+        env:
+          MYSQL_ROOT_PASSWORD: vamcity_schema_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MariaDB client
+        run: sudo apt-get update && sudo apt-get install -y mariadb-client
+      - name: Import each schema into a clean MariaDB 10.6 instance
+        env:
+          MYSQL_PWD: vamcity_schema_test
+        run: |
+          set -euo pipefail
+          mysql --skip-ssl -h 127.0.0.1 -uroot -e "CREATE DATABASE vamcitydigibilepay CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+          mysql --skip-ssl -h 127.0.0.1 -uroot -e "CREATE DATABASE vamcitydigibilepay_bluvamdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+          mysql --skip-ssl -h 127.0.0.1 -uroot -e "CREATE DATABASE vamcitydigibilepay_transferdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+          mysql --skip-ssl -h 127.0.0.1 -uroot vamcitydigibilepay < database/mysql/schema-main.sql
+          mysql --skip-ssl -h 127.0.0.1 -uroot vamcitydigibilepay_bluvamdb < database/mysql/schema-bluvamdb.sql
+          mysql --skip-ssl -h 127.0.0.1 -uroot vamcitydigibilepay_transferdb < database/mysql/schema-transfer.sql
+      - name: Validate the combined phpMyAdmin schema bundle
+        env:
+          MYSQL_PWD: vamcity_schema_test
+        run: |
+          set -euo pipefail
+          mysql --skip-ssl -h 127.0.0.1 -uroot -e "DROP DATABASE vamcitydigibilepay; DROP DATABASE vamcitydigibilepay_bluvamdb; DROP DATABASE vamcitydigibilepay_transferdb;"
+          mysql --skip-ssl -h 127.0.0.1 -uroot < database/mysql/schema.sql
+          mysql --skip-ssl -h 127.0.0.1 -uroot --batch --skip-column-names -e "
+          SELECT table_schema,COUNT(*) FROM information_schema.tables
+          WHERE table_type='BASE TABLE' AND table_schema IN ('vamcitydigibilepay','vamcitydigibilepay_bluvamdb','vamcitydigibilepay_transferdb')
+          GROUP BY table_schema ORDER BY table_schema;
+          SELECT constraint_schema,COUNT(*) FROM information_schema.referential_constraints
+          WHERE constraint_schema IN ('vamcitydigibilepay','vamcitydigibilepay_bluvamdb','vamcitydigibilepay_transferdb')
+          GROUP BY constraint_schema ORDER BY constraint_schema;"
+      - name: Verify tables, foreign keys and temporal fidelity columns
+        env:
+          MYSQL_PWD: vamcity_schema_test
+        run: |
+          set -euo pipefail
+          mysql --skip-ssl -h 127.0.0.1 -uroot --batch --skip-column-names -e "
+          SELECT table_schema,COUNT(*) FROM information_schema.tables
+          WHERE table_type='BASE TABLE' AND table_schema IN ('vamcitydigibilepay','vamcitydigibilepay_bluvamdb','vamcitydigibilepay_transferdb')
+          GROUP BY table_schema ORDER BY table_schema;
+          SELECT constraint_schema,COUNT(*) FROM information_schema.referential_constraints
+          WHERE constraint_schema IN ('vamcitydigibilepay','vamcitydigibilepay_bluvamdb','vamcitydigibilepay_transferdb')
+          GROUP BY constraint_schema ORDER BY constraint_schema;
+          SELECT table_schema,COUNT(*) FROM information_schema.columns
+          WHERE column_name LIKE '__raw_%' AND table_schema IN ('vamcitydigibilepay','vamcitydigibilepay_bluvamdb','vamcitydigibilepay_transferdb')
+          GROUP BY table_schema ORDER BY table_schema;"

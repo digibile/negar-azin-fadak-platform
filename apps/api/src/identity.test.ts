@@ -33,3 +33,18 @@ test("identity role and account state inputs are validated",()=>{
  assert.match(source,/\["active","pending","suspended"\]/);
  assert.match(source,/یک یا چند مجوز معتبر نیست یا غیرفعال است/);
 });
+
+test("legal identity edits are routed through a reviewed, owner-scoped change request",()=>{
+ assert.match(source,/router\.post\("\/api\/identity\/profile-change-requests",requireAuth,requireCsrf/);
+ assert.match(source,/router\.patch\("\/api\/identity\/profile-change-requests\/:id\/review",requireAuth,guardAdmin,requireCsrf/);
+ assert.match(source,/ویرایش حساب دیگران مجاز نیست/);
+ assert.match(source,/تغییر اطلاعات قانونی باید از مسیر درخواست اصلاح پروفایل/);
+});
+
+test("identity change approval checks stale snapshots and records field provenance",()=>{
+ assert.match(source,/for update/);
+ assert.match(source,/identity_profile_field_provenance/);
+ assert.match(source,/reviewer_approved/);
+ assert.match(source,/hashProfileValue/);
+ assert.match(source,/identity_profile_change_events/);
+});

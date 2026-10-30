@@ -1,0 +1,91 @@
+name: Import verified legacy loan definitions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/import-legacy-loan-products.yml'
+      - 'scripts/import-legacy-loan-products.mjs'
+      - 'backend/api.js'
+      - 'Dockerfile'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: digibail-legacy-loan-definition-import-v3
+  cancel-in-progress: true
+
+jobs:
+  import:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Validate production SSH settings
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing repository secret: $name"
+              exit 1
+            fi
+          done
+      - name: Wait for the validated application version and import real loan definitions
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 28m
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            cd "$ROOT"
+            if sudo -n docker info >/dev/null 2>&1; then D="sudo -n docker"; elif docker info >/dev/null 2>&1; then D="docker"; else echo "BLOCKED: Docker access unavailable"; exit 20; fi
+            echo "=== Wait for deployed importer and API marker ==="
+            STABLE=0
+            PREV=""
+            for n in $(seq 1 150); do
+              APP_ID="$($D compose ps -q app 2>/dev/null || true)"
+              if [ -n "$APP_ID" ] && $D exec "$APP_ID" sh -lc 'grep -q IMPORT_LATEST_VAMCITY_LOAN_DEFINITIONS_V3 /app/backend/api.js && grep -q IMPORT_LEGACY_LOAN_PRODUCTS_V3 /app/scripts/import-legacy-loan-products.mjs' >/dev/null 2>&1 && [ "$APP_ID" = "$PREV" ] && curl -fsS http://127.0.0.1:1631/healthz >/dev/null 2>&1; then
+                STABLE=$((STABLE+1))
+              else
+                STABLE=0
+              fi
+              PREV="$APP_ID"
+              if [ "$STABLE" -ge 3 ]; then break; fi
+              sleep 10
+            done
+            [ "$STABLE" -ge 3 ] || { echo "BLOCKED: validated app version did not become healthy and stable"; exit 21; }
+            echo "=== Wait for an already-running controlled backfill ==="
+            for n in $(seq 1 60); do
+              if [ -f "$ROOT/var/migrations/vamcity-import.status" ] && [ "$(cat "$ROOT/var/migrations/vamcity-import.status")" = "0" ]; then
+                HISTORY_COUNT="$($D compose exec -T db sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -Atc "SELECT COUNT(*) FROM loan_request_status_history WHERE legacy_source_table IS NOT NULL"')"
+                if [ -n "$HISTORY_COUNT" ] && [ "$HISTORY_COUNT" -gt 0 ]; then
+                  echo "LEGACY_BACKFILL_ALREADY_COMPLETE=1 history_rows=$HISTORY_COUNT"
+                  exit 0
+                fi
+              fi
+              sleep 10
+            done
+            echo "=== Ensure indexed keyset scans so import never rescans the full legacy table ==="
+            $D compose exec -T db sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -c "CREATE INDEX IF NOT EXISTS legacy_source_data_source_table_legacy_id_idx ON legacy_source_data (source_table, legacy_id)"'
+            echo "=== Inspect legacy payload field names only; never print borrower values ==="
+            $D compose exec -T db sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -Atc "SELECT '\''legacy_payload_types='\''||COALESCE(string_agg(payload_type||'\''='\''||n::text, '\''; '\'' ORDER BY payload_type), '\''none'\'') FROM (SELECT jsonb_typeof(payload) AS payload_type,COUNT(*) AS n FROM legacy_source_data WHERE source_table ~* '\''^vamcityc_vamcity_import_[0-9]{8}[.]dbo[.]Loans'\'' GROUP BY jsonb_typeof(payload)) t; SELECT '\''legacy_payload_keys='\''||COALESCE(string_agg(k, '\'', '\'' ORDER BY k), '\''none'\'') FROM (SELECT DISTINCT jsonb_object_keys(payload) AS k FROM legacy_source_data WHERE source_table ~* '\''^vamcityc_vamcity_import_[0-9]{8}[.]dbo[.]Loans'\'' AND jsonb_typeof(payload)='\''object'\'') keys;"'
+            echo "=== Run isolated one-off importer; one source row per query, live API remains untouched ==="
+            $D compose run --rm --no-deps app node scripts/import-legacy-loan-products.mjs
+            echo "=== Verify loan product totals without exposing customer data ==="
+            $D compose exec -T db sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -Atc "SELECT '\''loan_products_total='\''||COUNT(*) FROM loan_products; SELECT '\''legacy_vamcity_loans='\''||COUNT(*) FROM loan_products WHERE legacy_source_table ~* '\''^vamcityc_vamcity_import_[0-9]{8}[.]dbo[.]Loans'\''; SELECT '\''legacy_vamcity_needs_review='\''||COUNT(*) FROM loan_products WHERE legacy_source_table ~* '\''^vamcityc_vamcity_import_[0-9]{8}[.]dbo[.]Loans'\'' AND needs_review=TRUE; SELECT COUNT(*) FILTER (WHERE name IS NULL OR length(btrim(name))=0) FROM loan_products WHERE legacy_source_table ~* '\''^vamcityc_vamcity_import_[0-9]{8}[.]dbo[.]Loans'\''; SELECT COUNT(*) FILTER (WHERE title IS NULL OR length(btrim(title))=0) FROM loan_products WHERE legacy_source_table ~* '\''^vamcityc_vamcity_import_[0-9]{8}[.]dbo[.]Loans'\'';"'
+            echo "LEGACY_LOAN_DEFINITION_IMPORT_COMPLETE=1"
+            echo "=== Backfill all verified legacy loan requests and customer records into local PostgreSQL ==="
+            $D compose run --rm --no-deps app node /app/scripts/backfill-legacy-customers.mjs
+            echo "=== Verify local request and customer records (counts only) ==="
+            $D compose exec -T db sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -Atc "SELECT '\''LOCAL_LOAN_REQUESTS='\''||COUNT(*) FROM loan_requests; SELECT '\''LOCAL_CUSTOMERS='\''||COUNT(*) FROM legacy_customers; SELECT source_table||'\''| '\''||COUNT(*) FROM loan_requests GROUP BY source_table ORDER BY source_table;"'
+            echo "LOCAL_LEGACY_REQUEST_AND_CUSTOMER_BACKFILL_COMPLETE=1"

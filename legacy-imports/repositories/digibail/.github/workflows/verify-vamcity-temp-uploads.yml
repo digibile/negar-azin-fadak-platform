@@ -1,0 +1,35 @@
+name: Verify stale PHP upload temp files
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/verify-vamcity-temp-uploads.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check file type, age and open handles only
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            for f in /home/tmp/upload.*; do
+              [ -f "$f" ] || continue
+              echo "=== $f ==="
+              stat -c 'SIZE=%s MTIME=%y OWNER=%U:%G MODE=%a' "$f"
+              file "$f" || true
+              if command -v fuser >/dev/null 2>&1; then fuser -v "$f" 2>&1 || true; fi
+              if command -v lsof >/dev/null 2>&1; then lsof "$f" 2>&1 || true; fi
+            done
+            echo "TEMP_UPLOAD_HANDLE_CHECK_COMPLETE=1"

@@ -1,0 +1,58 @@
+name: Inspect VamCity source sizes and MySQL capacity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/inspect-vamcity-capacity.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Read-only source and destination capacity audit
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; else D='docker'; fi
+            SQLC="vamcity-stage-sql"
+            SQLCMD="$($D exec "$SQLC" sh -lc 'command -v /opt/mssql-tools18/bin/sqlcmd')"
+            PASS="$($D exec "$SQLC" printenv MSSQL_SA_PASSWORD 2>/dev/null || true)"
+            [ -n "$PASS" ] || PASS="$($D exec "$SQLC" printenv SA_PASSWORD 2>/dev/null || true)"
+            echo "=== FILESYSTEM CAPACITY ==="
+            df -h / /home /var/lib/mysql /var/lib/docker 2>/dev/null || true
+            echo "=== SQL SERVER DATABASE FILE SIZES ==="
+            $D exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; SELECT DB_NAME(database_id) AS db_name,type_desc,COUNT(*) AS files,CAST(SUM(size)*8.0/1024 AS decimal(18,1)) AS size_mb FROM sys.master_files WHERE DB_NAME(database_id) IN (N'vamcityc_vamcity_import_20261028',N'vamcityc_bluvamdb_import_20261028',N'vamcityc_transferDb_import_20261028',N'vamcity_stage') GROUP BY database_id,type_desc ORDER BY db_name,type_desc;" 2>&1
+            echo "=== TABLE STORAGE SIZES MAIN SOURCE ==="
+            $D exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "USE [vamcityc_vamcity_import_20261028]; SET NOCOUNT ON; SELECT TOP(20) s.name,t.name, SUM(p.rows), CAST(SUM(a.total_pages)*8.0/1024 AS decimal(18,1)),CAST(SUM(a.used_pages)*8.0/1024 AS decimal(18,1)) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id JOIN sys.indexes i ON i.object_id=t.object_id JOIN sys.partitions p ON p.object_id=i.object_id AND p.index_id=i.index_id JOIN sys.allocation_units a ON a.container_id=p.partition_id GROUP BY s.name,t.name ORDER BY SUM(a.total_pages) DESC;" 2>&1
+            echo "=== SQL COLLATION AND MODULE COUNT ==="
+            $D exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SELECT name,collation_name,compatibility_level FROM sys.databases WHERE name IN (N'vamcityc_vamcity_import_20261028',N'vamcityc_bluvamdb_import_20261028',N'vamcityc_transferDb_import_20261028'); USE [vamcityc_vamcity_import_20261028]; SELECT type_desc,COUNT(*) FROM sys.objects WHERE is_ms_shipped=0 GROUP BY type_desc ORDER BY type_desc;" 2>&1
+            echo "=== MYSQL / MARIADB ==="
+            mysql --batch --skip-column-names -e "SELECT VERSION(); SHOW VARIABLES LIKE 'datadir'; SHOW VARIABLES LIKE 'character_set_server'; SHOW VARIABLES LIKE 'collation_server';"
+            echo "=== DESTINATION DATABASE NAME COLLISION CHECK ==="
+            mysql --batch --skip-column-names -e "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='vamcitydigibilepay';"
+            echo "=== PYTHON CONNECTOR AVAILABILITY ==="
+            python3 - <<'PY'
+            import importlib.util
+            for x in ('pymssql','pyodbc','sqlalchemy','pymysql','mysql.connector'):
+                try:
+                    spec=importlib.util.find_spec(x)
+                except (ImportError,ModuleNotFoundError,ValueError):
+                    spec=None
+                print(x, 'AVAILABLE' if spec else 'NOT_INSTALLED')
+            PY
+            echo "=== BACKUP FILE CANDIDATES AND SIZES ==="
+            find /home -type f \( -iname '*vamcity*.zip' -o -iname '*.bak' \) -printf '%p | %s bytes\n' 2>/dev/null | head -n 50 || true
+            unset PASS
+            echo "CAPACITY_AUDIT_COMPLETE=1"

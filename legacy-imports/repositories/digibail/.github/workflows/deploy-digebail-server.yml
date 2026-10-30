@@ -1,0 +1,290 @@
+name: Deploy digebail.ir production site
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.github/workflows/inspect-*.yml'
+      - '.github/workflows/identify-vamcity-production.yml'
+      - '.github/workflows/deep-inspect-vamcity.yml'
+      - '.github/workflows/probe-vamcity-runtime.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-digebail-ir
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Validate deployment settings
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing repository secret: $name"
+              exit 1
+            fi
+          done
+
+      - name: Transfer application without deleting production files
+        uses: burnett01/rsync-deployments@7.0.2
+        with:
+          switches: -avzr --exclude=.git/ --exclude=.github/ --exclude=.htpasswd/ --exclude=logs/ --exclude=stats/ --exclude=public_ftp/ --exclude=public_html/ --exclude=private_html --exclude=.env
+          path: ./
+          remote_path: /home/digibail/domains/digebail.ir/
+          remote_host: ${{ secrets.DEPLOY_HOST }}
+          remote_user: ${{ secrets.DEPLOY_USER }}
+          remote_key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Validate environment and inspect live web routing
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            cd "$ROOT"
+            echo "=== deployment identity ==="
+            whoami
+            pwd
+            echo "=== required app files ==="
+            test -f docker-compose.yml
+            test -f Dockerfile
+            test -f server.js
+            test -f start.js
+            echo "=== validate storefront inline JavaScript syntax ==="
+            node -e 'const fs=require("node:fs"); const vm=require("node:vm"); const html=fs.readFileSync("web/template-v3.html","utf8"); const scripts=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]; if(!scripts.length) throw new Error("No inline scripts found"); scripts.forEach((m,i)=>new vm.Script(m[1],{filename:"template-v3.inline-"+i+".js"})); console.log("INLINE_JS_SYNTAX=OK; scripts="+scripts.length)'
+            echo "=== production environment (values hidden) ==="
+            # This DirectAdmin SSH account may not belong to the docker group.
+            if sudo -n docker info >/dev/null 2>&1; then
+              DOCKER="sudo -n docker"
+            elif docker info >/dev/null 2>&1; then
+              DOCKER="docker"
+            else
+              echo "BLOCKED: SSH account has no working Docker access and passwordless sudo is unavailable."
+              id
+              ls -l /var/run/docker.sock 2>/dev/null || true
+              exit 20
+            fi
+            DB_EXISTS=0
+            if $DOCKER volume ls --format '{{.Name}}' | grep -E '(^|[-_])digibail_pgdata$' >/dev/null; then DB_EXISTS=1; fi
+            if $DOCKER ps -a --format '{{.Names}}' | grep -E 'digibail.*db|db.*digibail' >/dev/null; then DB_EXISTS=1; fi
+            if [ ! -f .env ] || ! grep -qE '^POSTGRES_DB=.+$' .env || ! grep -qE '^POSTGRES_USER=.+$' .env || ! grep -qE '^POSTGRES_PASSWORD=.+$' .env || ! grep -qE '^DATABASE_URL=.+$' .env || ! grep -qE '^JWT_SECRET=.+$' .env || ! grep -qE '^OTP_PEPPER=.+$' .env || ! grep -qE '^CAPTCHA_PEPPER=.+$' .env; then
+              if [ "$DB_EXISTS" -eq 1 ]; then
+                echo "BLOCKED: database volume/container exists but production environment is incomplete; preserving data."
+                exit 21
+              fi
+              umask 077
+              DB_PASS="$(openssl rand -hex 32)"
+              JWT="$(openssl rand -hex 48)"
+              OTP="$(openssl rand -hex 32)"
+              CAPTCHA="$(openssl rand -hex 32)"
+              {
+                printf 'POSTGRES_DB=digibail_prod\n'
+                printf 'POSTGRES_USER=digibail_app\n'
+                printf 'POSTGRES_PASSWORD=%s\n' "$DB_PASS"
+                printf 'DATABASE_URL=postgresql://digibail_app:%s@db:5432/digibail_prod\n' "$DB_PASS"
+                printf 'PORT=1631\nHOST=0.0.0.0\n'
+                printf 'JWT_SECRET=%s\nOTP_PEPPER=%s\nCAPTCHA_PEPPER=%s\n' "$JWT" "$OTP" "$CAPTCHA"
+                printf 'BRAND_NAME=دیجی‌بایل پی\n'
+                printf 'KAVENEGAR_API_KEY=\nKAVENEGAR_TEMPLATE=\n'
+              } > .env
+              chmod 600 .env
+              unset DB_PASS JWT OTP CAPTCHA
+              echo "SECURE_ENV_CREATED=1 (secret values hidden)"
+            fi
+            for key in POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD DATABASE_URL JWT_SECRET OTP_PEPPER CAPTCHA_PEPPER; do
+              if ! grep -qE "^${key}=.+" .env; then
+                echo "BLOCKED: missing or empty required setting: $key"
+                exit 22
+              fi
+            done
+            if grep -Eq 'REPLACE_WITH|URL_ENCODED_PASSWORD' .env; then
+              echo "BLOCKED: .env still contains example placeholders."
+              exit 23
+            fi
+            echo "=== docker compose validation ==="
+            $DOCKER compose config -q
+            echo "=== build the new release before replacing the running app ==="
+            BUILD_OK=0
+            for attempt in 1 2 3; do
+              echo "Docker build attempt $attempt/3 (using cached base image when available)"
+              if $DOCKER compose build --pull=false; then
+                BUILD_OK=1
+                break
+              fi
+              sleep 5
+            done
+            if [ "$BUILD_OK" -ne 1 ]; then
+              echo "ERROR: new release could not be built after 3 attempts. Keeping current app running, but failing deployment."
+              $DOCKER compose ps || true
+              $DOCKER compose logs --tail=80 db app || true
+              exit 24
+            fi
+            echo "=== start the freshly built release ==="
+            $DOCKER compose up -d --no-build
+            echo "=== wait for application health ==="
+            for n in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:1631/healthz >/dev/null; then
+                echo "APP_HEALTH=healthy"
+                break
+              fi
+              if [ "$n" -eq 30 ]; then
+                $DOCKER compose ps
+                $DOCKER compose logs --tail=100 app db
+                exit 23
+              fi
+              sleep 5
+            done
+            echo "=== provision secure admin recovery access ==="
+            RECOVERY_FILE="/root/digibail-admin-recovery.txt"
+            if $DOCKER run --rm -v /:/host alpine:3.20 sh -c 'test -s /host/root/digibail-admin-recovery.txt'; then
+              RECOVERY_PASSWORD="$($DOCKER run --rm -v /:/host alpine:3.20 sh -c "sed -n 's/^password=//p' /host/root/digibail-admin-recovery.txt | head -n 1")"
+            else
+              RECOVERY_PASSWORD="$(openssl rand -hex 24)"
+              printf 'username=digibail-recovery\npassword=%s\n' "$RECOVERY_PASSWORD" | $DOCKER run --rm -i -v /:/host alpine:3.20 sh -c 'umask 077; cat > /host/root/digibail-admin-recovery.txt; chown 0:0 /host/root/digibail-admin-recovery.txt; chmod 600 /host/root/digibail-admin-recovery.txt'
+            fi
+            if ! printf '%s' "$RECOVERY_PASSWORD" | grep -Eq '^[a-f0-9]{48}$'; then
+              echo "ERROR: recovery credential file is invalid."
+              exit 30
+            fi
+            printf '%s\n' "$RECOVERY_PASSWORD" | $DOCKER compose exec -T app sh -c 'IFS= read -r RECOVERY_PASSWORD; export RECOVERY_PASSWORD; exec node /app/scripts/provision-recovery-admin.js'
+            export RECOVERY_PASSWORD
+            node --input-type=module <<'NODE'
+            const base = "http://127.0.0.1:1631";
+            const password = process.env.RECOVERY_PASSWORD || "";
+            const c = await fetch(base + "/api/v1/security/captcha");
+            if (!c.ok) throw new Error("Captcha endpoint failed: " + c.status);
+            const challenge = await c.json();
+            const encoded = String(challenge.image || "").split(",")[1] || "";
+            const svg = Buffer.from(encoded, "base64").toString("utf8");
+            const match = svg.match(/<text[^>]*>([0-9]{5})<[/]text>/);
+            if (!challenge.id || !match) throw new Error("Could not read generated captcha for smoke test");
+            const login = await fetch(base + "/api/v1/security/login", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username: "digibail-recovery", password, captchaId: challenge.id, captchaAnswer: match[1] })
+            });
+            const cookie = String(login.headers.get("set-cookie") || "").split(";")[0];
+            if (!login.ok || !cookie.startsWith("db_session=")) throw new Error("Recovery login failed: " + login.status);
+            const admin = await fetch(base + "/api/v1/admin/summary", { headers: { Cookie: cookie } });
+            if (!admin.ok) throw new Error("Admin authorization failed: " + admin.status);
+            const page = await fetch(base + "/admin.html", { headers: { Cookie: cookie } });
+            const html = await page.text();
+            if (!page.ok || !html.includes("<title>مدیریت دیجی‌بایل پی</title>") || !html.includes("همه داده‌های منتقل‌شده")) {
+              throw new Error("Real-data admin dashboard page check failed: HTTP " + page.status);
+            }
+            console.log("ADMIN_LOGIN_AND_DASHBOARD_API_SMOKE=PASS");
+            console.log("ADMIN_DASHBOARD_PAGE_SMOKE=PASS");
+            NODE
+            unset RECOVERY_PASSWORD
+            echo "ADMIN_RECOVERY_FILE=/root/digibail-admin-recovery.txt (root-only, mode 600; secret not logged)"
+            echo "=== live routing config (no secrets) ==="
+            for f in /usr/local/directadmin/data/users/digibail/domains/digebail.ir.cust_nginx /usr/local/directadmin/data/users/digibail/nginx.conf /etc/nginx/nginx.conf; do
+              if [ -f "$f" ]; then
+                echo "--- $f"
+                grep -nE 'location /|proxy_pass|root |server_name|include.*cust_nginx' "$f" || true
+              fi
+            done
+            echo "=== route production domain to verified app on port 1631 ==="
+            # Docker daemon access grants root-level host administration; use a
+            # short-lived privileged container for a backed-up, validated route change.
+            $DOCKER run --rm --privileged --pid=host --network host -v /:/host alpine:3.20 sh -c '
+              set -eu
+              CUST="$(find /host/usr/local/directadmin/data/users -type f -path "*/domains/digebail.ir.cust_nginx" -print -quit)"
+              if [ -z "$CUST" ]; then
+                echo "ROUTE_NOT_MATCHED: DirectAdmin custom nginx file was not found."
+                exit 26
+              fi
+              echo "--- route file: $CUST"
+              if ! grep -Fq "proxy_pass http://127.0.0.1:1361;" "$CUST" && ! grep -Fq "proxy_pass http://127.0.0.1:1362;" "$CUST" && ! grep -Fq "proxy_pass http://127.0.0.1:1631;" "$CUST"; then
+                echo "ROUTE_NOT_MATCHED: no known application proxy found"
+                exit 26
+              fi
+              if grep -Fq "proxy_pass http://127.0.0.1:1361;" "$CUST" || grep -Fq "proxy_pass http://127.0.0.1:1362;" "$CUST"; then
+                BACKUP="${CUST}.bak.$(date +%Y%m%d%H%M%S)"
+                cp -p "$CUST" "$BACKUP"
+                sed -i "s#proxy_pass http://127.0.0.1:1361;#proxy_pass http://127.0.0.1:1631;#g; s#proxy_pass http://127.0.0.1:1362;#proxy_pass http://127.0.0.1:1631;#g" "$CUST"
+                if [ ! -x /host/usr/local/directadmin/custombuild/build ]; then
+                  cp -p "$BACKUP" "$CUST"
+                  echo "ERROR: DirectAdmin CustomBuild not found; previous route restored."
+                  exit 25
+                fi
+                if ! chroot /host /usr/local/directadmin/custombuild/build rewrite_confs; then
+                  cp -p "$BACKUP" "$CUST"
+                  chroot /host /usr/local/directadmin/custombuild/build rewrite_confs || true
+                  echo "ERROR: DirectAdmin config regeneration failed; previous route restored."
+                  exit 25
+                fi
+                if ! chroot /host /usr/sbin/nginx -t; then
+                  cp -p "$BACKUP" "$CUST"
+                  chroot /host /usr/local/directadmin/custombuild/build rewrite_confs || true
+                  echo "ERROR: nginx validation failed; previous route restored."
+                  exit 25
+                fi
+                echo "=== regenerated live domain config ==="
+                grep -nE "server_name digebail.ir|proxy_pass http://127.0.0.1:(1361|1362|1631);" /host/usr/local/directadmin/data/users/*/nginx.conf || true
+                MASTER="$(cat /host/run/nginx.pid 2>/dev/null || cat /host/var/run/nginx.pid 2>/dev/null || true)"
+                if [ -z "$MASTER" ] || [ ! -r "/host/proc/$MASTER/comm" ] || [ "$(cat "/host/proc/$MASTER/comm" 2>/dev/null || true)" != "nginx" ]; then
+                  cp -p "$BACKUP" "$CUST"
+                  echo "ERROR: host nginx master process not found; previous route restored."
+                  exit 27
+                fi
+                kill -HUP "$MASTER"
+                echo "DOMAIN_PROXY_UPDATED=1"
+              else
+                echo "DOMAIN_PROXY_ALREADY_1631=1"
+              fi
+              echo "=== regenerate DirectAdmin nginx configuration ==="
+              chroot /host /usr/local/directadmin/custombuild/build rewrite_confs
+              chroot /host /usr/sbin/nginx -t
+              MASTER="$(cat /host/run/nginx.pid 2>/dev/null || cat /host/var/run/nginx.pid 2>/dev/null || true)"
+              if [ -z "$MASTER" ]; then
+                echo "ERROR: host nginx master process not found."
+                exit 27
+              fi
+              kill -HUP "$MASTER"
+              sleep 2
+              echo "=== generated domain route after reload ==="
+              grep -nE "server_name digebail.ir|proxy_pass http://127.0.0.1:(1361|1362|1631);" /host/usr/local/directadmin/data/users/*/nginx.conf || true
+              echo "=== active custom route ==="
+              grep -nE "proxy_pass http://127.0.0.1:(1361|1362|1631);" "$CUST" || true
+            '
+            echo "=== current public_html index ==="
+            ls -l "$ROOT/public_html/index.html" 2>/dev/null || true
+            echo "=== verify new app directly on port 1631 ==="
+            APP_BODY="$(curl -fsS --max-time 10 http://127.0.0.1:1631/)"
+            printf '%s' "$APP_BODY" | head -c 300
+            echo
+            if ! printf '%s' "$APP_BODY" | grep -q 'name="digibail-deploy-version" content="digibail-premium-reference-20261029"'; then
+              echo "ERROR: running app does not contain the expected release marker; refusing to report success."
+              exit 28
+            fi
+            echo "APP_CONTENT_VERIFIED=EXPECTED_RELEASE"
+            echo "=== verify public HTTPS domain with cache bypass ==="
+            PUBLIC_BODY="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "https://digebail.ir/?deploycheck=$(date +%s)")"
+            printf '%s' "$PUBLIC_BODY" | head -c 500
+            echo
+            if printf '%s' "$PUBLIC_BODY" | grep -q 'name="digibail-deploy-version" content="digibail-premium-reference-20261029"'; then
+              echo "PUBLIC_DOMAIN_CONTENT_VERIFIED=EXPECTED_RELEASE"
+            else
+              echo "ERROR: public HTTPS domain is not serving the expected release marker; check DNS/CDN or virtual host routing."
+              exit 29
+            fi
+            echo "APP_STARTED=1"

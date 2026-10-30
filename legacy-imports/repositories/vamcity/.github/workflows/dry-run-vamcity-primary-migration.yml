@@ -1,0 +1,81 @@
+name: Dry-run VamCity primary database migration to MariaDB
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/dry-run-vamcity-primary-migration.yml
+      - database/migration/sqlserver_to_mariadb.py
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate SSH configuration
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then echo "::error::Missing repository secret: $name"; exit 1; fi
+          done
+      - name: Build exact migration plan without writing MariaDB
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            set -eu
+            SQLC="vamcity-stage-sql"
+            CONF="/usr/local/directadmin/conf/mysql.conf"
+            DIR="/home/digibail/.vamcity-migration"
+            mkdir -m 700 -p "$DIR"
+            SQLIP="$(docker inspect "$SQLC" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')"
+            PASS="$(docker inspect "$SQLC" --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^MSSQL_SA_PASSWORD=//p;s/^SA_PASSWORD=//p' | head -n 1)"
+            DBUSER="$(awk -F= '$1=="user"{print substr($0,index($0,"=")+1); exit}' "$CONF")"
+            DBPASS="$(awk -F= '$1=="passwd" || $1=="password"{print substr($0,index($0,"=")+1); exit}' "$CONF")"
+            [ -n "$SQLIP" ] && [ -n "$PASS" ] && [ -n "$DBUSER" ] && [ -n "$DBPASS" ]
+            curl -fsSL https://raw.githubusercontent.com/digibile/vamcity/1edbff5f13a5a86a9f2dd8f009b958278b84b015/database/migration/sqlserver_to_mariadb.py -o "$DIR/sqlserver_to_mariadb.py"
+            chmod 600 "$DIR/sqlserver_to_mariadb.py"
+            export VAMCITY_SQLSERVER_IP="$SQLIP"
+            export VAMCITY_SQLSERVER_PASSWORD="$PASS"
+            export VAMCITY_MARIADB_USER="$DBUSER"
+            export VAMCITY_MARIADB_PASSWORD="$DBPASS"
+            export VAMCITY_SOURCE_DB="vamcityc_vamcity_import_20261028"
+            export VAMCITY_TARGET_DB="vamcitydigibilepay"
+            python3 "$DIR/sqlserver_to_mariadb.py" --mode dry-run
+            python3 - <<'PY'
+            import importlib.util, os
+            path="/home/digibail/.vamcity-migration/sqlserver_to_mariadb.py"
+            spec=importlib.util.spec_from_file_location("vamcity_migration",path)
+            m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+            src=m.connect_src();dst=m.connect_dst()
+            try:
+                ts,cs,ix,fk=m.metadata(src)
+                plan=m.build_plan(ts,cs,ix,fk)
+                if plan["summary"]["unsupported_types"] or plan["summary"]["unmapped_defaults"] or plan["summary"]["computed_columns"] or plan["summary"]["duplicate_table_names_case_insensitive"]:
+                    raise RuntimeError("Unresolved schema mappings remain")
+                if any(i["filter"] and not m.filtered_index_supported(i) for i in plan["indexes"]):
+                    raise RuntimeError("Unsupported filtered index predicate remains")
+                with dst.cursor() as cur:
+                    for t in ts:
+                        cur.execute(m.ddl_table(t,cs,plan["indexes"]).replace("CREATE TABLE ","CREATE TEMPORARY TABLE ",1))
+                    dst.commit()
+                made=m.add_indexes(dst,plan["indexes"])
+                print("TEMPORARY_TABLE_DDL_VALIDATION=SUCCESS")
+                print("TEMPORARY_TABLES_VALIDATED="+str(len(ts)))
+                print("TEMPORARY_SECONDARY_INDEXES_VALIDATED="+str(made))
+                print("TARGET_PERSISTENT_TABLES_UNCHANGED=1")
+            finally:
+                dst.close();src.close()
+            PY
+            unset PASS DBPASS VAMCITY_SQLSERVER_PASSWORD VAMCITY_MARIADB_PASSWORD
+            echo "PRIMARY_MIGRATION_DRY_RUN_SUCCESS=1"

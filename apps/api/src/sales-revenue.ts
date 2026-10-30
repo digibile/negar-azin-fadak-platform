@@ -2,6 +2,7 @@ import {Router,type Request,type Response} from "express";
 import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {resolveTenant} from "./tenant-context.js";
+import {ensureCanonicalParty} from "./canonical-party.js";
 const router=Router();
 const tenantOf=async(req:Request)=>resolveTenant(req,(req as any).user);
 const deny=(res:Response,s:number,e:string)=>res.status(s).json({error:e});
@@ -18,7 +19,7 @@ function totals(items:any[]){let sub=0,disc=0,tax=0;for(const x of items){const 
 router.get("/api/sales/overview",requireAuth,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const [partners,products,quotes,orders,invoices,payments,returns,commissions,targets,events]=await Promise.all([
-  query("select * from sales_partners where tenant_id=$1 order by created_at desc limit 500",[t.id]),
+  query("select s.*,p.title as canonical_party_title from sales_partners s left join accounting_parties p on p.id=s.party_id and p.tenant_id=s.tenant_id where s.tenant_id=$1 order by s.created_at desc limit 500",[t.id]),
   query("select * from sales_products where tenant_id=$1 order by created_at desc limit 500",[t.id]),
   query("select q.*,p.name partner_name from sales_quotes q join sales_partners p on p.id=q.partner_id where q.tenant_id=$1 order by q.created_at desc limit 300",[t.id]),
   query("select o.*,p.name partner_name from sales_orders o join sales_partners p on p.id=o.partner_id where o.tenant_id=$1 order by o.created_at desc limit 500",[t.id]),
@@ -34,7 +35,17 @@ router.get("/api/sales/overview",requireAuth,async(req,res)=>{
 router.post("/api/sales/partners",requireAuth,requirePermission("modules:22-sales-revenue:write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};
  if(!b.code||!b.name)return deny(res,400,"کد و نام مشتری الزامی است");
- const r=await query("insert into sales_partners(tenant_id,code,name,national_id,phone,email,credit_limit) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,b.code,b.name,b.nationalId||null,b.phone||null,b.email||null,num(b.creditLimit)]);res.status(201).json(r.rows[0]);
+ const nationalId=typeof b.nationalId==="string"&&b.nationalId.trim()?b.nationalId.trim():null;
+ const cx=await pool.connect();try{
+  await cx.query("begin");
+  const partyId=await ensureCanonicalParty(cx,{
+   tenantId:t.id,kind:"customer",title:String(b.name),nationalId,
+   phone:b.phone||null,email:b.email||null,sourceSystem:"sales_partners"
+  });
+  const r=await cx.query("insert into sales_partners(tenant_id,party_id,code,name,national_id,phone,email,credit_limit) values($1,$2,$3,$4,$5,$6,$7,$8) returning *",
+   [t.id,partyId,b.code,b.name,nationalId,b.phone||null,b.email||null,num(b.creditLimit)]);
+  await cx.query("commit");res.status(201).json(r.rows[0]);
+ }catch(e){await cx.query("rollback");throw e}finally{cx.release()}
 });
 router.post("/api/sales/products",requireAuth,requirePermission("modules:22-sales-revenue:write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};if(!b.sku||!b.name)return deny(res,400,"کد کالا و نام کالا الزامی است");

@@ -1,0 +1,32 @@
+name: Verify legacy account and SMS configuration
+on:
+  push:
+    paths:
+      - .github/workflows/verify-legacy-account-sms.yml
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report counts and configured provider availability without secrets
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            if sudo -n docker info >/dev/null 2>&1; then D="sudo -n docker"; else D="docker"; fi
+            C="public_html-db-1"; T="/opt/mssql-tools18/bin/sqlcmd"
+            $D exec "$C" test -x "$T" || T="/opt/mssql-tools/bin/sqlcmd"
+            CONN="$($D inspect --format '{{range .Config.Env}}{{println .}}{{end}}' public_html-web-1 | sed -n 's/^ConnectionStrings__DefaultConnection=//p' | head -1)"
+            CREDS="$(CONN="$CONN" node -e 'const o={};for(const p of process.env.CONN.split(";")){const i=p.indexOf("=");if(i>0)o[p.slice(0,i).trim().toLowerCase()]=p.slice(i+1).trim()}const p=(...k)=>k.map(x=>o[x]).find(Boolean)||"";console.log(p("initial catalog","database"));console.log(p("user id","uid","user"));console.log(p("password","pwd"));')"
+            DB="$(printf '%s\n' "$CREDS"|sed -n '1p')"; U="$(printf '%s\n' "$CREDS"|sed -n '2p')"; P="$(printf '%s\n' "$CREDS"|sed -n '3p')"
+            Q="SET NOCOUNT ON; SELECT 'USERS',COUNT(*) FROM dbo.AspNetUsers UNION ALL SELECT 'CUSTOMERS',COUNT(*) FROM dbo.Customers UNION ALL SELECT 'SMS_PATTERNS',COUNT(*) FROM dbo.SmsPatterns UNION ALL SELECT 'APP_SMS_LOGS',COUNT(*) FROM dbo.AppSms; SELECT TOP 20 UserName+' | '+ISNULL(PhoneNumber,'')+' | '+ISNULL(Mobile,'') FROM dbo.AspNetUsers ORDER BY RegDate;"
+            $D exec -e SQLCMDPASSWORD="$P" "$C" "$T" -S localhost -U "$U" -C -b -h -1 -W -w 4000 -d "$DB" -Q "$Q" | head -40
+            Q2="SET NOCOUNT ON; SELECT CASE WHEN ISJSON(KaveNegarConfigJson)=1 THEN 'KAVENEGAR_CONFIG_JSON=VALID' WHEN NULLIF(KaveNegarConfigJson,'') IS NULL THEN 'KAVENEGAR_CONFIG_JSON=EMPTY' ELSE 'KAVENEGAR_CONFIG_JSON=NONJSON' END, CASE WHEN ISJSON(MelliPayamakConfigJson)=1 THEN 'MELLIPAYAMAK_CONFIG_JSON=VALID' WHEN NULLIF(MelliPayamakConfigJson,'') IS NULL THEN 'MELLIPAYAMAK_CONFIG_JSON=EMPTY' ELSE 'MELLIPAYAMAK_CONFIG_JSON=NONJSON' END FROM dbo.AppSettings;"
+            $D exec -e SQLCMDPASSWORD="$P" "$C" "$T" -S localhost -U "$U" -C -b -h -1 -W -w 1000 -d "$DB" -Q "$Q2"
+            unset P CONN CREDS
+            echo "LEGACY_ACCOUNT_SMS_CHECK_COMPLETED=1"

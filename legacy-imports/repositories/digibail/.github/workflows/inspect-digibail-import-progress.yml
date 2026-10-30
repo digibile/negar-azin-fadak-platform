@@ -1,0 +1,101 @@
+name: Recover Digibail database locks and complete legacy backfill
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/inspect-digibail-import-progress.yml
+permissions:
+  contents: read
+jobs:
+  recover:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Clear duplicate legacy workers, release database locks, and backfill once
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            ROOT="/home/digibail/domains/digebail.ir"
+            cd "$ROOT"
+            if sudo -n docker info >/dev/null 2>&1; then D='sudo -n docker'; else D='docker'; fi
+            echo "=== REMOVE DUPLICATE BACKFILL ONE-OFF CONTAINERS ==="
+            ONEOFFS="$($D ps -a --format '{{.ID}} {{.Names}}' | awk '$2 ~ /^digebailir-app-run-/ {print $1}')"
+            for cid in $ONEOFFS; do
+              CMD="$($D inspect --format '{{json .Config.Cmd}}' "$cid" 2>/dev/null || true)"
+              if printf '%s' "$CMD" | grep -Eq 'backfill-legacy-customers[.]mjs|import-legacy-loan-products[.]mjs'; then
+                echo "REMOVE_ONEOFF_CONTAINER=$cid"
+                $D rm -f "$cid" >/dev/null 2>&1 || true
+              fi
+            done
+            echo "=== STOP OLD IMPORT WRAPPERS ==="
+            OLD_WRAPPERS="$(ps -eo pid=,comm=,args= | awk -v self="$$" '$1 != self && $2 ~ /^(bash|sh)$/ && ($0 ~ /import-vamcity-real-data[.]mjs/ || $0 ~ /import-legacy-loan-products[.]mjs/) {print $1}')"
+            for pid in $OLD_WRAPPERS; do
+              case "$pid" in ''|*[!0-9]*) continue;; esac
+              echo "STOP_IMPORT_WRAPPER=$pid"
+              kill -TERM "$pid" 2>/dev/null || true
+            done
+            sleep 3
+            echo "=== TERMINATE STALE MIGRATION AND BACKFILL DATABASE SESSIONS ==="
+            $D compose exec -T db sh -lc 'export PGPASSWORD="$POSTGRES_PASSWORD"; psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -At' <<'SQL'
+            SELECT 'TERMINATED_PID='||pid||'|'||pg_terminate_backend(pid)
+            FROM pg_stat_activity
+            WHERE datname=current_database()
+              AND pid<>pg_backend_pid()
+              AND state='active'
+              AND query_start < now() - interval '5 minutes'
+              AND (
+                query ILIKE '%WITH status_lookup AS (%'
+                OR query ILIKE '%WITH agent_lookup AS (%'
+                OR query ILIKE '%CREATE TABLE IF NOT EXISTS loan_requests (%'
+                OR query ILIKE '%SELECT ''loan_requests=''||COUNT(*) FROM loan_requests%'
+                OR query ILIKE '%UPDATE users u SET role=%'
+              );
+            SQL
+            echo "=== RESTART APP WITH LOCKS RELEASED ==="
+            $D compose restart app
+            HEALTH=0
+            for n in $(seq 1 36); do
+              if curl -fsS --max-time 5 http://127.0.0.1:1631/healthz >/dev/null 2>&1; then HEALTH=1; break; fi
+              sleep 5
+            done
+            if [ "$HEALTH" -ne 1 ]; then
+              $D compose ps -a || true
+              $D compose logs --tail=80 app db || true
+              echo "ERROR: app health did not recover after terminating stale sessions."
+              exit 31
+            fi
+            echo "APP_HEALTH_AFTER_LOCK_RECOVERY=200"
+            echo "=== RUN ONE BACKFILL ONLY ==="
+            mkdir -p "$ROOT/var/migrations"
+            chmod 700 "$ROOT/var/migrations"
+            $D compose run --rm --no-deps -T app node /app/scripts/backfill-legacy-customers.mjs 2>&1 | tee -a "$ROOT/var/migrations/vamcity-import.log"
+            printf '0\n' > "$ROOT/var/migrations/vamcity-import.status"
+            chmod 600 "$ROOT/var/migrations/vamcity-import.status"
+            echo "IMPORT_STATUS=0"
+            echo "=== VERIFY INTERNAL DATABASE TOTALS ==="
+            $D compose exec -T db sh -lc 'export PGPASSWORD="$POSTGRES_PASSWORD"; psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -At' <<'SQL'
+            SELECT 'users='||COUNT(*) FROM users;
+            SELECT 'legacy_customers='||COUNT(*) FROM legacy_customers;
+            SELECT 'legacy_customers_named='||COUNT(*) FILTER (WHERE trim(COALESCE(name,''))<>'') FROM legacy_customers;
+            SELECT 'loan_products='||COUNT(*) FROM loan_products;
+            SELECT 'loan_requests='||COUNT(*) FROM loan_requests;
+            SELECT 'loan_request_status_history_total='||COUNT(*) FROM loan_request_status_history;
+            SELECT 'loan_request_status_history_imported='||COUNT(*) FROM loan_request_status_history WHERE legacy_source_table IS NOT NULL;
+            SELECT 'loan_request_comments='||COUNT(*) FROM loan_request_comments;
+            SELECT 'legacy_source_data_total='||COUNT(*) FROM legacy_source_data WHERE source_table<>'__legacy_schema__';
+            SELECT 'legacy_source_table_count='||COUNT(DISTINCT source_table) FROM legacy_source_data WHERE source_table<>'__legacy_schema__';
+            SQL
+            echo "=== VERIFY ROUTES ==="
+            for path in /healthz /loan-requests.html /customers.html /agents.html /loan-definition.html; do
+              code="$(curl -sS -o /tmp/digibail-verify-body -w '%{http_code}' --max-time 10 "http://127.0.0.1:1631$path" || true)"
+              echo "PATH=$path HTTP=$code BYTES=$(wc -c </tmp/digibail-verify-body 2>/dev/null || echo 0)"
+            done
+            rm -f /tmp/digibail-verify-body
+            echo "BACKFILL_AND_HEALTH_RECOVERY_COMPLETE=1"

@@ -1,0 +1,39 @@
+name: Inspect Digibail legacy SMS providers
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect provider names and configuration presence without printing secrets
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            cd "$ROOT"
+            if sudo -n docker info >/dev/null 2>&1; then D="sudo -n docker"; else D="docker"; fi
+            echo "=== configured new-site SMS settings (values hidden) ==="
+            for key in KAVENEGAR_API_KEY KAVENEGAR_TEMPLATE KAVENEGAR_SENDER; do
+              if grep -qE "^$key=.+$" .env 2>/dev/null; then echo "$key=SET"; else echo "$key=EMPTY_OR_MISSING"; fi
+            done
+            echo "=== running container names and images ==="
+            $D ps --format '{{.Names}} | {{.Image}}'
+            echo "=== likely legacy source/config locations ==="
+            for p in "$ROOT/public_html" "$ROOT/private_html" "/home/digibail/domains/digebail.ir" "/home/digibail/domains/digebail.ir/public_html-db"; do
+              if [ -e "$p" ]; then echo "FOUND $p"; fi
+            done
+            echo "=== provider names referenced by local legacy files (no config values) ==="
+            grep -RhoEi --include='*.cs' --include='*.json' --include='*.config' --include='*.xml' --include='*.yml' --include='*.yaml' --include='*.env.example' --include='*.md' 'Kavenegar|KaveNegar|Melipayamak|MeliPayamak|SMS\.ir|SmsIr|IPPanel|IPPANEL|Ghasedak|FarazSMS|Faraz Sms|Magfa|Mabna|RayganSMS|SMSPanel|SmsPanel|SmsPatternPanel' "$ROOT/public_html" "$ROOT" 2>/dev/null | sort -fu | head -80 || true
+            echo "=== candidate legacy containers with SMS-related env key names only ==="
+            for c in $($D ps --format '{{.Names}}'); do
+              vars="$($D inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$c" 2>/dev/null | cut -d= -f1 | grep -Ei 'SMS|KAVE|MELI|PANEL|GHA|FARAZ|MAGFA' | sort -u || true)"
+              if [ -n "$vars" ]; then echo "$c: $(echo "$vars" | tr '\n' ' ')"; fi
+            done
+            echo "SMS_DIAGNOSTIC_COMPLETED=1"

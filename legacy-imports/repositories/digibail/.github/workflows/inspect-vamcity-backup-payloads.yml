@@ -1,0 +1,123 @@
+name: Identify VamCity backup payloads and SQL Server headers
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/inspect-vamcity-backup-payloads.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect extracted backup formats and SQL Server metadata
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            TMP="$(mktemp -d /tmp/vamcity-backup-inspect.XXXXXX)"
+            chmod 700 "$TMP"
+            trap 'rm -rf "$TMP"; docker exec vamcity-stage-sql rm -f /var/opt/mssql/data/vamcity-inspect-1.bak /var/opt/mssql/data/vamcity-inspect-2.bak /var/opt/mssql/data/vamcity-inspect-3.bak >/dev/null 2>&1 || true' EXIT
+            SQLC="vamcity-stage-sql"
+            PASS=""
+            SQLCMD=""
+            echo "=== TARGET SQL SERVER / DATABASE NAMES ==="
+            if docker inspect "$SQLC" >/dev/null 2>&1; then
+              PASS="$(docker inspect "$SQLC" --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^MSSQL_SA_PASSWORD=//p;s/^SA_PASSWORD=//p' | head -n 1)"
+              SQLCMD="$(docker exec "$SQLC" sh -lc 'command -v sqlcmd || test ! -x /opt/mssql-tools18/bin/sqlcmd || echo /opt/mssql-tools18/bin/sqlcmd' 2>/dev/null | head -n 1)"
+              [ -n "$SQLCMD" ] || SQLCMD="/opt/mssql-tools18/bin/sqlcmd"
+              if [ -n "$PASS" ]; then
+                docker exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; SELECT name,state_desc,recovery_model_desc FROM sys.databases ORDER BY name" 2>&1 || true
+              else
+                echo "SQL_SA_PASSWORD_NOT_FOUND_IN_CONTAINER_ENV"
+              fi
+            else
+              echo "TARGET_SQL_CONTAINER_NOT_FOUND"
+            fi
+            i=0
+            for spec in \
+              "vamcityc_bluvamdb_2026-10-29_19-19-45.zip|vamcity-inspect-1.bak" \
+              "vamcityc_transferDb_2026-10-29_19-19-51.zip|vamcity-inspect-2.bak" \
+              "vamcityc_vamcity_2026-10-29_19-20-04.zip|vamcity-inspect-3.bak"; do
+              archive="${spec%%|*}"
+              target="${spec#*|}"
+              f="$ROOT/$archive"
+              i=$((i+1))
+              echo "=== PAYLOAD $i: $archive ==="
+              if [ ! -f "$f" ]; then echo "MISSING=$f"; continue; fi
+              member="$(unzip -Z1 "$f" | head -n 1)"
+              unzip -p "$f" "$member" > "$TMP/payload-$i"
+              chmod 600 "$TMP/payload-$i"
+              stat -c 'PAYLOAD_SIZE=%s' "$TMP/payload-$i"
+              sha256sum "$TMP/payload-$i"
+              file "$TMP/payload-$i" || true
+              printf 'MAGIC_HEX='
+              od -An -tx1 -N32 "$TMP/payload-$i" | tr -s ' ' | tr '\n' ' '
+              echo
+              echo "-- NON-SENSITIVE FORMAT MARKERS --"
+              strings -a "$TMP/payload-$i" | grep -Eim 12 'Microsoft SQL Server|SQL Server|BACKUP DATABASE|DatabaseName|vamcityc_vamcity|vamcityc_bluvamdb|vamcityc_transferDb|7-Zip|Zstandard|WZ' || true
+              if [ -n "$PASS" ] && [ -n "$SQLCMD" ] && docker inspect "$SQLC" >/dev/null 2>&1; then
+                docker cp "$TMP/payload-$i" "$SQLC:/var/opt/mssql/data/$target" >/dev/null
+                docker exec -u 0 "$SQLC" chown mssql:mssql "/var/opt/mssql/data/$target"
+                docker exec -u 0 "$SQLC" chmod 640 "/var/opt/mssql/data/$target"
+                echo "-- RESTORE HEADERONLY --"
+                docker exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "RESTORE HEADERONLY FROM DISK=N'/var/opt/mssql/data/$target'" 2>&1 | head -n 4 || echo "RESTORE_HEADERONLY_NOT_AVAILABLE_FOR_PAYLOAD_$i"
+                echo "-- RESTORE VERIFYONLY --"
+                if docker exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -b -Q "RESTORE VERIFYONLY FROM DISK=N'/var/opt/mssql/data/$target'" 2>&1; then echo "BACKUP_VERIFY_OK=$archive"; else echo "BACKUP_VERIFY_FAILED=$archive"; fi
+                echo "-- LOGICAL FILES --"
+                docker exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "RESTORE FILELISTONLY FROM DISK=N'/var/opt/mssql/data/$target'" 2>&1 | grep -E 'LogicalName|\\.mdf|\\.ldf|ROWS|LOG|Data|Log' | head -n 12 || true
+              fi
+            done
+            if [ -n "$PASS" ] && [ -n "$SQLCMD" ]; then
+              echo "=== CURRENT DATABASE TABLE AND ROW COUNTS ==="
+              for db in vamcityc_vamcity vamcityc_vamcity_import_20261028 vamcityc_bluvamdb vamcityc_bluvamdb_import_20261028 vamcityc_transferDb vamcityc_transferDb_import_20261028 vamcity_stage; do
+                echo "-- DB_COUNT=$db --"
+                docker exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; SELECT '$db' AS database_name,(SELECT COUNT(*) FROM [$db].sys.tables WHERE is_ms_shipped=0) AS table_count,(SELECT COALESCE(SUM(p.rows),0) FROM [$db].sys.partitions p JOIN [$db].sys.tables t ON t.object_id=p.object_id WHERE t.is_ms_shipped=0 AND p.index_id IN (0,1)) AS row_count" 2>&1 | tail -n 4 || true
+                docker exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; SELECT TOP 12 t.name AS table_name,SUM(p.rows) AS row_count FROM [$db].sys.tables t JOIN [$db].sys.partitions p ON p.object_id=t.object_id WHERE t.is_ms_shipped=0 AND p.index_id IN (0,1) GROUP BY t.name ORDER BY SUM(p.rows) DESC" 2>&1 | tail -n 16 || true
+              done
+              echo "=== STAGE VS REAL DATABASE SCHEMA DIFFERENCES ==="
+              docker exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON;
+              SELECT TOP 100 'STAGE_ONLY' AS diff,s.TABLE_SCHEMA,s.TABLE_NAME,s.COLUMN_NAME,s.DATA_TYPE
+              FROM [vamcity_stage].INFORMATION_SCHEMA.COLUMNS s
+              WHERE NOT EXISTS (SELECT 1 FROM [vamcityc_vamcity_import_20261028].INFORMATION_SCHEMA.COLUMNS l WHERE l.TABLE_SCHEMA=s.TABLE_SCHEMA AND l.TABLE_NAME=s.TABLE_NAME AND l.COLUMN_NAME=s.COLUMN_NAME AND l.DATA_TYPE=s.DATA_TYPE)
+              UNION ALL
+              SELECT TOP 100 'REAL_ONLY' AS diff,l.TABLE_SCHEMA,l.TABLE_NAME,l.COLUMN_NAME,l.DATA_TYPE
+              FROM [vamcityc_vamcity_import_20261028].INFORMATION_SCHEMA.COLUMNS l
+              WHERE NOT EXISTS (SELECT 1 FROM [vamcity_stage].INFORMATION_SCHEMA.COLUMNS s WHERE s.TABLE_SCHEMA=l.TABLE_SCHEMA AND s.TABLE_NAME=l.TABLE_NAME AND s.COLUMN_NAME=l.COLUMN_NAME AND s.DATA_TYPE=l.DATA_TYPE);" 2>&1 | head -n 110 || true
+              echo "=== AUTH / CUSTOMER / LOAN / PAYMENT TABLE COUNTS IN STAGE AND IMPORT ==="
+              for db in vamcity_stage vamcityc_vamcity_import_20261028; do
+                echo "-- IMPORTANT_TABLES=$db --"
+                docker exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; SELECT t.name AS table_name,SUM(p.rows) AS row_count FROM [$db].sys.tables t JOIN [$db].sys.partitions p ON p.object_id=t.object_id WHERE t.is_ms_shipped=0 AND p.index_id IN (0,1) AND (t.name LIKE '%User%' OR t.name LIKE '%Role%' OR t.name LIKE '%Loan%' OR t.name LIKE '%Request%' OR t.name LIKE '%Customer%' OR t.name LIKE '%Payment%' OR t.name LIKE '%Login%' OR t.name LIKE '%Identity%' OR t.name LIKE '%Admin%') GROUP BY t.name ORDER BY t.name" 2>&1 | tail -n 90 || true
+              done
+              echo "=== MIGRATION HISTORY ==="
+              for db in vamcity_stage vamcityc_vamcity_import_20261028; do
+                echo "-- MIGRATIONS=$db --"
+                docker exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; SELECT TABLE_NAME FROM [$db].INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE '%Migration%' OR TABLE_NAME LIKE '%History%' ORDER BY TABLE_NAME" 2>&1 | tail -n 20 || true
+                docker exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; IF OBJECT_ID('[$db].dbo.__EFMigrationsHistory') IS NOT NULL SELECT MigrationId,ProductVersion FROM [$db].dbo.__EFMigrationsHistory ORDER BY MigrationId" 2>&1 | tail -n 25 || true
+                echo "-- ROLES=$db --"
+                docker exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; SELECT r.Name,COUNT(ur.UserId) AS assigned_users FROM [$db].dbo.AspNetRoles r LEFT JOIN [$db].dbo.AspNetUserRoles ur ON ur.RoleId=r.Id GROUP BY r.Name ORDER BY r.Name" 2>&1 | tail -n 20 || true
+              done
+              echo "=== NEW STAGE COLUMN RELATIONSHIP ==="
+              docker exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; SELECT fk.name AS fk_name,OBJECT_NAME(fkc.parent_object_id) AS parent_table,COL_NAME(fkc.parent_object_id,fkc.parent_column_id) AS parent_column,OBJECT_NAME(fkc.referenced_object_id) AS referenced_table,COL_NAME(fkc.referenced_object_id,fkc.referenced_column_id) AS referenced_column FROM [vamcity_stage].sys.foreign_key_columns fkc JOIN [vamcity_stage].sys.foreign_keys fk ON fk.object_id=fkc.constraint_object_id WHERE COL_NAME(fkc.parent_object_id,fkc.parent_column_id)='ThirdPersonAssuranceAuthorizationItemId' OR COL_NAME(fkc.referenced_object_id,fkc.referenced_column_id)='ThirdPersonAssuranceAuthorizationItemId'" 2>&1 | tail -n 12 || true
+              echo "=== APP COMPOSE LOCATION / HEALTH ==="
+              docker inspect vamcity-stage-app --format 'COMPOSE_DIR={{index .Config.Labels "com.docker.compose.project.working_dir"}} COMPOSE_FILES={{index .Config.Labels "com.docker.compose.project.config_files"}} HEALTH={{if .State.Health}}{{.State.Health.Status}}{{else}}NO_HEALTHCHECK{{end}}'
+              docker exec vamcity-stage-app sh -lc 'curl -sS -o /dev/null -w "LOCAL_ROOT_HTTP=%{http_code}\\n" http://127.0.0.1:8080/; curl -sS -o /dev/null -w "LOCAL_CSS_HTTP=%{http_code}\\n" http://127.0.0.1:8080/admin' 2>&1 || true
+              echo "=== APPLICATION AUTH/DB ERRORS (LAST 120 LINES FILTERED) ==="
+              docker logs --tail 120 vamcity-stage-app 2>&1 | grep -Ei 'exception|error|login|authentication|identity|sql|database|failed|denied' | tail -n 50 | sed -E 's/(Password|Pwd|Token|Secret)=([^; ]+)/\\1=[REDACTED]/Ig' || true
+              echo "=== APP CONNECTION DATABASE REFERENCES (PASSWORDS REDACTED) ==="
+              docker inspect vamcity-stage-app --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | sed -E 's/(Password|Pwd|Token|Secret)=([^; ]+)/\\1=[REDACTED]/Ig' | grep -Ei 'ConnectionStrings|Database=|Initial Catalog|SQLSERVER|MSSQL|DB_NAME|DATABASE_URL' | head -n 30 || true
+              docker exec vamcity-stage-app sh -lc 'grep -RhoE "(Database|Initial Catalog)=[^;\\\"]+" /app/appsettings*.json /app/*.json 2>/dev/null | sort -u | head -n 20' 2>/dev/null || true
+              echo "=== RESTORE HISTORY ==="
+              docker exec -e SQLCMDPASSWORD="$PASS" "$SQLC" "$SQLCMD" -S localhost -U sa -C -W -s '|' -Q "SET NOCOUNT ON; SELECT TOP 20 destination_database_name,restore_date,restore_type,recovery,replace FROM msdb.dbo.restorehistory ORDER BY restore_date DESC" 2>&1 | tail -n 25 || true
+            fi
+            echo "PAYLOAD_INSPECTION_COMPLETE=1"
+
+# Triggered for a fresh read-only audit of the archived SQL Server backup payloads.

@@ -1,0 +1,45 @@
+name: Read legacy SMS adapter implementation
+on:
+  push:
+    paths:
+      - .github/workflows/read-legacy-sms-adapters.yml
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read provider adapters and discover legacy connection settings
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            SRC="/home/digibail/domains/digebail.ir/public_html/recovered-source/LoanSystemAvizhe.Services"
+            ROOT="/home/digibail/domains/digebail.ir"
+            echo "=== Kavenegar config class ==="
+            sed -n '1,180p' "$SRC/LoanSystemAvizhe.Services.Sms.Models.KaveNegar/KaveNegarConfig.cs" 2>/dev/null || true
+            echo "=== Kavenegar sender implementation ==="
+            sed -n '1,220p' "$SRC/LoanSystemAvizhe.Services.Sms.Models.KaveNegar/SendKaveNegar.cs" 2>/dev/null || true
+            echo "=== Kavenegar service implementation ==="
+            sed -n '1,220p' "$SRC/LoanSystemAvizhe.Services.Sms.KaveNegar/KaveNegarService.cs" 2>/dev/null || true
+            echo "=== MelliPayamak service implementation ==="
+            sed -n '1,220p' "$SRC/LoanSystemAvizhe.Services.Sms.MelliPayamak/MelliPayamakService.cs" 2>/dev/null || true
+            echo "=== integrated SMS sender ==="
+            sed -n '1,240p' "$SRC/LoanSystem.Services.Base/IntegratedSmsSenderService.cs" 2>/dev/null || true
+            echo "=== app SMS and pattern model fields ==="
+            sed -n '1,160p' "$SRC/LoanSystem.Services.Models/AppSmsModel.cs" 2>/dev/null || true
+            sed -n '1,160p' "$SRC/LoanSystem.Services.Models/SmsPatternModel.cs" 2>/dev/null || true
+            echo "=== legacy web container env variable names only ==="
+            D="docker"
+            if sudo -n docker info >/dev/null 2>&1; then D="sudo -n docker"; fi
+            for c in public_html-web-1 public_html-db-1; do
+              echo "$c"
+              $D inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$c" 2>/dev/null | cut -d= -f1 | sort -u | grep -Ei 'CONNECTION|DATABASE|SQL|APPSETTINGS|SMS|KAVE|MELI|ENVIRONMENT|CONFIG' || true
+            done
+            echo "=== mounted legacy configuration filenames only ==="
+            $D exec public_html-web-1 sh -lc 'find /app -maxdepth 3 -type f \( -iname "appsettings*.json" -o -iname "*.config" -o -iname "*.json" \) -printf "%p\n" 2>/dev/null | head -60' || true
+            echo "LEGACY_SMS_ADAPTER_READ_COMPLETED=1"

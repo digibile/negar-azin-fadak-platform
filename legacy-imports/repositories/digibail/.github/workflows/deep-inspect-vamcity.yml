@@ -1,0 +1,54 @@
+name: Deep inspect VamCity archives and dashboard health
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/deep-inspect-vamcity.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect archives and app health without restoring or changing data
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -eu
+            ROOT="/home/digibail/domains/digebail.ir"
+            TMP="$(mktemp -d /tmp/vamcity-inspect.XXXXXX)"
+            trap 'rm -rf "$TMP"' EXIT
+            for f in "$ROOT"/vamcityc_bluvamdb_2026-10-29_19-19-45.zip "$ROOT"/vamcityc_transferDb_2026-10-29_19-19-51.zip "$ROOT"/vamcityc_vamcity_2026-10-29_19-20-04.zip; do
+              echo "=== $(basename "$f") ==="
+              file "$f" || true
+              unzip -t "$f" 2>&1 | tail -n 8 || true
+              unzip -l "$f" 2>&1 | tail -n 20 || true
+              mkdir -p "$TMP/$(basename "$f" .zip)"
+              if unzip -qq "$f" -d "$TMP/$(basename "$f" .zip)" 2>"$TMP/unzip.err"; then
+                echo "EXTRACT_OK=$(basename "$f")"
+                find "$TMP/$(basename "$f" .zip)" -type f -printf '%P | %s bytes\n' | head -n 40
+                find "$TMP/$(basename "$f" .zip)" -type f -exec file {} \; | head -n 40
+              else
+                echo "EXTRACT_FAILED=$(basename "$f")"
+                sed -n '1,8p' "$TMP/unzip.err"
+              fi
+            done
+            echo "=== APP ROUTE HEALTH ==="
+            for u in http://127.0.0.1:5187/ http://127.0.0.1:5187/login.html http://127.0.0.1:5187/api/v1/health; do
+              code="$(curl -k -sS -o "$TMP/resp" -w '%{http_code}' --max-time 8 "$u" || true)"
+              echo "URL=$u HTTP=$code BODY_BYTES=$(wc -c < "$TMP/resp" 2>/dev/null || echo 0)"
+            done
+            echo "=== APP ENVIRONMENT VARIABLE NAMES ONLY ==="
+            sudo -n docker inspect vamcity-stage-app --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | cut -d= -f1 | sort -u | head -n 100 || true
+            echo "=== RECENT APP LOGS (redacted) ==="
+            (sudo -n docker logs --tail 100 vamcity-stage-app 2>&1 || true) | sed -E 's/((PASSWORD|PASS|TOKEN|SECRET|KEY|CONNECTIONSTRING)[^= :]*[=:])[[:space:]]*[^[:space:]]+/\1[REDACTED]/Ig' | tail -n 80
+            echo "DEEP_INSPECTION_COMPLETE=1"

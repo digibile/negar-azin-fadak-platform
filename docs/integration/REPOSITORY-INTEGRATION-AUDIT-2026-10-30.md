@@ -1,0 +1,165 @@
+# گزارش ممیزی مخازن برای یکپارچه‌سازی پلتفرم
+تاریخ: 2026-10-30
+مخزن مقصد و مرجع اجرا: `digibile/negar-azin-fadak-platform`
+شاخه ممیزی: `integration/repository-audit-2026-10-30`
+
+## تصمیم معماری
+
+مخزن `negar-azin-fadak-platform` مقصد canonical باقی می‌ماند. مخازن دیگر منبع قابلیت، منطق تجاری، مدل داده، رابط کاربری یا داده تاریخی هستند؛ هیچ‌کدام نباید به‌عنوان سامانه اجرایی موازی، هویت مستقل یا پایگاه داده عملیاتی دوم به پلتفرم اضافه شوند.
+
+ادغام مستقیم کد فقط پس از تطبیق قراردادها، مالکیت داده، مجوزها، محدوده tenant و تست انجام می‌شود. در مواردی که فناوری مبدأ با پلتفرم مقصد متفاوت است، قابلیت باید به قرارداد و پیاده‌سازی مقصد منتقل شود؛ کپی کردن پروژه و اجرای دو هسته کنار هم، یکپارچه‌سازی محسوب نمی‌شود.
+
+## شواهد وضعیت مخزن مقصد
+
+- مخزن مقصد در شاخه main شامل 635 مسیر ثبت‌شده در درخت Git است.
+- API مقصد با TypeScript، Express و PostgreSQL پیاده‌سازی شده و فایل‌های دامنه مجزا برای هویت، سازمان، حسابداری، مالی، تجارت، بازارگاه، فروشنده، انبار، لجستیک، اسناد، ارتباطات، اعتبار و تسهیلات دارد.
+- رابط وب مقصد Next.js 16 و React 19 است.
+- درخت مخزن شامل migrationهای نسخه‌گذاری‌شده تا شماره 147 است؛ شماره‌گذاری تکراری در برخی شماره‌ها وجود دارد و قبل از افزودن migration جدید باید ترتیب واقعی اجرا و جدول تاریخچه بررسی شود.
+- قرارداد معماری مقصد، ۲۰ پنل canonical، هشت هسته مالکیت کد، PostgreSQL مرکزی، هویت و مجوز مشترک، tenant isolation و انتشار کنترل‌شده را الزام می‌کند.
+- migration شماره 144 با عنوان `144_tejarhstore_catalog_model_alignment.sql` پیشاپیش بخشی از مدل کاتالوگ TejarhStore را به مدل canonical بازارگاه متصل کرده است؛ این قابلیت نباید دوباره به‌صورت کاتالوگ یا checkout مستقل ساخته شود.
+
+## ممیزی ۹ مخزن منبع
+
+### 1. `digibile/MASTER-MOTHER-NEGARAZINFAKA`
+
+**وضعیت مشاهده‌شده:** مخزن دارای solution مبتنی بر ASP.NET Core 10، C# 14 و EF Core 10 است؛ PostgreSQL در تولید و SQLite در توسعه/تست. شامل Core، Organization Domain، Identity Domain، Application، Infrastructure، API و دو مجموعه migration جداگانه برای PostgreSQL و SQLite است. مدل‌های IdentityProfile، FieldProvenance، IdentityVerification، IdentityConsistencyChecker، DuplicateDetectionPolicy و BankAccount/IbanNumber نیز بررسی شدند.
+
+**قابلیت‌های ارزشمند برای انتقال مفهومی/دامنه‌ای:**
+- هسته مشترک Result، tenancy، audit، clock، paging و messaging.
+- مدل سازمان ← شرکت ← برند ← شعبه ← فروشگاه.
+- پروفایل هویتی با منشأ فیلدبه‌فیلد؛ OCR نباید مقدار تأییدشده را overwrite کند.
+- گردش تغییر اطلاعات قانونی با before/after، بازبین، concurrency و audit.
+- cross-check سند با پروفایل، duplicate detection محافظه‌کارانه و تطبیق فارسی.
+- مرزهای provider برای OCR، پیامک، ذخیره‌سازی، هوش مصنوعی و احراز هویت.
+
+**تطبیق با مقصد:** مقصد principal ورود، کاربران، OTP، tenant، مجوز و نشست را دارد؛ اما field-level provenance، workflow تغییر اطلاعات قانونی، cross-check OCR با پروفایل و duplicate identity review معادل کامل ندارند. migration 150 حساب بانکی طرف تجاری را اضافه کرده، اما رابطه canonical بین user و accounting_party هنوز طراحی نشده است.
+
+**موارد ممنوع در ادغام:** وارد کردن جدول User یا سامانه ورود دوم، اجرای API دوم، یا جایگزین‌کردن یک‌باره backend مقصد با ASP.NET. مقصد فعلی TypeScript/Express است. invariants هویت باید در همان identity/customer service پیاده شوند؛ profile extension یک‌به‌یک از users و change request با audit بررسی شود، نه user table یا bank-account table موازی.
+
+**اولویت:** بالا برای تکمیل gapهای identity provenance، تغییر اطلاعات قانونی، ذخیره‌سازی امن اسناد و provider abstraction. گزارش کامل: docs/integration/MASTER-MOTHER-IDENTITY-ADOPTION-2026-10-30.md.
+
+### 2. `digibile/negarazin-accounting`
+
+**وضعیت مشاهده‌شده در GitHub:** تمام branchهای قابل مشاهده فقط `main` هستند و شاخه `main` فقط یک فایل باینری `files (3).zip` دارد. فهرست مرکزی ZIP با خواندن blob بررسی شد: فقط `negar-azin-fadak-preview.html` و `negar-azin-fadak-ui.zip` در آن وجود دارد؛ این فایل، سورس backend حسابداری نیست.
+
+**شاهد تکمیلی از فایل‌های بررسی‌شده در جلسات قبلی سرور:** آرشیو جداگانه `negar-azin-accounting-full _4_.zip` در مسیر `/home/gmai/domains/gmal.ir` قبلاً استخراج و فهرست شده بود. در آن فهرست، backend Node/TypeScript شامل `schema.sql`، `seed.ts` و routeهای accounts/archive/auth/dashboard/fiscal/journal/org/reports/tax/treasury/users و frontend React/Vite با صفحات حساب‌ها، اشخاص، اسناد، دوره مالی، دفتر روزنامه، گزارش، مالیات، خزانه و کاربران دیده می‌شود. اما محتوای واقعی `schema.sql`، routeها و دیتابیس SQLite در GitHub فعلی یا فایل‌های قابل دسترسی این مرحله موجود نیست؛ فقط inventory فایل‌ها ثبت شده است.
+
+**تصمیم:** سورس حسابداری هنوز ممیزی محتوایی/جدولی کامل نشده و هیچ قابلیت یا جدول از آن منتقل نمی‌شود. ZIP کامل سرور باید به‌صورت فایل قابل دسترسی در همین مخزن یا گفت‌وگو قرار گیرد؛ سپس schema، routeها، کنترل دسترسی، دفترکل، خزانه، گزارش‌ها، migration و داده SQLite به‌صورت دقیق با ماژول‌های accounting مقصد مقایسه شوند. ZIP preview فعلی جایگزین آرشیو کامل backend نیست.
+
+**اولویت:** بالا؛ انتقال معلق تا دریافت و بررسی bytes آرشیو کامل و schema واقعی.
+
+### 3. `digibile/vamcity`
+
+**وضعیت مشاهده‌شده:** مخزن دارای ماژول‌های C# برای Core، امنیت، tenancy، عملیات و قابلیت‌های مدیریتی است. فایل‌ها شامل طرح‌های وام، کارت مجازی، اسناد مشتری، OCR abstraction، OTP/Captcha، اعلام پرداخت، طرف‌های تسویه، بازاریاب، استعلام، دفترکل و audit هستند. بعضی فایل‌ها با placeholderهایی مانند `__DBNS__` و وابستگی به مدل/DbContext میزبان نوشته شده‌اند؛ بنابراین این بسته به‌تنهایی یک برنامه مستقل آماده build نیست.
+
+**قابلیت‌های ارزشمند برای مقصد:**
+- چرخه کامل عملیات درخواست وام، بررسی، قرارداد، اقساط و وصول، پس از تطبیق با ماژول lendtech مقصد.
+- اعلام واریز و بررسی انسانی، استعلام، پرونده مدارک و پیگیری وضعیت.
+- اعتبارسنجی کد ملی ایران، شبا و ارقام فارسی.
+- محافظت رمزنگاری‌شده اطلاعات کارت و اسناد، با بازبینی امنیتی.
+- مدل‌های audit و دفترکل، صرفاً پس از مقایسه با دفترکل و audit canonical مقصد.
+
+**موارد ممنوع:** وارد کردن جداول کاربر، OTP، tenant، loan، ledger یا audit به‌صورت موازی. قابلیت‌های موجود در `lendtech-*`، `identity`، `documents`، `ledger` و `tenant-context` مقصد باید توسعه یابند، نه اینکه موتور دوم کنارشان قرار گیرد.
+
+**اولویت:** بالا برای gap analysis و انتقال منطق دامنه‌ای فاقد معادل؛ انتقال داده عملیاتی VamCity به دیتابیس مرکزی پلتفرم در این ممیزی انجام نمی‌شود.
+
+### 4. `digibile/digibail`
+
+**وضعیت مشاهده‌شده:** سورس Node/PostgreSQL به‌علاوه ماژول‌های C# برای Core، Contracts، Security، Tenancy، Enterprise و Ops بررسی شد. دو فایل Ops دقیقاً با SHA یکسان در VamCity هم وجود دارند؛ پس بخش اعلام واریز/طرف‌حساب/بازاریاب/استعلام/تنظیمات/سفارش تکراری است و فقط یک‌بار ادغام شده است.
+
+**معادل‌های مقصد:** قراردادهای نسخه‌دار، OTP، tenant، محصولات وام و هسته اسناد در مقصد وجود دارند. migration 147 چرخه قالب/متغیر/سند/امضا را پوشش می‌دهد؛ OTP و rate-limit در migrationهای 145/146 و auth موجود است.
+
+**شکاف‌های واقعی:** مقصد API عمومی پیوست (`/api/enterprise/attachments`) و UI آپلود موجود دارد، اما فقط با مجوزهای مدیریتی؛ صفحه احراز هویت هنوز مرجع فایل را به‌صورت متن آزاد نگه می‌دارد و self-service امن مشتری/اتصال به پرونده وجود ندارد. OCR queue (`platform_ocr_jobs`) هم enqueue می‌شود ولی worker پردازش در tree فعلی پیدا نشد. در کنار آن، دو storage foundation (`finance_document_files` و `platform_attachments`) وجود دارد و باید مرزشان روشن شود. ماژول VirtualCard مبدأ یک ابزار خرج‌کرد داخلی است، نه اتصال بانکی؛ مقصد API اجرایی آن را ندارد و کد مبدأ هم نیازمند بازطراحی امنیت، احراز مجدد، idempotency توزیع‌شده و اتصال دفترکل است. endpoint استعلام بانک بتا مبدأ صریحاً 501 است.
+
+**تصمیم:** هیچ subsystem موازی برای OTP، قرارداد، tenancy یا Ops ساخته نمی‌شود. اولویت جدید: تکمیل API زونکن مشتری روی foundation موجود؛ کارت مجازی تا تعیین مدل کسب‌وکار و کنترل مالی متوقف است. جزئیات در `docs/integration/DIGIBAIL-ADOPTION-2026-10-30.md` ثبت شد.
+
+### 5. `digibile/tejarhstore`
+
+**وضعیت مشاهده‌شده:** سورس ASP.NET Core 9 در لایه‌های Domain/Application/Infrastructure/Web بررسی شد. مدل‌های `AppUser`, `Product`, `ProductImage`, `Category`, `Brand`, `Order`, `OrderItem`، controllerهای کاتالوگ/سبد/checkout و اتصال مستقیم Zarinpal وجود دارند. migrationهای EF در tree فعلی مشاهده نشدند.
+
+**نگاشت به مقصد:** محصول/تصویر/دسته/برند با `products`, `product_images`, `marketplace_categories`, `brands`, `product_inventory`؛ سبد با `cart_sessions` و `cart_items`؛ سفارش با `marketplace_orders` و `marketplace_order_items`؛ پرداخت با `payment-provider`، gateway profiles/attempts و callbackهای امضاشده مقصد. migration 144 قبلاً بخشی از هم‌راستاسازی مدل کاتالوگ TejarhStore را انجام داده است.
+
+**ریسک‌های تأییدشده مبدأ:** رمز مدیر پیش‌فرض در README و DbInitializer، کلید JWT ثابت fallback در AuthApiController، نبود JWT bearer registration در Program.cs، seed سه محصول نمونه، نگهداری قیمت در session و عدم reprice/stock validation در checkout، و callback پرداخت بدون idempotency/state guard قابل مشاهده. این منطق نباید عیناً به مقصد منتقل شود.
+
+**تصمیم:** کپی پروژه، AppUser، cart/order و درگاه موازی ممنوع. مسیر checkout و پرداخت مرکزی مقصد از نظر tenant، price revalidation، stock reservation، idempotency، ledger و refund قوی‌تر است و باید حفظ شود. جزئیات کامل در `docs/integration/TEJARHSTORE-ADOPTION-2026-10-30.md` ثبت شده است.
+
+**اولویت:** کاتالوگ تا حدی پیشاپیش هم‌راستا شده؛ ارزش باقیمانده در جزئیات UX و mapping داده است، نه افزودن هسته دوم. گزارش کامل بررسی controllerها و ریسک‌های checkout در `docs/integration/TEJARHSTORE-ADOPTION-2026-10-30.md` است.
+
+### 6. `digibile/sarajon`
+
+**وضعیت مشاهده‌شده:** 54 مسیر در درخت مخزن. مقایسه blobهای Git با VamCity نشان داد 46 مسیر مشترک از 54 مسیر دقیقاً blob یکسان دارند؛ از جمله فایل‌های Core، Security، Tenancy، Ops، OCR، کارت مجازی، نصب و بسیاری از previewها.
+
+**تصمیم:** این 46 مسیر دوباره از Sarajon منتقل نمی‌شوند؛ همان قابلیت‌ها در ممیزی VamCity شمرده شده‌اند. هشت مسیر مشترک باقی‌مانده متفاوت‌اند و فقط در صورت وجود منطق یا UI متمایز، جداگانه بررسی می‌شوند. previewها و اسکریپت نصب به‌خودی‌خود قابلیت عملیاتی محسوب نمی‌شوند.
+
+**اولویت:** پایین برای کد تکراری؛ متوسط برای بررسی تفاوت‌های هشت مسیر.
+
+### 7. `digibile/uminex`
+
+**وضعیت مشاهده‌شده:** بررسی همه branchهای قابل مشاهده فقط `main` را نشان داد؛ درخت GitHub آن فقط README و فایل gitignore دارد. با این حال گزارش‌های تاریخی سرور، source tree در مسیر `merged-uminex` و snapshot `merged-uminex-BEFORE-ALL-ZIPS-20260906-043752` را نشان می‌دهند. assemblyهای Core، Accounting، CRM، ECommerce، Credit، HR، Intelligence، Projects، Representatives، Workflow و Integrations و routeهای API مربوط به آن‌ها در گزارش‌های قبلی فهرست شده‌اند. bytes سورس در دسترس فعلی نیست؛ DLLهای publish جایگزین سورس نیستند.
+
+**تصمیم:** Uminex را دیگر «فاقد هرگونه سورس در سرور» فرض نمی‌کنیم؛ اما سورس در GitHub/Library فعلی قابل بازیابی نیست و ممیزی واقعی کد و schema انجام نشده است. تا دریافت آرشیو کامل `merged-uminex` هیچ کد/جدولی منتقل نمی‌شود. route inventory و مرز مالکیت پیشنهادی در `docs/integration/UMINEX-SOURCE-AVAILABILITY-AND-ROUTE-AUDIT-2026-10-30.md` ثبت شده است.
+
+**اولویت:** بالا برای بازیابی سورس و ممیزی gapها؛ ادغام معلق تا دریافت فایل‌ها.
+
+### 8. `digibile/sitnela`
+
+**وضعیت مشاهده‌شده:** بررسی همه branchهای قابل مشاهده فقط `main` را نشان داد؛ درخت آن فقط README دارد.
+
+**تصمیم:** هیچ قابلیت اجرایی قابل تأیید نیست. انتقال یا ایجاد ماژول بر اساس نام مخزن ممنوع است.
+
+**اولویت:** معلق تا دسترسی به سورس.
+
+### 9. `digibile/aqayevam`
+
+**وضعیت مشاهده‌شده:** بررسی همه branchهای قابل مشاهده فقط `main` را نشان داد؛ درخت آن فقط README دارد. یک آرشیو مستقل در Library با نام `aqayevam-reconstruction-linux.zip` نیز بررسی شد: بسته شامل DLLهای منتشرشده `LoanSystemAvizhe.*` و .NET 5 است، نه سورس؛ README خود بسته تصریح می‌کند `.cs`, `.csproj`, `.sln` و backup دیتابیس ندارد و این بسته بازسازی از سورس نیست. هدف بسته مسیر جداگانه `https://zilom.ir/cl/plans/` است و صراحتاً از VamCity جدا نگه داشته شده است.
+
+**تصمیم:** این بسته برای بررسی رفتار compiled binary یا استقرار مستقل است، نه ادغام کد در پلتفرم مرکزی. بدون سورس واقعی و backup/schema دیتابیس، منطق برنامه و مدل داده قابل ممیزی یا انتقال نیست. انتقال DLLها به مقصد ممنوع است.
+
+**اولویت:** معلق تا دریافت سورس اصلی و دیتابیس/اسکیما معتبر.
+
+## یافته‌های تکرار و تعارض
+
+1. هویت و کاربران در چند منبع با مدل‌های مستقل تعریف شده‌اند: مخزن مادر، Digibail، TejarhStore و VamCity. فقط هویت مقصد مالک canonical خواهد بود.
+2. VamCity و Sarajon در 46 مسیر blob یکسان دارند؛ ادغام هر دو باعث دوباره‌کاری می‌شود.
+3. VamCity و Digibail حاوی اسکریپت‌ها و schemaهای مرتبط با انتقال داده‌های قدیمی هستند؛ این schemaها نباید به‌عنوان ساختار عملیاتی تازه وارد PostgreSQL مقصد شوند.
+4. TejarhStore و مقصد هر دو کاتالوگ و سفارش دارند. migration 144 نشان می‌دهد مدل کاتالوگ در مقصد قبلاً هم‌راستا شده است؛ سفارش و پرداخت باید از یک چرخه واحد عبور کنند.
+5. مخزن مادر ASP.NET Core 10 و مقصد TypeScript/Express است. این تفاوت یک تصمیم معماری است، نه موضوعی که با کپی پوشه حل شود.
+6. شماره migrationهای مقصد در چند نقطه تکراری است. پیش از migration جدید باید همه فایل‌ها، ترتیب runner و تاریخچه واقعی دیتابیس بررسی شود.
+7. وجود فایل یا route به معنی کامل‌بودن قابلیت نیست. هر انتقال باید build، تست، authorization، tenant isolation و اجرای واقعی API را پاس کند.
+
+## برنامه اجرای ادغام
+
+### مرحله A: تثبیت فهرست و مالکیت
+- دریافت و ممیزی ZIP حسابداری در محیط امن.
+- شناسایی branchهای جایگزین یا سورس کامل برای Uminex، Sitnela و AqaYevam.
+- ثبت مالک canonical هر entity، API و مسیر UI در مقصد.
+
+### مرحله B: مقایسه قابلیت به قابلیت
+- Identity / OTP / CAPTCHA / RBAC
+- Organization / Tenant / Store / Merchant
+- Credit / Loan / Contract / Installment / Collection
+- Accounting / Ledger / Treasury / Settlement
+- Marketplace / Catalog / Cart / Order / Payment
+- Documents / OCR / Archive / Approvals
+- SMS / Notifications / Support / Audit
+
+برای هر مورد وضعیت یکی از این‌هاست: موجود و قابل استفاده، موجود اما ناقص، فاقد معادل، تکراری، ناسازگار یا نیازمند دسترسی بیشتر.
+
+### مرحله C: ادغام کنترل‌شده
+- ابتدا مدل و قرارداد مشترک؛ سپس migration افزایشی؛ بعد API و UI؛ در پایان import داده با نگاشت منبع.
+- شناسه منبع و شناسه قدیمی در مسیر import حفظ شود تا تطبیق و اجرای مجدد قابل کنترل باشد.
+- هیچ رکوردی بدون تطبیق کلید، tenant، مالک، تاریخ و مقادیر مالی وارد نشود.
+- providerها از adapter مرکزی عبور کنند.
+- منو فقط از درخت canonical بیست پنل استفاده کند.
+
+### مرحله D: پذیرش
+- تست build و test برای API و Web.
+- تست مجوز و جداسازی tenant.
+- تست migration از نسخه قبلی و اجرای دوباره کنترل‌شده.
+- تطبیق شمارش و کلیدهای داده واردشده.
+- بررسی RTL، موبایل و مسیرهای واقعی.
+- انتشار فقط پس از تأیید SHA و روال انتشار تعریف‌شده در کتاب مرجع.
+
+## وضعیت این گزارش
+
+این commit فقط گزارش ممیزی و تصمیم‌های ادغام را اضافه می‌کند. هیچ جدول تولیدی، داده مشتری، secret، فایل backup یا برنامه در حال اجرای سرور تغییر نکرده است. هیچ مخزن منبعی حذف یا merge نشده است.

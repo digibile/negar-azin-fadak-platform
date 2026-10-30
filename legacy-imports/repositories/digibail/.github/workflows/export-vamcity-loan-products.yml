@@ -1,0 +1,84 @@
+name: Export VamCity loan product definitions (read-only)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/export-vamcity-loan-products.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vamcity-loan-product-export
+  cancel-in-progress: false
+
+jobs:
+  export:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Validate SSH configuration
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing repository secret: $name"
+              exit 1
+            fi
+          done
+      - name: Configure SSH
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/digibail_export_key"
+          chmod 600 "$HOME/.ssh/digibail_export_key"
+          PORT="${DEPLOY_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null
+      - name: Export only VamCity loan definitions
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          PORT="${DEPLOY_PORT:-22}"
+          ssh -i "$HOME/.ssh/digibail_export_key" -p "$PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'bash -s' <<'REMOTE' > "$RUNNER_TEMP/vamcity-loan-products.json"
+          set -euo pipefail
+          ROOT="/home/digibail/domains/digebail.ir"
+          cd "$ROOT"
+          if sudo -n docker info >/dev/null 2>&1; then D="sudo -n docker"; elif docker info >/dev/null 2>&1; then D="docker"; else echo "Docker access unavailable" >&2; exit 20; fi
+          $D compose exec -T db sh -lc 'export PGPASSWORD="$POSTGRES_PASSWORD"; psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT COALESCE(jsonb_agg(to_jsonb(lp) ORDER BY lp.legacy_id), '\''[]'\''::jsonb)::text FROM loan_products lp WHERE lp.legacy_source_table ~* '\''^vamcityc_vamcity_import_[0-9]{8}[.]dbo[.]Loans$'\'';"'
+          REMOTE
+          node - "$RUNNER_TEMP/vamcity-loan-products.json" <<'NODE'
+          const fs=require("node:fs");
+          const file=process.argv[2];
+          const rows=JSON.parse(fs.readFileSync(file,"utf8"));
+          if(!Array.isArray(rows)||rows.length===0) throw new Error("No verified VamCity loan definitions were exported");
+          const invalid=rows.filter(x=>!x.legacy_id||!x.legacy_source_table||!x.name||!x.slug);
+          if(invalid.length) throw new Error("Export contains incomplete product rows: "+invalid.length);
+          console.log("VAMCITY_LOAN_PRODUCTS_EXPORTED="+rows.length);
+          console.log("VAMCITY_SOURCE_DATABASE="+rows[0].legacy_source_table.split(".")[0]);
+          console.log("VAMCITY_EXPORT_HAS_CUSTOMER_RECORDS=false");
+          NODE
+      - name: Upload verified loan product export
+        uses: actions/upload-artifact@v4
+        with:
+          name: vamcity-loan-products-2026-10-30
+          path: ${{ runner.temp }}/vamcity-loan-products.json
+          if-no-files-found: error
+          retention-days: 7
