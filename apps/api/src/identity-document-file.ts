@@ -5,7 +5,7 @@ export function decodeIdentityDocument(value:unknown):SupportedIdentityDocument|
  const raw=value.replace(/^data:[^;]+;base64,/i,"").replace(/\s/g,"");
  if(!raw||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(raw))return null;
  const bytes=Buffer.from(raw,"base64");
- if(!bytes.length||bytes.length>10*1024*1024)return null;
+ if(!bytes.length||bytes.length>8*1024*1024)return null;
  if(bytes.length>=5&&bytes.subarray(0,5).toString("ascii")==="%PDF-")return {bytes,mimeType:"application/pdf"};
  if(bytes.length>=3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff)return {bytes,mimeType:"image/jpeg"};
  if(bytes.length>=8&&bytes.subarray(0,8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a])))return {bytes,mimeType:"image/png"};
