@@ -14,7 +14,7 @@
 | بازاریاب و کد معرفی | `Marketer` با نام، موبایل، کد و درصد پورسانت | CRM مشتریان وجود داشت، اما رجیستری بازاریاب و API آن وجود نداشت | به‌عنوان قابلیت CRM/بازاریابی مرکزی اضافه شد؛ بدون ماژول یا هویت جدید |
 | تنظیمات اپ موبایل | `AppSetting` و کلیدهای نسخه، APK، تلفن پشتیبانی، اجبار به‌روزرسانی و تعمیرات | `central_settings` و پنل تنظیمات مرکزی | جدول AppSetting موازی ساخته نمی‌شود؛ کلیدهای موبایل باید در تنظیمات مرکزی و با خروجی عمومی محدود و امن ادغام شوند |
 | درخواست استعلام | `InquiryRequest` با صف، نتیجه و وضعیت | `platform_verification_requests` و `lendtech_events` | صف بررسی دستی در API و پنل مرکزی تسهیلات پیاده شده؛ provider بیرونی و پاسخ امضاشده هنوز پیکربندی نشده |
-| سفارش خرید تسهیلاتی | `PurchaseOrder` با `UserId`, `LoanId?`, `MerchantName`, `Amount`, `Code`, `Status`؛ فقط Pending به Delivered/Cancelled | `marketplace_orders` با فروشگاه/فروشنده/اقلام و lifecycle؛ `sales_orders` با partner/اقلام/فاکتور/دریافت؛ چرخه تسهیلات | مدل مبدأ یک سربرگ ساده است و مالکیت UserId/LoanId و اتصال پذیرنده را در کنترلر کامل اعتبارسنجی نمی‌کند؛ سفارش جدید موازی ساخته نمی‌شود و باید به مسیر فروش/بازارگاه مرکزی نگاشت شود |
+| سفارش خرید تسهیلاتی | `PurchaseOrder` با `UserId`, `LoanId?`, `MerchantName`, `Amount`, `Code`, `Status`؛ فقط Pending به Delivered/Cancelled | `marketplace_orders` با فروشگاه/فروشنده/اقلام و lifecycle؛ `sales_orders` با partner/اقلام/فاکتور/دریافت؛ چرخه تسهیلات | مدل مبدأ یک سربرگ ساده است و مالکیت UserId/LoanId و اتصال پذیرنده را در کنترلر کامل اعتبارسنجی نمی‌کند؛ مسیر sales-revenue به‌علت FK و اعتبارسنجی ناقص tenant برای طرف فروش، و marketplace به‌علت فقدان seller/store/product در مبدأ، فعلاً مقصد امن و قطعی نیست؛ سفارش جدید موازی ساخته نمی‌شود |
 | پشتیبان‌گیری SQL Server | endpoint تهیه و دانلود فایل `.bak` | PostgreSQL مرکزی و عملیات زیرساخت | API پشتیبان‌گیری SQL Server منتقل نمی‌شود؛ بکاپ PostgreSQL مسئولیت زیرساخت است و restore عمومی API ناامن است |
 
 
@@ -133,7 +133,7 @@ Entity مبدأ `PurchaseOrder` شامل `TenantId`, `UserId`, `LoanId?`, `Code`
 - مدل واقعی در OpsModule.cs موجود است: TenantId، UserId، LoanId?، Code، MerchantName، Amount، Status و CreatedOn. وضعیت‌ها Pending، Delivered و Cancelled هستند. کنترلر OpsControllers.cs فقط فهرست tenant، ایجاد سفارش با UserId/نام پذیرنده/مبلغ مثبت و تغییر یک‌باره Pending به Delivered یا Cancelled را دارد.
 - marketplace_orders مقصد، سفارش فروشگاه واقعی است و به store_id و seller_id اجباری و در حالت عادی اقلام محصول نیاز دارد؛ مبدأ هیچ شناسه seller/store/product ندارد و فقط نام آزاد پذیرنده می‌فرستد. نگاشت مستقیم بدون تطبیق قطعی پذیرنده، داده جعلی می‌سازد.
 - logistics_supply_orders برای برنامه‌ریزی حمل کالا با مبدا/مقصد/محموله است و معادل سفارش خرید مشتری نیست.
-- sales_orders موجود در migration 008 فقط order_no، customer_ref و amount دارد، tenant_id ندارد و مسیر عمومی domain-commerce.ts آن را بدون فیلتر tenant می‌خواند/می‌نویسد. اتصال مستقیم سفارش‌های وام به آن، جداسازی tenant را نقض می‌کند.
+- migration 008 جدول قدیمی `sales_orders` با شناسه bigint و فیلدهای `order_no/customer_ref/amount` را ساخته بود؛ migration 102 آن را به `sales_orders_legacy` تغییر نام می‌دهد و جدول UUID جدید فروش را با `tenant_id` ایجاد می‌کند. مسیر عمومی `domain-commerce.ts` هنوز قرارداد قدیمی را برای `sales_orders` انتظار دارد و نباید بدون اصلاح به جدول جدید وصل شود. جدول جدید فروش tenant-scoped است، اما FK آن به `sales_partners` فقط روی `partner_id` است و API ایجاد سفارش نیز مالکیت tenant طرف فروش را قبل از insert کنترل نمی‌کند؛ بنابراین برای سفارش‌های VamCity هنوز مسیر امن و قطعی آماده نیست.
 - تصمیم فعلی: هیچ جدول یا endpoint جدیدی برای سفارش خرید ساخته نشود. پیش از پیاده‌سازی باید مرجع قطعی اتصال UserId به کاربر مشتری، LoanId به قرارداد/پرونده مرکزی، و MerchantName به پذیرنده/فروشگاه موجود مشخص شود؛ سپس یا sales_orders به‌صورت tenant-safe و با حفظ سازگاری مسیرهای قدیمی ارتقا یابد یا سفارش به مدل فروشگاه واقعی متصل شود. تا آن زمان این قابلیت در وضعیت «ممیزی کامل، ادغام اجرایی متوقف به‌علت نبود کلیدهای مرجع» باقی می‌ماند.
 - کنترلر مبدأ وجود کاربر را به‌صورت صریح در همان tenant بررسی نمی‌کند؛ مقصد باید پیش از ثبت، مالکیت کاربر و قرارداد/پرونده را در tenant جاری کنترل کند. شناسه‌های GUID مبدأ را نباید صرفاً به‌دلیل UUID بودن با شناسه‌های مقصد برابر فرض کرد.
 
@@ -150,7 +150,7 @@ API مبدأ فقط برای SuperAdmin فهرست فایل‌های `.bak`، ا
 | `/api/v1/app/config` و `/api/v1/admin/app-settings` | تنظیمات عمومی/مدیر اپ | در تنظیمات مرکزی ادغام شده |
 | `/api/v1/admin/orders` | فهرست/ایجاد سفارش خرید اقساطی و نهایی‌سازی یک‌باره وضعیت | فعلاً ادغام اجرایی متوقف؛ `sales_orders` فعلی tenant-safe نیست و `marketplace_orders` به seller/store واقعی نیاز دارد؛ جزئیات در ممیزی PurchaseOrder |
 | `/api/v1/admin/inquiries` | ایجاد، فهرست، ثبت یک‌باره نتیجه | صف دستی در `/api/lendtech/inquiry-requests`؛ provider بیرونی و callback امضاشده هنوز gap |
-| `/api/v1/admin/orders` | ایجاد سفارش ساده و تغییر وضعیت | استفاده از بازارگاه یا فروش مرکزی؛ بدون جدول موازی |
+
 | `/api/v1/admin/backups` | فهرست، ایجاد و دانلود SQL Server .bak | انتقال نمی‌یابد؛ عملیات زیرساخت PostgreSQL |
 
 
