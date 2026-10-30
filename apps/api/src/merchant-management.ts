@@ -1,6 +1,6 @@
 import {Router} from "express";
 import {query,pool} from "./db.js";
-import {requireAuth,requirePermission} from "./auth.js";
+import {requireAuth,requirePermission,requireCsrf} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
 import {ensureCanonicalParty,normalizeNationalId} from "./canonical-party.js";
@@ -37,7 +37,7 @@ merchantRouter.get("/api/merchants/:id",requireAuth,requirePermission("merchant:
   res.json(r.rows[0]);
 }));
 
-merchantRouter.post("/api/merchants",requireAuth,requirePermission("merchant:manage"),asyncHandler(async(req,res)=>{
+merchantRouter.post("/api/merchants",requireAuth,requirePermission("merchant:manage"),requireCsrf,asyncHandler(async(req,res)=>{
   const t=await tenant(req);
   if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const code=str(req.body?.code,80),legalName=str(req.body?.legalName,250),displayName=str(req.body?.displayName,250);
@@ -69,7 +69,7 @@ merchantRouter.post("/api/merchants",requireAuth,requirePermission("merchant:man
   }finally{client.release();}
 }));
 
-merchantRouter.patch("/api/merchants/:id",requireAuth,requirePermission("merchant:manage"),asyncHandler(async(req,res)=>{
+merchantRouter.patch("/api/merchants/:id",requireAuth,requirePermission("merchant:manage"),requireCsrf,asyncHandler(async(req,res)=>{
   const t=await tenant(req);
   if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const businessType=req.body?.businessType===undefined?null:str(req.body?.businessType,30);
@@ -118,7 +118,7 @@ merchantRouter.patch("/api/merchants/:id",requireAuth,requirePermission("merchan
   }finally{client.release();}
 }));
 
-merchantRouter.patch("/api/merchants/:id/status",requireAuth,requirePermission("merchant:manage"),asyncHandler(async(req,res)=>{
+merchantRouter.patch("/api/merchants/:id/status",requireAuth,requirePermission("merchant:manage"),requireCsrf,asyncHandler(async(req,res)=>{
   const t=await tenant(req);
   if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const status=str(req.body?.status,20);
@@ -128,7 +128,7 @@ merchantRouter.patch("/api/merchants/:id/status",requireAuth,requirePermission("
   res.json(r.rows[0]);
 }));
 
-merchantRouter.post("/api/merchants/:id/verify",requireAuth,requirePermission("merchant:verify"),asyncHandler(async(req,res)=>{
+merchantRouter.post("/api/merchants/:id/verify",requireAuth,requirePermission("merchant:verify"),requireCsrf,asyncHandler(async(req,res)=>{
   const t=await tenant(req);
   if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const decision=str(req.body?.decision,20);

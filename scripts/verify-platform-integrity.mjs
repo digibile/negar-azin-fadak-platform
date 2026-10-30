@@ -211,6 +211,8 @@ if(!centralSettingsUi.includes('"mobile-app":"تنظیمات اپلیکیشن م
 
 
 const purchasingApi=fs.readFileSync(path.join(root,"apps/api/src/purchasing-supply.ts"),"utf8");
+const merchantManagementApi=fs.readFileSync(path.join(root,"apps/api/src/merchant-management.ts"),"utf8");
+for(const marker of ['merchantRouter.post("/api/merchants",requireAuth,requirePermission("merchant:manage"),requireCsrf','merchantRouter.patch("/api/merchants/:id",requireAuth,requirePermission("merchant:manage"),requireCsrf','merchantRouter.patch("/api/merchants/:id/status",requireAuth,requirePermission("merchant:manage"),requireCsrf','merchantRouter.post("/api/merchants/:id/verify",requireAuth,requirePermission("merchant:verify"),requireCsrf'])if(!merchantManagementApi.includes(marker))throw new Error("All merchant create/update/status/verification mutations must enforce CSRF protection");
 const marketplaceApi=fs.readFileSync(path.join(root,"apps/api/src/domain-marketplace.ts"),"utf8");
 const marketplaceRouteKeys=[...marketplaceApi.matchAll(/domainMarketplaceRouter\.(get|post|put|patch|delete)\(\s*["']([^"']+)["']/g)].map(match=>match[1].toUpperCase()+" "+match[2]);
 if(new Set(marketplaceRouteKeys).size!==marketplaceRouteKeys.length)throw new Error("Marketplace API contains duplicate route registrations");
