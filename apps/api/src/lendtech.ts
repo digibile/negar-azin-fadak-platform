@@ -104,8 +104,8 @@ lendtechRouter.post("/api/lendtech/applications/:id/kyc",requireAuth,requirePerm
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const status=s(req.body?.status,30),providerRef=s(req.body?.providerRef,200);
  if(!["pending","verified","rejected"].includes(status))return res.status(400).json({error:"وضعیت احراز هویت نامعتبر است"});
- if(status==="verified"&&!providerRef)return res.status(400).json({error:"مرجع تأییدکننده احراز هویت الزامی است"});
- const r=await query(`update lendtech_applications set kyc_status=$1,kyc_provider_ref=$2,status=case when $1='verified' and status='submitted' then 'kyc_pending' else status end,updated_at=now()
+ if(status==="verified")return res.status(503).json({error:"تأیید احراز هویت فقط پس از دریافت پاسخ امضاشده از ارائه‌دهنده معتبر مجاز است؛ اتصال ارائه‌دهنده هنوز پیکربندی نشده و وضعیت پرونده تغییر نکرد."});
+ const r=await query(`update lendtech_applications set kyc_status=$1,kyc_provider_ref=$2,updated_at=now()
    where id=$3 and tenant_ref=$4 returning *`,[status,providerRef||null,req.params.id,t.id]);
  if(!r.rowCount)return res.status(404).json({error:"درخواست اعتبار پیدا نشد"});
  res.json(r.rows[0]);
