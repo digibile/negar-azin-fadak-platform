@@ -362,7 +362,7 @@ lendtechRouter.post("/api/lendtech/collaterals/:id/verify",requireAuth,requirePe
  const raw=req.body?.verifiedValue;
  const value=raw===undefined||raw===null||raw===""?null:parseMoneyToMinorUnits(raw);
  if(raw!==undefined&&raw!==null&&raw!==""&&(value===null||value<0n))return res.status(400).json({error:"ارزش تأییدشده وثیقه معتبر نیست؛ حداکثر دو رقم اعشار مجاز است"});
- const r=await query("update lendtech_collaterals set status='verified',verified_value=coalesce($1,verified_value),updated_at=now() where id=$2 and tenant_ref=$3 returning *",[value===null?null:formatMinorUnits(value),req.params.id,t.id]);
+ const r=await query("update lendtech_collaterals set status='verified',verified_value=coalesce($1,verified_value),updated_at=now() where id=$2 and tenant_ref=$3 and exists(select 1 from lendtech_facilities f where f.id=lendtech_collaterals.facility_id and f.tenant_ref=lendtech_collaterals.tenant_ref) returning *",[value===null?null:formatMinorUnits(value),req.params.id,t.id]);
  if(!r.rowCount)return res.status(404).json({error:"وثیقه پیدا نشد"});
  res.json(r.rows[0]);
 }));
@@ -383,14 +383,14 @@ lendtechRouter.post("/api/lendtech/collection-cases/:id/promise",requireAuth,req
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const amount=parseMoneyToMinorUnits(req.body?.promiseAmount),due=s(req.body?.promiseDueDate,20),notes=s(req.body?.notes,1000);
  if(amount===null||amount<=0n||!due)return res.status(400).json({error:"مبلغ و تاریخ وعده پرداخت الزامی است؛ حداکثر دو رقم اعشار مجاز است"});
- const r=await query("update lendtech_collection_cases set promise_amount=$1,promise_due_date=$2,notes=coalesce($3,notes),status='promise',updated_at=now() where id=$4 and tenant_ref=$5 returning *",[formatMinorUnits(amount),due,notes||null,req.params.id,t.id]);
+ const r=await query("update lendtech_collection_cases set promise_amount=$1,promise_due_date=$2,notes=coalesce($3,notes),status='promise',updated_at=now() where id=$4 and tenant_ref=$5 and exists(select 1 from lendtech_contracts c where c.id=lendtech_collection_cases.contract_id and c.tenant_ref=lendtech_collection_cases.tenant_ref) returning *",[formatMinorUnits(amount),due,notes||null,req.params.id,t.id]);
  if(!r.rowCount)return res.status(404).json({error:"پرونده وصول پیدا نشد"});
  res.json(r.rows[0]);
 }));
 lendtechRouter.post("/api/lendtech/collection-cases/:id/resolve",requireAuth,requirePermission("modules:lendtech:collect"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);
  if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("update lendtech_collection_cases set status='resolved',updated_at=now(),notes=coalesce($1,notes) where id=$2 and tenant_ref=$3 returning *",[s(req.body?.notes,1000)||null,req.params.id,t.id]);
+ const r=await query("update lendtech_collection_cases set status='resolved',updated_at=now(),notes=coalesce($1,notes) where id=$2 and tenant_ref=$3 and exists(select 1 from lendtech_contracts c where c.id=lendtech_collection_cases.contract_id and c.tenant_ref=lendtech_collection_cases.tenant_ref) returning *",[s(req.body?.notes,1000)||null,req.params.id,t.id]);
  if(!r.rowCount)return res.status(404).json({error:"پرونده وصول پیدا نشد"});
  res.json(r.rows[0]);
 }));
