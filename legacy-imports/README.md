@@ -1,3 +1,3 @@
 # Legacy source snapshots
 
-Preserved source code from the existing Digibile repositories, kept under repositories/<source-name>/ to avoid overwriting active platform files. Public repositories are imported at pinned revisions by the workflow. The private accounting archive is preserved under _archives and expanded by that workflow. This is source preservation, not a claim of runtime integration or production deployment.
+Preserved source snapshots from digibile/digibail, digibile/sarajon, digibile/vamcity, and the private negarazin-accounting archive. Sources remain separated under repositories/ to avoid overwriting the active platform. Credential files and generated dependencies were excluded. Source preservation does not claim runtime integration or production deployment.
