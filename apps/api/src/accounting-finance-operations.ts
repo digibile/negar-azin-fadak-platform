@@ -262,7 +262,7 @@ router.post("/api/accounting-finance/party-links/:registry/:id",requireAuth,requ
   }
   const duplicate=await c.query(`select id from ${registry.table} where tenant_id=$1 and party_id=$2 and id<>$3 limit 1`,[t.id,partyId,registryId]);
   if(duplicate.rowCount){await c.query("rollback");return deny(res,409,"این طرف‌حساب قبلاً به رکورد دیگری از همین دفتر متصل شده است")}
-  const linked=await c.query(`update ${registry.table} set party_id=$1 where id=$2 and tenant_id=$3 returning id,party_id`,[partyId,registryId,t.id]);
+  const linked=await c.query(`update ${registry.table} set party_id=$1,updated_at=now() where id=$2 and tenant_id=$3 returning id,party_id`,[partyId,registryId,t.id]);
   await audit(t.id,actor(req),"registry_party_link",registryId,"link",source.rows[0],{...linked.rows[0],registry:req.params.registry,partyTitle:party.rows[0].title,matchMethod:method,matchEvidence:b.matchEvidence.trim()},c);
   await c.query("commit");
   res.json({registry:req.params.registry,registryId,partyId,partyTitle:party.rows[0].title,matchMethod:method,linked:true});
