@@ -266,7 +266,7 @@ for(const route of [
  'lendtechRouter.post("/api/lendtech/payment-declarations/:id/review"',
  'lendtechRouter.post("/api/lendtech/contracts/:id/repay"'
 ])if(!lendtech.includes(route))throw new Error("Central payment declaration/repayment route missing: "+route);
-for(const marker of ["create table if not exists lendtech_payment_declarations","uq_lendtech_payment_declaration_ref","uq_lendtech_payment_declaration_repayment","references lendtech_repayments(id)","status='approved' and repayment_id is not null"])if(!paymentDeclarations.includes(marker))throw new Error("Payment declaration intake schema missing safety constraint: "+marker);
+for(const marker of ["create table if not exists lendtech_payment_declarations","uq_lendtech_payment_declaration_ref","uq_lendtech_payment_declaration_repayment","fk_payment_declaration_contract_tenant","fk_payment_declaration_repayment_tenant","status='approved' and repayment_id is not null"])if(!paymentDeclarations.includes(marker))throw new Error("Payment declaration intake schema missing safety constraint: "+marker);
 if(!lendtech.includes("applyRepayment(client")||!lendtech.includes('paymentRef:"DECL-"+String(d.rows[0].id)')||!lendtech.includes("a.customer_ref=$3")||!lendtech.includes('requireCsrf'))throw new Error("Payment declaration approval must use central transactional repayment, customer-contract ownership and CSRF");
 if(lendtech.includes('status="approved"')&& !lendtech.includes("lendtech_repayments"))throw new Error("Payment declaration approval must not be a status-only payment confirmation");
 
