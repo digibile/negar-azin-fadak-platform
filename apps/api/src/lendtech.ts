@@ -5,6 +5,7 @@ import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
 import {calculateContractInstallments} from "./contract-engine.js";
+import {addMonthsClamped} from "./lendtech-schedule.js";
 
 export const lendtechRouter=Router();
 
@@ -214,7 +215,7 @@ lendtechRouter.post("/api/lendtech/contracts/:id/disburse",requireAuth,requirePe
   let remainingPrincipal=principal;
   const start=new Date();
   for(let i=1;i<=months;i++){
-   const due=new Date(start);due.setMonth(due.getMonth()+i);
+   const due=addMonthsClamped(start,i);
    const interestDue=rate===0?0:Number((remainingPrincipal*rate).toFixed(2));
    const principalDue=i===months?remainingPrincipal:Number(Math.max(0,payment-interestDue).toFixed(2));
    remainingPrincipal=Math.max(0,Number((remainingPrincipal-principalDue).toFixed(2)));
@@ -313,7 +314,7 @@ lendtechRouter.post("/api/lendtech/contracts/:id/restructure",requireAuth,requir
   let balance=remainingPrincipal;
   const startDate=new Date();
   for(let i=1;i<=months;i++){
-   const due=new Date(startDate);due.setMonth(due.getMonth()+i);
+   const due=addMonthsClamped(startDate,i);
    const interestDue=rate===0?0:Number((balance*rate).toFixed(2));
    const principalDue=i===months?balance:Number(Math.max(0,payment-interestDue).toFixed(2));
    balance=Math.max(0,Number((balance-principalDue).toFixed(2)));
