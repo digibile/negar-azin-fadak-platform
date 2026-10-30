@@ -1,11 +1,9 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
+import {api} from "../../lib/api";
 import styles from "./SalesWorkspace.module.css";
 type Any=Record<string,any>;
-const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
-const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
-async function req(path:string,opt:RequestInit={}){const r=await fetch(api+path,{credentials:"include",...opt,headers:{"Content-Type":"application/json","X-CSRF-Token":csrf(),...(opt.headers||{})}});const b=await r.json().catch(()=>null);if(!r.ok)throw Error(b?.error||"عملیات ناموفق بود");return b}
-const labels:any={draft:"پیش‌نویس",pending_credit:"در انتظار کنترل اعتبار",confirmed:"تأییدشده",reserved:"رزرو موجودی",delivering:"در ارسال",delivered:"تحویل‌شده",invoiced:"فاکتور شده",cancelled:"لغوشده",returned:"مرجوعی",issued:"صادرشده",partially_paid:"نیمه‌دریافت",paid:"تسویه‌شده",requested:"درخواست‌شده",approved:"تأییدشده",received:"دریافت‌شده",inspected:"بازرسی‌شده",refunded:"مسترد",rejected:"ردشده"};
+const req=(path:string,opt:RequestInit={})=>api<any>(path,opt);const labels:any={draft:"پیش‌نویس",pending_credit:"در انتظار کنترل اعتبار",confirmed:"تأییدشده",reserved:"رزرو موجودی",delivering:"در ارسال",delivered:"تحویل‌شده",invoiced:"فاکتور شده",cancelled:"لغوشده",returned:"مرجوعی",issued:"صادرشده",partially_paid:"نیمه‌دریافت",paid:"تسویه‌شده",requested:"درخواست‌شده",approved:"تأییدشده",received:"دریافت‌شده",inspected:"بازرسی‌شده",refunded:"مسترد",rejected:"ردشده"};
 export default function SalesWorkspace(){
  const [data,setData]=useState<any>({partners:[],products:[],quotes:[],orders:[],invoices:[],payments:[],returns:[],commissions:[],targets:[],events:[]});
  const [tab,setTab]=useState("dashboard"),[error,setError]=useState(""),[saving,setSaving]=useState(false);

@@ -1,11 +1,9 @@
 "use client";
 import {useEffect,useState} from "react";
+import {api} from "../../lib/api";
 import styles from "./PurchasingSupplyWorkspace.module.css";
 type A=Record<string,any>;
-const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
-const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
-async function req(path:string,opt:RequestInit={}){const r=await fetch(api+path,{credentials:"include",...opt,headers:{"Content-Type":"application/json","X-CSRF-Token":csrf(),...(opt.headers||{})}});const b=await r.json().catch(()=>null);if(!r.ok)throw Error(b?.error||"عملیات ناموفق بود");return b}
-const labels:A={draft:"پیش‌نویس",submitted:"ارسال‌شده",approved:"تأییدشده",rejected:"ردشده",rfq:"در استعلام",ordered:"سفارش‌شده",closed:"بسته",cancelled:"لغوشده",sent:"ارسال‌شده",quoting:"در دریافت پیشنهاد",compared:"قابل مقایسه",selected:"انتخاب‌شده",partially_received:"دریافت ناقص",received:"دریافت کامل",invoiced:"فاکتور شده",paid:"پرداخت‌شده",requested:"درخواست‌شده",shipped:"ارسال برگشت",credited:"بستانکار شد",active:"فعال",expired:"منقضی"};
+const req=(path:string,opt:RequestInit={})=>api<any>(path,opt);const labels:A={draft:"پیش‌نویس",submitted:"ارسال‌شده",approved:"تأییدشده",rejected:"ردشده",rfq:"در استعلام",ordered:"سفارش‌شده",closed:"بسته",cancelled:"لغوشده",sent:"ارسال‌شده",quoting:"در دریافت پیشنهاد",compared:"قابل مقایسه",selected:"انتخاب‌شده",partially_received:"دریافت ناقص",received:"دریافت کامل",invoiced:"فاکتور شده",paid:"پرداخت‌شده",requested:"درخواست‌شده",shipped:"ارسال برگشت",credited:"بستانکار شد",active:"فعال",expired:"منقضی"};
 export default function PurchasingSupplyWorkspace(){
  const [d,setD]=useState<A>({suppliers:[],requests:[],rfqs:[],quotes:[],orders:[],receipts:[],invoices:[],payments:[],returns:[],evaluations:[],contracts:[],events:[]}),[tab,setTab]=useState("dashboard"),[err,setErr]=useState(""),[saving,setSaving]=useState(false);
  const [supplier,setSupplier]=useState<A>({code:"",name:"",nationalId:"",phone:"",email:"",paymentTermsDays:"0"}),[request,setRequest]=useState<A>({productName:"",sku:"",quantity:"1",unit:"عدد",estimatedUnitPrice:"0",department:"",requiredDate:""});

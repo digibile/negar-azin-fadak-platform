@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect,useState} from "react";
+import {api} from "../../lib/api";
 
 type Merchant={
  id:string;party_id:string|null;canonical_party_title:string|null;code:string;legal_name:string;display_name:string;business_type:string;
@@ -8,10 +9,6 @@ type Merchant={
  contract_ref:string|null;commission_rate:string|number;status:string;verification_status:string;
  verified_at:string|null;verification_reason:string|null;
 };
-
-const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
-const url=(p:string)=>api+p;
-const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
 
 const statusLabel:Record<string,string>={pending:"در انتظار",review:"در بررسی",active:"فعال",suspended:"تعلیق‌شده",rejected:"ردشده",closed:"بسته"};
 const verifyLabel:Record<string,string>={pending:"احراز نشده",verified:"احراز شده",rejected:"رد شده"};
@@ -27,9 +24,7 @@ export default function MerchantManagementWorkspace(){
  const load=async()=>{
    setLoading(true);setError("");
    try{
-     const r=await fetch(url("/api/merchants?q="+encodeURIComponent(q)),{credentials:"include"});
-     const b=await r.json().catch(()=>null);
-     if(!r.ok)throw new Error(b?.error||"دریافت پذیرندگان انجام نشد");
+     const b=await api<{items:Merchant[]}>("/api/merchants?q="+encodeURIComponent(q));
      setItems(b.items||[]);
    }catch(e){setError(e instanceof Error?e.message:"خطا در دریافت پذیرندگان");}
    finally{setLoading(false);}
@@ -41,9 +36,7 @@ export default function MerchantManagementWorkspace(){
    if(!form.code.trim()||!form.legalName.trim()||!form.displayName.trim())return setError("کد، نام حقوقی و نام نمایشی الزامی است.");
    setSaving(true);setError("");
    try{
-     const r=await fetch(url("/api/merchants"+(editingId?"/"+editingId:"")),{method:editingId?"PATCH":"POST",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:JSON.stringify(form)});
-     const b=await r.json().catch(()=>null);
-     if(!r.ok)throw new Error(b?.error||"ذخیره پذیرنده انجام نشد");
+     await api("/api/merchants"+(editingId?"/"+editingId:""),{method:editingId?"PATCH":"POST",body:JSON.stringify(form)});
      reset();await load();
    }catch(e){setError(e instanceof Error?e.message:"خطا در ذخیره");}
    finally{setSaving(false);}
@@ -51,9 +44,7 @@ export default function MerchantManagementWorkspace(){
  const edit=(m:Merchant)=>{setEditingId(m.id);setForm({code:m.code,legalName:m.legal_name,displayName:m.display_name,businessType:m.business_type,nationalId:m.national_id||"",taxId:m.tax_id||"",iban:m.iban||"",settlementAccountRef:m.settlement_account_ref||"",contractRef:m.contract_ref||"",commissionRate:String(m.commission_rate)});window.scrollTo({top:0,behavior:"smooth"});};
  const mutate=async(path:string,body:Record<string,string>)=>{
    setError("");
-   const r=await fetch(url(path),{method:path.endsWith("/verify")?"POST":"PATCH",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:JSON.stringify(body)});
-   const b=await r.json().catch(()=>null);
-   if(!r.ok)throw new Error(b?.error||"عملیات انجام نشد");
+   await api(path,{method:path.endsWith("/verify")?"POST":"PATCH",body:JSON.stringify(body)});
    await load();
  };
  const verify=async(id:string,decision:"approve"|"reject")=>{
