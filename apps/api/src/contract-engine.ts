@@ -225,8 +225,8 @@ export function calculateContractInstallments(
 ): { downPayment: number; fee: number; total: number; rows: ContractInstallment[] } {
   if (![amount, downPaymentPercent, feePercent, months, intervalDays].every(Number.isFinite)
       || amount <= 0 || downPaymentPercent < 0 || downPaymentPercent > 100
-      || feePercent < 0 || months < 1 || !Number.isInteger(months)
-      || intervalDays < 1 || !Number.isInteger(intervalDays) || Number.isNaN(start.getTime())) {
+      || feePercent < 0 || months < 1 || months > 120 || !Number.isInteger(months)
+      || intervalDays < 1 || intervalDays > 366 || !Number.isInteger(intervalDays) || Number.isNaN(start.getTime())) {
     throw new Error("پارامترهای محاسبه اقساط معتبر نیستند");
   }
   const downPayment = Math.round(amount * downPaymentPercent / 100);
