@@ -92,7 +92,7 @@ router.patch("/api/accounting-finance/counterparties/:id",requireAuth,requirePer
     bankAccount=activated.rows[0];
    }
   }
-  if(status==="inactive"){const deactivated=await c.query("update accounting_party_bank_accounts set status='inactive',updated_at=now() where tenant_id=$1 and party_id=$2 and status='active' returning *",[t.id,id]);for(const account of deactivated.rows)await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,'party_bank_account',$2,'deactivate',$3,$4,$5)",[t.id,account.id,actor(req),{...account,status:"active"},account]);}
+  if(status==="inactive"){const deactivated=await c.query("update accounting_party_bank_accounts set status='inactive',updated_at=now() where tenant_id=$1 and party_id=$2 and status='active' returning *",[t.id,id]);for(const account of deactivated.rows)await audit(t.id,actor(req),"party_bank_account",account.id,"deactivate",{...account,status:"active"},account,c);}
   await audit(t.id,actor(req),"party",id,"update",old.rows[0],p.rows[0],c);
   if(bankAccount)await audit(t.id,actor(req),"party_bank_account",bankAccount.id,"create",null,bankAccount,c);
   await c.query("commit");res.json({party:p.rows[0],bankAccount});
