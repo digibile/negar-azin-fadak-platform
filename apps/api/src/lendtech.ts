@@ -67,8 +67,8 @@ lendtechRouter.get("/api/lendtech/applications",requireAuth,requirePermission("m
  let where="a.tenant_ref=$1";
  if(status){params.push(status);where+=" and a.status=$2";}
  const r=await query(`select a.*,
-   (select row_to_json(x) from (select score,band,model_version,created_at from lendtech_scores where application_id=a.id order by created_at desc limit 1)x) as latest_score,
-   (select row_to_json(x) from (select decision,approved_amount,approved_term_months,interest_rate,decided_at from lendtech_decisions where application_id=a.id order by decided_at desc limit 1)x) as latest_decision
+   (select row_to_json(x) from (select score,band,model_version,created_at from lendtech_scores where application_id=a.id and tenant_ref=a.tenant_ref order by created_at desc limit 1)x) as latest_score,
+   (select row_to_json(x) from (select decision,approved_amount,approved_term_months,interest_rate,decided_at from lendtech_decisions where application_id=a.id and tenant_ref=a.tenant_ref order by decided_at desc limit 1)x) as latest_decision
    from lendtech_applications a where ${where} order by a.created_at desc`,params);
  res.json({tenant:t,items:r.rows,total:r.rowCount});
 }));
@@ -94,7 +94,7 @@ lendtechRouter.get("/api/lendtech/applications/:id",requireAuth,requirePermissio
   query("select * from lendtech_scores where application_id=$1 and tenant_ref=$2 order by created_at desc",[req.params.id,t.id]),
   query("select * from lendtech_decisions where application_id=$1 and tenant_ref=$2 order by decided_at desc",[req.params.id,t.id]),
   query("select * from lendtech_facilities where application_id=$1 and tenant_ref=$2 order by created_at desc",[req.params.id,t.id]),
-  query("select c.* from lendtech_contracts c join lendtech_facilities f on f.id=c.facility_id where f.application_id=$1 and c.tenant_ref=$2 order by c.created_at desc",[req.params.id,t.id]),
+  query("select c.* from lendtech_contracts c join lendtech_facilities f on f.id=c.facility_id and f.tenant_ref=c.tenant_ref where f.application_id=$1 and f.tenant_ref=$2 and c.tenant_ref=$2 order by c.created_at desc",[req.params.id,t.id]),
   query("select * from lendtech_events where application_id=$1 and tenant_ref=$2 order by created_at desc",[req.params.id,t.id])
  ]);
  res.json({application:a.rows[0],scores:scores.rows,decisions:decisions.rows,facilities:facility.rows,contracts:contract.rows,events:events.rows});
@@ -134,14 +134,14 @@ lendtechRouter.post("/api/lendtech/applications/:id/score",requireAuth,requirePe
  if(a.eligibility_status!=="eligible")return res.status(409).json({error:"درخواست از نظر شرایط اولیه واجد صلاحیت نیست"});
  const [repayments,delinquencies]=await Promise.all([
   query(`select count(*)::int as count,coalesce(sum(amount),0) as amount
-    from lendtech_repayments r join lendtech_contracts c on c.id=r.contract_id
-    join lendtech_facilities f on f.id=c.facility_id
-    join lendtech_applications a2 on a2.id=f.application_id
+    from lendtech_repayments r join lendtech_contracts c on c.id=r.contract_id and c.tenant_ref=r.tenant_ref
+    join lendtech_facilities f on f.id=c.facility_id and f.tenant_ref=c.tenant_ref
+    join lendtech_applications a2 on a2.id=f.application_id and a2.tenant_ref=f.tenant_ref
     where r.tenant_ref=$1 and a2.customer_ref=$2`,[t.id,a.customer_ref]),
   query(`select count(*)::int as count,coalesce(sum(amount_due),0) as amount
-    from lendtech_delinquencies d join lendtech_contracts c on c.id=d.contract_id
-    join lendtech_facilities f on f.id=c.facility_id
-    join lendtech_applications a2 on a2.id=f.application_id
+    from lendtech_delinquencies d join lendtech_contracts c on c.id=d.contract_id and c.tenant_ref=d.tenant_ref
+    join lendtech_facilities f on f.id=c.facility_id and f.tenant_ref=c.tenant_ref
+    join lendtech_applications a2 on a2.id=f.application_id and a2.tenant_ref=f.tenant_ref
     where d.tenant_ref=$1 and a2.customer_ref=$2 and d.status='open'`,[t.id,a.customer_ref])
  ]);
  const dti=Number(a.dti_percent),historyCount=Number(repayments.rows[0].count),lateCount=Number(delinquencies.rows[0].count);
@@ -276,7 +276,7 @@ lendtechRouter.post("/api/lendtech/contracts/:id/delinquency/refresh",requireAut
     on conflict do nothing returning *`,[t.id,req.params.id,i.id,days,formatMinorUnits(amount)]);
   if(r.rowCount)items.push(r.rows[0]);
  }
- await query("update lendtech_contracts set status='delinquent',updated_at=now() where id=$1 and tenant_ref=$2 and status='active' and exists(select 1 from lendtech_delinquencies d where d.contract_id=$1 and d.status='open')",[req.params.id,t.id]);
+ await query("update lendtech_contracts set status='delinquent',updated_at=now() where id=$1 and tenant_ref=$2 and status='active' and exists(select 1 from lendtech_delinquencies d where d.contract_id=$1 and d.tenant_ref=$2 and d.status='open')",[req.params.id,t.id]);
  res.json({items,total:items.length});
 }));
 
@@ -323,8 +323,8 @@ lendtechRouter.get("/api/lendtech/my-facilities",requireAuth,requirePermission("
    a.customer_ref,a.product_code,
    d.approved_term_months,d.interest_rate
    from lendtech_facilities f
-   join lendtech_applications a on a.id=f.application_id
-   left join lateral (select approved_term_months,interest_rate from lendtech_decisions where application_id=a.id and decision='approve' order by decided_at desc limit 1)d on true
+   join lendtech_applications a on a.id=f.application_id and a.tenant_ref=f.tenant_ref
+   left join lateral (select approved_term_months,interest_rate from lendtech_decisions where application_id=a.id and tenant_ref=f.tenant_ref and decision='approve' order by decided_at desc limit 1)d on true
    where f.tenant_ref=$1 and f.status='active' and f.available_amount>0
    order by f.created_at desc`,[t.id]);
  res.json({items:r.rows,total:r.rowCount});
