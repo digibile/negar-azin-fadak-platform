@@ -51,4 +51,22 @@ test("rejects invalid installment inputs", () => {
   assert.throws(() => calculateContractInstallments(0,10,5,3,30,new Date()), /معتبر نیست/);
 });
 
+test("rejects installment schedules above the supported 120-payment limit", () => {
+  assert.throws(
+    () => calculateContractInstallments(10_000_000, 10, 5, 121, 30, new Date("2026-01-01T00:00:00Z")),
+    /معتبر نیست/,
+  );
+  assert.throws(
+    () => calculateContractInstallments(10_000_000, 10, 5, 1_000_000_000, 30, new Date("2026-01-01T00:00:00Z")),
+    /معتبر نیست/,
+  );
+});
+
+test("rejects installment intervals above one year", () => {
+  assert.throws(
+    () => calculateContractInstallments(10_000_000, 10, 5, 3, 367, new Date("2026-01-01T00:00:00Z")),
+    /معتبر نیست/,
+  );
+});
+
 test("masks sensitive values", () => assert.equal(maskContractValue("0499370899"), "•••••••899"));
