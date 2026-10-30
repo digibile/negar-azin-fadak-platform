@@ -4,6 +4,8 @@ import {pool,query} from "./db.js";
 import {requireAuth,requireCsrf,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
+import {ensureCanonicalParty} from "./canonical-party.js";
+import {isValidIranianNationalCode,normalizeIranianDigits} from "./iranian-validation.js";
 import {decodeIdentityDocument,safeDocumentFileName} from "./identity-document-file.js";
 import {calculateLendtechScore} from "./lendtech-scoring.js";
 import {addMonthsClamped} from "./lendtech-schedule.js";
@@ -113,10 +115,11 @@ lendtechRouter.get("/api/lendtech/applications",requireAuth,requirePermission("m
  const params:any[]=[t.id];
  let where="a.tenant_ref=$1";
  if(status){params.push(status);where+=" and a.status=$2";}
- const r=await query(`select a.*,
+ const r=await query(`select a.*,p.title as canonical_party_title,
    (select row_to_json(x) from (select score,band,model_version,created_at from lendtech_scores where application_id=a.id and tenant_ref=a.tenant_ref order by created_at desc limit 1)x) as latest_score,
    (select row_to_json(x) from (select decision,approved_amount,approved_term_months,interest_rate,decided_at from lendtech_decisions where application_id=a.id and tenant_ref=a.tenant_ref order by decided_at desc limit 1)x) as latest_decision
-   from lendtech_applications a where ${where} order by a.created_at desc`,params);
+   from lendtech_applications a left join accounting_parties p on p.id=a.party_id and p.tenant_id=a.party_tenant_id
+   where ${where} order by a.created_at desc`,params);
  res.json({tenant:t,items:r.rows,total:r.rowCount});
 }));
 
@@ -125,17 +128,41 @@ lendtechRouter.post("/api/lendtech/applications",requireAuth,requirePermission("
  const customerRef=s(req.body?.customerRef,200),productCode=s(req.body?.productCode,80),purpose=s(req.body?.purpose,500);
  const amount=parseMoneyToMinorUnits(req.body?.requestedAmount),term=n(req.body?.termMonths);
  if(!customerRef||!productCode||amount===null||amount<=0n||term===null||!Number.isInteger(term)||term<1||term>120)return res.status(400).json({error:"اطلاعات درخواست اعتبار نامعتبر است"});
- const no=applicationNo();
- const r=await query(`insert into lendtech_applications
-  (tenant_ref,application_no,customer_ref,product_code,requested_amount,term_months,purpose,created_by)
-  values($1,$2,$3,$4,$5,$6,$7,$8) returning *`,
-  [t.id,no,customerRef,productCode,formatMinorUnits(amount),term,purpose||null,actor(req)]);
- res.status(201).json(r.rows[0]);
+ const requestedPartyId=s(req.body?.partyId,36);
+ if(requestedPartyId&&!isUuid(requestedPartyId))return res.status(400).json({error:"شناسه طرف‌حساب مرکزی معتبر نیست"});
+ const no=applicationNo(),client=await pool.connect();
+ try{
+  await client.query("begin");
+  let partyId:string|null=requestedPartyId||null;
+  if(partyId){
+   const party=await client.query("select id from accounting_parties where id=$1 and tenant_id=$2 and status='active' for share",[partyId,t.id]);
+   if(!party.rowCount){await client.query("rollback");return res.status(404).json({error:"طرف‌حساب مرکزی در این سازمان پیدا نشد یا فعال نیست"});}
+  }else if(customerRef===actor(req)){
+   const user=await client.query("select id,full_name,email,national_id from users where id=$1 and status='active' for share",[actor(req)]);
+   if(user.rowCount){
+    const nationalId=normalizeIranianDigits(user.rows[0].national_id).replace(/\\D/g,"");
+    if(isValidIranianNationalCode(nationalId)){
+     partyId=await ensureCanonicalParty(client,{tenantId:t.id,kind:"customer",title:String(user.rows[0].full_name||user.rows[0].email),nationalId,email:user.rows[0].email||null,sourceSystem:"lendtech_user_profile"});
+    }
+   }
+  }
+  const r=await client.query(`insert into lendtech_applications
+   (tenant_ref,application_no,customer_ref,product_code,requested_amount,term_months,purpose,created_by,party_tenant_id,party_id)
+   values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *`,
+   [t.id,no,customerRef,productCode,formatMinorUnits(amount),term,purpose||null,actor(req),partyId?t.id:null,partyId]);
+  await client.query("commit");
+  res.status(201).json(r.rows[0]);
+ }catch(error:any){
+  await client.query("rollback");
+  if(error?.statusCode)return res.status(error.statusCode).json({error:error.message});
+  if(error?.code==="23505")return res.status(409).json({error:"پرونده یا هویت مشتری با همین شناسه قبلاً ثبت شده است"});
+  throw error;
+ }finally{client.release()}
 }));
 
 lendtechRouter.get("/api/lendtech/applications/:id",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const a=await query("select * from lendtech_applications where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
+ const a=await query("select a.*,p.title as canonical_party_title from lendtech_applications a left join accounting_parties p on p.id=a.party_id and p.tenant_id=a.party_tenant_id where a.id=$1 and a.tenant_ref=$2",[req.params.id,t.id]);
  if(!a.rowCount)return res.status(404).json({error:"درخواست اعتبار پیدا نشد"});
  const [scores,decisions,facility,contract,events]=await Promise.all([
   query("select * from lendtech_scores where application_id=$1 and tenant_ref=$2 order by created_at desc",[req.params.id,t.id]),
