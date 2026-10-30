@@ -14,6 +14,7 @@ export default function ContractTemplatesAdmin(){
  const [variables,setVariables]=useState<Variable[]>([]);
  const [documents,setDocuments]=useState<DocumentItem[]>([]);
  const [title,setTitle]=useState("");
+ const [editingId,setEditingId]=useState("");
  const [bodyHtml,setBodyHtml]=useState(initialBody);
  const [productCode,setProductCode]=useState("");
  const [groupKey,setGroupKey]=useState("");
@@ -47,7 +48,18 @@ export default function ContractTemplatesAdmin(){
  }
  async function create(e:FormEvent){
   e.preventDefault();
-  await run("پیش‌نویس قالب قرارداد ایجاد شد",()=>api("/api/lendtech/contract-templates",{method:"POST",body:JSON.stringify({title,type:"Company",bodyHtml})}));
+  await run(editingId?"تغییرات پیش‌نویس ذخیره شد":"پیش‌نویس قالب قرارداد ایجاد شد",async()=>{
+   const result=editingId
+    ?await api("/api/lendtech/contract-templates/"+editingId,{method:"PATCH",body:JSON.stringify({title,bodyHtml})})
+    :await api("/api/lendtech/contract-templates",{method:"POST",body:JSON.stringify({title,type:"Company",bodyHtml})});
+   setEditingId("");setTitle("");setBodyHtml(initialBody);return result;
+  });
+ }
+ async function editTemplate(id:string){
+  setBusy(true);setError("");setMessage("");
+  try{const result=await api<{item:any}>("/api/lendtech/contract-templates/"+id);setEditingId(id);setTitle(result.item.title);setBodyHtml(result.item.body_html||"");window.scrollTo({top:0,behavior:"smooth"});}
+  catch(e){setError(e instanceof Error?e.message:"دریافت قالب ناموفق بود");}
+  finally{setBusy(false);}
  }
  async function saveMapping(){
   if(!productCode.trim()||!groupKey)return setError("کد طرح و قالب منتشرشده را انتخاب کنید");
@@ -74,11 +86,11 @@ export default function ContractTemplatesAdmin(){
   {problems.length>0&&<section style={{padding:14,border:"1px solid #f59e0b",borderRadius:12}}><b>موارد نیازمند اصلاح</b><ul>{problems.map((x,i)=><li key={i}>{x}</li>)}</ul></section>}
   <section style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,320px),1fr))",gap:18}}>
    <form onSubmit={create} style={{display:"grid",gap:10,padding:18,border:"1px solid var(--border,#e2e8f0)",borderRadius:14}}>
-    <h2 style={{margin:0}}>تعریف قالب جدید</h2>
+    <h2 style={{margin:0}}>{editingId?"ویرایش پیش‌نویس قالب":"تعریف قالب جدید"}</h2>
     <label>عنوان قالب<input value={title} onChange={e=>setTitle(e.target.value)} required maxLength={160} style={{display:"block",width:"100%",padding:10,marginTop:6}}/></label>
     <label>متن HTML قالب<textarea value={bodyHtml} onChange={e=>setBodyHtml(e.target.value)} required rows={12} style={{display:"block",width:"100%",padding:10,marginTop:6,fontFamily:"monospace",direction:"ltr"}}/></label>
     <small>متغیرها از داده‌های درخواست، قرارداد، مشتری و سازمان خوانده می‌شوند. کد دلخواه یا اسکریپت در قالب پذیرفته نمی‌شود.</small>
-    <button disabled={busy} type="submit" style={{padding:12,border:0,borderRadius:10,background:"var(--accent,#0f766e)",color:"white",fontWeight:700}}>ایجاد پیش‌نویس</button>
+    <button disabled={busy} type="submit" style={{padding:12,border:0,borderRadius:10,background:"var(--accent,#0f766e)",color:"white",fontWeight:700}}>{editingId?"ذخیره تغییرات":"ایجاد پیش‌نویس"}</button>{editingId&&<button type="button" disabled={busy} onClick={()=>{setEditingId("");setTitle("");setBodyHtml(initialBody);}}>لغو ویرایش</button>}
    </form>
    <div style={{display:"grid",gap:12,alignContent:"start",padding:18,border:"1px solid var(--border,#e2e8f0)",borderRadius:14}}>
     <h2 style={{margin:0}}>اتصال قالب به طرح تسهیلات</h2>
@@ -94,7 +106,7 @@ export default function ContractTemplatesAdmin(){
    {loading?<p>در حال دریافت اطلاعات...</p>:<div style={{display:"grid",gap:10,marginTop:12}}>{templates.map(x=><article key={x.id} style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap",alignItems:"center",padding:12,border:"1px solid var(--border,#e2e8f0)",borderRadius:10}}>
     <div><b>{x.title}</b><div style={{fontSize:12,color:"var(--muted-foreground,#64748b)"}}>نسخه {x.version} · {x.status} · {x.group_key}</div></div>
     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-     <button disabled={busy} onClick={()=>validate(x.id)}>اعتبارسنجی</button>
+     <button disabled={busy} onClick={()=>validate(x.id)}>اعتبارسنجی</button>{x.status==="draft"&&<button disabled={busy} onClick={()=>editTemplate(x.id)}>ویرایش پیش‌نویس</button>}
      {x.status==="draft"&&<button disabled={busy} onClick={()=>templateAction(x.id,"approve")}>تأیید</button>}
      {x.status==="approved"&&<button disabled={busy} onClick={()=>templateAction(x.id,"publish")}>انتشار</button>}
      {x.status!=="draft"&&<button disabled={busy} onClick={()=>templateAction(x.id,"new-version")}>نسخه جدید</button>}
