@@ -198,6 +198,7 @@ if(!marketerUi.includes("nationalId")||!marketerUi.includes("canonical_party_tit
 if(!marketerApi.includes("update accounting_parties set title=coalesce($1,title)")||!marketerApi.includes("for update"))throw new Error("Customer 360 updates must keep the canonical party profile synchronized transactionally");
 const accountingOperations=fs.readFileSync(path.join(root,"apps/api/src/accounting-finance-operations.ts"),"utf8");
 if(!accountingOperations.includes('crm_customers:{table:"crm_customers"'))throw new Error("Customer 360 records must be available in the central registry reconciliation queue");
+if(!accountingOperations.includes('treasury_receipts:{table:"treasury_receipts"')||!accountingOperations.includes('treasury_checks:{table:"treasury_checks"')||!accountingOperations.includes('partyColumn:"counterparty_party_id"')||!accountingOperations.includes("allowMultipleLinks:true"))throw new Error("Treasury receipts and checks must be available for evidence-backed multi-transaction party reconciliation");
 
 const centralSettings=fs.readFileSync(path.join(root,"apps/api/src/central-settings.ts"),"utf8");
 const centralSettingsUi=fs.readFileSync(path.join(root,"apps/web/app/modules/CentralSettingsWorkspace.tsx"),"utf8");

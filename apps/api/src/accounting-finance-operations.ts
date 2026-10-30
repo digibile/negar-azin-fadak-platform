@@ -253,12 +253,14 @@ router.patch("/api/accounting-finance/bank-reconciliations/:id/status",requireAu
 });
 
 
-const canonicalPartyRegistries:Record<string,{table:string;hasNationalId:boolean;label:string;projection:string}>={
+const canonicalPartyRegistries:Record<string,{table:string;hasNationalId:boolean;label:string;projection:string;partyColumn?:string;allowMultipleLinks?:boolean}>={
  purchase_suppliers:{table:"purchase_suppliers",hasNationalId:true,label:"تأمین‌کنندگان",projection:"id,code,name as display_name,national_id,phone,party_id"},
  sales_partners:{table:"sales_partners",hasNationalId:true,label:"مشتریان فروش",projection:"id,code,name as display_name,national_id,phone,party_id"},
  payment_merchants:{table:"payment_merchants",hasNationalId:true,label:"پذیرندگان",projection:"id,code,legal_name as display_name,national_id,null::text as phone,party_id"},
  crm_customers:{table:"crm_customers",hasNationalId:true,label:"مشتریان CRM",projection:"id,customer_no as code,full_name as display_name,national_id,mobile as phone,party_id"},
- sellers:{table:"sellers",hasNationalId:false,label:"فروشندگان بازارگاه",projection:"id,null::text as code,legal_name as display_name,null::text as national_id,null::text as phone,party_id"}
+ sellers:{table:"sellers",hasNationalId:false,label:"فروشندگان بازارگاه",projection:"id,null::text as code,legal_name as display_name,null::text as national_id,null::text as phone,party_id"},
+ treasury_receipts:{table:"treasury_receipts",hasNationalId:false,label:"دریافت‌های خزانه",projection:"id,receipt_no as code,payer_name as display_name,null::text as national_id,null::text as phone,party_id",allowMultipleLinks:true},
+ treasury_checks:{table:"treasury_checks",hasNationalId:false,label:"چک‌ها و اسناد خزانه",projection:"id,check_no as code,case when check_type='received' then issuer_name else coalesce(beneficiary_name,issuer_name) end as display_name,null::text as national_id,null::text as phone,counterparty_party_id as party_id",partyColumn:"counterparty_party_id",allowMultipleLinks:true}
 };
 
 router.get("/api/accounting-finance/party-links",requireAuth,requirePermission("accounting-finance.read"),async(req,res)=>{
@@ -267,7 +269,8 @@ router.get("/api/accounting-finance/party-links",requireAuth,requirePermission("
  if(selected&&!canonicalPartyRegistries[selected])return deny(res,400,"نوع دفتر عملیاتی نامعتبر است");
  const entries=Object.entries(canonicalPartyRegistries).filter(([key])=>!selected||key===selected);
  const results=await Promise.all(entries.map(async([key,item])=>{
-  const r=await query(`select '${key}'::text as registry,'${item.label}'::text as registry_label,${item.projection} from public.${item.table} where tenant_id=$1 and party_id is null order by created_at desc limit 250`,[t.id]);
+  const partyColumn=item.partyColumn||"party_id";
+  const r=await query(`select '${key}'::text as registry,'${item.label}'::text as registry_label,${item.projection} from public.${item.table} where tenant_id=$1 and ${partyColumn} is null order by created_at desc limit 250`,[t.id]);
   return r.rows;
  }));
  const items=results.flat();
@@ -289,7 +292,7 @@ router.post("/api/accounting-finance/party-links/:registry/:id",requireAuth,requ
  try{
   await c.query("begin");
   const source=await c.query(
-   `select id,party_id,${registry.hasNationalId?"national_id": "null::text as national_id"} from ${registry.table} where id=$1 and tenant_id=$2 for update`,
+   `select id,${registry.partyColumn||"party_id"} as party_id,${registry.hasNationalId?"national_id": "null::text as national_id"} from ${registry.table} where id=$1 and tenant_id=$2 for update`,
    [registryId,t.id]
   );
   if(!source.rowCount){await c.query("rollback");return deny(res,404,"رکورد دفتر عملیاتی پیدا نشد")}
@@ -301,9 +304,12 @@ router.post("/api/accounting-finance/party-links/:registry/:id",requireAuth,requ
    const partyCode=normalizeNationalId(party.rows[0].national_id);
    if(!sourceCode||!partyCode||sourceCode!==partyCode){await c.query("rollback");return deny(res,409,"شناسه ملی دو رکورد یکسان نیست؛ تطبیق دستی و مستند لازم است")}
   }
-  const duplicate=await c.query(`select id from ${registry.table} where tenant_id=$1 and party_id=$2 and id<>$3 limit 1`,[t.id,partyId,registryId]);
-  if(duplicate.rowCount){await c.query("rollback");return deny(res,409,"این طرف‌حساب قبلاً به رکورد دیگری از همین دفتر متصل شده است")}
-  const linked=await c.query(`update ${registry.table} set party_id=$1,updated_at=now() where id=$2 and tenant_id=$3 returning id,party_id`,[partyId,registryId,t.id]);
+  const partyColumn=registry.partyColumn||"party_id";
+  if(!registry.allowMultipleLinks){
+   const duplicate=await c.query(`select id from ${registry.table} where tenant_id=$1 and ${partyColumn}=$2 and id<>$3 limit 1`,[t.id,partyId,registryId]);
+   if(duplicate.rowCount){await c.query("rollback");return deny(res,409,"این طرف‌حساب قبلاً به رکورد دیگری از همین دفتر متصل شده است")}
+  }
+  const linked=await c.query(`update ${registry.table} set ${partyColumn}=$1,updated_at=now() where id=$2 and tenant_id=$3 returning id,${partyColumn} as party_id`,[partyId,registryId,t.id]);
   await audit(t.id,actor(req),"registry_party_link",registryId,"link",source.rows[0],{...linked.rows[0],registry:req.params.registry,partyTitle:party.rows[0].title,matchMethod:method,matchEvidence:b.matchEvidence.trim()},c);
   await c.query("commit");
   res.json({registry:req.params.registry,registryId,partyId,partyTitle:party.rows[0].title,matchMethod:method,linked:true});
