@@ -226,12 +226,25 @@ router.patch("/api/accounting-finance/bank-reconciliations/:id/status",requireAu
 });
 
 
-const canonicalPartyRegistries:Record<string,{table:string;hasNationalId:boolean}>={
- purchase_suppliers:{table:"purchase_suppliers",hasNationalId:true},
- sales_partners:{table:"sales_partners",hasNationalId:true},
- payment_merchants:{table:"payment_merchants",hasNationalId:true},
- sellers:{table:"sellers",hasNationalId:false}
+const canonicalPartyRegistries:Record<string,{table:string;hasNationalId:boolean;label:string;projection:string}>={
+ purchase_suppliers:{table:"purchase_suppliers",hasNationalId:true,label:"تأمین‌کنندگان",projection:"id,code,name as display_name,national_id,phone,party_id"},
+ sales_partners:{table:"sales_partners",hasNationalId:true,label:"مشتریان فروش",projection:"id,code,name as display_name,national_id,phone,party_id"},
+ payment_merchants:{table:"payment_merchants",hasNationalId:true,label:"پذیرندگان",projection:"id,code,legal_name as display_name,national_id,null::text as phone,party_id"},
+ sellers:{table:"sellers",hasNationalId:false,label:"فروشندگان بازارگاه",projection:"id,null::text as code,legal_name as display_name,null::text as national_id,null::text as phone,party_id"}
 };
+
+router.get("/api/accounting-finance/party-links",requireAuth,requirePermission("accounting-finance.read"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const selected=String(req.query.registry||"");
+ if(selected&&!canonicalPartyRegistries[selected])return deny(res,400,"نوع دفتر عملیاتی نامعتبر است");
+ const entries=Object.entries(canonicalPartyRegistries).filter(([key])=>!selected||key===selected);
+ const results=await Promise.all(entries.map(async([key,item])=>{
+  const r=await query(`select '${key}'::text as registry,'${item.label}'::text as registry_label,${item.projection} from public.${item.table} where tenant_id=$1 and party_id is null order by created_at desc limit 250`,[t.id]);
+  return r.rows;
+ }));
+ const items=results.flat();
+ res.json({items,total:items.length});
+});
 
 router.post("/api/accounting-finance/party-links/:registry/:id",requireAuth,requirePermission("accounting-finance.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
