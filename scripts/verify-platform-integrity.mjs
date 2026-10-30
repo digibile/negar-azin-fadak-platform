@@ -253,6 +253,7 @@ for(const table of ["purchase_suppliers","sales_partners","payment_merchants","s
     !partyLinkMigration.includes("create unique index if not exists %I on public.%I (tenant_id, party_id)"))
   throw new Error("Operational registry canonical-party migration is missing tenant-safe constraints");
 }
+if(!accountingOperations.includes('router.get("/api/accounting-finance/party-links"')||!accountingWorkspace.includes('["registry-links","تطبیق رجیستری‌ها"]')||!accountingWorkspace.includes("/api/accounting-finance/party-links?unlinked=true"))throw new Error("Canonical registry reconciliation queue and UI are missing");
 if(!accountingOperations.includes('router.post("/api/accounting-finance/party-links/:registry/:id"')||
    !accountingOperations.includes('if(method==="national_id")')||
    !accountingOperations.includes('b.confirmMatch!==true')||
