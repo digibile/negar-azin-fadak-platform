@@ -29,8 +29,8 @@ This document records the first-pass integration decisions for the preserved sou
 | Navigation | Database menu tree served by `/api/dashboard/menu-tree` | Admin dashboard and sidebar read the backend tree; legacy hardcoded menu registry removed |
 | API transport | `apps/web/lib/api.ts` | Sales, Purchasing and Merchant Management use the same same-origin client for credentials, CSRF and error handling; duplicate per-workspace fetch clients removed |
 | Shared party reference UI | `apps/web/components/CanonicalPartyReference.tsx` | Sales customers, Purchasing suppliers and payment merchants render one consistent linked/unlinked identity indicator |
-| Customer/party identity | `accounting_parties` plus `ensureCanonicalParty` | Shared resolver used by Sales, Purchasing, payment merchants and marketplace sellers |
-| Customer and supplier registries | `sales_partners`, `purchase_suppliers` | Separate operational records linked to canonical party; no destructive row merge |
+| Customer/party identity | `accounting_parties` plus `ensureCanonicalParty` | Shared resolver used by Customer 360, Sales, Purchasing, payment merchants and marketplace sellers |
+| Customer and supplier registries | `crm_customers`, `sales_partners`, `purchase_suppliers` | Separate operational records linked to canonical party; reconciliation queue includes all three; no destructive row merge |
 | Payment merchants and marketplace sellers | `payment_merchants`, `sellers` | Separate operational records linked to canonical party |
 | Legacy party reconciliation | Accounting Finance > registry reconciliation | Exact normalized national-ID match or evidence-backed manual review; ambiguous identity matches fail closed |
 | Finance and accounting | Accounting Finance workspace and central ledger/treasury APIs | Existing destination retained; no frontend financial calculation introduced |
