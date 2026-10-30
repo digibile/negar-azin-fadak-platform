@@ -3,12 +3,13 @@ import Link from "next/link";
 import {useEffect,useState} from "react";
 import {api} from "../../../lib/api";
 type Application={id:string;application_no:string;customer_ref:string;product_code:string;requested_amount:string;term_months:number;status:string;kyc_status:string;eligibility_status:string;latest_score?:{score:number;band:string}|null;latest_decision?:{decision:string;approved_amount:number}|null};
+type ContractDocument={id:string;document_no:string;title:string;stage:string;status:string;contract_no:string;application_no:string;product_code:string;template_version:number};
 export default function LendTechAdmin(){
- const [portfolio,setPortfolio]=useState<any>(null),[items,setItems]=useState<Application[]>([]),[selected,setSelected]=useState<any>(null);
+ const [portfolio,setPortfolio]=useState<any>(null),[items,setItems]=useState<Application[]>([]),[selected,setSelected]=useState<any>(null),[documents,setDocuments]=useState<ContractDocument[]>([]);
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
  const [approvedAmount,setApprovedAmount]=useState(""),[term,setTerm]=useState("12"),[rate,setRate]=useState("18"),[reason,setReason]=useState("");
  const [repay,setRepay]=useState(""),[restructureTerm,setRestructureTerm]=useState("12");
- async function load(){setLoading(true);setError("");try{const [p,a]=await Promise.all([api<any>("/api/lendtech/portfolio"),api<any>("/api/lendtech/applications")]);setPortfolio(p);setItems(a.items||[]);}catch(e){setError(e instanceof Error?e.message:"دریافت اطلاعات اعتبار ناموفق بود");}finally{setLoading(false);}}
+ async function load(){setLoading(true);setError("");try{const [p,a,d]=await Promise.all([api<any>("/api/lendtech/portfolio"),api<any>("/api/lendtech/applications"),api<any>("/api/lendtech/contract-documents")]);setPortfolio(p);setItems(a.items||[]);setDocuments(d.items||[]);}catch(e){setError(e instanceof Error?e.message:"دریافت اطلاعات اعتبار ناموفق بود");}finally{setLoading(false);}}
  async function detail(id:string){try{const d=await api<any>("/api/lendtech/applications/"+id);setSelected(d);setApprovedAmount(String(d.decisions?.[0]?.approved_amount||d.application.requested_amount));setTerm(String(d.decisions?.[0]?.approved_term_months||d.application.term_months));setRate(String(d.decisions?.[0]?.interest_rate??18));}catch(e){setError(e instanceof Error?e.message:"دریافت پرونده ناموفق بود");}}
  async function action(path:string,body:any={}){
   setBusy(true);setError("");setMessage("");
@@ -17,6 +18,7 @@ export default function LendTechAdmin(){
  }
  useEffect(()=>{load();},[]);
  const app=selected?.application,facility=selected?.facilities?.[0],contract=selected?.contracts?.[0];
+ const contractDocs=contract?documents.filter(d=>d.contract_no===contract.contract_no):[];
  return <main className="admin-dashboard">
   <section className="dashboard-hero"><div className="dashboard-hero-copy"><span className="hero-kicker">LendTech · اعتبار · تسهیلات · وصول</span><h1>مرکز عملیاتی اعتبارات و تسهیلات</h1><p>کل چرخه از درخواست تا تصمیم، کمیته، قرارداد، پرداخت، قسط، معوق و بازسازی از سرویس واقعی سامانه کنترل می‌شود.</p><div className="dashboard-identity"><span className="identity-dot"/><b>PostgreSQL · Tenant Scoped</b><span>2026</span></div></div><div className="dashboard-hero-side"><Link className="command-trigger" href="/pay/apply">ثبت درخواست</Link><Link className="command-trigger" href="/admin/lendtech/templates">قالب قراردادها</Link><button className="top-icon-button" onClick={load} disabled={loading}>↻</button></div></section>
   {error&&<div className="error dashboard-error">{error}</div>}{message&&<div className="dashboard-empty">{message}</div>}
