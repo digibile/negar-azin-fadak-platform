@@ -60,8 +60,8 @@ merchantRouter.post("/api/merchants",requireAuth,requirePermission("merchant:man
         "select id from accounting_parties where tenant_id=$1 and national_id=$2 order by created_at for update",
         [t.id,nationalId]
       );
-      if(matches.rowCount>1)throw Object.assign(new Error("برای این شناسه ملی چند طرف‌حساب وجود دارد؛ ابتدا تطبیق هویت باید تعیین تکلیف شود"),{statusCode:409});
-      if(matches.rowCount===1)partyId=matches.rows[0].id;
+      if(matches.rows.length>1)throw Object.assign(new Error("برای این شناسه ملی چند طرف‌حساب وجود دارد؛ ابتدا تطبیق هویت باید تعیین تکلیف شود"),{statusCode:409});
+      if(matches.rows.length===1)partyId=matches.rows[0].id;
     }
     if(!partyId){
       const party=await client.query(
