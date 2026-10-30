@@ -2,8 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildAmortizationSchedule,
+  calculateDtiThousandths,
   calculateInstallmentQuote,
   formatMinorUnits,
+  formatScaledPercent,
   parseMoneyToMinorUnits,
   roundRatioHalfUp,
 } from "./lendtech-money.js";
@@ -63,4 +65,12 @@ test("rejects invalid quote percentages and terms", () => {
   assert.throws(() => calculateInstallmentQuote(10000n, "100.0001", "5", 3), /نامعتبر/);
   assert.throws(() => calculateInstallmentQuote(10000n, "10", "-1", 3), /نامعتبر/);
   assert.throws(() => calculateInstallmentQuote(10000n, "10", "5", 121), /نامعتبر/);
+});
+
+test("calculates debt-to-income ratios with exact integer arithmetic", () => {
+  const ratio = calculateDtiThousandths(100000000000000001n, 50000000000000000n);
+  assert.equal(ratio, 49999n);
+  assert.equal(formatScaledPercent(ratio!, 1000n), "49.999");
+  assert.equal(calculateDtiThousandths(10000n, 5000n), 50000n);
+  assert.equal(calculateDtiThousandths(0n, 1n), null);
 });
