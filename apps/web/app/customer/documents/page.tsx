@@ -33,7 +33,7 @@ export default function CustomerIdentityDocumentsPage(){
    const [a,d]=await Promise.all([api<{items:Application[]}>("/api/lendtech/my-applications"),api<{items:DocumentItem[]}>("/api/lendtech/my-documents")]);
    setApplications(a.items||[]);setItems(d.items||[]);
    setApplicationId(current=>current||(a.items?.[0]?.id||""));
-  }catch(e){setError(e instanceof Error?e.message:"دریافت مدارک ناموفق بود");window.location.assign("/login");}
+  }catch(e){const message=e instanceof Error?e.message:"دریافت مدارک ناموفق بود";setError(message);if(/احراز هویت|نشست معتبر|نشست نامعتبر|منقضی/.test(message))window.location.assign("/login");}
   finally{setLoading(false);}
  }
  useEffect(()=>{void load()},[]);
