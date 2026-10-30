@@ -4,38 +4,36 @@ import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
-import {calculateContractInstallments} from "./contract-engine.js";
 import {calculateLendtechScore} from "./lendtech-scoring.js";
 import {addMonthsClamped} from "./lendtech-schedule.js";
-import {buildAmortizationSchedule,formatMinorUnits,parseMoneyToMinorUnits} from "./lendtech-money.js";
+import {buildAmortizationSchedule,calculateInstallmentQuote,formatMinorUnits,parseMoneyToMinorUnits} from "./lendtech-money.js";
 
 export const lendtechRouter=Router();
 
 lendtechRouter.post("/api/lendtech/installment-quote",requireAuth,requirePermission("modules:lendtech:read"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);
  if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const amount=n(req.body?.amount);
- const downPaymentPercent=n(req.body?.downPaymentPercent);
- const feePercent=n(req.body?.feePercent);
+ const amount=parseMoneyToMinorUnits(req.body?.amount);
  const months=n(req.body?.months);
  const intervalDays=n(req.body?.intervalDays);
  const startValue=s(req.body?.startDate,40);
  const start=startValue?new Date(startValue):new Date();
- if(amount===null||amount>1_000_000_000_000_000||downPaymentPercent===null||feePercent===null||months===null||intervalDays===null||Number.isNaN(start.getTime())){
+ if(amount===null||amount<=0n||amount>100000000000000000n||months===null||intervalDays===null||
+    !Number.isInteger(months)||months<1||months>120||!Number.isInteger(intervalDays)||intervalDays<1||intervalDays>366||Number.isNaN(start.getTime())){
   return res.status(400).json({error:"اطلاعات محاسبه اقساط معتبر نیست"});
  }
  try{
-  const quote=calculateContractInstallments(amount,downPaymentPercent,feePercent,months,intervalDays,start);
+  const quote=calculateInstallmentQuote(amount,req.body?.downPaymentPercent,req.body?.feePercent,months);
   return res.json({
    tenant:{id:t.id,code:t.code},
    currency:s(req.body?.currency,8)||"IRR",
-   downPayment:quote.downPayment,
-   financedAmount:amount-quote.downPayment,
-   serviceFee:quote.fee,
-   totalInstallments:quote.total,
-   totalPayable:quote.downPayment+quote.total,
-   installmentCount:quote.rows.length,
-   installments:quote.rows.map(row=>({number:row.no,dueDate:row.due.toISOString().slice(0,10),amount:row.amount}))
+   downPayment:formatMinorUnits(quote.downPayment),
+   financedAmount:formatMinorUnits(quote.financedAmount),
+   serviceFee:formatMinorUnits(quote.serviceFee),
+   totalInstallments:formatMinorUnits(quote.totalInstallments),
+   totalPayable:formatMinorUnits(quote.totalPayable),
+   installmentCount:quote.installments.length,
+   installments:quote.installments.map(row=>({number:row.number,dueDate:addDays(start,intervalDays*row.number).toISOString().slice(0,10),amount:formatMinorUnits(row.amount)}))
   });
  }catch(error){
   return res.status(400).json({error:error instanceof Error?error.message:"پارامترهای محاسبه اقساط معتبر نیستند"});
@@ -55,6 +53,8 @@ async function event(client:any,tenantRef:string,applicationId:string|null,contr
   [tenantRef,applicationId,contractId,eventType,actorRef,JSON.stringify(payload)]
  );
 }
+
+function addDays(start:Date,days:number):Date{const due=new Date(start.getTime());due.setUTCDate(due.getUTCDate()+days);return due;}
 
 function applicationNo(){return "CR-"+new Date().toISOString().replace(/[-:TZ.]/g,"").slice(0,14)+"-"+randomUUID().slice(0,8).toUpperCase();}
 function facilityNo(){return "FAC-"+Date.now()+"-"+randomUUID().slice(0,6).toUpperCase();}
