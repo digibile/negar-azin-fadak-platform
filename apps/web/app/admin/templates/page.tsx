@@ -180,6 +180,25 @@ export default function Templates() {
         <Link href="/admin" style={actionStyle}>بازگشت به مرکز مدیریت</Link>
       </header>
 
+      <section aria-labelledby="lending-templates-title" style={{ marginBottom: 34 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+          <div><h2 id="lending-templates-title" style={{ margin: "0 0 6px", fontSize: 22 }}>قالب‌های لندتک و اعتباردهی</h2><p style={{ margin: 0, color: "var(--muted-foreground, #64748b)", lineHeight: 1.8 }}>قالب مستقل صفحه اصلی خدمات وام، اعتبار و خرید اقساطی سوکار؛ بدون تغییر قالب فروشگاه و کاتالوگ محصولات.</p></div>
+          <span style={{ fontSize: 13, color: "#087cf0", fontWeight: 800 }}>۱ قالب آماده پیش‌نمایش</span>
+        </div>
+        <article style={{ ...cardStyle, borderColor: "#bfdbfe", background: "linear-gradient(135deg, #ffffff, #f1f7ff)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span aria-hidden="true" style={{ width: 12, height: 48, borderRadius: 8, background: "linear-gradient(180deg,#16a5ff,#0756c9)", flexShrink: 0 }} />
+            <div><p style={{ margin: "0 0 3px", fontSize: 12, color: "#087cf0" }}>لندتک · وام · خرید اعتباری و اقساطی</p><h3 style={{ margin: 0, fontSize: 19 }}>سوکار | خرید آسان، اقساطی مطمئن</h3></div>
+          </div>
+          <p style={{ margin: 0, lineHeight: 1.9, color: "var(--muted-foreground, #64748b)" }}>صفحه اصلی مستقل با هدر، بنر خدمات اعتباری، پنل درخواست و محاسبه اقساط، کارت طرح‌های وام، مزایا، مراحل دریافت اعتبار و فوتر. ارقام بازپرداخت تا اتصال به شرایط رسمی هر طرح محاسبه یا اعلام نمی‌شوند.</p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: "#087cf0" }}>آماده پیش‌نمایش · نسخه مستقل</span>
+            <Link href="/templates/sookar-lendtech/index.html" target="_blank" rel="noreferrer" style={{ ...actionStyle, borderColor: "#087cf0", color: "#0756c9" }}>مشاهده قالب لندتک ↗</Link>
+          </div>
+          <code dir="ltr" style={{ display: "block", overflowWrap: "anywhere", fontSize: 12, color: "var(--muted-foreground, #64748b)" }}>/templates/sookar-lendtech/index.html</code>
+        </article>
+      </section>
+
       <section aria-labelledby="store-templates-title" style={{ marginBottom: 34 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
           <h2 id="store-templates-title" style={{ margin: 0, fontSize: 22 }}>قالب‌های فروشگاهی</h2>
