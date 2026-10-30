@@ -344,7 +344,7 @@ lendtechRouter.post("/api/lendtech/payment-declarations/:id/review",requireAuth,
  }finally{client.release();}
 }));
 
-lendtechRouter.post("/api/lendtech/contracts/:id/repay",requireAuth,requirePermission("modules:lendtech:repay"),requireCsrf,asyncHandler(async(req,res)=>{
+lendtechRouter.post("/api/lendtech/contracts/:id/repay",requireAuth,requirePermission("modules:lendtech:repay"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const amount=parseMoneyToMinorUnits(req.body?.amount),paymentRef=s(req.body?.paymentRef,160)||("PAY-"+Date.now());
  if(amount===null||amount<=0n)return res.status(400).json({error:"مبلغ بازپرداخت نامعتبر است؛ حداکثر دو رقم اعشار مجاز است"});
