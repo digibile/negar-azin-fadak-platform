@@ -1,3 +1,5 @@
+begin;
+
 -- VamCity PaymentDeclaration is intake evidence only. Approved declarations
 -- create exactly one row in the central lendtech_repayments ledger.
 create unique index if not exists uq_lendtech_contract_tenant_id on lendtech_contracts(tenant_ref,id);
@@ -39,3 +41,5 @@ insert into role_permissions(role,permission)
 select distinct rp.role,'modules:lendtech:repay'
 from role_permissions rp where rp.role='admin'
 on conflict do nothing;
+
+commit;
