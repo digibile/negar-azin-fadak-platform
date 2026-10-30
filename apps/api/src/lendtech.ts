@@ -6,7 +6,7 @@ import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
 import {calculateLendtechScore} from "./lendtech-scoring.js";
 import {addMonthsClamped} from "./lendtech-schedule.js";
-import {buildAmortizationSchedule,calculateInstallmentQuote,formatMinorUnits,parseMoneyToMinorUnits} from "./lendtech-money.js";
+import {buildAmortizationSchedule,calculateDtiThousandths,calculateInstallmentQuote,formatMinorUnits,formatScaledPercent,parseMoneyToMinorUnits,parsePercentToScaledInteger} from "./lendtech-money.js";
 
 export const lendtechRouter=Router();
 
@@ -113,16 +113,18 @@ lendtechRouter.post("/api/lendtech/applications/:id/kyc",requireAuth,requirePerm
 
 lendtechRouter.post("/api/lendtech/applications/:id/eligibility",requireAuth,requirePermission("modules:lendtech:score"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const income=n(req.body?.monthlyIncome),obligations=n(req.body?.monthlyObligations??0);
- if(income===null||income<=0||obligations===null||obligations<0)return res.status(400).json({error:"درآمد و تعهدات ماهانه معتبر نیست"});
+ const income=parseMoneyToMinorUnits(req.body?.monthlyIncome),obligations=parseMoneyToMinorUnits(req.body?.monthlyObligations??"0");
+ if(income===null||income<=0n||obligations===null||obligations<0n)return res.status(400).json({error:"درآمد و تعهدات ماهانه معتبر نیست؛ حداکثر دو رقم اعشار مجاز است"});
+ const dtiScaled=calculateDtiThousandths(income,obligations);
+ if(dtiScaled===null)return res.status(400).json({error:"نسبت تعهدات به درآمد خارج از دامنه قابل ثبت است"});
  const app=await query("select * from lendtech_applications where id=$1 and tenant_ref=$2",[req.params.id,t.id]);
  if(!app.rowCount)return res.status(404).json({error:"درخواست اعتبار پیدا نشد"});
- const dti=Number(((obligations/income)*100).toFixed(3));
- const eligible=dti<=50;
+ const dtiText=formatScaledPercent(dtiScaled,1000n),dti=Number(dtiText);
+ const eligible=dtiScaled<=50000n;
  const reason=eligible?"نسبت تعهدات به درآمد در محدوده مجاز است":"نسبت تعهدات به درآمد از سقف ۵۰ درصد بیشتر است";
  const r=await query(`update lendtech_applications set monthly_income=$1,monthly_obligations=$2,dti_percent=$3,eligibility_status=$4,eligibility_reason=$5,status=case when $4='eligible' then 'submitted' else 'rejected' end,updated_at=now()
-   where id=$6 and tenant_ref=$7 returning *`,[income,obligations,dti,eligible?"eligible":"ineligible",reason,req.params.id,t.id]);
- res.json({application:r.rows[0],eligible,dtiPercent:dti,reason});
+   where id=$6 and tenant_ref=$7 returning *`,[formatMinorUnits(income),formatMinorUnits(obligations),dtiText,eligible?"eligible":"ineligible",reason,req.params.id,t.id]);
+ res.json({application:r.rows[0],eligible,dtiPercent:dtiText,reason});
 }));
 
 lendtechRouter.post("/api/lendtech/applications/:id/score",requireAuth,requirePermission("modules:lendtech:score"),asyncHandler(async(req,res)=>{
@@ -163,10 +165,15 @@ lendtechRouter.post("/api/lendtech/applications/:id/decision",requireAuth,requir
  const forced=s(req.body?.decision,20);
  const decision=forced|| (Number(score.rows[0].score)>=650?"approve":"reject");
  if(!["approve","reject"].includes(decision))return res.status(400).json({error:"تصمیم اعتباری نامعتبر است"});
- const approvedAmount=decision==="approve"?Math.min(Number(a.requested_amount),Number(req.body?.approvedAmount??a.requested_amount)):null;
+ const requestedAmount=parseMoneyToMinorUnits(a.requested_amount);
+ const submittedAmount=parseMoneyToMinorUnits(req.body?.approvedAmount??a.requested_amount);
+ const approvedAmount=decision==="approve"&&requestedAmount!==null&&submittedAmount!==null
+   ?formatMinorUnits(submittedAmount<requestedAmount?submittedAmount:requestedAmount):null;
  const approvedTerm=decision==="approve"?Math.min(Number(a.term_months),Number(req.body?.approvedTermMonths??a.term_months)):null;
- const rate=decision==="approve"?Math.max(0,Number(req.body?.interestRate??18)):null;
- if(decision==="approve"&&(!approvedAmount||approvedAmount<=0||!approvedTerm||approvedTerm<1||rate===null||rate<0))return res.status(400).json({error:"پارامترهای مصوبه اعتباری نامعتبر است"});
+ const rateScaled=decision==="approve"?parsePercentToScaledInteger(req.body?.interestRate??"18"):null;
+ const rate=rateScaled===null?null:formatScaledPercent(rateScaled,10000n);
+ const approvedMinor=approvedAmount===null?null:parseMoneyToMinorUnits(approvedAmount);
+ if(decision==="approve"&&(approvedMinor===null||approvedMinor<=0n||!approvedTerm||approvedTerm<1||rate===null))return res.status(400).json({error:"پارامترهای مصوبه اعتباری نامعتبر است"});
  const r=await query(`insert into lendtech_decisions(tenant_ref,application_id,decision,approved_amount,approved_term_months,interest_rate,reason,decided_by)
    values($1,$2,$3,$4,$5,$6,$7,$8) returning *`,
   [t.id,a.id,decision,approvedAmount,approvedTerm,rate,s(req.body?.reason,500)||null,actor(req)]);
