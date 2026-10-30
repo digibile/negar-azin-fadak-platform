@@ -22,18 +22,21 @@
 
 ### 1. `digibile/MASTER-MOTHER-NEGARAZINFAKA`
 
-**وضعیت مشاهده‌شده:** مخزن دارای solution مبتنی بر ASP.NET Core 10، C# 14 و EF Core 10 است؛ PostgreSQL در تولید و SQLite در توسعه/تست. شامل Core، Organization Domain، Identity Domain، Application، Infrastructure، API و دو مجموعه migration جداگانه برای PostgreSQL و SQLite است.
+**وضعیت مشاهده‌شده:** مخزن دارای solution مبتنی بر ASP.NET Core 10، C# 14 و EF Core 10 است؛ PostgreSQL در تولید و SQLite در توسعه/تست. شامل Core، Organization Domain، Identity Domain، Application، Infrastructure، API و دو مجموعه migration جداگانه برای PostgreSQL و SQLite است. مدل‌های IdentityProfile، FieldProvenance، IdentityVerification، IdentityConsistencyChecker، DuplicateDetectionPolicy و BankAccount/IbanNumber نیز بررسی شدند.
 
 **قابلیت‌های ارزشمند برای انتقال مفهومی/دامنه‌ای:**
 - هسته مشترک Result، tenancy، audit، clock، paging و messaging.
 - مدل سازمان ← شرکت ← برند ← شعبه ← فروشگاه.
-- هویت مرکزی، پروفایل‌ها، OTP و مدارک.
+- پروفایل هویتی با منشأ فیلدبه‌فیلد؛ OCR نباید مقدار تأییدشده را overwrite کند.
+- گردش تغییر اطلاعات قانونی با before/after، بازبین، concurrency و audit.
+- cross-check سند با پروفایل، duplicate detection محافظه‌کارانه و تطبیق فارسی.
 - مرزهای provider برای OCR، پیامک، ذخیره‌سازی، هوش مصنوعی و احراز هویت.
-- کنترل tenant، مجوزها و نگهداری خصوصی اسناد.
 
-**موارد ممنوع در ادغام:** وارد کردن جدول User یا سامانه ورود دوم، اجرای API دوم، یا جایگزین‌کردن یک‌باره backend مقصد با ASP.NET. مقصد فعلی TypeScript/Express است. ابتدا قراردادها و تفاوت مدل‌ها استخراج و قابلیت‌های فاقد معادل در مقصد به‌صورت مرحله‌ای پیاده‌سازی شوند.
+**تطبیق با مقصد:** مقصد principal ورود، کاربران، OTP، tenant، مجوز و نشست را دارد؛ اما field-level provenance، workflow تغییر اطلاعات قانونی، cross-check OCR با پروفایل و duplicate identity review معادل کامل ندارند. migration 150 حساب بانکی طرف تجاری را اضافه کرده، اما رابطه canonical بین user و accounting_party هنوز طراحی نشده است.
 
-**اولویت:** بالا برای بررسی gapهای سازمان، IAM، ذخیره‌سازی امن اسناد و provider abstraction؛ انتقال مستقیم کد بدون سازگارسازی ممنوع.
+**موارد ممنوع در ادغام:** وارد کردن جدول User یا سامانه ورود دوم، اجرای API دوم، یا جایگزین‌کردن یک‌باره backend مقصد با ASP.NET. مقصد فعلی TypeScript/Express است. invariants هویت باید در همان identity/customer service پیاده شوند؛ profile extension یک‌به‌یک از users و change request با audit بررسی شود، نه user table یا bank-account table موازی.
+
+**اولویت:** بالا برای تکمیل gapهای identity provenance، تغییر اطلاعات قانونی، ذخیره‌سازی امن اسناد و provider abstraction. گزارش کامل: docs/integration/MASTER-MOTHER-IDENTITY-ADOPTION-2026-10-30.md.
 
 ### 2. `digibile/negarazin-accounting`
 
