@@ -16,3 +16,7 @@
 - استقرار فقط از workflow رسمی Sookar و با preflight، نسخه release مستقل، health check و rollback انجام می‌شود.
 - فایل محیطی موجود سرور کپی یا commit نمی‌شود.
 - دیتابیس production منبع Vamcity دست‌نخورده می‌ماند.
+
+
+## بررسی منبع Vamcity
+درخواست بعدی فقط خواندن metadata آرشیو بکاپ روی سرور Roofixo، checksum، سلامت ZIP، نام فایل BAK و وجود سرویس SQL Server را بررسی می‌کند. هیچ فایل استخراج، restore، انتقال یا تغییری روی دیتابیس منبع انجام نمی‌شود.
