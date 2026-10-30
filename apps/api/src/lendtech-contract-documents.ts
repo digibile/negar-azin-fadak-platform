@@ -33,6 +33,7 @@ async function event(client:any,tenantRef:string,documentId:string,req:any,actio
 }
 const DEFAULTS=[
  ["applicant_name","نام و نام خانوادگی متقاضی","text","applicant","FullName",true,"","Normal"],
+ ["applicant_national_code","کد ملی متقاضی","text","applicant","NationalCode",true,"","Sensitive"],
  ["applicant_phone","شماره تماس متقاضی","text","applicant","PhoneNumber",false,"","Sensitive"],
  ["applicant_email","ایمیل متقاضی","text","applicant","Email",false,"","Normal"],
  ["product_name","نام طرح تسهیلات","text","loan","product_name",true,"","Normal"],
@@ -221,13 +222,14 @@ lendtechContractRouter.post("/api/lendtech/contracts/:id/render",requireAuth,req
  if(!mappings.rowCount)return res.status(409).json({error:"برای این طرح قالب قراردادی منتشرشده تعریف نشده است"});
  await ensureDefaults(t.id);
  const {rows:variableRows,defs}=await definitions(t.id);
- const applicant=await query("select id,full_name,email from users where id::text=$1 and status='active'",[contract.customer_ref]);
+ const applicant=await query("select id,full_name,email,national_id from users where id::text=$1 and status='active'",[contract.customer_ref]);
  const phone=applicant.rowCount?await query("select value from user_contact_methods where user_id=$1 and channel='sms' and status='active' and verified_at is not null order by is_primary desc limit 1",[applicant.rows[0].id]):{rows:[]};
  const schedule=await query("select installment_no,due_date,total_due,interest_due from lendtech_installments where tenant_ref=$1 and contract_id=$2 order by installment_no",[t.id,contract.id]);
  const installments:ContractInstallment[]=schedule.rows.map((x:any)=>({no:Number(x.installment_no),due:new Date(x.due_date),amount:Number(x.total_due)}));
  const tenantRow=await query("select name from tenants where id=$1",[t.id]);
  const raw:Record<string,unknown>={
   "applicant:FullName":applicant.rows[0]?.full_name||null,
+  "applicant:NationalCode":applicant.rows[0]?.national_id||null,
   "applicant:PhoneNumber":phone.rows[0]?.value||null,
   "applicant:Email":applicant.rows[0]?.email||null,
   "loan:product_name":contract.product_code,
