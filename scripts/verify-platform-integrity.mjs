@@ -303,7 +303,7 @@ if(!accountingOperations.includes('requirePermission("accounting-finance.read")'
 
 const partyLinkMigration=fs.readFileSync(path.join(root,"database/migrations/152_operational_registries_canonical_party_links.sql"),"utf8");
 for(const table of ["purchase_suppliers","sales_partners","payment_merchants","sellers"]){
- if(!partyLinkMigration.includes("alter table public.%I add column if not exists party_id uuid")||
+ if(!partyLinkMigration.includes("'"+table+"'")||!partyLinkMigration.includes("alter table public.%I add column if not exists party_id uuid")||
     !partyLinkMigration.includes("foreign key (tenant_id, party_id)")||
     !partyLinkMigration.includes("create unique index if not exists %I on public.%I (tenant_id, party_id)"))
   throw new Error("Operational registry canonical-party migration is missing tenant-safe constraints");
