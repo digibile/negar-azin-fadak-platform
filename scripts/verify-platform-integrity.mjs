@@ -212,6 +212,8 @@ if(!centralSettingsUi.includes('"mobile-app":"تنظیمات اپلیکیشن م
 
 const purchasingApi=fs.readFileSync(path.join(root,"apps/api/src/purchasing-supply.ts"),"utf8");
 const marketplaceApi=fs.readFileSync(path.join(root,"apps/api/src/domain-marketplace.ts"),"utf8");
+const marketplaceRouteKeys=[...marketplaceApi.matchAll(/domainMarketplaceRouter\.(get|post|put|patch|delete)\(\s*["']([^"']+)["']/g)].map(match=>match[1].toUpperCase()+" "+match[2]);
+if(new Set(marketplaceRouteKeys).size!==marketplaceRouteKeys.length)throw new Error("Marketplace API contains duplicate route registrations");
 const purchasingUi=fs.readFileSync(path.join(root,"apps/web/app/modules/PurchasingSupplyWorkspace.tsx"),"utf8");
 const sellerUi=fs.readFileSync(path.join(root,"apps/web/app/marketplace/sellers/page.tsx"),"utf8");
 if(!purchasingApi.includes("ensureCanonicalParty")||!purchasingApi.includes("party_id,code,name")||!purchasingUi.includes("nationalId")||!purchasingUi.includes("canonical_party_title"))throw new Error("Purchasing suppliers must use and display canonical party identity");
