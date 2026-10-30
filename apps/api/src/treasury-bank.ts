@@ -12,12 +12,14 @@ router.get("/api/treasury-bank/overview",requireAuth,async(req,res)=>{
  const [banks,receipts,payments,transactions,cashboxes,movements]=await Promise.all([
   query("select * from treasury_bank_accounts where tenant_id=$1 order by bank_name,account_title",[t.id]),
   query("select r.*,b.bank_name,b.account_title from treasury_receipts r join treasury_bank_accounts b on b.id=r.bank_account_id where r.tenant_id=$1 order by r.receipt_date desc limit 200",[t.id]),
-  query("select p.*,b.bank_name,b.account_title from treasury_payments p join treasury_bank_accounts b on b.id=p.bank_account_id where p.tenant_id=$1 order by p.payment_date desc limit 200",[t.id]),
+  query("select p.*,b.bank_name,b.account_title,party.title as canonical_party_title,party_bank.iban as beneficiary_iban,party_bank.bank_name as beneficiary_bank_name from treasury_payments p join treasury_bank_accounts b on b.id=p.bank_account_id left join accounting_parties party on party.id=p.party_id and party.tenant_id=p.tenant_id left join accounting_party_bank_accounts party_bank on party_bank.id=p.party_bank_account_id and party_bank.tenant_id=p.tenant_id where p.tenant_id=$1 order by p.payment_date desc limit 200",[t.id]),
+  query("select id,title,party_code,national_id from accounting_parties where tenant_id=$1 and status='active' order by title",[t.id]),
+  query("select id,party_id,account_title,bank_name,iban from accounting_party_bank_accounts where tenant_id=$1 and status='active' and verification_status='verified' order by bank_name,iban",[t.id]),
   query("select x.*,b.bank_name,b.account_title from treasury_bank_transactions x join treasury_bank_accounts b on b.id=x.bank_account_id where x.tenant_id=$1 order by x.transaction_date desc limit 300",[t.id]),
   query("select c.*,u.full_name custodian_name from treasury_cashboxes c left join users u on u.id=c.custodian_user_id where c.tenant_id=$1 order by c.code",[t.id]),
   query("select m.*,c.title cashbox_title from treasury_cash_movements m join treasury_cashboxes c on c.id=m.cashbox_id where m.tenant_id=$1 order by m.movement_date desc limit 200",[t.id])
  ]);
- res.json({banks:banks.rows,receipts:receipts.rows,payments:payments.rows,transactions:transactions.rows,cashboxes:cashboxes.rows,movements:movements.rows});
+ res.json({banks:banks.rows,receipts:receipts.rows,payments:payments.rows,transactions:transactions.rows,cashboxes:cashboxes.rows,movements:movements.rows,parties:parties.rows,beneficiaryBankAccounts:beneficiaryBankAccounts.rows});
 });
 
 router.post("/api/treasury-bank/accounts",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
@@ -46,15 +48,51 @@ router.patch("/api/treasury-bank/receipts/:id/status",requireAuth,requirePermiss
 });
 router.post("/api/treasury-bank/payments",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};
- if(!b.bankAccountId||typeof b.paymentNo!=="string"||!date(b.paymentDate)||!(Number(b.amount)>0))return deny(res,400,"اطلاعات پرداخت نامعتبر است");
- const r=await query("insert into treasury_payments(tenant_id,bank_account_id,payment_no,payment_date,amount,payee_name,reference_no,method,description,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",[t.id,b.bankAccountId,b.paymentNo.trim(),b.paymentDate,Number(b.amount),b.payeeName||"",b.referenceNo||null,b.method||"bank_transfer",b.description||"",(req as any).user.id]);
- await audit(t.id,(req as any).user.id,"payment",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
+ const method=b.method||"bank_transfer",partyId=b.partyId||null,partyBankAccountId=b.partyBankAccountId||null;
+ if(!b.bankAccountId||typeof b.paymentNo!=="string"||!b.paymentNo.trim()||!date(b.paymentDate)||!(Number(b.amount)>0)||!["cash","bank_transfer","card","cheque"].includes(method))return deny(res,400,"اطلاعات پرداخت نامعتبر است");
+ if(partyBankAccountId&&!partyId)return deny(res,400,"برای انتخاب شبای ذی‌نفع، طرف‌حساب مرکزی الزامی است");
+ if(partyId&&method==="bank_transfer"&&!partyBankAccountId)return deny(res,409,"برای پرداخت بانکی به طرف‌حساب انتخاب‌شده، شبای تأییدشده لازم است");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const ownBank=await c.query("select id,status from treasury_bank_accounts where id=$1 and tenant_id=$2 for update",[b.bankAccountId,t.id]);
+  if(!ownBank.rowCount||ownBank.rows[0].status!=="active"){await c.query("rollback");return deny(res,409,"حساب بانکی سازمان پیدا نشد یا فعال نیست")}
+  let payeeName=String(b.payeeName||"").trim();
+  if(partyId){
+   const party=await c.query("select id,title from accounting_parties where id=$1 and tenant_id=$2 and status='active' for update",[partyId,t.id]);
+   if(!party.rowCount){await c.query("rollback");return deny(res,404,"طرف‌حساب مرکزی پیدا نشد یا غیرفعال است")}
+   payeeName=party.rows[0].title;
+  }
+  if(partyBankAccountId){
+   const beneficiary=await c.query("select id from accounting_party_bank_accounts where id=$1 and tenant_id=$2 and party_id=$3 and status='active' and verification_status='verified' for update",[partyBankAccountId,t.id,partyId]);
+   if(!beneficiary.rowCount){await c.query("rollback");return deny(res,409,"شبای انتخاب‌شده متعلق به این طرف‌حساب نیست یا تأیید و فعال نشده است")}
+  }
+  const r=await c.query("insert into treasury_payments(tenant_id,bank_account_id,payment_no,payment_date,amount,payee_name,reference_no,method,description,created_by,party_id,party_bank_account_id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning *",[t.id,b.bankAccountId,b.paymentNo.trim(),b.paymentDate,Number(b.amount),payeeName,b.referenceNo||null,method,b.description||"",(req as any).user.id,partyId,partyBankAccountId]);
+  await c.query("commit");
+  await audit(t.id,(req as any).user.id,"payment",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
+ }catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
 router.patch("/api/treasury-bank/payments/:id/status",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const s=req.body?.status;if(!["approved","paid","cancelled"].includes(s))return deny(res,400,"وضعیت پرداخت نامعتبر است");
- const old=await query("select * from treasury_payments where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!old.rowCount)return deny(res,404,"پرداخت پیدا نشد");const cur=old.rows[0].status;
- const flow:any={pending:["approved","cancelled"],approved:["paid","cancelled"],paid:[],cancelled:[]};if(!flow[cur]?.includes(s))return deny(res,409,"تغییر وضعیت پرداخت مجاز نیست");
- const c=await pool.connect();try{await c.query("begin");const r=await c.query("update treasury_payments set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,paid_at=case when $1='paid' then now() else paid_at end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[s,(req as any).user.id,String(String(req.params.id)),t.id]);if(s==="paid")await c.query("update treasury_bank_accounts set current_balance=current_balance-$1,updated_at=now() where id=$2 and tenant_id=$3",[old.rows[0].amount,old.rows[0].bank_account_id,t.id]);await c.query("commit");await audit(t.id,(req as any).user.id,"payment",String(String(req.params.id)),"status",old.rows[0],r.rows[0]);res.json(r.rows[0]);}catch(e){await c.query("rollback");throw e}finally{c.release()}
+ const c=await pool.connect();
+ let old:any=null;
+ try{
+  await c.query("begin");
+  const locked=await c.query("select * from treasury_payments where id=$1 and tenant_id=$2 for update",[String(req.params.id),t.id]);
+  if(!locked.rowCount){await c.query("rollback");return deny(res,404,"پرداخت پیدا نشد")}
+  old=locked.rows[0];
+  const flow:any={pending:["approved","cancelled"],approved:["paid","cancelled"],paid:[],cancelled:[]};
+  if(!flow[old.status]?.includes(s)){await c.query("rollback");return deny(res,409,"تغییر وضعیت پرداخت مجاز نیست")}
+  if(s==="paid"){
+   const bank=await c.query("select id,current_balance,status from treasury_bank_accounts where id=$1 and tenant_id=$2 for update",[old.bank_account_id,t.id]);
+   if(!bank.rowCount||bank.rows[0].status!=="active"){await c.query("rollback");return deny(res,409,"حساب بانکی سازمان فعال نیست")}
+   if(Number(bank.rows[0].current_balance)<Number(old.amount)){await c.query("rollback");return deny(res,409,"موجودی حساب بانکی برای پرداخت کافی نیست")}
+   await c.query("update treasury_bank_accounts set current_balance=current_balance-$1,updated_at=now() where id=$2 and tenant_id=$3",[old.amount,old.bank_account_id,t.id]);
+  }
+  const r=await c.query("update treasury_payments set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,paid_at=case when $1='paid' then now() else paid_at end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[s,(req as any).user.id,String(req.params.id),t.id]);
+  await c.query("commit");
+  await audit(t.id,(req as any).user.id,"payment",String(req.params.id),"status",old,r.rows[0]);res.json(r.rows[0]);
+ }catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
 
 router.post("/api/treasury-bank/transactions",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
