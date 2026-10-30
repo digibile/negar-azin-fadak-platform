@@ -302,7 +302,7 @@ lendtechRouter.post("/api/lendtech/my-payment-declarations",requireAuth,requireC
  const contractId=s(req.body?.contractId,80),note=s(req.body?.note,300);
  if(amount===null||amount<=0n||amount>100000000000000000n)return res.status(400).json({error:"مبلغ اعلام واریز معتبر نیست"});
  if(!["CardToCard","BankTransfer"].includes(method))return res.status(400).json({error:"روش پرداخت نامعتبر است"});
- if(paymentRef.length<4||paymentRef.length>30)return res.status(400).json({error:"شماره پیگیری باید بین ۴ تا ۳۰ رقم/نویسه باشد"});
+ if(paymentRef.length<4||paymentRef.length>30)return res.status(400).json({error:"شماره پیگیری باید بین ۴ تا ۳۰ رقم باشد"});
  if(Number.isNaN(paidAt.getTime())||paidAt.getTime()>Date.now()+86400000||paidAt.getTime()<Date.now()-366*86400000)return res.status(400).json({error:"تاریخ پرداخت نامعتبر است"});
  if(!contractId)return res.status(400).json({error:"شناسه قرارداد مرکزی الزامی است"});
  const owns=await query("select c.id from lendtech_contracts c join lendtech_facilities f on f.id=c.facility_id and f.tenant_ref=c.tenant_ref join lendtech_applications a on a.id=f.application_id and a.tenant_ref=f.tenant_ref where c.id=$1 and c.tenant_ref=$2 and c.status in ('active','delinquent') and a.customer_ref=$3",[contractId,t.id,actor(req)]);
