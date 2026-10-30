@@ -1,6 +1,6 @@
 import {Router,type Request,type Response} from "express";
 import {pool,query} from "./db.js";
-import {requireAuth,requirePermission} from "./auth.js";
+import {requireAuth,requirePermission,requireCsrf} from "./auth.js";
 import {resolveTenant} from "./tenant-context.js";
 
 const router=Router();
@@ -30,7 +30,7 @@ router.get("/api/treasury-checks/overview",requireAuth,async(req,res)=>{
  res.json({checks:checks.rows,events:events.rows,parties:parties.rows,partyBankAccounts:partyBankAccounts.rows});
 });
 
-router.post("/api/treasury-checks",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
+router.post("/api/treasury-checks",requireAuth,requirePermission("treasury-bank.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req); if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const b=req.body||{};
  const counterpartyPartyId=typeof b.counterpartyPartyId==="string"?b.counterpartyPartyId.trim():"";
@@ -68,34 +68,32 @@ router.post("/api/treasury-checks",requireAuth,requirePermission("treasury-bank.
  }catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
 
-router.patch("/api/treasury-checks/:id/status",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
+router.patch("/api/treasury-checks/:id/status",requireAuth,requirePermission("treasury-bank.write"),requireCsrf,async(req,res)=>{
  const t=await tenantOf(req); if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const next=req.body?.status as string, reason=typeof req.body?.reason==="string"?req.body.reason:null;
  if(!allowedStatuses.includes(next as any))return deny(res,400,"وضعیت چک نامعتبر است");
- const checkId=String(req.params.id);
- const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
- if(!uuid.test(checkId))return deny(res,400,"شناسه چک معتبر نیست");
- const flow:Record<string,string[]>={
-  registered:["awaiting_collection","deposited","assigned","returned","cancelled"],
-  awaiting_collection:["deposited","assigned","collected","returned","cancelled"],
-  deposited:["collected","returned","awaiting_collection"],
-  assigned:["collected","returned","awaiting_collection"],
-  issued:["in_transit","collected","returned","cancelled"],
-  in_transit:["collected","returned","cancelled"],
-  returned:["protested","refunded","settled"],
-  protested:["settled","refunded"],
-  collected:["settled"],
-  refunded:[],cancelled:[],settled:[]
- };
- const c=await pool.connect();let old:any=null;
+ const c=await pool.connect();
  try{
   await c.query("begin");
-  const locked=await c.query("select * from treasury_checks where id=$1 and tenant_id=$2 for update",[checkId,t.id]);
-  if(!locked.rowCount){await c.query("rollback");return deny(res,404,"چک پیدا نشد")}
-  old=locked.rows[0];
-  if(!flow[old.status]?.includes(next)){await c.query("rollback");return deny(res,409,"تغییر وضعیت از مرحله فعلی مجاز نیست")}
-  const r=await c.query("update treasury_checks set status=$1,updated_at=now(),settled_at=case when $1='settled' then now() else settled_at end where id=$2 and tenant_id=$3 returning *",[next,checkId,t.id]);
-  await c.query("insert into treasury_check_events(tenant_id,check_id,from_status,to_status,event_type,reason,actor_user_id) values($1,$2,$3,$4,$5,$6,$7)",[t.id,checkId,old.status,next,"status_change",reason,(req as any).user.id]);
+  const locked=await c.query("select * from treasury_checks where id=$1 and tenant_id=$2 for update",[String(req.params.id),t.id]);
+  if(!locked.rowCount){await c.query("rollback");return deny(res,404,"چک پیدا نشد");}
+  const old=locked.rows[0];
+  const current=old.status as string;
+  const flow:Record<string,string[]>={
+   registered:["awaiting_collection","deposited","assigned","returned","cancelled"],
+   awaiting_collection:["deposited","assigned","collected","returned","cancelled"],
+   deposited:["collected","returned","awaiting_collection"],
+   assigned:["collected","returned","awaiting_collection"],
+   issued:["in_transit","collected","returned","cancelled"],
+   in_transit:["collected","returned","cancelled"],
+   returned:["protested","refunded","settled"],
+   protested:["settled","refunded"],
+   collected:["settled"],
+   refunded:[],cancelled:[],settled:[]
+  };
+  if(!flow[current]?.includes(next)){await c.query("rollback");return deny(res,409,"تغییر وضعیت از مرحله فعلی مجاز نیست");}
+  const r=await c.query("update treasury_checks set status=$1,updated_at=now(),settled_at=case when $1='settled' then now() else settled_at end where id=$2 and tenant_id=$3 returning *",[next,String(req.params.id),t.id]);
+  await c.query("insert into treasury_check_events(tenant_id,check_id,from_status,to_status,event_type,reason,actor_user_id) values($1,$2,$3,$4,$5,$6,$7)",[t.id,String(req.params.id),current,next,"status_change",reason,(req as any).user.id]);
   await c.query("commit");
   res.json(r.rows[0]);
  }catch(e){await c.query("rollback");throw e}finally{c.release()}
