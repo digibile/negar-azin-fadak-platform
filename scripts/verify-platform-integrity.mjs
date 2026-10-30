@@ -135,7 +135,7 @@ if(!sidebar.includes("const canonical=useMemo(()=>menuItems.map(item=>")||!sideb
 const unroutedLegacy=expectedLegacyCodes.filter(code=>!declaredCodes.has(code));
 if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered in a real dispatcher branch/workspace: "+unroutedLegacy.join(", "));
 
-if(!sidebar.includes("const visit=(nodes:MenuNode[])")||!sidebar.includes("visit(node.child_items||[])"))throw new Error("Legacy menu merge must index every nested level");
+if(!sidebar.includes("normalize(item.child_items||[])")||!sidebar.includes("hasPath(child,pathname)"))throw new Error("Canonical sidebar must render recursive child routes from the backend menu tree");
 if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.includes("...flattenTitles(node.child_items||[])"))throw new Error("Menu search must include all nested backend levels");
 
 const dynamicMenu=fs.readFileSync(path.join(root,"apps/api/src/dynamic-menu.ts"),"utf8");
@@ -374,4 +374,4 @@ if(apiPackage.scripts?.["worker:ocr"]!=="node dist/ocr-worker.js")throw new Erro
 if(!enterpriseInteraction.includes("'tesseract-local'")||!lendtechIdentity.includes("'tesseract-local'"))throw new Error("Admin and customer image uploads must enqueue the same local OCR provider");
 if(!deploymentWorkflow.includes("Build Persian OCR worker image"))throw new Error("CI must build the Persian OCR worker image");
 
-console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
+console.log("Platform integrity OK: 45 modules, 20 canonical panels, database-driven recursive menu navigation/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
