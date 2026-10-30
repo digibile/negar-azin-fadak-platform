@@ -116,6 +116,27 @@ domainMarketplaceRouter.post("/api/marketplace/stores",requireAuth,requirePermis
   res.status(201).json(r.rows[0]);
 }));
 
+domainMarketplaceRouter.get("/api/marketplace/brands",requireAuth,requirePermission("product:view"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const result=await query("select id,code,name,logo_url,status,created_at,updated_at from brands where tenant_id=$1 order by name",[ctx.id]);
+  res.json({tenant:ctx,items:result.rows,total:result.rowCount});
+}));
+
+domainMarketplaceRouter.post("/api/marketplace/brands",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const name=bodyString(req.body?.name,160);
+  const code=bodyString(req.body?.code,80).toLowerCase();
+  const logoUrl=bodyString(req.body?.logoUrl,500)||null;
+  if(!name||!code||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(code))return res.status(400).json({error:"نام و کد معتبر برند الزامی است"});
+  if(logoUrl&&!/^\/api\/public\/media\/[a-zA-Z0-9/_-]+\.(?:webp|png|jpe?g|svg)$/i.test(logoUrl))return res.status(400).json({error:"لوگوی برند باید در رسانه داخلی پلتفرم ذخیره شده باشد"});
+  const duplicate=await query("select id from brands where tenant_id=$1 and code=$2 limit 1",[ctx.id,code]);
+  if(duplicate.rowCount)return res.status(409).json({error:"کد این برند قبلاً ثبت شده است"});
+  const result=await query("insert into brands(tenant_id,code,name,logo_url,status) values($1,$2,$3,$4,'active') returning id,code,name,logo_url,status",[ctx.id,code,name,logoUrl]);
+  res.status(201).json({item:result.rows[0]});
+}));
+
 domainMarketplaceRouter.get("/api/marketplace/products",requireAuth,requirePermission("product:view"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
@@ -393,13 +414,24 @@ domainMarketplaceRouter.patch("/api/marketplace/categories/:id",requireAuth,requ
   const name=bodyString(req.body?.name,120);
   const status=bodyString(req.body?.status,20);
   const sortOrder=bodyNumber(req.body?.sortOrder);
+  const slug=req.body?.slug===undefined?null:bodyString(req.body?.slug,120).toLowerCase();
+  const iconUrl=req.body?.iconUrl===undefined?null:(bodyString(req.body?.iconUrl,500)||null);
+  const parentSpecified=Object.prototype.hasOwnProperty.call(req.body||{},"parentCategoryId");
+  const parentId=parentSpecified?(bodyString(req.body?.parentCategoryId,100)||null):null;
   if(!name)return res.status(400).json({error:"نام دسته‌بندی الزامی است"});
-  if(status&&!["active","inactive"].includes(status))return res.status(400).json({error:"وضعیت دسته‌بندی نامعتبر است"});
+  if(status&& !["active","inactive"].includes(status))return res.status(400).json({error:"وضعیت دسته‌بندی نامعتبر است"});
+  if(slug!==null&&!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return res.status(400).json({error:"نشانی دسته‌بندی معتبر نیست"});
+  if(iconUrl&&!/^\/api\/public\/media\/[a-zA-Z0-9/_-]+\.(?:webp|png|jpe?g|svg)$/i.test(iconUrl))return res.status(400).json({error:"نشانی آیکون باید به رسانه داخلی پلتفرم اشاره کند"});
+  if(parentId===req.params.id)return res.status(400).json({error:"دسته‌بندی نمی‌تواند والد خودش باشد"});
+  if(parentId){
+    const parent=await query("select id from marketplace_categories where id=$1 and tenant_id=$2",[parentId,ctx.id]);
+    if(!parent.rowCount)return res.status(400).json({error:"دسته‌بندی والد در این سازمان پیدا نشد"});
+  }
   const duplicate=await query("select id from marketplace_categories where tenant_id=$1 and name=$2 and id<>$3 limit 1",[ctx.id,name,req.params.id]);
   if(duplicate.rowCount)return res.status(409).json({error:"این نام برای دسته‌بندی دیگری ثبت شده است"});
   const result=await query(
-    "update marketplace_categories set name=$1,status=coalesce($2,status),sort_order=coalesce($3,sort_order),updated_at=now() where tenant_id=$4 and id=$5 returning id,code,name,status,sort_order",
-    [name,status||null,sortOrder,ctx.id,req.params.id]
+    "update marketplace_categories set name=$1,slug=coalesce($2,slug),icon_url=case when $3::boolean then $4 else icon_url end,parent_category_id=case when $5::boolean then $6::uuid else parent_category_id end,status=coalesce($7,status),sort_order=coalesce($8,sort_order),updated_at=now() where tenant_id=$9 and id=$10 returning id,code,name,slug,icon_url,parent_category_id,status,sort_order",
+    [name,slug,iconUrl!==null||Object.prototype.hasOwnProperty.call(req.body||{},"iconUrl"),iconUrl,parentSpecified,parentId,status||null,sortOrder,ctx.id,req.params.id]
   );
   if(!result.rowCount)return res.status(404).json({error:"دسته‌بندی پیدا نشد"});
   res.json({item:result.rows[0]});
