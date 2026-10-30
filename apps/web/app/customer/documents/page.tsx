@@ -41,7 +41,7 @@ export default function CustomerIdentityDocumentsPage(){
  async function upload(){
   if(!applicationId)return setError("ابتدا پرونده اعتباری خود را انتخاب کنید.");
   if(!file)return setError("فایل مدرک را انتخاب کنید.");
-  if(file.size>10*1024*1024)return setError("حجم فایل باید حداکثر ۱۰ مگابایت باشد.");
+  if(file.size>8*1024*1024)return setError("حجم فایل باید حداکثر ۸ مگابایت باشد.");
   setSaving(true);setError("");setMessage("");
   try{
    const data=await new Promise<string>((resolve,reject)=>{
