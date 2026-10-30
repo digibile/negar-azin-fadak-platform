@@ -15,6 +15,7 @@ const MONTHLY_RATE_DENOMINATOR = 12n * 100n * RATE_SCALE;
 
 export function parseMoneyToMinorUnits(value: unknown): bigint | null {
   if (typeof value !== "string" && typeof value !== "number" && typeof value !== "bigint") return null;
+  if (typeof value === "number" && (!Number.isFinite(value) || !Number.isSafeInteger(Math.round(value * 100)))) return null;
   const raw = String(value).trim();
   const match = /^([+-]?)(\d+)(?:\.(\d{1,2}))?$/.exec(raw);
   if (!match || match[2].length > MAX_INTEGER_DIGITS) return null;
@@ -36,7 +37,7 @@ export function roundRatioHalfUp(numerator: bigint, denominator: bigint): bigint
   return (numerator + denominator / 2n) / denominator;
 }
 
-function parseRateToScaledInteger(value: unknown): bigint | null {
+export function parsePercentToScaledInteger(value: unknown): bigint | null {
   if (typeof value !== "string" && typeof value !== "number" && typeof value !== "bigint") return null;
   const raw = String(value).trim();
   const match = /^(\d{1,4})(?:\.(\d{1,4}))?$/.exec(raw);
@@ -55,7 +56,7 @@ export function buildAmortizationSchedule(
   annualInterestPercent: unknown,
   months: number,
 ): { payment: bigint; rows: AmortizationRow[] } {
-  const rateScaled = parseRateToScaledInteger(annualInterestPercent);
+  const rateScaled = parsePercentToScaledInteger(annualInterestPercent);
   if (principal <= 0n || rateScaled === null || !Number.isInteger(months) || months < 1 || months > 120) {
     throw new Error("پارامترهای بازسازی تسهیلات نامعتبر است");
   }
@@ -95,4 +96,51 @@ export function buildAmortizationSchedule(
     throw new Error("ساخت برنامه بازپرداخت دقیقاً قابل تطبیق نیست");
   }
   return { payment, rows };
+}
+
+export type InstallmentQuote = {
+  downPayment: bigint;
+  financedAmount: bigint;
+  serviceFee: bigint;
+  totalInstallments: bigint;
+  totalPayable: bigint;
+  installments: { number: number; amount: bigint }[];
+};
+
+/** Exact quote arithmetic. Percentages are accepted to four decimal places. */
+export function calculateInstallmentQuote(
+  amount: bigint,
+  downPaymentPercent: unknown,
+  feePercent: unknown,
+  months: number,
+): InstallmentQuote {
+  const downRate = parsePercentToScaledInteger(downPaymentPercent);
+  const feeRate = parsePercentToScaledInteger(feePercent);
+  const percentDenominator = 100n * RATE_SCALE;
+  if (amount <= 0n || downRate === null || downRate < 0n || downRate > percentDenominator ||
+      feeRate === null || feeRate < 0n || !Number.isInteger(months) || months < 1 || months > 120) {
+    throw new Error("پارامترهای محاسبه اقساط معتبر نیستند");
+  }
+  const downPayment = roundRatioHalfUp(amount * downRate, percentDenominator);
+  const financedAmount = amount - downPayment;
+  const serviceFee = roundRatioHalfUp(financedAmount * feeRate, percentDenominator);
+  const totalInstallments = financedAmount + serviceFee;
+  const regular = (totalInstallments + BigInt(months) - 1n) / BigInt(months);
+  let remaining = totalInstallments;
+  const installments = Array.from({ length: months }, (_, index) => {
+    const due = index === months - 1 ? remaining : (regular < remaining ? regular : remaining);
+    remaining -= due;
+    return { number: index + 1, amount: due };
+  });
+  if (remaining !== 0n || installments.reduce((sum, row) => sum + row.amount, 0n) !== totalInstallments) {
+    throw new Error("جمع اقساط با مبلغ قرارداد تطبیق ندارد");
+  }
+  return {
+    downPayment,
+    financedAmount,
+    serviceFee,
+    totalInstallments,
+    totalPayable: downPayment + totalInstallments,
+    installments,
+  };
 }
