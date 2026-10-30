@@ -22,7 +22,6 @@ export default function CustomerIdentityDocumentsPage(){
  const [items,setItems]=useState<DocumentItem[]>([]);
  const [applicationId,setApplicationId]=useState("");
  const [documentType,setDocumentType]=useState("national-id-front");
- const [documentNumber,setDocumentNumber]=useState("");
  const [file,setFile]=useState<File|null>(null);
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false);
  const [error,setError]=useState(""),[message,setMessage]=useState("");
@@ -47,8 +46,8 @@ export default function CustomerIdentityDocumentsPage(){
    const data=await new Promise<string>((resolve,reject)=>{
     const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||""));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);
    });
-   await api("/api/lendtech/my-documents",{method:"POST",body:JSON.stringify({applicationId,documentType,documentNumber,fileName:file.name,originalSizeBytes:file.size,data})});
-   setFile(null);setDocumentNumber("");setMessage("مدرک به پرونده انتخاب‌شده پیوست شد و برای بررسی اپراتور ثبت شد.");
+   await api("/api/lendtech/my-documents",{method:"POST",body:JSON.stringify({applicationId,documentType,fileName:file.name,originalSizeBytes:file.size,data})});
+   setFile(null);setMessage("مدرک به پرونده انتخاب‌شده پیوست شد و برای بررسی اپراتور ثبت شد.");
    const input=document.getElementById("identity-document-file") as HTMLInputElement|null;if(input)input.value="";
    await load();
   }catch(e){setError(e instanceof Error?e.message:"ثبت مدرک ناموفق بود");}
@@ -68,7 +67,6 @@ export default function CustomerIdentityDocumentsPage(){
    {!applications.length&&!loading?<div className={styles.empty}>برای حساب شما پرونده اعتباری فعالی پیدا نشد. ابتدا درخواست اعتبار ثبت کنید.</div>:<div className={styles.form}>
     <label>پرونده اعتباری<select value={applicationId} onChange={e=>setApplicationId(e.target.value)}><option value="">انتخاب پرونده</option>{applications.map(a=><option key={a.id} value={a.id}>{a.application_no} · {a.product_code} · {a.status}</option>)}</select></label>
     <label>نوع مدرک<select value={documentType} onChange={e=>setDocumentType(e.target.value)}>{types.map(([value,title])=><option key={value} value={value}>{title}</option>)}</select></label>
-    <label>شماره مدرک (اختیاری)<input maxLength={60} value={documentNumber} onChange={e=>setDocumentNumber(e.target.value)} placeholder="در صورت نیاز"/></label>
     <label>فایل مدرک<input id="identity-document-file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)}/></label>
     {file&&<div className={styles.fileInfo}>{file.name} · {(file.size/1024/1024).toFixed(2)} مگابایت</div>}
     <button disabled={saving||loading||!applicationId||!file} onClick={upload}>{saving?"در حال بارگذاری...":"ثبت امن مدرک"}</button>
