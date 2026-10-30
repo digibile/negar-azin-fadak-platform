@@ -292,7 +292,7 @@ for(const route of [
 ])if(!accountingOperations.includes(route))throw new Error("Canonical party/bank-account route missing: "+route);
 if(!accountingOperations.includes("const validIranianIban=")||!accountingOperations.includes("%97")||!accountingOperations.includes("on conflict(tenant_id,iban) do nothing"))throw new Error("Iranian IBAN validation and tenant uniqueness must be enforced in the API");
 if(!accountingOperations.includes("where id=$1 and tenant_id=$2")||!accountingOperations.includes("where id=$1 and party_id=$2 and tenant_id=$3"))throw new Error("Party and bank account APIs must enforce tenant and parent ownership");
-if(!accountingOperations.includes("accounting_finance_audit")||!accountingOperations.includes("verification_status"))throw new Error("Party bank account changes must be auditable and have explicit verification state");
+if(!accountingOperations.includes("insert into audit_events(event_type,actor_ref,entity_type,entity_id,payload)")||accountingOperations.includes("accounting_finance_audit")||!accountingOperations.includes("verification_status"))throw new Error("Party bank account changes must use the canonical audit_events stream and explicit verification state");
 if(!accountingWorkspace.includes('["parties","طرف‌حساب‌ها و شبا"]')||!accountingWorkspace.includes("/api/accounting-finance/counterparties")||!accountingWorkspace.includes("partyBankAccounts")||!accountingWorkspace.includes("تأیید دستی"))throw new Error("Canonical accounting workspace must expose counterparties and manual bank verification");
 if(!accountingOperations.includes('requirePermission("accounting-finance.read")'))throw new Error("Party and bank account reads must require accounting read permission");
 
