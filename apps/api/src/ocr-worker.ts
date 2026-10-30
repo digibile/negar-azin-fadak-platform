@@ -48,7 +48,7 @@ async function claimBatch():Promise<OcrJob[]>{
  const client=await pool.connect();
  try{
   await client.query("begin");
-  await client.query("update platform_ocr_jobs set status='queued',updated_at=now(),error_message=coalesce(error_message,'OCR worker lease expired') where provider_code='tesseract-local' and status='processing' and updated_at<now()-($1 * interval '1 second')",[LOCK_TTL_SECONDS]);
+  await client.query("update platform_ocr_jobs set status='queued',updated_at=now(),error_message=coalesce(error_message,'OCR worker lease expired') where provider_code='tesseract-local' and status='processing' and updated_at<now()-make_interval(secs=>$1)",[LOCK_TTL_SECONDS]);
   const r=await client.query("with picked as (select id from platform_ocr_jobs where provider_code='tesseract-local' and status='queued' order by created_at,id for update skip locked limit $1) update platform_ocr_jobs j set status='processing',attempts=j.attempts+1,updated_at=now(),error_message=null from picked where j.id=picked.id returning j.id,j.tenant_id,j.attachment_id,j.language_hint,j.attempts",[BATCH_SIZE]);
   if(r.rowCount)await client.query("update platform_attachments a set ocr_status='processing',updated_at=now() from platform_ocr_jobs j where j.id=any($1::uuid[]) and a.id=j.attachment_id and a.tenant_id=j.tenant_id",[r.rows.map((row:any)=>row.id)]);
   await client.query("commit");
