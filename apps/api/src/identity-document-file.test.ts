@@ -15,7 +15,7 @@ test("rejects forged MIME payloads, invalid base64, empty files and oversized do
  assert.equal(decodeIdentityDocument("data:image/png;base64,PHNjcmlwdD4="),null);
  assert.equal(decodeIdentityDocument("%%%not-base64%%%"),null);
  assert.equal(decodeIdentityDocument(""),null);
- assert.equal(decodeIdentityDocument(encode(Buffer.alloc(10*1024*1024+1,1))),null);
+ assert.equal(decodeIdentityDocument(encode(Buffer.alloc(8*1024*1024+1,1))),null);
 });
 
 test("sanitizes path separators and control characters from file names",()=>{
