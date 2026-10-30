@@ -6,6 +6,7 @@ import {ensureAdmin,hashPassword,verifyPassword,issueSession,clearSession,requir
 import {asyncHandler,errorHandler,notFound} from "./http.js";
 import {loginIdentifierSchema,userCreateSchema,formSchema,pageSchema,menuUpdateSchema} from "./validation.js";
 import {normalizeIranMobile,createOtpCode,otpDigest,verifyOtpDigest,sendKavenegarOtp} from "./otp.js";
+import {isValidIranianNationalCode} from "./iranian-validation.js";
 import {domainFinanceRouter} from "./domain-finance.js";
 import {dynamicMenuRouter} from "./dynamic-menu.js";
 import {accountingRouter} from "./accounting.js";
@@ -225,7 +226,7 @@ app.post("/api/auth/login",asyncHandler(async(req,res)=>{
  const input=loginIdentifierSchema.parse({email:identifier,password:req.body?.password});
  if(method==="email"&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier))return res.status(400).json({error:"آدرس ایمیل معتبر نیست"});
  if(method==="mobile"&&!/^[0-9]{8,15}$/.test(identifier.replace(/^\+/,"")))return res.status(400).json({error:"شماره موبایل معتبر نیست"});
- if(method==="nationalId"&&!/^\d{10}$/.test(identifier))return res.status(400).json({error:"کد ملی باید ۱۰ رقم باشد"});
+ if(method==="nationalId"&&!isValidIranianNationalCode(identifier))return res.status(400).json({error:"کد ملی معتبر نیست"});
  if(!verifyHumanCheck(String(req.body?.humanCheck||""),String(req.body?.humanAnswer||"")))return res.status(400).json({error:"تأیید انسانی نامعتبر یا منقضی شده است"});
  const r=method==="mobile"
   ?await query("select id,email,password_hash,full_name,role from users where status='active' and exists (select 1 from user_contact_methods c where c.user_id=users.id and c.channel='sms' and c.status='active' and c.verified_at is not null and regexp_replace(translate(c.value,'۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩','01234567890123456789'),'[^0-9]','','g')=$1) limit 2",[identifier])
