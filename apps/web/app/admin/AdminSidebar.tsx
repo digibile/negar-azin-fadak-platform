@@ -172,18 +172,6 @@ export default function AdminSidebar(){
      </section>;
     })}
    </nav>
-   <div className={styles["sidebar-caption"]}><span>امکانات تکمیلی پنل قبلی</span></div>
-   <nav className={styles["master-nav"]} aria-label="امکانات تکمیلی پنل قبلی">
-    <div className={styles["master-children"]}>
-     <Link className={styles["master-child"]} href="/admin" onClick={closeMobile}><span className={styles["master-child-index"]}>01</span>داشبورد مدیریت و مرکز فرماندهی</Link>
-     <Link className={styles["master-child"]} href="/admin/lendtech" onClick={closeMobile}><span className={styles["master-child-index"]}>02</span>مدیریت وام و لندتک</Link>
-     <Link className={styles["master-child"]} href="/admin/templates" onClick={closeMobile}><span className={styles["master-child-index"]}>03</span>قالب‌ها و پوسته‌های سایت</Link>
-     <Link className={styles["master-child"]} href="/admin/editors" onClick={closeMobile}><span className={styles["master-child-index"]}>04</span>ویرایشگر صفحه، فرم و منو</Link>
-     <Link className={styles["master-child"]} href="/admin/updates" onClick={closeMobile}><span className={styles["master-child-index"]}>05</span>نسخه‌ها و به‌روزرسانی سامانه</Link>
-     <Link className={styles["master-child"]} href="/modules/?code=20-system-settings" onClick={closeMobile}><span className={styles["master-child-index"]}>06</span>تنظیمات اپلیکیشن و سامانه</Link>
-     <Link className={styles["master-child"]} href="/modules/?code=50-release-health" onClick={closeMobile}><span className={styles["master-child-index"]}>07</span>پشتیبان‌گیری، بازیابی و سلامت سامانه</Link>
-    </div>
-   </nav>
    <footer className={styles["sidebar-footer"]}>
     <Link href="/admin/templates" onClick={closeMobile}><span>▦</span><div><b>کتابخانه مرکزی قالب‌ها</b><small>قالب پایه، فروشگاه، لندتک و پرداخت</small></div></Link>
     <Link href="/admin/editors" onClick={closeMobile}><span>✦</span><div><b>ویرایشگرهای سامانه</b><small>صفحه، فرم و منو</small></div></Link>
