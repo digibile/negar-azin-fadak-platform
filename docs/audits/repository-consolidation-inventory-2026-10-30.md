@@ -69,3 +69,26 @@
 
 ## ایمنی
 در این شاخه هیچ دیتابیس تولیدی، DNS، فایل env سرور یا سرویس production تغییر نکرده و هیچ deployment تولیدی اجرا نشده است.
+
+
+## بررسی عمیق‌تر شاخه‌ها و منابع اجرایی
+### Vamcity
+- شاخه `import/ghestine-platform-2026-10-26` طبق `DEPLOYMENT-GATE.md` بسته‌ای برای `digibail.ir` است، نه Sookar یا سامانه NAF.
+- همان مستند می‌گوید بسته .NET کامل شامل solution/projectهای backend نیست و endpointهای captcha/OTP روی سایت هدف 404 بوده‌اند؛ سبز بودن تست بسته‌بندی به معنی build backend یا اتصال DB نیست.
+- این شاخه صریحاً ادغام با main یا کپی به مسیرهای Sookar/NAF را ممنوع می‌کند؛ بنابراین وارد مخزن canonical Sookar نشد.
+- شاخه `database-linux-migration` فقط اسکریپت read-only بررسی وجود دیتابیس‌های `vamcityc_vamcity`، `vamcityc_bluvamdb`، `vamcityc_transferDb` و `vamcity_stage` را دارد؛ این اسکریپت دیتابیس را ایجاد، تغییر یا restore نمی‌کند.
+- بکاپ واقعی SQL Server هنوز باید جداگانه از سرور/آرشیو معتبر خوانده و schema کامل آن استخراج شود.
+
+### Digibail
+- اسکریپت `database/02-schema-new-modules.sql` صریحاً می‌گوید schema جدول‌های قدیمی کاربران، وام‌ها و اقساط را شامل نمی‌شود و فقط روی دیتابیس خالی/تستی قابل استفاده است.
+- `backend/db/001_init.sql` یک طرح PostgreSQL جداگانه با users، OTP، SMS، customer_documents و customer_contracts است؛ این schema با مدل‌های فعلی پلتفرم یکی فرض نشده و روی دیتابیس Sookar اجرا نشده است.
+- موتور قرارداد، پس از انتقال به TypeScript و افزودن تست، در هسته فعلی استفاده می‌شود؛ سایر جداول/ماژول‌ها فقط پس از mapping و migration plan قابل انتقال‌اند.
+
+### MASTER-MOTHER
+- کد OTP از abstraction قابل‌جایگزینی برای rate-limit store و SMS sender استفاده می‌کند؛ در runtime مقصد هنوز SMS provider اجرایی متصل نیست.
+- بنابراین پیاده‌سازی OTP پیامکی تا زمان تعریف provider، secretهای امن، جدول challenge، سیاست rate-limit و تست‌های امنیتی به production متصل نمی‌شود.
+- مدل‌های مرکزی User/Tenant/Permission باید با `users`، `user_tenants`، `identity_*` و `security_sessions` موجود تطبیق داده شوند؛ جداول موازی ساخته نمی‌شوند.
+
+### TejarhStore
+- README شامل credential پیش‌فرض ادمین برای نصب مستقل است؛ هیچ appsettings یا credential از این پروژه وارد مخزن canonical نشده است.
+- Product/Category/Brand/Cart/Order در بازارگاه فعلی با catalog، sellers، orders، checkout و payment provider موجود تطبیق داده می‌شوند؛ پروژه ASP.NET Core دوم اجرا نمی‌شود.
