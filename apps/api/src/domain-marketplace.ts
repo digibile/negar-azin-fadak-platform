@@ -6,6 +6,7 @@ import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
 import {emitBusinessEvent} from "./business-events.js";
 import {getDigikalaCatalog, getDigikalaCategoryProducts, getDigikalaProductById, type DigikalaCatalogProduct} from "./digikala-catalog.js";
 import {randomUUID} from "node:crypto";
+import {ensureCanonicalParty} from "./canonical-party.js";
 import {mkdir,writeFile} from "node:fs/promises";
 import path from "node:path";
 
@@ -84,7 +85,7 @@ domainMarketplaceRouter.post("/api/tenancy/tenants",requireAuth,requirePermissio
 domainMarketplaceRouter.get("/api/marketplace/sellers",requireAuth,requirePermission("seller:view"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
-  const r=await query("select id,legal_name,display_name,status,commission_rate,created_at,updated_at from sellers where tenant_id=$1 order by created_at desc",[ctx.id]);
+  const r=await query("select s.id,s.party_id,p.title as canonical_party_title,s.legal_name,s.display_name,s.status,s.commission_rate,s.created_at,s.updated_at from sellers s left join accounting_parties p on p.id=s.party_id and p.tenant_id=s.tenant_id where s.tenant_id=$1 order by s.created_at desc",[ctx.id]);
   res.json({tenant:ctx,items:r.rows,total:r.rowCount});
 }));
 
@@ -94,8 +95,18 @@ domainMarketplaceRouter.post("/api/marketplace/sellers",requireAuth,requirePermi
   const legal=bodyString(req.body?.legalName,250),display=bodyString(req.body?.displayName,250);
   const rate=bodyNumber(req.body?.commissionRate??0);
   if(!legal||!display||rate===null||rate<0||rate>100)return res.status(400).json({error:"اطلاعات فروشنده نامعتبر است"});
-  const r=await query("insert into sellers(tenant_id,legal_name,display_name,commission_rate) values($1,$2,$3,$4) returning *",[ctx.id,legal,display,rate]);
-  res.status(201).json(r.rows[0]);
+  const client=await pool.connect();
+  try{
+    await client.query("begin");
+    const partyId=await ensureCanonicalParty(client,{tenantId:ctx.id,kind:"supplier",title:legal,nationalId:bodyString(req.body?.nationalId,80)||null,sourceSystem:"marketplace_sellers"});
+    const r=await client.query("insert into sellers(tenant_id,party_id,legal_name,display_name,commission_rate) values($1,$2,$3,$4,$5) returning *",[ctx.id,partyId,legal,display,rate]);
+    await client.query("commit");
+    res.status(201).json(r.rows[0]);
+  }catch(error:any){
+    await client.query("rollback");
+    if(error?.statusCode)return res.status(error.statusCode).json({error:error.message});
+    throw error;
+  }finally{client.release();}
 }));
 
 domainMarketplaceRouter.get("/api/marketplace/stores",requireAuth,requirePermission("store:view"),asyncHandler(async(req,res)=>{
