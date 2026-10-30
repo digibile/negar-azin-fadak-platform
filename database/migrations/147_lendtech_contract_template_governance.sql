@@ -86,6 +86,7 @@ create table if not exists lendtech_contract_documents (
   requires_review boolean not null default true,
   html text not null,
   body_hash text not null,
+  signed_body_hash text,
   values_json jsonb not null default '{}'::jsonb,
   previous_id uuid,
   created_by text,
