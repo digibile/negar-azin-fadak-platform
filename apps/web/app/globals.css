@@ -416,6 +416,8 @@ html,body{font-family:"IRANSansX","Vazirmatn","Segoe UI",Tahoma,sans-serif;backg
 .naf-captcha-body strong{font-size:13px;color:#edefF3;font-weight:700}
 .naf-captcha-body input{height:38px;border:1px solid #243250;border-radius:8px;background:#182238;color:#edefF3;padding:0 9px;text-align:center;outline:none;font-family:"Space Grotesk","Vazirmatn",sans-serif}
 .naf-captcha-body input:focus{border-color:#c9a227}
+.naf-success{padding:10px 12px;border:1px solid rgba(34,197,94,.25);border-radius:10px;background:rgba(34,197,94,.08);color:#86efac;font-size:12px;margin:-8px 0 16px}
+.naf-otp-reset{width:100%;min-height:38px;border:0;background:transparent;color:var(--naf-accent);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
 .naf-error{padding:10px 12px;border:1px solid rgba(229,89,92,.25);border-radius:10px;background:rgba(229,89,92,.1);color:#ff9a9d;font-size:12px;margin:-8px 0 16px}
 .naf-divider{display:flex;align-items:center;gap:12px;color:#5e6a87;font-size:12px;margin:20px 0}
 .naf-divider:before,.naf-divider:after{content:"";height:1px;flex:1;background:#243250}
