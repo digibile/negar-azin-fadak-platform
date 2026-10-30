@@ -15,7 +15,7 @@ function normalizedText(value:string){
 }
 
 function capture(text:string,labels:string):string|undefined{
- const re=new RegExp("(?:^|[\\s:：])(?:"+labels+")\\s*[:：\\-]?\\s*([\\u0600-\\u06ff]{2,}(?:\\s+[\\u0600-\\u06ff]{2,}){0,2})","i");
+ const re=new RegExp("(?:^|[\\r\\n \\t:：])(?:"+labels+")[ \\t]*[:：\\-]?[ \\t]*([\\u0600-\\u06ff]{2,}(?:[ \\t]+[\\u0600-\\u06ff]{2,}){0,2})","i");
  const match=text.match(re);
  return match?.[1]?.trim();
 }
@@ -26,10 +26,10 @@ export function parseIranianIdentityText(raw:string):IdentityOcrResult{
  const nationalCode=candidates.find(isValidIranianNationalCode);
  const fields:Record<string,string>={};
  if(nationalCode)fields.nationalCode=nationalCode;
- const firstName=capture(text,"نام(?!\\s*خانوادگی)");
- const lastName=capture(text,"نام\\s*خانوادگی");
- const fatherName=capture(text,"نام\\s*پدر");
- const birthDate=text.match(/(?:تاریخ\s*تولد|تولد)\s*[:：\-]?\s*(1[34]\d{2}[\/\-]\d{1,2}[\/\-]\d{1,2})/i)?.[1];
+ const firstName=capture(text,"نام(?![ \\t]*خانوادگی)");
+ const lastName=capture(text,"نام[ \\t]*خانوادگی");
+ const fatherName=capture(text,"نام[ \\t]*پدر");
+ const birthDate=text.match(/(?:تاریخ[ \t]*تولد|تولد)[ \t]*[:：\-]?[ \t]*(1[34]\d{2}[\/\-]\d{1,2}[\/\-]\d{1,2})/i)?.[1];
  if(firstName)fields.firstName=firstName;
  if(lastName)fields.lastName=lastName;
  if(fatherName)fields.fatherName=fatherName;
