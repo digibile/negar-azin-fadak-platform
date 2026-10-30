@@ -123,7 +123,9 @@ domainMarketplaceRouter.get("/api/marketplace/products",requireAuth,requirePermi
   const params:any[]=[ctx.id];
   let where="p.tenant_id=$1";
   if(q){params.push("%"+q+"%");where+=" and (p.title ilike $2 or p.sku ilike $2)";}
-  const r=await query("select p.id,p.sku,p.title,p.description,p.category,p.price,p.currency,p.status,p.seller_id,p.store_id,p.attributes,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name from products p join sellers sl on sl.id=p.seller_id where "+where+" order by p.updated_at desc",params);
+  const r=await query(
+    "select p.id,p.sku,p.title,p.description,p.category,p.category_id,p.brand_id,p.discount_price,p.price,p.currency,p.status,p.seller_id,p.store_id,p.attributes,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name,mc.name as category_name,mc.slug as category_slug,b.name as brand_name,b.logo_url as brand_logo_url,coalesce((select json_agg(json_build_object('id',pi.id,'url',pi.url,'altText',pi.alt_text,'isMain',pi.is_main,'sortOrder',pi.sort_order) order by pi.is_main desc,pi.sort_order,pi.created_at) from product_images pi where pi.tenant_id=p.tenant_id and pi.product_id=p.id),'[]'::json) as images from products p join sellers sl on sl.id=p.seller_id left join marketplace_categories mc on mc.id=p.category_id and mc.tenant_id=p.tenant_id left join brands b on b.id=p.brand_id and b.tenant_id=p.tenant_id where "+where+" order by p.updated_at desc",params
+  );
   res.json({tenant:ctx,items:r.rows,total:r.rowCount});
 }));
 
@@ -135,9 +137,21 @@ domainMarketplaceRouter.post("/api/marketplace/products",requireAuth,requirePerm
   if(!seller||!sku||!title||price===null||price<=0)return res.status(400).json({error:"شناسه، عنوان و قیمت فروش داخلی معتبر و قیمت بیشتر از صفر الزامی است"});
   const owned=await query("select id from sellers where id=$1 and tenant_id=$2",[seller,ctx.id]);
   if(!owned.rowCount)return res.status(404).json({error:"فروشنده در این محدوده پیدا نشد"});
+  const categoryId=bodyString(req.body?.categoryId,100)||null;
+  const brandId=bodyString(req.body?.brandId,100)||null;
+  const discountPrice=req.body?.discountPrice===undefined||req.body?.discountPrice===null||req.body?.discountPrice===""?null:bodyNumber(req.body.discountPrice);
+  if(discountPrice!==null&&(discountPrice===null||discountPrice<0||discountPrice>price))return res.status(400).json({error:"قیمت تخفیف باید بین صفر و قیمت اصلی باشد"});
+  if(categoryId){
+    const category=await query("select id from marketplace_categories where id=$1 and tenant_id=$2 and status='active'",[categoryId,ctx.id]);
+    if(!category.rowCount)return res.status(400).json({error:"دسته‌بندی فعال در این سازمان پیدا نشد"});
+  }
+  if(brandId){
+    const brand=await query("select id from brands where id=$1 and tenant_id=$2 and status='active'",[brandId,ctx.id]);
+    if(!brand.rowCount)return res.status(400).json({error:"برند فعال در این سازمان پیدا نشد"});
+  }
   const submittedAttributes=req.body?.attributes&&typeof req.body.attributes==="object"?req.body.attributes as Record<string,unknown>:{};
   const attributes={inventoryQuantity:10,inventoryVerified:false,inventorySource:"",...submittedAttributes};
-  const r=await query("insert into products(tenant_id,seller_id,store_id,sku,title,description,category,price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10) returning *",[ctx.id,seller,bodyString(req.body?.storeId,100)||null,sku,title,bodyString(req.body?.description,2000)||null,bodyString(req.body?.category,200)||null,price,bodyString(req.body?.currency,10)||"IRR",JSON.stringify(attributes)]);
+  const r=await query("insert into products(tenant_id,seller_id,store_id,sku,title,description,category,category_id,brand_id,price,discount_price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'draft',$13) returning *",[ctx.id,seller,bodyString(req.body?.storeId,100)||null,sku,title,bodyString(req.body?.description,2000)||null,bodyString(req.body?.category,200)||null,categoryId,brandId,price,discountPrice,bodyString(req.body?.currency,10)||"IRR",JSON.stringify(attributes)]);
   res.status(201).json(r.rows[0]);
 }));
 
@@ -147,6 +161,34 @@ domainMarketplaceRouter.post("/api/marketplace/products",requireAuth,requirePerm
  * Records remain drafts until price, seller, image and inventory have been reviewed.
  * Product images must already be hosted by this platform; external hotlinks are rejected.
  */
+domainMarketplaceRouter.post("/api/marketplace/products/:id/images",requireAuth,requirePermission("product:image:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const url=bodyString(req.body?.url,500);
+  const altText=bodyString(req.body?.altText,250)||null;
+  const sortOrder=bodyNumber(req.body?.sortOrder)??0;
+  const isMain=req.body?.isMain===true;
+  if(!/^\/api\/public\/media\/catalog\/[a-zA-Z0-9/_-]+\.(?:webp|png|jpe?g|avif)$/i.test(url))return res.status(400).json({error:"تصویر باید ابتدا در رسانه داخلی پلتفرم ذخیره شود"});
+  const product=await query("select id from products where id=$1 and tenant_id=$2",[req.params.id,ctx.id]);
+  if(!product.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});
+  const client=await pool.connect();
+  try{
+    await client.query("begin");
+    if(isMain)await client.query("update product_images set is_main=false,updated_at=now() where tenant_id=$1 and product_id=$2",[ctx.id,req.params.id]);
+    const saved=await client.query("insert into product_images(tenant_id,product_id,url,alt_text,is_main,sort_order) values($1,$2,$3,$4,$5,$6) returning id,product_id,url,alt_text,is_main,sort_order",[ctx.id,req.params.id,url,altText,isMain,sortOrder]);
+    await client.query("commit");
+    res.status(201).json({item:saved.rows[0]});
+  }catch(error){await client.query("rollback");throw error;}finally{client.release();}
+}));
+
+domainMarketplaceRouter.delete("/api/marketplace/products/:id/images/:imageId",requireAuth,requirePermission("product:image:manage"),asyncHandler(async(req,res)=>{
+  const ctx=await tenantContext(req,(req as any).user);
+  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+  const removed=await query("delete from product_images where tenant_id=$1 and product_id=$2 and id=$3 returning id",[ctx.id,req.params.id,req.params.imageId]);
+  if(!removed.rowCount)return res.status(404).json({error:"تصویر محصول پیدا نشد"});
+  res.json({deleted:true,id:removed.rows[0].id});
+}));
+
 domainMarketplaceRouter.post("/api/marketplace/products/import-supplier-catalog",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
