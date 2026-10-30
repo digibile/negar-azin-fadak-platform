@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {ensureCanonicalParty} from "./canonical-party.js";
+import {ensureCanonicalParty,normalizeNationalId} from "./canonical-party.js";
 
 function client(matches:any[]=[]){
  const calls:{sql:string;params?:unknown[]}[]=[];
@@ -8,7 +8,7 @@ function client(matches:any[]=[]){
   calls,
   query:async(sql:string,params?:unknown[])=>{
    calls.push({sql,params});
-   if(sql.includes("select id from accounting_parties where tenant_id=$1 and national_id=$2"))return {rows:matches};
+   if(sql.includes("select id from accounting_parties where tenant_id=$1 and regexp_replace"))return {rows:matches};
    if(sql.startsWith("insert into accounting_parties"))return {rows:[{id:"party-created"}]};
    return {rows:[]};
   }
@@ -20,7 +20,8 @@ test("canonical party resolver reuses one exact tenant-scoped national identity 
  const id=await ensureCanonicalParty(db as any,{tenantId:"tenant-1",kind:"customer",title:"مشتری",nationalId:"0012345678",sourceSystem:"sales_partners"});
  assert.equal(id,"party-existing");
  assert.ok(db.calls.some(x=>x.sql.includes("pg_advisory_xact_lock")));
- assert.ok(db.calls.some(x=>x.sql.includes("tenant_id=$1 and national_id=$2")));
+ assert.ok(db.calls.some(x=>x.sql.includes("tenant_id=$1 and regexp_replace")));
+ assert.equal(db.calls.find(x=>x.sql.includes("tenant_id=$1 and regexp_replace"))?.params?.[1],"0012345678");
  assert.equal(db.calls.some(x=>x.sql.startsWith("insert into accounting_parties")),false);
 });
 
@@ -41,4 +42,9 @@ test("canonical party resolver creates a new party when no exact match exists",a
  assert.ok(insert);
  assert.equal((insert?.params?.[2] as string),"other");
  assert.equal((insert?.params?.[3] as string),"پذیرنده");
+});
+
+test("national identity normalization accepts Persian and Arabic digits consistently",()=>{
+ assert.equal(normalizeNationalId(" ۰۰۱-۲۳۴ ۵۶۷۸ "), "0012345678");
+ assert.equal(normalizeNationalId("٠٠١٢٣٤٥٦٧٨"), "0012345678");
 });
