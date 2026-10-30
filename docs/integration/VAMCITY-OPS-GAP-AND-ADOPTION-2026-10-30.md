@@ -196,7 +196,7 @@ API مبدأ فقط برای SuperAdmin فهرست فایل‌های `.bak`، ا
 - API جدید از همان `customer360Router` موجود استفاده می‌کند؛ router جداگانه یا سرویس دوم اضافه نشده است.
 - کنترل CSRF برای عملیات نوشتن و tenant scope برای تمام خواندن/نوشتن‌ها اعمال شده است.
 - اسکریپت یکپارچگی برای وجود migration، routeها، مجوزها و UI بازاریاب بررسی اضافه دریافت کرده است.
-- اجرای build/test یا migration روی دیتابیس عملیاتی در این مرحله انجام نشده است. تا اجرای CI یا محیط تست، این تغییر آماده استقرار تولیدی اعلام نمی‌شود.
+- CI در run `41065788005` با موفقیت integrity check، API build، migrationها روی PostgreSQL 16 آزمایشی، تست‌های API، storefront checks، Web build و بسته‌بندی artifact را گذراند. تست واحد مستقل MOD-97 نیز در همین اجرا پوشش داده شد. هیچ migration روی دیتابیس عملیاتی اجرا نشده است.
 
 
 ### اعلام واریز مشتری و بررسی مدیر در هسته تسهیلات مرکزی
@@ -228,4 +228,4 @@ API مبدأ فقط برای SuperAdmin فهرست فایل‌های `.bak`، ا
 - مدل `PaymentDeclaration` در `backend/ops/files/OpsModule.cs` موجود است و فیلدهای `TenantId`, `UserId`, `LoanId`, `Amount`, `Method` (۳۰)، `Reference` (۶۰)، `PaidAt`, `Note` (۳۰۰)، `Status` (۲۰)، `ReviewNote` (۳۰۰)، `ReviewedBy`, `ReviewedAt`, `CreatedOn` را دارد. توضیح خود مدل تصریح می‌کند تأیید فقط وضعیت را تغییر می‌دهد و ثبت در اقساط وام جداست. پیکربندی کامل EF/constraintهای دیتابیس و آپلود تصویر رسید در فایل‌های فعلی این مخزن دیده نمی‌شود.
 - صف بررسی مدیر در `apps/web/app/admin/lendtech/page.tsx` به API متصل است و امکان تأیید/رد با دلیل را دارد. رابط مشتری از قبل در `apps/web/app/account/installments/page.tsx` وجود دارد و قراردادهای متعلق به همان کاربر، برنامه اقساط، فرم اعلام واریز و سوابق را از `/api/lendtech/my-contracts` و `/api/lendtech/my-payment-declarations` می‌خواند/ثبت می‌کند. اسکریپت `scripts/verify-platform-integrity.mjs` همین اتصال مشتری و صف مدیر در `/admin/lendtech` را کنترل می‌کند. بنابراین صفحه موازی جدید ساخته نشد. اتصال بانکی یا تأیید خودکار/امضاشده PSP وجود ندارد.
 
-اعتبارسنجی CI در GitHub Actions با موفقیت انجام شد: integrity check، API build، اجرای migrationهای کامل روی PostgreSQL 16 آزمایشی، تست‌های API، build وب، کنترل‌های storefront و بسته‌بندی artifact همگی موفق بودند (run 41059885779؛ کد برنامه تا commit `625414c1f6eabdad40efd84a15d08c7d93099386`). این اجرا به پایگاه داده تولید متصل نبود و migration روی دیتابیس زنده اجرا نشده است. artifact فقط برای بازبینی ساخته شد؛ merge و deploy انجام نشده‌اند.
+آخرین CI موفق برای کد اجرایی این مرحله: run `41065788005` روی commit `bae35593f6c98d5de55edb242450b29523d2e15a`. integrity check، API build، migrationهای کامل روی PostgreSQL 16 آزمایشی، API tests (از جمله تست MOD-97)، storefront checks، Web build و بسته‌بندی artifact موفق شدند. تغییرات پس از آن فقط مستندات هستند. workflow تمام مراحل deploy تولیدی را skipped کرد؛ به دیتابیس تولید متصل نشد و هیچ migration زنده، backfill، merge یا deployment انجام نشده است.
