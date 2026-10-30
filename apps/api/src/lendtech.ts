@@ -140,7 +140,7 @@ lendtechRouter.post("/api/lendtech/applications",requireAuth,requirePermission("
   }else if(customerRef===actor(req)){
    const user=await client.query("select id,full_name,email,national_id from users where id=$1 and status='active' for share",[actor(req)]);
    if(user.rowCount){
-    const nationalId=normalizeIranianDigits(user.rows[0].national_id).replace(/\\D/g,"");
+    const nationalId=normalizeIranianDigits(user.rows[0].national_id).replace(/\D/g,"");
     if(isValidIranianNationalCode(nationalId)){
      partyId=await ensureCanonicalParty(client,{tenantId:t.id,kind:"customer",title:String(user.rows[0].full_name||user.rows[0].email),nationalId,email:user.rows[0].email||null,sourceSystem:"lendtech_user_profile"});
     }
