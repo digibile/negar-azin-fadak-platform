@@ -55,6 +55,7 @@ merchantRouter.post("/api/merchants",requireAuth,requirePermission("merchant:man
     // Ambiguous matches are rejected rather than silently merging two real entities.
     let partyId:string|null=null;
     if(nationalId){
+      await client.query("select pg_advisory_xact_lock(hashtext($1),hashtext($2))",[t.id,nationalId]);
       const matches=await client.query(
         "select id from accounting_parties where tenant_id=$1 and national_id=$2 order by created_at for update",
         [t.id,nationalId]
