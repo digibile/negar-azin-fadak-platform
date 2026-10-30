@@ -339,4 +339,23 @@ if(!identityFileValidation.includes("8*1024*1024")||!identityFileTests.includes(
 if(!customerIdentityPage.includes("/api/lendtech/my-applications")||!customerIdentityPage.includes("/api/lendtech/my-documents")||!customerIdentityPage.includes("/api/lendtech/my-documents/")||!customerDashboard.includes("/customer/documents"))throw new Error("Customer dashboard must expose the secure identity document workspace");
 if(!lendtechAdminPage.includes("/api/lendtech/applications/")||!lendtechAdminPage.includes("/api/lendtech/application-documents/")||!lendtechAdminPage.includes("مدارک هویتی مشتری"))throw new Error("LendTech admin must review and securely download documents attached to its application");
 
+
+const ocrWorker=fs.readFileSync(path.join(root,"apps/api/src/ocr-worker.ts"),"utf8");
+const ocrParser=fs.readFileSync(path.join(root,"apps/api/src/identity-ocr-parser.ts"),"utf8");
+const ocrParserTests=fs.readFileSync(path.join(root,"apps/api/src/identity-ocr-parser.test.ts"),"utf8");
+const ocrDocker=fs.readFileSync(path.join(root,"apps/api/OcrWorker.Dockerfile"),"utf8");
+const ocrCompose=fs.readFileSync(path.join(root,"docker-compose.production.yml"),"utf8");
+const apiPackage=JSON.parse(fs.readFileSync(path.join(root,"apps/api/package.json"),"utf8"));
+const enterpriseInteraction=fs.readFileSync(path.join(root,"apps/api/src/enterprise-interaction.ts"),"utf8");
+const deploymentWorkflow=fs.readFileSync(path.join(root,".github/workflows/deploy-sookar-main.yml"),"utf8");
+if(!ocrWorker.includes("for update skip locked")||!ocrWorker.includes("execFile(")||!ocrWorker.includes("timeout:OCR_TIMEOUT_MS")||!ocrWorker.includes("provider_code='tesseract-local'"))throw new Error("OCR worker must claim jobs safely and execute Tesseract without a shell and with a timeout");
+if(!ocrWorker.includes("kycUpdated:false")||!ocrWorker.includes("needs_review")||!ocrWorker.includes("imageExtension"))throw new Error("OCR results must remain human-reviewed and accept only verified image signatures");
+if(!ocrParser.includes("isValidIranianNationalCode")||!ocrParser.includes("validatedFields")||!ocrParser.includes("به‌تنهایی احراز هویت"))throw new Error("OCR parser must validate national-code checksum and never approve KYC");
+if(!ocrParserTests.includes("invalid national code remains in human review")||!ocrParserTests.includes("checksum-validates"))throw new Error("OCR parser checksum tests are required");
+if(!ocrDocker.includes("tesseract-ocr-fas")||!ocrDocker.includes("tesseract --list-langs")||!ocrDocker.includes("apps/api/dist/ocr-worker.js"))throw new Error("OCR worker image must include and verify Persian Tesseract language data");
+if(!ocrCompose.includes("  ocr-worker:")||!ocrCompose.includes("apps/api/OcrWorker.Dockerfile")||!ocrCompose.includes("OCR_WORKER_MAX_ATTEMPTS"))throw new Error("Production compose must run the independent OCR worker");
+if(apiPackage.scripts?.["worker:ocr"]!=="node dist/ocr-worker.js")throw new Error("API package must expose the OCR worker command");
+if(!enterpriseInteraction.includes("'tesseract-local'")||!lendtechIdentity.includes("'tesseract-local'"))throw new Error("Admin and customer image uploads must enqueue the same local OCR provider");
+if(!deploymentWorkflow.includes("Build Persian OCR worker image"))throw new Error("CI must build the Persian OCR worker image");
+
 console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
