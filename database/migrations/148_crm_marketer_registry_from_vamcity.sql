@@ -34,7 +34,7 @@ create table if not exists crm_marketer_audit (
   after_data jsonb,
   created_at timestamptz not null default now(),
   foreign key (tenant_id,marketer_id)
-    references crm_marketers(tenant_id,id) on delete set null
+    references crm_marketers(tenant_id,id) on delete set null (marketer_id)
 );
 
 create index if not exists crm_marketer_audit_tenant_created_idx
