@@ -22,7 +22,7 @@ export default function AccountingFinanceWorkspace(){
  const [tab,setTab]=useState("accounts"),[books,setBooks]=useState<Book[]>([]),[periods,setPeriods]=useState<Period[]>([]),[docs,setDocs]=useState<Doc[]>([]),[accounts,setAccounts]=useState<Account[]>([]),[centers,setCenters]=useState<Center[]>([]),[products,setProducts]=useState<FinanceProduct[]>([]),[warehouses,setWarehouses]=useState<Warehouse[]>([]),[vaults,setVaults]=useState<Vault[]>([]);
  const [error,setError]=useState(""),[saving,setSaving]=useState(false);
  const [parties,setParties]=useState<Party[]>([]),[partyBankAccounts,setPartyBankAccounts]=useState<PartyBank[]>([]);
- const [registryLinks,setRegistryLinks]=useState<RegistryLink[]>([]),[linkRecordId,setLinkRecordId]=useState(""),[linkPartyId,setLinkPartyId]=useState(""),[linkEvidence,setLinkEvidence]=useState(""),[linkConfirmed,setLinkConfirmed]=useState(false);
+ const [registryLinks,setRegistryLinks]=useState<RegistryLink[]>([]),[linkRecordId,setLinkRecordId]=useState(""),[linkPartyId,setLinkPartyId]=useState(""),[linkEvidence,setLinkEvidence]=useState(""),[linkConfirmed,setLinkConfirmed]=useState(false),[linkMatchMethod,setLinkMatchMethod]=useState<"national_id"|"manual_review">("national_id");
  const [partyForm,setPartyForm]=useState({name:"",iban:"",partyType:"other",isActive:true});
  const [editingParty,setEditingParty]=useState<string|null>(null);
  const [bankForm,setBankForm]=useState({partyId:"",iban:""});
@@ -51,7 +51,7 @@ export default function AccountingFinanceWorkspace(){
  const addPartyBank=async()=>{try{await request("/api/accounting-finance/parties/"+bankForm.partyId+"/bank-accounts",{method:"POST",body:JSON.stringify({iban:bankForm.iban})});setBankForm({partyId:"",iban:""});await load()}catch(e){setError(e instanceof Error?e.message:"ثبت حساب بانکی ناموفق بود")}};
  const changePartyBankStatus=async(id:string,partyId:string,status:string)=>{const label=status==="blocked"?"مسدودسازی":status==="inactive"?"غیرفعال‌سازی":"فعال‌سازی";if(!window.confirm(label+" حساب بانکی انجام شود؟"))return;try{await request("/api/accounting-finance/parties/"+partyId+"/bank-accounts/"+id+"/status",{method:"PATCH",body:JSON.stringify({status})});await load()}catch(e){setError(e instanceof Error?e.message:"تغییر وضعیت حساب بانکی ناموفق بود")}};
  const selectedRegistryLink=registryLinks.find(x=>x.id===linkRecordId)||null;
- const saveRegistryLink=async()=>{if(!selectedRegistryLink||!linkPartyId||!linkEvidence.trim()||!linkConfirmed)return;setSaving(true);try{const matchMethod=selectedRegistryLink.registry==="sellers"?"manual_review":"national_id";await request("/api/accounting-finance/party-links/"+selectedRegistryLink.registry+"/"+selectedRegistryLink.id,{method:"POST",body:JSON.stringify({partyId:linkPartyId,matchMethod,matchEvidence:linkEvidence.trim(),confirmMatch:true})});setLinkRecordId("");setLinkPartyId("");setLinkEvidence("");setLinkConfirmed(false);await load()}catch(e){setError(e instanceof Error?e.message:"ثبت پیوند هویتی ناموفق بود")}finally{setSaving(false)}};
+ const saveRegistryLink=async()=>{if(!selectedRegistryLink||!linkPartyId||!linkEvidence.trim()||!linkConfirmed)return;setSaving(true);try{const matchMethod=linkMatchMethod;await request("/api/accounting-finance/party-links/"+selectedRegistryLink.registry+"/"+selectedRegistryLink.id,{method:"POST",body:JSON.stringify({partyId:linkPartyId,matchMethod,matchEvidence:linkEvidence.trim(),confirmMatch:true})});setLinkRecordId("");setLinkPartyId("");setLinkEvidence("");setLinkConfirmed(false);setLinkMatchMethod("national_id");await load()}catch(e){setError(e instanceof Error?e.message:"ثبت پیوند هویتی ناموفق بود")}finally{setSaving(false)}};
 
 
  const addLine=()=>setLines(x=>[...x,{accountId:"",debit:"",credit:"",description:""}]);
@@ -93,7 +93,7 @@ export default function AccountingFinanceWorkspace(){
    <article className={styles.panel}>
     <div className={styles.title}><h2>رکوردهای بدون پیوند هویتی</h2><span>{registryLinks.length} رکورد</span></div>
     <p className={styles.note}>رکوردهای تخصصی حذف نمی‌شوند؛ فقط به طرف‌حساب مرکزی متصل می‌شوند. تطبیق بر اساس نام به‌تنهایی انجام نمی‌شود.</p>
-    {registryLinks.map(x=><div className={styles.card} key={x.registry+":"+x.id}><div><strong>{x.display_name}</strong><small>{x.registry_label} · {x.code||"بدون کد"} · {x.national_id||"شناسه ملی در این دفتر موجود نیست"}</small></div><button className={styles.secondary} onClick={()=>{setLinkRecordId(x.id);setLinkPartyId("");setLinkEvidence("");setLinkConfirmed(false)}}>انتخاب برای اتصال</button></div>)}
+    {registryLinks.map(x=><div className={styles.card} key={x.registry+":"+x.id}><div><strong>{x.display_name}</strong><small>{x.registry_label} · {x.code||"بدون کد"} · {x.national_id||"شناسه ملی در این دفتر موجود نیست"}</small></div><button className={styles.secondary} onClick={()=>{setLinkRecordId(x.id);setLinkPartyId("");setLinkEvidence("");setLinkConfirmed(false);setLinkMatchMethod(x.national_id&&x.registry!=="sellers"?"national_id":"manual_review")}}>انتخاب برای اتصال</button></div>)}
     {!registryLinks.length&&<div className={styles.empty}>رکورد بدون پیوندی باقی نمانده است.</div>}
    </article>
    <article className={styles.panel}>
@@ -101,10 +101,10 @@ export default function AccountingFinanceWorkspace(){
     <p className={styles.note}>{selectedRegistryLink?selectedRegistryLink.display_name+" · "+selectedRegistryLink.registry_label:"ابتدا یک رکورد از فهرست انتخاب کنید."}</p>
     <div className={styles.form}>
      <label>طرف‌حساب مرکزی<select value={linkPartyId} onChange={e=>setLinkPartyId(e.target.value)}><option value="">انتخاب طرف‌حساب</option>{parties.map(p=><option key={p.id} value={p.id}>{p.title} · {p.party_code} · {p.national_id||"بدون شناسه ملی"}</option>)}</select></label>
-     <label className={styles.full}>مدرک یا مبنای تطبیق<input maxLength={500} value={linkEvidence} onChange={e=>setLinkEvidence(e.target.value)} placeholder="مثلاً تطبیق اصل مدارک ثبتی، قرارداد یا پرونده احراز هویت"/></label>
+     <label>روش تطبیق<select value={linkMatchMethod} onChange={e=>setLinkMatchMethod(e.target.value as "national_id"|"manual_review")}><option value="national_id" disabled={!selectedRegistryLink?.national_id||selectedRegistryLink?.registry==="sellers"}>تطبیق دقیق شناسه ملی</option><option value="manual_review">بررسی دستی مستند</option></select></label><label className={styles.full}>مدرک یا مبنای تطبیق<input maxLength={500} value={linkEvidence} onChange={e=>setLinkEvidence(e.target.value)} placeholder="مثلاً تطبیق اصل مدارک ثبتی، قرارداد یا پرونده احراز هویت"/></label>
      <label className={styles.full}><span><input type="checkbox" checked={linkConfirmed} onChange={e=>setLinkConfirmed(e.target.checked)}/> مدارک و هویت را بررسی کردم و اتصال این دو رکورد را تأیید می‌کنم.</span></label>
     </div>
-    <p className={styles.note}>برای مشتری، تأمین‌کننده و پذیرنده، شناسه ملی باید دقیقاً برابر باشد. فروشنده بازارگاه چون شناسه ملی در رجیستری فعلی ندارد، فقط با بررسی دستی و ثبت مستند متصل می‌شود.</p>
+    <p className={styles.note}>در روش شناسه ملی، مقدار دو رکورد باید دقیقاً برابر باشد. در روش بررسی دستی، اتصال فقط با ثبت مدرک معتبر، تأیید صریح کاربر و ثبت رویداد ممیزی انجام می‌شود.</p>
     <button className={styles.primary} disabled={saving||!selectedRegistryLink||!linkPartyId||!linkEvidence.trim()||!linkConfirmed} onClick={saveRegistryLink}>{saving?"در حال ثبت...":"ثبت پیوند هویتی"}</button>
    </article>
   </section>}
