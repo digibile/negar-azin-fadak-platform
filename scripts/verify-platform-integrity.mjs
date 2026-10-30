@@ -286,6 +286,9 @@ if(!treasuryBankApi.includes("beneficiaryBankAccounts:beneficiaryBankAccounts.ro
  
 const treasuryReceiptMigration=fs.readFileSync(path.join(root,"database/migrations/157_treasury_receipts_canonical_payer.sql"),"utf8");
 if(!treasuryReceiptMigration.includes("foreign key(tenant_id,party_id)")||!treasuryReceiptMigration.includes("foreign key(tenant_id,bank_account_id)")||!treasuryBankApi.includes("party.title as canonical_party_title")||!treasuryBankApi.includes("for update")||!treasuryBankUi.includes("طرف‌حساب مرکزی"))throw new Error("Treasury receipts must preserve payer history and use tenant-safe canonical payer links");
+const treasuryMutations=treasuryBankApi.split("\n").filter(line=>line.includes('router.post("/api/treasury-bank/')||line.includes('router.patch("/api/treasury-bank/'));
+if(treasuryMutations.length!==10||treasuryMutations.some(line=>!line.includes("requireCsrf")))throw new Error("Every treasury mutation route must enforce CSRF protection");
+if(!treasuryBankUi.includes("CanonicalPartyReference"))throw new Error("Treasury receipts and payments must use the shared canonical party reference UI");
 const verificationFoundation=fs.readFileSync(path.join(root,"database/migrations/112_verification_and_insurance_foundation.sql"),"utf8");
 const lendtechInquiryUi=fs.readFileSync(path.join(root,"apps/web/app/admin/lendtech/page.tsx"),"utf8");
 for(const route of [
