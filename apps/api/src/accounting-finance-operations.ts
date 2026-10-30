@@ -3,7 +3,7 @@ import {query,pool} from "./db.js";
 import {requireAuth,requirePermission,requireCsrf} from "./auth.js";
 import {resolveTenant} from "./tenant-context.js";
 import {normalizeAndValidateIranianIban} from "./iranian-iban.js";
-import {normalizeNationalId} from "./canonical-party.js";
+import {ensureCanonicalParty,findCanonicalParty} from "./canonical-party.js";
 
 const router=Router();
 const tenantOf=async(req:any)=>resolveTenant(req,req.user);
@@ -33,9 +33,35 @@ router.get("/api/accounting-finance/operations-overview",requireAuth,requirePerm
 
 router.post("/api/accounting-finance/parties",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const b=req.body||{};if(typeof b.partyCode!=="string"||typeof b.title!=="string")return deny(res,400,"کد و عنوان طرف حساب الزامی است");
- const r=await query("insert into accounting_parties(tenant_id,party_code,party_type,title,national_id,economic_code,tax_id,phone,email,address,default_account_id,credit_limit,payment_term_days,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning *",[t.id,b.partyCode.trim(),b.partyType||"customer",b.title.trim(),b.nationalId||null,b.economicCode||null,b.taxId||null,b.phone||null,b.email||null,b.address||null,b.defaultAccountId||null,Number(b.creditLimit)||0,Math.max(0,Number(b.paymentTermDays)||0),b.metadata||{}]);
- await audit(t.id,actor(req),"party",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
+ const b=req.body||{};
+ if(typeof b.partyCode!=="string"||!b.partyCode.trim()||typeof b.title!=="string"||!b.title.trim())return deny(res,400,"کد و عنوان طرف حساب الزامی است");
+ const partyType=["customer","supplier","employee","agent","bank","other"].includes(b.partyType)?b.partyType:"customer";
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const existingId=await findCanonicalParty(c,t.id,b.nationalId);
+  if(existingId){
+   const existing=await c.query("select id,party_code,title from accounting_parties where id=$1 and tenant_id=$2",[existingId,t.id]);
+   await c.query("rollback");
+   return res.status(409).json({error:"این شناسه ملی قبلاً در مرجع طرف‌حساب ثبت شده است؛ رکورد موجود را انتخاب کنید",existingParty:existing.rows[0]||{id:existingId}});
+  }
+  const kind=partyType==="customer"?"customer":partyType==="supplier"?"supplier":"other";
+  const partyId=await ensureCanonicalParty(c,{
+   tenantId:t.id,kind,title:b.title.trim(),nationalId:b.nationalId||null,
+   taxId:b.taxId||null,phone:b.phone||null,email:b.email||null,sourceSystem:"accounting_parties"
+  });
+  const r=await c.query(
+   "update accounting_parties set party_code=$1,party_type=$2,title=$3,economic_code=$4,address=$5,default_account_id=$6,credit_limit=$7,payment_term_days=$8,metadata=$9 where id=$10 and tenant_id=$11 returning *",
+   [b.partyCode.trim(),partyType,b.title.trim(),b.economicCode||null,b.address||null,b.defaultAccountId||null,Number(b.creditLimit)||0,Math.max(0,Number(b.paymentTermDays)||0),b.metadata||{},partyId,t.id]
+  );
+  await audit(t.id,actor(req),"party",r.rows[0].id,"create",null,r.rows[0],c);
+  await c.query("commit");
+  res.status(201).json(r.rows[0]);
+ }catch(error:any){
+  await c.query("rollback");
+  if(error?.statusCode)return deny(res,error.statusCode,error.message);
+  throw error;
+ }finally{c.release()}
 });
 
 
