@@ -9,14 +9,24 @@ const idOf=(req:any,k:string)=>Array.isArray(req.params?.[k])?req.params[k][0]:r
 const deny=(res:any,n:number,error:string)=>res.status(n).json({error});
 const actor=(req:any)=>req.user.id;
 const date=(v:any)=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v);
+const validIranianIban=(value:any)=>{
+ const iban=String(value||"").replace(/[\\s-]/g,"").toUpperCase();
+ if(!/^IR[0-9]{24}$/.test(iban))return null;
+ const rearranged=iban.slice(4)+iban.slice(0,4);
+ const numeric=rearranged.replace(/[A-Z]/g,ch=>String(ch.charCodeAt(0)-55));
+ let remainder=0;
+ for(const digit of numeric)remainder=(remainder*10+Number(digit))%97;
+ return remainder===1?iban:null;
+};
 const audit=async(t:string,u:string,type:string,id:string,action:string,b:any,a:any)=>
  query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,$2,$3,$4,$5,$6,$7)",[t,type,id,action,u,b||null,a||null]);
 
 router.get("/api/accounting-finance/operations-overview",requireAuth,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const [parties,banks,cash,checks,rp,assets,budgets,commitments,recs]=await Promise.all([
+ const [parties,banks,partyBankAccounts,cash,checks,rp,assets,budgets,commitments,recs]=await Promise.all([
   query("select * from accounting_parties where tenant_id=$1 order by party_code",[t.id]),
   query("select * from accounting_bank_accounts where tenant_id=$1 order by code",[t.id]),
+  query("select b.*,p.party_code,p.title party_title from accounting_party_bank_accounts b join accounting_parties p on p.id=b.party_id and p.tenant_id=b.tenant_id where b.tenant_id=$1 order by b.created_at desc limit 500",[t.id]),
   query("select * from accounting_cashboxes where tenant_id=$1 order by code",[t.id]),
   query("select * from accounting_checks where tenant_id=$1 order by due_date nulls last,created_at desc limit 200",[t.id]),
   query("select r.*,p.party_code,p.title party_title from accounting_receivable_payables r join accounting_parties p on p.id=r.party_id where r.tenant_id=$1 order by r.due_date nulls last limit 200",[t.id]),
@@ -25,7 +35,7 @@ router.get("/api/accounting-finance/operations-overview",requireAuth,async(req,r
   query("select * from accounting_commitments where tenant_id=$1 order by due_date nulls last limit 200",[t.id]),
   query("select r.*,b.code bank_code,b.bank_name from accounting_bank_reconciliations r join accounting_bank_accounts b on b.id=r.bank_account_id where r.tenant_id=$1 order by statement_date desc limit 100",[t.id])
  ]);
- res.json({parties:parties.rows,banks:banks.rows,cashboxes:cash.rows,checks:checks.rows,receivablesPayables:rp.rows,assets:assets.rows,budgets:budgets.rows,commitments:commitments.rows,reconciliations:recs.rows});
+ res.json({parties:parties.rows,banks:banks.rows,partyBankAccounts:partyBankAccounts.rows,cashboxes:cash.rows,checks:checks.rows,receivablesPayables:rp.rows,assets:assets.rows,budgets:budgets.rows,commitments:commitments.rows,reconciliations:recs.rows});
 });
 
 router.post("/api/accounting-finance/parties",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
@@ -33,6 +43,48 @@ router.post("/api/accounting-finance/parties",requireAuth,requirePermission("acc
  const b=req.body||{};if(typeof b.partyCode!=="string"||typeof b.title!=="string")return deny(res,400,"کد و عنوان طرف حساب الزامی است");
  const r=await query("insert into accounting_parties(tenant_id,party_code,party_type,title,national_id,economic_code,tax_id,phone,email,address,default_account_id,credit_limit,payment_term_days,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning *",[t.id,b.partyCode.trim(),b.partyType||"customer",b.title.trim(),b.nationalId||null,b.economicCode||null,b.taxId||null,b.phone||null,b.email||null,b.address||null,b.defaultAccountId||null,Number(b.creditLimit)||0,Math.max(0,Number(b.paymentTermDays)||0),b.metadata||{}]);
  await audit(t.id,actor(req),"party",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
+});
+
+
+router.patch("/api/accounting-finance/parties/:id",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const b=req.body||{},id=idOf(req,"id");
+ if(typeof b.title!=="string"||!b.title.trim())return deny(res,400,"عنوان طرف حساب الزامی است");
+ const old=await query("select * from accounting_parties where id=$1 and tenant_id=$2",[id,t.id]);
+ if(!old.rowCount)return deny(res,404,"طرف حساب پیدا نشد");
+ const r=await query("update accounting_parties set title=$1,national_id=$2,economic_code=$3,tax_id=$4,phone=$5,email=$6,address=$7,status=$8,updated_at=now() where id=$9 and tenant_id=$10 returning *",[b.title.trim(),b.nationalId??old.rows[0].national_id,b.economicCode??old.rows[0].economic_code,b.taxId??old.rows[0].tax_id,b.phone??old.rows[0].phone,b.email??old.rows[0].email,b.address??old.rows[0].address,b.status??old.rows[0].status,id,t.id]);
+ await audit(t.id,actor(req),"party",id,"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+});
+
+router.get("/api/accounting-finance/parties/:partyId/bank-accounts",requireAuth,async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const party=await query("select id from accounting_parties where id=$1 and tenant_id=$2",[idOf(req,"partyId"),t.id]);
+ if(!party.rowCount)return deny(res,404,"طرف حساب پیدا نشد");
+ const r=await query("select * from accounting_party_bank_accounts where tenant_id=$1 and party_id=$2 order by created_at desc",[t.id,party.rows[0].id]);
+ res.json({items:r.rows});
+});
+
+router.post("/api/accounting-finance/parties/:partyId/bank-accounts",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const b=req.body||{},partyId=idOf(req,"partyId"),iban=validIranianIban(b.iban);
+ if(!iban)return deny(res,400,"شماره شبای ایران معتبر نیست");
+ const party=await query("select id from accounting_parties where id=$1 and tenant_id=$2",[partyId,t.id]);
+ if(!party.rowCount)return deny(res,404,"طرف حساب پیدا نشد");
+ const r=await query("insert into accounting_party_bank_accounts(tenant_id,party_id,account_title,bank_name,branch_name,account_no,iban,card_no) values($1,$2,$3,$4,$5,$6,$7,$8) on conflict(tenant_id,iban) do nothing returning *",[t.id,partyId,b.accountTitle||null,b.bankName||null,b.branchName||null,b.accountNo||null,iban,b.cardNo||null]);
+ if(!r.rowCount)return deny(res,409,"این شماره شبا قبلاً برای طرف دیگری در همین سازمان ثبت شده است");
+ await audit(t.id,actor(req),"party_bank_account",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
+});
+
+router.patch("/api/accounting-finance/parties/:partyId/bank-accounts/:id/verification",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const status=req.body?.verificationStatus,note=String(req.body?.verificationNote||"").trim();
+ if(!["pending","verified","rejected"].includes(status))return deny(res,400,"وضعیت احراز شبا نامعتبر است");
+ if(status==="rejected"&&!note)return deny(res,400,"برای رد شبا، دلیل بررسی الزامی است");
+ const id=idOf(req,"id"),partyId=idOf(req,"partyId");
+ const old=await query("select * from accounting_party_bank_accounts where id=$1 and party_id=$2 and tenant_id=$3",[id,partyId,t.id]);
+ if(!old.rowCount)return deny(res,404,"حساب بانکی طرف حساب پیدا نشد");
+ const r=await query("update accounting_party_bank_accounts set verification_status=$1,verification_note=$2,verified_by=case when $1='verified' then $3 else null end,verified_at=case when $1='verified' then now() else null end,updated_at=now() where id=$4 and party_id=$5 and tenant_id=$6 returning *",[status,note||null,actor(req),id,partyId,t.id]);
+ await audit(t.id,actor(req),"party_bank_account",id,"verification",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 
 router.post("/api/accounting-finance/banks",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
