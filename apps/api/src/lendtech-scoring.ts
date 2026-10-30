@@ -1,8 +1,9 @@
+import {parseMoneyToMinorUnits} from "./lendtech-money.js";
 export interface LendtechScoringInput {
   dtiPercent: number;
   repaymentCount: number;
   openDelinquencyCount: number;
-  monthlyIncome: number;
+  monthlyIncome: string;
   kycStatus: string;
 }
 
@@ -11,7 +12,7 @@ export interface LendtechScoringResult {
   band: "A" | "B" | "C" | "D";
   inputs: {
     modelVersion: "rules-v2";
-    monthlyIncome: number;
+    monthlyIncome: string;
     dtiPercent: number;
     kycStatus: string;
     paymentHistoryScore: number;
@@ -34,7 +35,8 @@ export function calculateLendtechScore(input: LendtechScoringInput): LendtechSco
   if (!Number.isFinite(dtiPercent) || dtiPercent < 0) throw new Error("نسبت تعهدات معتبر نیست");
   if (!Number.isInteger(repaymentCount) || repaymentCount < 0) throw new Error("تعداد بازپرداخت معتبر نیست");
   if (!Number.isInteger(openDelinquencyCount) || openDelinquencyCount < 0) throw new Error("تعداد معوقات معتبر نیست");
-  if (!Number.isFinite(monthlyIncome) || monthlyIncome <= 0) throw new Error("درآمد ماهانه معتبر نیست");
+  const incomeMinor=parseMoneyToMinorUnits(monthlyIncome);
+  if (incomeMinor===null || incomeMinor<=0n) throw new Error("درآمد ماهانه معتبر نیست");
   if (kycStatus !== "verified") throw new Error("احراز هویت تأیید نشده است");
 
   const paymentHistoryScore = openDelinquencyCount > 0
