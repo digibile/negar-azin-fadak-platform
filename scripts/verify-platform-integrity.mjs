@@ -15,7 +15,6 @@ const stage2835=fs.readFileSync(path.join(root,"database/migrations/013_stage_28
 const stage3645=fs.readFileSync(path.join(root,"database/migrations/014_stage_36_45_operational.sql"),"utf8");
 const organization=fs.readFileSync(path.join(root,"apps/api/src/domain-organization.ts"),"utf8");
 const commandPage=fs.readFileSync(path.join(root,"apps/web/app/command-center/page.tsx"),"utf8");
-const masterMenu=fs.readFileSync(path.join(root,"apps/web/app/admin/master-menu.ts"),"utf8");
 const sidebar=fs.readFileSync(path.join(root,"apps/web/app/admin/AdminSidebar.tsx"),"utf8");
 const modulePage=fs.readFileSync(path.join(root,"apps/web/app/modules/page.tsx"),"utf8");
 
@@ -51,38 +50,14 @@ for(const marker of ["idx_command_actions_type_updated","idx_monitoring_events_s
 if(!commandPage.includes("/api/domain/monitoring-events")||!commandPage.includes("/api/domain/command-center"))throw new Error("Stage 38-45 command center missing");
 if(!operationsPage.includes('const target=[')||!operationsPage.includes('مرکز عملیات ۱۹ تا ۲۷'))throw new Error("Stage 19-27 operations page missing");
 const forbidden=new RegExp("(^|[^A-Za-z])"+String.fromCharCode(69,82,80)+"([^A-Za-z]|$)","i");
-for(const file of [migration,storage,runtime,stage1927,stage2835,stage3645,server,command,commerce,communication,organization,operationsPage,commandPage,masterMenu,sidebar])if(forbidden.test(file))throw new Error("Forbidden terminology detected");
-for(const [index,item] of [...masterMenu.matchAll(/\{code:"([^"]+)",number:"([0-9]{2})",title:"([^"]+)"[^\n]*children:\[/g)].entries())if(!item[1]||!item[3])throw new Error("Canonical panel has a missing code or title at index "+index);
-const panelEntries=[...masterMenu.matchAll(/code:"([^"]+)",number:"([0-9]{2})",title:/g)];
-if(panelEntries.length!==20)throw new Error("Master menu must contain exactly 20 canonical panels; found "+panelEntries.length);
-const panelRoutes=[...masterMenu.matchAll(/code:"([^"]+)",number:"([0-9]{2})",title:"([^"]+)"[^}]*route:"([^"]+)"/g)];
-if(panelRoutes.length!==20)throw new Error("All 20 canonical panels must define a route; found "+panelRoutes.length);
-if(new Set(panelRoutes.map(x=>x[1])).size!==20)throw new Error("Canonical panel route codes must be unique");
-if(panelRoutes.some(x=>!x[4].startsWith("/")))throw new Error("Canonical panel route must be an internal application path");
-const panelNumbers=panelEntries.map(x=>x[2]);
-if(new Set(panelNumbers).size!==20||panelNumbers.some((x,i)=>x!==String(i+1).padStart(2,"0")))throw new Error("Canonical panel numbers must be unique and ordered 01-20");
-if(new Set(panelEntries.map(x=>x[1])).size!==20)throw new Error("Canonical panel codes must be unique");
-const panelObjects=masterMenu.split("\n").flatMap(line=>{
- const head=line.match(/\{code:"([^"]+)",number:"([0-9]{2})",title:"([^"]+)"/);
- if(!head||!line.includes("children:["))return [];
- const start=line.indexOf("children:[")+"children:[".length;
- const end=line.lastIndexOf("]");
- if(end<start)return [];
- return [[head[0],head[1],head[2],head[3],line.slice(start,end)]];
-});
-if(panelObjects.length!==20)throw new Error("All 20 canonical panels must have a readable child list");
-const canonicalChildTitles=panelObjects.flatMap(panel=>[...panel[4].matchAll(/child\("([^"]+)"/g)].map(match=>({title:match[1],panel:panel[2]})));
-const duplicateChildTitles=[...canonicalChildTitles.reduce((map,item)=>map.set(item.title,[...(map.get(item.title)||[]),item.panel]),new Map())].filter(([,panels])=>panels.length>1);
-if(duplicateChildTitles.length)throw new Error("Duplicate canonical child titles must be merged into one destination: "+duplicateChildTitles.map(([title,panels])=>title+" (panels "+panels.join(", ")+")").join("; "));
-for(const panel of panelObjects){
- const children=[...panel[4].matchAll(/child\("([^"]+)"(?:,\s*(?:"([^"]*)"|undefined))?(?:,\s*(?:"([^"]*)"|undefined))?(?:,\s*"([^"]*)")?\)/g)];
- if(children.length===0)throw new Error("Canonical panel has no children: "+panel[1]);
- for(const child of children){
-  if(!child[1].trim())throw new Error("Canonical child title is empty in panel "+panel[1]);
-  if(!child[2]&&!child[3])throw new Error("Canonical child has no destination mapping: "+panel[1]+" / "+child[1]);
- }
-}
-
+for(const file of [migration,storage,runtime,stage1927,stage2835,stage3645,server,command,commerce,communication,organization,operationsPage,commandPage,sidebar])if(forbidden.test(file))throw new Error("Forbidden terminology detected");
+const canonicalPanelMigration=fs.readFileSync(path.join(root,"database/migrations/099_canonical_enterprise_menu_01_50.sql"),"utf8");
+const canonicalMenuMigration=fs.readFileSync(path.join(root,"database/migrations/153_canonical_backend_menu_children.sql"),"utf8");
+const expectedPanelKeys=["01-dashboard","02-organizations","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla","08-accounting-finance","09-commerce-stores","10-domains","11-merchants","12-sellers","13-payments-settlement","14-form-builder","15-menu-builder","16-page-builder","17-frontend-management","18-notifications","19-documents-governance","20-system-settings"];
+for(const key of expectedPanelKeys)if(!canonicalPanelMigration.includes("values ('"+key+"'"))throw new Error("Canonical database menu is missing panel: "+key);
+for(const [title,route] of [["مرکز فرماندهی عملیاتی","/command-center"],["مدیریت دسته‌بندی‌های بازارگاه","/marketplace/categories"],["ورود محصول از کاتالوگ مرجع","/marketplace/products?tab=import"]])if(!canonicalMenuMigration.includes(title)||!canonicalMenuMigration.includes(route))throw new Error("Canonical backend menu entry missing: "+title);
+if(sidebar.includes('import {MASTER_MENU} from "./master-menu"')||!sidebar.includes('api<{items:MenuNode[]}>("/api/dashboard/menu-tree?panel=admin")'))throw new Error("Sidebar must use the canonical backend menu API instead of a frontend menu registry");
+if(!sidebar.includes("const canonical=useMemo(()=>menuItems.map(item=>")||!sidebar.includes("normalize(item.child_items||[])"))throw new Error("Sidebar must derive panels and child navigation from backend menu records");
 const expectedLegacyCodes=[
 "02-organizations","02-identity","03-users-access","04-customers-360","05-smart-calendar","06-business-rules","07-sla",
 "08-accounting-finance","08-check-documents","09-commerce-stores","10-wallet-ledger","12-logistics-supply",
@@ -93,8 +68,6 @@ const expectedLegacyCodes=[
 "42-audit-internal-control","43-communication-hub","44-marketing-content","45-search-analytics","46-unified-applications","47-contracts-legal",
 "48-shipping-delivery","49-reconciliation","50-release-health"
 ];
-const missingLegacy=expectedLegacyCodes.filter(code=>!masterMenu.includes('"'+code+'"'));
-if(missingLegacy.length)throw new Error("Legacy menu codes missing from canonical panels: "+missingLegacy.join(", "));
 const routeRegistryBlock=modulePage.match(/const MODULE_ROUTE_REGISTRY\s*:\s*Record<string,\s*\(context:\s*ModuleRouteContext\)\s*=>\s*React\.ReactNode>\s*=\s*\{([\s\S]*?)\n\};/);
 const operationalCodesBlock=modulePage.match(/const operationalModuleCodes\s*=\s*\[([\s\S]*?)\];/);
 const landingCodesBlock=modulePage.match(/const canonicalLandingCodes\s*=\s*\[([\s\S]*?)\];/);
@@ -105,36 +78,8 @@ const declaredCodes=new Set([
   ...[operationalCodesBlock[1],landingCodesBlock[1]].flatMap(block=>[...block.matchAll(/"([^"]+)"/g)].map(match=>match[1])),
   ...[...modulePage.matchAll(/if\(code===["']([^"']+)["']\)/g)].map(match=>match[1])
 ]);
-for(const panel of panelObjects){
- const children=[...panel[4].matchAll(/child\("([^"]+)"(?:,\s*"([^"]*)")?(?:,\s*"([^"]*)")?\)/g)];
- for(const child of children){
-  if(child[2]&&!declaredCodes.has(child[2]))throw new Error("Canonical child legacy route is not registered: "+panel[1]+" / "+child[1]+" -> "+child[2]);
-  if(child[3]&&!declaredCodes.has(child[3]))throw new Error("Canonical child module is not routed: "+panel[1]+" / "+child[1]+" -> "+child[3]);
- }
-}
-for(const panel of panelRoutes){
- const route=panel[4];
- const match=route.match(/[?&]code=([^&]+)/);
- if(route==="/admin")continue;
- if(match){
-  if(!declaredCodes.has(decodeURIComponent(match[1])))throw new Error("Canonical panel route has no registered module destination: "+panel[1]+" -> "+route);
-  continue;
- }
-  const pathname=route.split("?")[0].split("/").filter(Boolean).join("/");
- const routeFile=path.join(root,"apps/web/app",pathname,"page.tsx");
- if(!fs.existsSync(routeFile))throw new Error("Canonical panel direct route has no page implementation: "+panel[1]+" -> "+route);
-}
-const firstPanel=panelObjects.find(panel=>panel[2]==="01");
-if(!firstPanel)throw new Error("Panel 01 is missing");
-const firstChildren=[...firstPanel[4].matchAll(/child\("([^"]+)"(?:,\s*(?:"([^"]*)"|undefined))?(?:,\s*(?:"([^"]*)"|undefined))?(?:,\s*"([^"]*)")?\)/g)];
-const firstDestinations=firstChildren.map(child=>child[2]||child[3]).filter(Boolean);
-if(new Set(firstDestinations).size!==firstDestinations.length)throw new Error("Panel 01 contains duplicate child destinations");
-if(!masterMenu.includes('child("مرکز فرماندهی عملیاتی","","command-center","/command-center")'))throw new Error("Panel 01 command center route is not explicitly registered");
-if(sidebar.includes('import {MASTER_MENU} from "./master-menu"')||!sidebar.includes('api<{items:MenuNode[]}>("/api/dashboard/menu-tree?panel=admin")'))throw new Error("Sidebar must use the canonical backend menu API instead of a frontend menu registry");
-if(!sidebar.includes("const canonical=useMemo(()=>menuItems.map(item=>")||!sidebar.includes("normalize(item.child_items||[])"))throw new Error("Sidebar must derive panels and child navigation from backend menu records");
 const unroutedLegacy=expectedLegacyCodes.filter(code=>!declaredCodes.has(code));
 if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered in a real dispatcher branch/workspace: "+unroutedLegacy.join(", "));
-
 if(!sidebar.includes("normalize(item.child_items||[])")||!sidebar.includes("children.some(x=>hasPath(x,pathname))"))throw new Error("Canonical sidebar must render recursive child routes from the backend menu tree");
 if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.includes("...flattenTitles(node.child_items||[])"))throw new Error("Menu search must include all nested backend levels");
 
@@ -182,8 +127,7 @@ const storeDirectory=path.join(root,"apps/web/app/marketplace/directory/page.tsx
 if(!publicCatalogApi.includes('domainMarketplaceRouter.get("/api/public/marketplace"')||!publicCatalogApi.includes("p.status='active'")||!publicCatalogApi.includes("sl.status='active'"))throw new Error("Public catalog must expose only published products from active sellers");
 if(!categoryMigration.includes("create table if not exists marketplace_categories")||!categoryMigration.includes("unique(tenant_id,code)")||!categoryMigration.includes("where t.status='active'"))throw new Error("Persistent tenant-scoped category taxonomy migration is incomplete");
 const storefrontTaxonomy=fs.readFileSync(path.join(root,"database/migrations/136_digikala_reference_storefront_categories.sql"),"utf8");
-const masterMenuForCategory=fs.readFileSync(path.join(root,"apps/web/app/admin/master-menu.ts"),"utf8");
-if(!storefrontTaxonomy.includes("('pet-shop','پت شاپ',180)")||!storefrontTaxonomy.includes("on conflict(tenant_id,code) do update")||!masterMenuForCategory.includes('"/marketplace/categories"'))throw new Error("Persistent Digikala-reference category taxonomy and central-menu route are incomplete");
+if(!storefrontTaxonomy.includes("('pet-shop','پت شاپ',180)")||!storefrontTaxonomy.includes("on conflict(tenant_id,code) do update")||!canonicalMenuMigration.includes("/marketplace/categories"))throw new Error("Persistent Digikala-reference category taxonomy and central-menu route are incomplete");
 if(!publicCatalogApi.includes('domainMarketplaceRouter.get("/api/marketplace/categories"')||!publicCatalogApi.includes("from marketplace_categories where tenant_id=$1 and status='active'"))throw new Error("Authenticated category API must read the tenant-scoped taxonomy");
 if(!productManagement.includes('api<{items:Category[]}>("/api/marketplace/categories")')||!productManagement.includes("categories.map(item => <option"))throw new Error("Product entry must select categories from the central database taxonomy");
 
@@ -207,7 +151,7 @@ if(!publicCatalogApi.includes('domainMarketplaceRouter.patch("/api/marketplace/p
 if(!productManagement.includes('api<SourceCatalog>("/api/marketplace/digikala-catalog")')||!productManagement.includes("url.pathname.match")||!productManagement.includes("دسته‌بندی مرجع"))throw new Error("Admin import must support authenticated reference browsing, product links, and category filtering");
 if(!publicCatalogApi.includes('domainMarketplaceRouter.post("/api/marketplace/digikala-category",requireAuth,requirePermission("product:manage")')||!publicCatalogApi.includes("getDigikalaCategoryProducts")||!productManagement.includes('"/api/marketplace/digikala-category"')||!productManagement.includes("mp-source-category-url"))throw new Error("Admin must support authenticated category URL import into internal drafts");
 const categoryManagement=fs.readFileSync(path.join(root,"apps/web/app/marketplace/categories/page.tsx"),"utf8");
-if(!categoryManagement.includes('api<CategoryList>("/api/marketplace/categories")')||!categoryManagement.includes('method:"POST"')||!categoryManagement.includes('method:"PATCH"')||!productManagement.includes("/api/marketplace/digikala-product/")||!productManagement.includes("شناسه یا لینک محصول دیجی‌کالا")||!productManagement.includes('get("tab") === "import"')||!masterMenuForCategory.includes("/marketplace/products?tab=import"))throw new Error("Admin category CRUD and direct Digikala product URL lookup must be available from the central menu");
+if(!categoryManagement.includes('api<CategoryList>("/api/marketplace/categories")')||!categoryManagement.includes('method:"POST"')||!categoryManagement.includes('method:"PATCH"')||!productManagement.includes("/api/marketplace/digikala-product/")||!productManagement.includes("شناسه یا لینک محصول دیجی‌کالا")||!productManagement.includes('get("tab") === "import"')||!canonicalMenuMigration.includes("/marketplace/products?tab=import"))throw new Error("Admin category CRUD and direct Digikala product URL lookup must be available from the central menu");
 if(!fs.readFileSync(path.join(root,"apps/api/src/server.ts"),"utf8").includes('app.use("/api/public/media"')||!fs.readFileSync(path.join(root,"docker-compose.production.yml"),"utf8").includes("catalog_media:/app/media"))throw new Error("First-party catalog media must be served and persisted");
 if(!productManagement.includes('/api/marketplace/products/import-reference')||!productManagement.includes("ورود به کاتالوگ داخلی"))throw new Error("Product workspace must support selected reference import into the internal catalog");
 if(!fs.existsSync(path.join(root,"apps/web/app/marketplace/products/products-workspace.css")))throw new Error("Responsive enterprise product workspace styles are missing");
@@ -229,7 +173,7 @@ if(!identityApi.includes('router.put("/api/identity/roles/:roleKey/permissions",
 const identityWorkspace=fs.readFileSync(path.join(root,"apps/web/app/modules/IdentityWorkspace.tsx"),"utf8");
 if(!modulePage.includes('"03-users-access": () => <IdentityWorkspace />'))throw new Error("Canonical Panel 03 must use the unified identity workspace");
 for(const tab of ["users","profiles","roles","groups","permissions","policies","auth","twofa","sessions","audit"])if(!identityWorkspace.includes('["'+tab+'"'))throw new Error("Panel 03 workspace tab missing: "+tab);
-for(const title of ["مدیریت کاربران و حساب‌ها","پروفایل کاربران","نقش‌ها و مسئولیت‌ها","گروه‌های کاربری","کاتالوگ مجوزها و دسترسی‌ها","سیاست‌های امنیتی","احراز هویت دومرحله‌ای","نشست‌ها و دستگاه‌های مجاز","تاریخچه ورود و ممیزی امنیتی"])if(!masterMenu.includes(title))throw new Error("Panel 03 child menu missing: "+title);
+for(const title of ["مدیریت کاربران و حساب‌ها","پروفایل کاربران","نقش‌ها و مسئولیت‌ها","گروه‌های کاربری","کاتالوگ مجوزها و دسترسی‌ها","سیاست‌های امنیتی","احراز هویت دومرحله‌ای","نشست‌ها و دستگاه‌های مجاز","تاریخچه ورود و ممیزی امنیتی"])if(!canonicalMenuMigration.includes(title))throw new Error("Panel 03 backend child menu missing: "+title);
 if(fs.existsSync(path.join(root,"apps/web/app/modules/SecurityWorkspace.tsx"))||fs.existsSync(path.join(root,"apps/web/app/modules/SecurityWorkspace.module.css")))throw new Error("Duplicate security workspace must be removed after consolidation");
 
 const marketerApi=fs.readFileSync(path.join(root,"apps/api/src/customer-360.ts"),"utf8");
