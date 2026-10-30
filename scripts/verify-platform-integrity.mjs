@@ -282,8 +282,7 @@ if(!paymentDeclarations.includes("fk_payment_declaration_contract_tenant")||!pay
 const partyBankMigration=fs.readFileSync(path.join(root,"database/migrations/150_accounting_party_bank_accounts.sql"),"utf8");
 const accountingOperations=fs.readFileSync(path.join(root,"apps/api/src/accounting-finance-operations.ts"),"utf8");
 const accountingWorkspace=fs.readFileSync(path.join(root,"apps/web/app/modules/AccountingFinanceWorkspace.tsx"),"utf8");
-for(const marker of ["create table if not exists accounting_party_bank_accounts","foreign key(tenant_id,party_id)","unique(tenant_id,iban)","verification_status","check(iban ~ '^IR[0-9]{24} 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
-)"])if(!partyBankMigration.includes(marker))throw new Error("Party-owned bank account schema safety marker missing: "+marker);
+for(const marker of ["create table if not exists accounting_party_bank_accounts","foreign key(tenant_id,party_id)","unique(tenant_id,iban)","verification_status","check(iban ~ '^IR[0-9]{24}$')"])if(!partyBankMigration.includes(marker))throw new Error("Party-owned bank account schema safety marker missing: "+marker);
 for(const route of [
  'router.post("/api/accounting-finance/counterparties"',
  'router.patch("/api/accounting-finance/counterparties/:id"',
