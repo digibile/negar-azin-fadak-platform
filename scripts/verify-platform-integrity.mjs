@@ -255,4 +255,19 @@ if(!centralSettings.includes('resolvePublicTenant(req'))throw new Error("Public 
 if(!centralSettingsUi.includes('"mobile-app":"تنظیمات اپلیکیشن موبایل"'))throw new Error("Central settings UI mobile category label missing");
 
 
+
+const lendtech=fs.readFileSync(path.join(root,"apps/api/src/lendtech.ts"),"utf8");
+const paymentDeclarations=fs.readFileSync(path.join(root,"database/migrations/149_vamcity_payment_declarations.sql"),"utf8");
+if(!server.includes("lendtechRouter"))throw new Error("Canonical lendtech router is not mounted");
+for(const route of [
+ 'lendtechRouter.get("/api/lendtech/my-payment-declarations"',
+ 'lendtechRouter.post("/api/lendtech/my-payment-declarations"',
+ 'lendtechRouter.get("/api/lendtech/payment-declarations"',
+ 'lendtechRouter.post("/api/lendtech/payment-declarations/:id/review"',
+ 'lendtechRouter.post("/api/lendtech/contracts/:id/repay"'
+])if(!lendtech.includes(route))throw new Error("Central payment declaration/repayment route missing: "+route);
+for(const marker of ["create table if not exists lendtech_payment_declarations","uq_lendtech_payment_declaration_ref","uq_lendtech_payment_declaration_repayment","references lendtech_repayments(id)","status='approved' and repayment_id is not null"])if(!paymentDeclarations.includes(marker))throw new Error("Payment declaration intake schema missing safety constraint: "+marker);
+if(!lendtech.includes("applyRepayment(client")||!lendtech.includes('paymentRef:"DECL-"+String(d.rows[0].id)')||!lendtech.includes("a.customer_ref=$3")||!lendtech.includes('requireCsrf'))throw new Error("Payment declaration approval must use central transactional repayment, customer-contract ownership and CSRF");
+if(lendtech.includes('status="approved"')&& !lendtech.includes("lendtech_repayments"))throw new Error("Payment declaration approval must not be a status-only payment confirmation");
+
 console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
