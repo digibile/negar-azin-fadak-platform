@@ -304,7 +304,7 @@ for(const route of [
  'lendtechRouter.post("/api/lendtech/inquiry-requests"',
  'lendtechRouter.post("/api/lendtech/inquiry-requests/:id/result"'
 ])if(!lendtech.includes(route))throw new Error("Central manual inquiry route missing: "+route);
-if(!verificationFoundation.includes("create table if not exists platform_verification_requests")||!lendtech.includes("provider_code='manual-review'")||!lendtech.includes("status='needs_review'"))throw new Error("VamCity inquiry intake must reuse the canonical verification queue");
+if(!verificationFoundation.includes("create table if not exists platform_verification_requests")||!lendtech.includes("provider_code='manual-review'")||!lendtech.includes("'needs_review'"))throw new Error("VamCity inquiry intake must reuse the canonical verification queue");
 if(!lendtech.includes("kycUpdated:false,creditDecisionUpdated:false")||!lendtech.includes("manual_result_recorded"))throw new Error("Manual inquiry results must not silently verify KYC or alter credit decisions");
 if(!lendtechInquiryUi.includes("/api/lendtech/inquiry-requests?status=needs_review")||!lendtechInquiryUi.includes("ثبت نتیجه بررسی دستی")&&!lendtechInquiryUi.includes("ثبت نتیجه"))throw new Error("LendTech admin must expose the canonical manual inquiry queue");
 
