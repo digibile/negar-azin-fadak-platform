@@ -21,7 +21,7 @@ const validIranianIban=(value:any)=>{
 const audit=async(t:string,u:string,type:string,id:string,action:string,b:any,a:any)=>
  query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,$2,$3,$4,$5,$6,$7)",[t,type,id,action,u,b||null,a||null]);
 
-router.get("/api/accounting-finance/operations-overview",requireAuth,async(req,res)=>{
+router.get("/api/accounting-finance/operations-overview",requireAuth,requirePermission("accounting-finance.read"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const [parties,banks,partyBankAccounts,cash,checks,rp,assets,budgets,commitments,recs]=await Promise.all([
   query("select * from accounting_parties where tenant_id=$1 order by party_code",[t.id]),
@@ -78,7 +78,7 @@ router.patch("/api/accounting-finance/counterparties/:id",requireAuth,requirePer
   const p=await c.query("update accounting_parties set title=$1,status=$2,updated_at=now() where id=$3 and tenant_id=$4 returning *",[name,status,id,t.id]);
   let bankAccount=null;
   if(iban){
-   const current=await c.query("select id,iban from accounting_party_bank_accounts where tenant_id=$1 and party_id=$2 and status='active' order by created_at desc limit 1",[t.id,id]);
+   const current=await c.query("select id,iban,status from accounting_party_bank_accounts where tenant_id=$1 and party_id=$2 order by (iban=$3) desc,created_at desc limit 1",[t.id,id,iban]);
    if(!current.rowCount||current.rows[0].iban!==iban){
     await c.query("update accounting_party_bank_accounts set status='inactive',updated_at=now() where tenant_id=$1 and party_id=$2 and status='active'",[t.id,id]);
     const inserted=await c.query("insert into accounting_party_bank_accounts(tenant_id,party_id,account_title,iban,status,verification_status) values($1,$2,$3,$4,$5,'pending') on conflict(tenant_id,iban) do nothing returning *",[t.id,id,name,iban,status]);
@@ -106,7 +106,7 @@ router.patch("/api/accounting-finance/parties/:id",requireAuth,requirePermission
  await audit(t.id,actor(req),"party",id,"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 
-router.get("/api/accounting-finance/parties/:partyId/bank-accounts",requireAuth,async(req,res)=>{
+router.get("/api/accounting-finance/parties/:partyId/bank-accounts",requireAuth,requirePermission("accounting-finance.read"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const party=await query("select id from accounting_parties where id=$1 and tenant_id=$2",[idOf(req,"partyId"),t.id]);
  if(!party.rowCount)return deny(res,404,"طرف حساب پیدا نشد");
