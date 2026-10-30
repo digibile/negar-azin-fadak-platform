@@ -3,7 +3,7 @@
 import {useEffect,useState} from "react";
 
 type Merchant={
- id:string;code:string;legal_name:string;display_name:string;business_type:string;
+ id:string;party_id:string|null;canonical_party_title:string|null;code:string;legal_name:string;display_name:string;business_type:string;
  national_id:string|null;tax_id:string|null;iban:string|null;settlement_account_ref:string|null;
  contract_ref:string|null;commission_rate:string|number;status:string;verification_status:string;
  verified_at:string|null;verification_reason:string|null;
@@ -85,7 +85,7 @@ export default function MerchantManagementWorkspace(){
    <div className="panel-title"><div><h2>فهرست پذیرندگان</h2><span>{items.length} رکورد واقعی در محدوده سازمانی فعلی</span></div><input aria-label="جست‌وجو" placeholder="جست‌وجوی کد، نام یا شناسه ملی" value={q} onChange={e=>setQ(e.target.value)}/></div>
    {loading?<p className="muted">در حال دریافت...</p>:items.length===0?<p className="muted">پذیرنده‌ای ثبت نشده است.</p>:<div className="record-list">
     {items.map(m=><article className="record-row" key={m.id}>
-      <div><strong>{m.display_name}</strong><small>{m.code} · {m.legal_name} · کارمزد {m.commission_rate}%</small><small>وضعیت: {statusLabel[m.status]||m.status} · احراز: {verifyLabel[m.verification_status]||m.verification_status}</small></div>
+      <div><strong>{m.display_name}</strong><small>{m.code} · {m.legal_name} · کارمزد {m.commission_rate}%</small><small>طرف‌حساب مرکزی: {m.canonical_party_title||"پیوند هویتی ثبت نشده"} · {m.party_id?"متصل به هسته حسابداری":"بدون پیوند"}</small><small>وضعیت: {statusLabel[m.status]||m.status} · احراز: {verifyLabel[m.verification_status]||m.verification_status}</small></div>
       <div className="command-bar"><button type="button" onClick={()=>edit(m)}>ویرایش</button>{m.verification_status==="pending"&&<><button type="button" onClick={()=>verify(m.id,"approve")}>تأیید</button><button type="button" onClick={()=>verify(m.id,"reject")}>رد</button></>}<select value={m.status} onChange={e=>mutate("/api/merchants/"+m.id+"/status",{status:e.target.value}).catch(x=>setError(x instanceof Error?x.message:"خطا"))}><option value="pending">در انتظار</option><option value="review">در بررسی</option><option value="active">فعال</option><option value="suspended">تعلیق‌شده</option><option value="rejected">ردشده</option><option value="closed">بسته</option></select></div>
     </article>)}
    </div>}
