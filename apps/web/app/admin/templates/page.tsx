@@ -177,7 +177,7 @@ export default function Templates() {
             قالب‌های فروشگاه در یک فهرست واحد جمع شده‌اند. قالب پایه حفظ شده و هر مورد از مسیر مشخص خودش پیش‌نمایش می‌شود؛ کپی‌های موازی و مسیرهای مبهم لازم نیستند.
           </p>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}><Link href="/admin/templates/ai-studio" style={{ ...actionStyle, background: "linear-gradient(110deg,#0f766e,#2563eb)", borderColor: "#0f766e", color: "#fff" }}>✳ طراحی قالب با هوش مصنوعی</Link><Link href="/admin" style={actionStyle}>بازگشت به مرکز مدیریت</Link></div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}><Link href="/admin/ai-workshop?tool=template" style={{ ...actionStyle, background: "linear-gradient(110deg,#0f766e,#2563eb)", borderColor: "#0f766e", color: "#fff" }}>✳ ساخت قالب با کارگاه هوشمند</Link><Link href="/admin" style={actionStyle}>بازگشت به مرکز مدیریت</Link></div>
       </header>
 
       <section aria-label="طراح هوشمند قالب‌ها" style={{ marginBottom: 28, padding: 20, borderRadius: 18, border: "1px solid #99f6e4", background: "linear-gradient(115deg,#f0fdfa,#eff6ff)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
@@ -185,7 +185,7 @@ export default function Templates() {
           <span aria-hidden="true" style={{ width: 48, height: 48, display: "grid", placeItems: "center", borderRadius: 15, background: "linear-gradient(135deg,#0f766e,#2563eb)", color: "#fff", fontSize: 25 }}>✳</span>
           <div><strong style={{ display: "block", fontSize: 17 }}>طراح هوشمند قالب‌ها</strong><span style={{ display: "block", marginTop: 5, color: "#475569", fontSize: 12, lineHeight: 1.8 }}>نوع صفحه، زبان برنامه‌نویسی و نیازت را انتخاب کن؛ هوش مصنوعی طرح را تولید می‌کند و پس از بررسی در کتابخانه قالب‌ها ذخیره می‌شود.</span></div>
         </div>
-        <Link href="/admin/templates/ai-studio" style={{ ...actionStyle, background: "#0f766e", borderColor: "#0f766e", color: "#fff" }}>شروع طراحی هوشمند ↗</Link>
+        <Link href="/admin/ai-workshop?tool=template" style={{ ...actionStyle, background: "#0f766e", borderColor: "#0f766e", color: "#fff" }}>شروع کارگاه هوشمند ↗</Link>
       </section>
 
       <section aria-labelledby="lending-templates-title" style={{ marginBottom: 34 }}>
