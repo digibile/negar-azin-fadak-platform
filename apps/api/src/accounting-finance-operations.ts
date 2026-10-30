@@ -57,10 +57,11 @@ router.post("/api/accounting-finance/counterparties",requireAuth,requirePermissi
  try{
   await c.query("begin");
   const p=await c.query("insert into accounting_parties(tenant_id,party_code,party_type,title,status,metadata) values($1,'CP-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,12)),$2,$3,$4,$5) returning *",[t.id,partyType,name,b.isActive===false?"inactive":"active",{sourceSystem:"vamcity",sourceEntity:"CounterParty"}]);
-  const a=await c.query("insert into accounting_party_bank_accounts(tenant_id,party_id,account_title,iban,status,verification_status) values($1,$2,$3,$4,$5,'pending') returning *",[t.id,p.rows[0].id,name,iban,b.isActive===false?"inactive":"active"]);
+  const a=await c.query("insert into accounting_party_bank_accounts(tenant_id,party_id,account_title,iban,status,verification_status) values($1,$2,$3,$4,$5,'pending') on conflict(tenant_id,iban) do nothing returning *",[t.id,p.rows[0].id,name,iban,b.isActive===false?"inactive":"active"]);
+  if(!a.rowCount)throw Object.assign(new Error("این شماره شبا قبلاً در همین سازمان ثبت شده است"),{statusCode:409});
   await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,after_data) values($1,'party',$2,'create',$3,$4),($1,'party_bank_account',$5,'create',$3,$6)",[t.id,p.rows[0].id,actor(req),p.rows[0],a.rows[0].id,a.rows[0]]);
   await c.query("commit");res.status(201).json({party:p.rows[0],bankAccount:a.rows[0]});
- }catch(e){await c.query("rollback");throw e}finally{c.release()}
+ }catch(e:any){await c.query("rollback");if(e?.statusCode)return deny(res,e.statusCode,e.message);throw e}finally{c.release()}
 });
 
 router.patch("/api/accounting-finance/counterparties/:id",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
@@ -80,7 +81,8 @@ router.patch("/api/accounting-finance/counterparties/:id",requireAuth,requirePer
   if(iban){
    const current=await c.query("select id,iban,status from accounting_party_bank_accounts where tenant_id=$1 and party_id=$2 order by (iban=$3) desc,created_at desc limit 1",[t.id,id,iban]);
    if(!current.rowCount||current.rows[0].iban!==iban){
-    await c.query("update accounting_party_bank_accounts set status='inactive',updated_at=now() where tenant_id=$1 and party_id=$2 and status='active'",[t.id,id]);
+    const deactivated=await c.query("update accounting_party_bank_accounts set status='inactive',updated_at=now() where tenant_id=$1 and party_id=$2 and status='active' returning *",[t.id,id]);
+    for(const account of deactivated.rows)await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,'party_bank_account',$2,'deactivate',$3,$4,$5)",[t.id,account.id,actor(req),{...account,status:"active"},account]);
     const inserted=await c.query("insert into accounting_party_bank_accounts(tenant_id,party_id,account_title,iban,status,verification_status) values($1,$2,$3,$4,$5,'pending') on conflict(tenant_id,iban) do nothing returning *",[t.id,id,name,iban,status]);
     if(!inserted.rowCount)throw Object.assign(new Error("این شماره شبا قبلاً برای طرف دیگری در همین سازمان ثبت شده است"),{statusCode:409});
     bankAccount=inserted.rows[0];
@@ -89,7 +91,7 @@ router.patch("/api/accounting-finance/counterparties/:id",requireAuth,requirePer
     bankAccount=activated.rows[0];
    }
   }
-  if(status==="inactive")await c.query("update accounting_party_bank_accounts set status='inactive',updated_at=now() where tenant_id=$1 and party_id=$2 and status='active'",[t.id,id]);
+  if(status==="inactive"){const deactivated=await c.query("update accounting_party_bank_accounts set status='inactive',updated_at=now() where tenant_id=$1 and party_id=$2 and status='active' returning *",[t.id,id]);for(const account of deactivated.rows)await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,'party_bank_account',$2,'deactivate',$3,$4,$5)",[t.id,account.id,actor(req),{...account,status:"active"},account]);}
   await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,'party',$2,'update',$3,$4,$5)",[t.id,id,actor(req),old.rows[0],p.rows[0]]);
   if(bankAccount)await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,after_data) values($1,'party_bank_account',$2,'create',$3,$4)",[t.id,bankAccount.id,actor(req),bankAccount]);
   await c.query("commit");res.json({party:p.rows[0],bankAccount});
