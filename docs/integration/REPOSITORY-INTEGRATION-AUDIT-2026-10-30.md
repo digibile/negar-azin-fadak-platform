@@ -37,11 +37,13 @@
 
 ### 2. `digibile/negarazin-accounting`
 
-**وضعیت مشاهده‌شده:** درخت مخزن فقط یک فایل `files (3).zip` نشان می‌دهد؛ README و سورس قابل مرور از مسیرهای متنی در دسترس نیست.
+**وضعیت مشاهده‌شده در GitHub:** شاخه `main` فقط یک فایل باینری `files (3).zip` دارد. فهرست مرکزی ZIP با خواندن blob بررسی شد: فقط `negar-azin-fadak-preview.html` و `negar-azin-fadak-ui.zip` در آن وجود دارد؛ این فایل، سورس backend حسابداری نیست.
 
-**تصمیم:** هنوز هیچ قابلیت حسابداری از این مخزن قابل تأیید یا انتقال نیست. فایل ZIP باید در محیط امن دریافت و فهرست شود؛ سپس مدل حساب‌ها، اسناد، دفترکل، مراکز هزینه، خزانه، گزارش‌ها، migrationها و تست‌ها استخراج و با ماژول‌های موجود مقصد مقایسه شوند. تا آن زمان هیچ جدول یا منطق مالی از روی نام فایل حدس زده نمی‌شود.
+**شاهد تکمیلی از فایل‌های بررسی‌شده در جلسات قبلی سرور:** آرشیو جداگانه `negar-azin-accounting-full _4_.zip` در مسیر `/home/gmai/domains/gmal.ir` قبلاً استخراج و فهرست شده بود. در آن فهرست، backend Node/TypeScript شامل `schema.sql`، `seed.ts` و routeهای accounts/archive/auth/dashboard/fiscal/journal/org/reports/tax/treasury/users و frontend React/Vite با صفحات حساب‌ها، اشخاص، اسناد، دوره مالی، دفتر روزنامه، گزارش، مالیات، خزانه و کاربران دیده می‌شود. اما محتوای واقعی `schema.sql`، routeها و دیتابیس SQLite در GitHub فعلی یا فایل‌های قابل دسترسی این مرحله موجود نیست؛ فقط inventory فایل‌ها ثبت شده است.
 
-**اولویت:** بالا، اما وضعیت انتقال معلق تا ممیزی محتوای ZIP.
+**تصمیم:** سورس حسابداری هنوز ممیزی محتوایی/جدولی کامل نشده و هیچ قابلیت یا جدول از آن منتقل نمی‌شود. ZIP کامل سرور باید به‌صورت فایل قابل دسترسی در همین مخزن یا گفت‌وگو قرار گیرد؛ سپس schema، routeها، کنترل دسترسی، دفترکل، خزانه، گزارش‌ها، migration و داده SQLite به‌صورت دقیق با ماژول‌های accounting مقصد مقایسه شوند. ZIP preview فعلی جایگزین آرشیو کامل backend نیست.
+
+**اولویت:** بالا؛ انتقال معلق تا دریافت و بررسی bytes آرشیو کامل و schema واقعی.
 
 ### 3. `digibile/vamcity`
 
@@ -74,19 +76,15 @@
 
 ### 5. `digibile/tejarhstore`
 
-**وضعیت مشاهده‌شده:** برنامه ASP.NET Core با موجودیت‌های Product، ProductImage، Category، Brand، CartItem، Order، OrderItem و AppUser؛ همچنین controllerهای کاتالوگ، دسته‌بندی، سبد، checkout و پرداخت زرین‌پال دارد. مدل محصول از شناسه عددی و مدل AppUser مستقل استفاده می‌کند. سرویس پرداخت نمونه، مبلغ را از تومان به ریال تبدیل می‌کند و نیازمند بازبینی خطا، timeout، callback و idempotency است.
+**وضعیت مشاهده‌شده:** سورس ASP.NET Core 9 در لایه‌های Domain/Application/Infrastructure/Web بررسی شد. مدل‌های `AppUser`, `Product`, `ProductImage`, `Category`, `Brand`, `Order`, `OrderItem`، controllerهای کاتالوگ/سبد/checkout و اتصال مستقیم Zarinpal وجود دارند. migrationهای EF در tree فعلی مشاهده نشدند.
 
-**قابلیت‌های قابل استفاده:**
-- ویژگی‌های کاتالوگ: slug، دسته‌بندی والد، برند، تصویر اصلی و ترتیب تصاویر.
-- snapshot عنوان و قیمت کالا در اقلام سفارش.
-- جریان سبد و تجربه checkout، فقط در صورت وجود gap واقعی در جریان canonical مقصد.
-- اتصال درگاه فقط از طریق payment-provider مقصد.
+**نگاشت به مقصد:** محصول/تصویر/دسته/برند با `products`, `product_images`, `marketplace_categories`, `brands`, `product_inventory`؛ سبد با `cart_sessions` و `cart_items`؛ سفارش با `marketplace_orders` و `marketplace_order_items`؛ پرداخت با `payment-provider`، gateway profiles/attempts و callbackهای امضاشده مقصد. migration 144 قبلاً بخشی از هم‌راستاسازی مدل کاتالوگ TejarhStore را انجام داده است.
 
-**وضعیت ادغام موجود:** migration شماره 144 مقصد، slug و درخت دسته‌بندی، تصویر محصول، برند و ارتباط tenant-scoped محصول/دسته‌بندی را اضافه کرده است.
+**ریسک‌های تأییدشده مبدأ:** رمز مدیر پیش‌فرض در README و DbInitializer، کلید JWT ثابت fallback در AuthApiController، نبود JWT bearer registration در Program.cs، seed سه محصول نمونه، نگهداری قیمت در session و عدم reprice/stock validation در checkout، و callback پرداخت بدون idempotency/state guard قابل مشاهده. این منطق نباید عیناً به مقصد منتقل شود.
 
-**موارد ممنوع:** جدول AppUser، سبد خرید یا Order مستقل با شناسه‌های عددی و checkout موازی. هر سفارش باید به هویت، کاتالوگ، پرداخت، تسویه و دفترکل مرکزی متصل بماند.
+**تصمیم:** کپی پروژه، AppUser، cart/order و درگاه موازی ممنوع. مسیر checkout و پرداخت مرکزی مقصد از نظر tenant، price revalidation، stock reservation، idempotency، ledger و refund قوی‌تر است و باید حفظ شود. جزئیات کامل در `docs/integration/TEJARHSTORE-ADOPTION-2026-10-30.md` ثبت شده است.
 
-**اولویت:** بخشی از مدل کاتالوگ پیشاپیش ادغام شده؛ باقیمانده فقط پس از تطبیق controllerها و جریان سفارش با API فعلی بررسی شود.
+**اولویت:** کاتالوگ تا حدی پیشاپیش هم‌راستا شده؛ ارزش باقیمانده در جزئیات UX و mapping داده است، نه افزودن هسته دوم.
 
 ### 6. `digibile/sarajon`
 
