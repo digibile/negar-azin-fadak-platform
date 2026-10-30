@@ -301,6 +301,21 @@ if((partyBankMigration.match(/create table if not exists accounting_party_bank_a
 if(!accountingWorkspace.includes('["parties","طرف‌حساب‌ها و شبا"]')||!accountingWorkspace.includes("/api/accounting-finance/counterparties")||!accountingWorkspace.includes("partyBankAccounts")||!accountingWorkspace.includes("تأیید دستی")||!accountingWorkspace.includes("افزودن حساب بانکی")||!accountingWorkspace.includes("مسدودسازی"))throw new Error("Canonical accounting workspace must expose counterparties and manual bank verification");
 if(!accountingOperations.includes('requirePermission("accounting-finance.read")'))throw new Error("Party and bank account reads must require accounting read permission");
 
+const partyLinkMigration=fs.readFileSync(path.join(root,"database/migrations/152_operational_registries_canonical_party_links.sql"),"utf8");
+for(const table of ["purchase_suppliers","sales_partners","payment_merchants","sellers"]){
+ if(!partyLinkMigration.includes("alter table public.%I add column if not exists party_id uuid")||
+    !partyLinkMigration.includes("foreign key (tenant_id, party_id)")||
+    !partyLinkMigration.includes("create unique index if not exists %I on public.%I (tenant_id, party_id)"))
+  throw new Error("Operational registry canonical-party migration is missing tenant-safe constraints");
+}
+if(!accountingOperations.includes('router.post("/api/accounting-finance/party-links/:registry/:id"')||
+   !accountingOperations.includes('matchMethod==="national_id"')||
+   !accountingOperations.includes('b.confirmMatch!==true')||
+   !accountingOperations.includes('error?.code==="23505"')||
+   !accountingOperations.includes('requirePermission("accounting-finance.write"),requireCsrf'))
+ throw new Error("Canonical party linking must require explicit evidence, tenant checks, CSRF, audit and duplicate protection");
+
+
 
 const verificationFoundation=fs.readFileSync(path.join(root,"database/migrations/112_verification_and_insurance_foundation.sql"),"utf8");
 const lendtechInquiryUi=fs.readFileSync(path.join(root,"apps/web/app/admin/lendtech/page.tsx"),"utf8");
