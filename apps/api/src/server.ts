@@ -390,4 +390,4 @@ slaSweep.unref();
 void getDigikalaCatalog(true).catch(error=>console.error("Digikala catalog warm-up failed",error));
 const digikalaCatalogSweep=setInterval(()=>getDigikalaCatalog(true).catch(error=>console.error("Digikala catalog refresh failed",error)),5*60*1000);
 digikalaCatalogSweep.unref();
-if(process.env.ADMIN_EMAIL&&process.env.ADMIN_PASSWORD)ensureAdmin(process.env.ADMIN_EMAIL,process.env.ADMIN_PASSWORD).catch(console.error);
+if(process.env.ADMIN_EMAIL)ensureAdmin(process.env.ADMIN_EMAIL).catch(console.error);
