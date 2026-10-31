@@ -8,6 +8,7 @@ const isProduction=process.env.NODE_ENV==="production";
 const cookieOptions=`Path=/; HttpOnly; SameSite=${process.env.COOKIE_SAMESITE||"Lax"}${isProduction?"; Secure":""}`;
 const csrfOptions=`Path=/; SameSite=${process.env.COOKIE_SAMESITE||"Lax"}${isProduction?"; Secure":""}`;
 export type AuthUser={id:string,email:string,role:string,sessionId?:string};
+export const isPlatformAdminRole=(role:unknown)=>typeof role==="string"&&["admin","super_admin","superadmin"].includes(role.toLowerCase());
 declare global { namespace Express { interface Request { user?: AuthUser } } }
 export function sign(user:AuthUser,sessionId:string){return jwt.sign({...user,sid:sessionId},secret,{expiresIn:"8h"});}
 export function hashPassword(value:string){return bcrypt.hash(value,12);}
@@ -54,19 +55,8 @@ export function requirePermission(permission:string){
  return async(req:Request,res:Response,next:NextFunction)=>{
   const user=(req as any).user as AuthUser|undefined;
   if(!user)return res.status(401).json({error:"احراز هویت لازم است"});
-  if(user.role==="admin")return next();
+  if(isPlatformAdminRole(user.role))return next();
   try{const r=await query("select 1 from role_permissions where role=$1 and permission=$2",[user.role,permission]);if(!r.rowCount)return res.status(403).json({error:"دسترسی کافی نیست"});next();}catch(error){next(error);}
  };
 }
 export const requireAdmin=requirePermission("users:manage");
-export async function ensureAdmin(email:string,password:string){
- const normalizedEmail=email.trim().toLowerCase();
- if(!normalizedEmail||!password)throw new Error("ADMIN_EMAIL and ADMIN_PASSWORD are required for admin bootstrap");
- const hash=await hashPassword(password);
- const found=await query("select id from users where lower(email)=$1 order by created_at asc limit 1",[normalizedEmail]);
- if(found.rowCount){
-  await query("update users set email=$1,password_hash=$2,full_name=$3,role='admin',status='active' where id=$4",[normalizedEmail,hash,"مدیر سامانه",found.rows[0].id]);
-  return;
- }
- await query("insert into users(email,password_hash,full_name,role,status) values($1,$2,$3,'admin','active')",[normalizedEmail,hash,"مدیر سامانه"]);
-}
