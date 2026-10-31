@@ -68,5 +68,5 @@ export async function ensureAdmin(email:string,password:string){
   await query("update users set email=$1,password_hash=$2,full_name=$3,role='super_admin',status='active' where id=$4",[normalizedEmail,hash,"مدیر سامانه",found.rows[0].id]);
   return;
  }
- await query("insert into users(email,password_hash,full_name,role,status) values($1,$2,$3,'super_admin','active')",[normalizedEmail,hash,"مدیر سامانه"]);
+ throw new Error("Configured ADMIN_EMAIL does not match an existing account; refusing to create a duplicate super admin");
 }
