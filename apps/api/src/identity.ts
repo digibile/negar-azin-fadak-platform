@@ -26,7 +26,7 @@ const guardWrite=async(req:any,res:any,next:any)=>{
 };
 const guardAdmin=(req:any,res:any,next:any)=>{
  if(isAdmin(req))return next();
- return res.status(403).json({error:"این عملیات فقط برای مدیر سامانه مجاز است"});
+ return res.status(403).json({error:"این عملیات فقط برای مدیرکل مجاز است"});
 };
 
 router.get("/api/identity/overview",requireAuth,guardRead,async(req:any,res)=>{
@@ -54,7 +54,7 @@ router.get("/api/identity/overview",requireAuth,guardRead,async(req:any,res)=>{
 router.post("/api/identity/users",requireAuth,guardWrite,requireCsrf,async(req:any,res)=>{
  const email=typeof req.body?.email==="string"?req.body.email.trim().toLowerCase():"";
  const fullName=typeof req.body?.fullName==="string"?req.body.fullName.trim():"";
- const role=typeof req.body?.role==="string"?req.body.role:"viewer";
+ const role=typeof req.body?.role==="string"?req.body.role:"customer";
  const status=typeof req.body?.status==="string"?req.body.status:"active";
  if(!email.includes("@")||!fullName)return res.status(400).json({error:"ایمیل و نام کاربر الزامی است"});
  if(!["active","pending","suspended"].includes(status))return res.status(400).json({error:"وضعیت حساب معتبر نیست"});
