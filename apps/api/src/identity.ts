@@ -30,7 +30,7 @@ const guardAdmin=(req:any,res:any,next:any)=>{
 };
 
 router.get("/api/identity/overview",requireAuth,guardRead,async(req:any,res)=>{
- const admin=isAdmin(req);
+ const superAdmin=isAdmin(req);\n const canReadAllUsers=superAdmin||req.user?.role==="admin";
  const [users,roles,groups,members,permissions,grants,sessions,logins]=await Promise.all([
   admin
    ? query("select id,email,national_id,full_name,role,status,created_at from users order by created_at desc")
@@ -47,7 +47,7 @@ router.get("/api/identity/overview",requireAuth,guardRead,async(req:any,res)=>{
    ? query("select id,email,success,failure_reason,ip_address,occurred_at from security_login_events order by occurred_at desc limit 100")
    : query("select id,email,success,failure_reason,ip_address,occurred_at from security_login_events where user_id=$1 order by occurred_at desc limit 100",[req.user.id])
  ]);
- res.json({users:users.rows,roles:roles.rows,groups:groups.rows,members:members.rows,permissions:permissions.rows,grants:grants.rows,sessions:sessions.rows,logins:logins.rows,access:{canManageRoles:admin,canManageUsers:admin,canViewGlobalAudit:admin}});
+ res.json({users:users.rows,roles:roles.rows,groups:groups.rows,members:members.rows,permissions:permissions.rows,grants:grants.rows,sessions:sessions.rows,logins:logins.rows,access:{canManageRoles:superAdmin,canManageUsers:superAdmin||req.user?.role==="admin",canViewGlobalAudit:superAdmin}});
 });
 
 router.post("/api/identity/users",requireAuth,guardWrite,requireCsrf,async(req:any,res)=>{
