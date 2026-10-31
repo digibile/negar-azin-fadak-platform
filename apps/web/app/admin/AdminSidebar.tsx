@@ -97,7 +97,7 @@ export default function AdminSidebar(){
   );
   const children=item.children.flatMap((child:MasterChild,i)=>{
    const legacyCode=child.legacyCode||"";
-   const accessCode=child.moduleCode||legacyCode||item.moduleCode||"";
+   const accessCode=child.moduleCode||item.moduleCode||legacyCode||"";
    if(accessCode&&!moduleSet.has(accessCode))return [];
    const db=legacyCode?dbByLegacy.get(legacyCode):undefined;
    const childRoute=child.route
