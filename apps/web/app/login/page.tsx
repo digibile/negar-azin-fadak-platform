@@ -64,7 +64,7 @@ export default function Login(){
     const verified=await verify.json().catch(()=>({}));
     if(!verify.ok)throw new Error(verified.error||"تأیید کد انجام نشد");
     const role=verified?.user?.role;
-    window.location.assign(role==="admin"||role==="manager"?"/admin":"/customer");
+    window.location.assign(role==="admin"||role==="super_admin"||role==="superadmin"||role==="manager"?"/admin":"/customer");
     return;
    }
    if(method==="email"&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalized)){setError("آدرس ایمیل را به‌درستی وارد کنید");setLoading(false);return;}
