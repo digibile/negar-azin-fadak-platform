@@ -15,6 +15,7 @@ const brands:Record<BrandKey,{name:string;description:string}>={
 
 export default function RegisterPage(){
  const [brandKey,setBrandKey]=useState<BrandKey>("naf");
+ const [registrationEnabled,setRegistrationEnabled]=useState(true);
  const brand=brands[brandKey];
  const [check,setCheck]=useState<HumanCheck>({challenge:"",question:"در حال دریافت تأیید انسانی…"});
  const [fullName,setFullName]=useState("");
@@ -25,6 +26,7 @@ export default function RegisterPage(){
  const [error,setError]=useState("");
  const [loading,setLoading]=useState(false);
  useEffect(()=>{
+  fetch("/api/public/auth-template-settings",{cache:"no-store"}).then(r=>r.json()).then(d=>setRegistrationEnabled(d?.settings?.registerEnabled!==false)).catch(()=>{});
   const key=new URLSearchParams(window.location.search).get("brand") as BrandKey|null;
   if(key&&key in brands)setBrandKey(key);
   fetch("/api/auth/human-check",{cache:"no-store",credentials:"include"}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error||"دریافت تأیید انسانی ناموفق بود");setCheck(d);}).catch(e=>setError(e instanceof Error?e.message:"خطا در دریافت تأیید انسانی"));
@@ -41,7 +43,7 @@ export default function RegisterPage(){
    const response=await fetch("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},credentials:"include",body:JSON.stringify({fullName,email,password,humanCheck:check.challenge,humanAnswer:answer})});
    const data=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(data.error||"ثبت‌نام انجام نشد");
-   window.location.assign(data?.user?.role==="admin"||data?.user?.role==="manager"?"/admin":"/customer");
+   window.location.assign(["super_admin","admin","manager"].includes(data?.user?.role)?"/admin":"/customer");
   }catch(e){setError(e instanceof Error?e.message:"خطای داخلی سرویس");setAnswer("");await refreshCheck();}
   finally{setLoading(false);}
  }
@@ -50,14 +52,14 @@ export default function RegisterPage(){
    <a href={"/login?brand="+brandKey} style={{fontSize:12,color:"#087f79",fontWeight:800,textDecoration:"none"}}>← قبلاً حساب دارید؟ ورود</a>
    <div style={{marginTop:25,display:"flex",alignItems:"center",gap:12}}><div style={{width:48,height:48,borderRadius:15,display:"grid",placeItems:"center",background:"#e5f8f4",color:"#07857e",fontSize:23,fontWeight:900}}>د</div><div><strong style={{fontSize:21}}>{brand.name}</strong><div style={{fontSize:12,color:"#7b8997",marginTop:4}}>حساب کاربری امن</div></div></div>
    <h1 style={{fontSize:25,margin:"24px 0 8px"}}>ایجاد حساب کاربری</h1><p style={{fontSize:13,lineHeight:2,color:"#6b7d8f",marginTop:0}}>{brand.description}</p>
-   {error&&<div role="alert" style={{background:"#fff0f0",border:"1px solid #ffd8d8",color:"#ad3030",padding:12,borderRadius:10,fontSize:12,lineHeight:1.8,margin:"14px 0"}}>{error}</div>}
+   {!registrationEnabled&&<div role="status" style={{background:"#fff7e8",border:"1px solid #f3d7a1",color:"#8b5a13",padding:12,borderRadius:10,fontSize:12,lineHeight:1.8,margin:"14px 0"}}>ثبت‌نام در حال حاضر توسط مدیریت قالب‌ها غیرفعال شده است.</div>}{error&&<div role="alert" style={{background:"#fff0f0",border:"1px solid #ffd8d8",color:"#ad3030",padding:12,borderRadius:10,fontSize:12,lineHeight:1.8,margin:"14px 0"}}>{error}</div>}
    <form onSubmit={submit} style={{display:"grid",gap:14,marginTop:22}}>
     <label style={{display:"grid",gap:7,fontSize:12,fontWeight:800}}>نام و نام خانوادگی<input autoComplete="name" required minLength={2} maxLength={200} value={fullName} onChange={e=>setFullName(e.target.value)} style={{padding:13,border:"1px solid #dbe5eb",borderRadius:11,outlineColor:"#14b8a6"}}/></label>
     <label style={{display:"grid",gap:7,fontSize:12,fontWeight:800}}>ایمیل<input type="email" autoComplete="email" required maxLength={320} dir="ltr" value={email} onChange={e=>setEmail(e.target.value)} style={{padding:13,border:"1px solid #dbe5eb",borderRadius:11,outlineColor:"#14b8a6"}}/></label>
     <label style={{display:"grid",gap:7,fontSize:12,fontWeight:800}}>رمز عبور<input type="password" autoComplete="new-password" required minLength={8} maxLength={200} value={password} onChange={e=>setPassword(e.target.value)} style={{padding:13,border:"1px solid #dbe5eb",borderRadius:11,outlineColor:"#14b8a6"}}/></label>
     <label style={{display:"grid",gap:7,fontSize:12,fontWeight:800}}>تکرار رمز عبور<input type="password" autoComplete="new-password" required minLength={8} maxLength={200} value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} style={{padding:13,border:"1px solid #dbe5eb",borderRadius:11,outlineColor:"#14b8a6"}}/></label>
     <div style={{background:"#f3f8fa",border:"1px solid #e1eaef",borderRadius:12,padding:14,display:"grid",gridTemplateColumns:"1fr 100px",gap:12,alignItems:"center"}}><div><strong style={{fontSize:12}}>تأیید انسانی</strong><div style={{fontSize:13,marginTop:7}}>{check.question}</div></div><input aria-label="پاسخ تأیید انسانی" inputMode="numeric" pattern="[0-9]+" autoComplete="off" required value={answer} onChange={e=>setAnswer(e.target.value)} placeholder="پاسخ" style={{minWidth:0,width:"100%",padding:12,border:"1px solid #dbe5eb",borderRadius:10}}/></div>
-    <button type="submit" disabled={loading||!check.challenge} style={{border:0,borderRadius:12,padding:15,background:loading?"#8ebdb8":"#07877f",color:"#fff",fontWeight:900,cursor:loading?"wait":"pointer"}}>{loading?"در حال ایجاد حساب…":"ایجاد حساب و ورود"}</button>
+    <button type="submit" disabled={loading||!check.challenge||!registrationEnabled} style={{border:0,borderRadius:12,padding:15,background:loading?"#8ebdb8":"#07877f",color:"#fff",fontWeight:900,cursor:loading?"wait":"pointer"}}>{loading?"در حال ایجاد حساب…":"ایجاد حساب و ورود"}</button>
    </form>
    <p style={{fontSize:11,color:"#83909d",lineHeight:2,marginTop:18}}>رمز عبور به‌صورت هش‌شده ذخیره می‌شود؛ حساب تازه با سطح دسترسی مشتری ساخته خواهد شد.</p>
   </section>

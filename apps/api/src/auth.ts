@@ -54,19 +54,15 @@ export function requirePermission(permission:string){
  return async(req:Request,res:Response,next:NextFunction)=>{
   const user=(req as any).user as AuthUser|undefined;
   if(!user)return res.status(401).json({error:"احراز هویت لازم است"});
-  if(user.role==="admin")return next();
+  if(user.role==="super_admin")return next();
   try{const r=await query("select 1 from role_permissions where role=$1 and permission=$2",[user.role,permission]);if(!r.rowCount)return res.status(403).json({error:"دسترسی کافی نیست"});next();}catch(error){next(error);}
  };
 }
 export const requireAdmin=requirePermission("users:manage");
-export async function ensureAdmin(email:string,password:string){
+export async function ensureAdmin(email:string,_password:string){
  const normalizedEmail=email.trim().toLowerCase();
- if(!normalizedEmail||!password)throw new Error("ADMIN_EMAIL and ADMIN_PASSWORD are required for admin bootstrap");
- const hash=await hashPassword(password);
+ if(!normalizedEmail)throw new Error("ADMIN_EMAIL is required for super admin bootstrap");
  const found=await query("select id from users where lower(email)=$1 order by created_at asc limit 1",[normalizedEmail]);
- if(found.rowCount){
-  await query("update users set email=$1,password_hash=$2,full_name=$3,role='admin',status='active' where id=$4",[normalizedEmail,hash,"مدیر سامانه",found.rows[0].id]);
-  return;
- }
- await query("insert into users(email,password_hash,full_name,role,status) values($1,$2,$3,'admin','active')",[normalizedEmail,hash,"مدیر سامانه"]);
+ if(!found.rowCount)throw new Error("Configured ADMIN_EMAIL does not match an existing account; refusing to create a duplicate super admin");
+ await query("update users set role='super_admin',status='active',updated_at=now() where id=$1",[found.rows[0].id]);
 }
