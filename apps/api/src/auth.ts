@@ -65,7 +65,7 @@ export async function ensureAdmin(email:string,password:string){
  const hash=await hashPassword(password);
  const found=await query("select id from users where lower(email)=$1 order by created_at asc limit 1",[normalizedEmail]);
  if(found.rowCount){
-  await query("update users set email=$1,password_hash=$2,full_name=$3,role=case when role='admin' then 'super_admin' else role end,status='active' where id=$4",[normalizedEmail,hash,"مدیر سامانه",found.rows[0].id]);
+  await query("update users set email=$1,password_hash=$2,full_name=$3,role='super_admin',status='active' where id=$4",[normalizedEmail,hash,"مدیر سامانه",found.rows[0].id]);
   return;
  }
  await query("insert into users(email,password_hash,full_name,role,status) values($1,$2,$3,'super_admin','active')",[normalizedEmail,hash,"مدیر سامانه"]);
