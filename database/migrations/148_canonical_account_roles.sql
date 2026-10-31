@@ -29,6 +29,18 @@ insert into role_permissions(role,permission) values
  ('customer','dashboard:read')
 on conflict do nothing;
 
+-- Role-scoped module visibility is derived from the canonical module registry.
+insert into role_permissions(role,permission)
+select 'admin','modules:'||code||':read' from platform_modules
+where code in ('governance','identity','customer-360','crm','smart-calendar','business-rules','sla','accounting-finance','marketplace','web-domain','payments','form-builder','page-builder','communications','documents-office','command-center')
+on conflict do nothing;
+insert into role_permissions(role,permission)
+select 'seller','modules:'||code||':read' from platform_modules where code='marketplace'
+on conflict do nothing;
+insert into role_permissions(role,permission)
+select 'representative','modules:'||code||':read' from platform_modules where code in ('customer-360','crm')
+on conflict do nothing;
+
 insert into identity_role_permissions(role_key,permission_key,granted)
 select 'super_admin',permission_key,true from identity_permissions
 on conflict(role_key,permission_key) do update set granted=true;
