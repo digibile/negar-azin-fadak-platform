@@ -8,6 +8,7 @@ const isProduction=process.env.NODE_ENV==="production";
 const cookieOptions=`Path=/; HttpOnly; SameSite=${process.env.COOKIE_SAMESITE||"Lax"}${isProduction?"; Secure":""}`;
 const csrfOptions=`Path=/; SameSite=${process.env.COOKIE_SAMESITE||"Lax"}${isProduction?"; Secure":""}`;
 export type AuthUser={id:string,email:string,role:string,sessionId?:string};
+export const isPlatformSuperAdminRole=(role:unknown)=>typeof role==="string"&&["super_admin","superadmin"].includes(role.toLowerCase());
 declare global { namespace Express { interface Request { user?: AuthUser } } }
 export function sign(user:AuthUser,sessionId:string){return jwt.sign({...user,sid:sessionId},secret,{expiresIn:"8h"});}
 export function hashPassword(value:string){return bcrypt.hash(value,12);}
@@ -54,7 +55,7 @@ export function requirePermission(permission:string){
  return async(req:Request,res:Response,next:NextFunction)=>{
   const user=(req as any).user as AuthUser|undefined;
   if(!user)return res.status(401).json({error:"احراز هویت لازم است"});
-  if(user.role==="super_admin")return next();
+  if(isPlatformSuperAdminRole(user.role))return next();
   try{const r=await query("select 1 from role_permissions where role=$1 and permission=$2",[user.role,permission]);if(!r.rowCount)return res.status(403).json({error:"دسترسی کافی نیست"});next();}catch(error){next(error);}
  };
 }
@@ -65,4 +66,5 @@ export async function ensureAdmin(email:string,_password:string){
  const found=await query("select id from users where lower(email)=$1 order by created_at asc limit 1",[normalizedEmail]);
  if(!found.rowCount)throw new Error("Configured ADMIN_EMAIL does not match an existing account; refusing to create a duplicate super admin");
  await query("update users set role='super_admin',status='active',updated_at=now() where id=$1",[found.rows[0].id]);
+ await query("insert into platform_owner_accounts(account_key,user_id,account_label,source_system) select 1,id,'مدیرکل سامانه','configured-existing-account' from users where id=$1 on conflict(account_key) do nothing",[found.rows[0].id]);
 }
