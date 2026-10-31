@@ -26,7 +26,7 @@ authTemplateManagementRouter.put("/api/admin/auth-template-settings",requireAuth
  allowedIdentifiers:Array.isArray(body.allowedIdentifiers)&&body.allowedIdentifiers.some((x:string)=>["mobile","email","nationalId"].includes(x))?body.allowedIdentifiers.filter((x:string)=>["mobile","email","nationalId"].includes(x)):defaults.allowedIdentifiers,
  loginMethods:Array.isArray(body.loginMethods)&&body.loginMethods.some((x:string)=>["password","otp"].includes(x))?body.loginMethods.filter((x:string)=>["password","otp"].includes(x)):defaults.loginMethods,
  registrationFields:["fullName","email","password","confirmPassword"],
- captchaEnabled:body.captchaEnabled!==false};
+ captchaEnabled:true};
  const user=(req as any).user,client=await pool.connect();
  try{await client.query("begin");
  const existing=await client.query("select id from module_records where tenant_id=$1 and record_type='auth-template-settings' order by updated_at desc limit 1 for update",[tenant.id]);
