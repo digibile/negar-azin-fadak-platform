@@ -54,7 +54,7 @@ export function requirePermission(permission:string){
  return async(req:Request,res:Response,next:NextFunction)=>{
   const user=(req as any).user as AuthUser|undefined;
   if(!user)return res.status(401).json({error:"احراز هویت لازم است"});
-  if(user.role==="admin"||user.role==="super_admin")return next();
+  if(user.role==="super_admin")return next();
   try{const r=await query("select 1 from role_permissions where role=$1 and permission=$2",[user.role,permission]);if(!r.rowCount)return res.status(403).json({error:"دسترسی کافی نیست"});next();}catch(error){next(error);}
  };
 }
