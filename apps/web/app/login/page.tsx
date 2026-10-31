@@ -78,7 +78,7 @@ export default function Login(){
    const data=await res.json().catch(()=>({}));
    if(!res.ok)throw new Error(data.error||"ورود انجام نشد");
    const role=data?.user?.role;
-   window.location.assign(role==="admin"||role==="manager"?"/admin":"/customer");
+   window.location.assign(role==="admin"||role==="super_admin"||role==="superadmin"||role==="manager"?"/admin":"/customer");
   }catch(e){
    setError(e instanceof Error?e.message:"خطای داخلی سرویس");
    try{setCheck(await getHumanCheck());setAnswer("");}catch{}
