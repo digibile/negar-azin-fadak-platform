@@ -95,11 +95,11 @@ export default function AdminSidebar(){
     ? "/modules/?code="+encodeURIComponent(item.moduleCode)
     : "#"
   );
-  const children=item.children.map((child:MasterChild,i)=>{
+  const children=item.children.flatMap((child:MasterChild,i)=>{
    const legacyCode=child.legacyCode||"";
-   const db=dbByLegacy.get(legacyCode);
-   // The canonical menu owns navigation. Database menu paths are retained only as
-   // legacy metadata, never allowed to override the approved 20-panel route map.
+   const accessCode=child.moduleCode||legacyCode||item.moduleCode||"";
+   if(accessCode&&!moduleSet.has(accessCode))return [];
+   const db=legacyCode?dbByLegacy.get(legacyCode):undefined;
    const childRoute=child.route
     ? child.route
     : legacyCode
@@ -107,10 +107,10 @@ export default function AdminSidebar(){
       : (child.moduleCode&&moduleSet.has(child.moduleCode)
         ? "/modules/?code="+encodeURIComponent(child.moduleCode)+(item.panel?"&panel="+encodeURIComponent(item.panel):"")
         : route+(route.includes("?")?"&":"?")+"menu="+encodeURIComponent(child.title));
-   return {id:item.code+"-"+i,title:child.title,path:childRoute,sort_order:i,db,dbChildren:normalize(db?.child_items||[])};
+   return [{id:item.code+"-"+i,title:child.title,path:childRoute,sort_order:i,db,dbChildren:normalize(db?.child_items||[])}];
   });
   return {...item,route,children};
- }),[dbByLegacy,moduleSet]);
+ }).filter(item=>item.children.length>0||(item.moduleCode&&moduleSet.has(item.moduleCode))),[dbByLegacy,moduleSet]);
 
  const filtered=useMemo(()=>{
   const q=query.trim().toLocaleLowerCase("fa-IR");
