@@ -173,12 +173,12 @@ app.post("/api/auth/otp/request",asyncHandler(async(req,res)=>{
  if(method==="nationalId"&&!isValidIranianNationalCode(identifier))return res.status(400).json({error:"کد ملی معتبر نیست"});
  if(!verifyHumanCheck(String(req.body?.humanCheck||""),String(req.body?.humanAnswer||"")))return res.status(400).json({error:"کد امنیتی نادرست یا منقضی شده است"});
  if((process.env.OTP_PEPPER||"").length<24)return res.status(503).json({error:"سرویس رمز یک‌بارمصرف هنوز پیکربندی نشده است"});
- let user:any=null,channel:"sms"|"email"=method==="email"?"email":"sms",destination=identifier,key=identifier;
+ let user:any=null,channel:"sms"|"email"=method==="email"?"email":"sms",destination=identifier,canonicalIdentifier=identifier;
  if(method==="mobile"){
-  key=normalizeIranMobile(identifier);
-  const variants=[key,"98"+key.slice(1),"0098"+key.slice(1)];
+  canonicalIdentifier=normalizeIranMobile(identifier);
+  const variants=[canonicalIdentifier,"98"+canonicalIdentifier.slice(1),"0098"+canonicalIdentifier.slice(1)];
   const found=await query("select u.id,u.email,u.full_name,u.role from users u join user_contact_methods c on c.user_id=u.id where u.status='active' and c.channel='sms' and c.status='active' and c.verified_at is not null and regexp_replace(translate(c.value,'۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩','01234567890123456789'),'[^0-9]','','g')=any($1::text[]) order by c.is_primary desc limit 2",[variants]);
-  if(found.rowCount===1){user=found.rows[0];destination=key;}
+  if(found.rowCount===1){user=found.rows[0];destination=canonicalIdentifier;}
  }else if(method==="email"){
   const found=await query("select id,email,full_name,role from users where lower(email)=$1 and status='active' limit 2",[identifier]);
   if(found.rowCount===1){user=found.rows[0];destination=found.rows[0].email;}
@@ -186,6 +186,7 @@ app.post("/api/auth/otp/request",asyncHandler(async(req,res)=>{
   const found=await query("select id,email,full_name,role from users where national_id=$1 and status='active' limit 2",[identifier]);
   if(found.rowCount===1){user=found.rows[0];const contact=await query("select value from user_contact_methods where user_id=$1 and channel='sms' and status='active' and verified_at is not null order by is_primary desc,created_at limit 1",[user.id]);if(contact.rowCount){destination=normalizeIranMobile(contact.rows[0].value);if(!destination)user=null;}else user=null;}
  }
+ const key=otpDigest("otp-identifier:"+method,canonicalIdentifier);
  const ip=req.ip||"127.0.0.1";
  const rate=await query("select count(*) filter(where phone=$1)::int as identifier_count,count(*) filter(where requested_ip=$2::inet)::int as ip_count from otp_challenges where created_at>now()-interval '1 hour'",[key,ip]);
  if(Number(rate.rows[0]?.identifier_count||0)>=5)return res.status(429).json({error:"برای این شناسه در یک ساعت بیش از حد درخواست ثبت شده است"});
@@ -206,9 +207,11 @@ app.post("/api/auth/otp/verify",asyncHandler(async(req,res)=>{
  const method=req.body?.method==="email"?"email":req.body?.method==="nationalId"?"nationalId":"mobile";
  const raw=String(req.body?.identifier??req.body?.phone??"").trim();
  const normalizeDigits=(value:string)=>value.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
- const key=method==="email"?raw.toLowerCase():method==="mobile"?normalizeIranMobile(raw):normalizeDigits(raw).replace(/[\s()+-]/g,"");
+ const normalizedIdentifier=method==="email"?raw.toLowerCase():method==="mobile"?normalizeIranMobile(raw):normalizeDigits(raw).replace(/[\s()+-]/g,"");
  const code=normalizeDigits(String(req.body?.code??"")).replace(/\D/g,"");
- if(!key||!/^[0-9]{6}$/.test(code))return res.status(400).json({error:"شناسه یا کد شش‌رقمی معتبر نیست"});
+ if(!normalizedIdentifier||!/^[0-9]{6}$/.test(code))return res.status(400).json({error:"شناسه یا کد شش‌رقمی معتبر نیست"});
+ if((process.env.OTP_PEPPER||"").length<24)return res.status(503).json({error:"سرویس رمز یک‌بارمصرف هنوز پیکربندی نشده است"});
+ const key=otpDigest("otp-identifier:"+method,normalizedIdentifier);
  const verifyIp=req.ip||"127.0.0.1";
  await query("insert into otp_verification_attempts(requested_ip,phone) values($1::inet,$2)",[verifyIp,key]);
  const ipAttempts=await query("select count(*)::int as total from otp_verification_attempts where requested_ip=$1::inet and attempted_at>now()-interval '15 minutes'",[verifyIp]);
