@@ -180,6 +180,8 @@ export default function Templates() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}><Link href="/admin/ai-workshop?tool=template" style={{ ...actionStyle, background: "linear-gradient(110deg,#0f766e,#2563eb)", borderColor: "#0f766e", color: "#fff" }}>✳ ساخت قالب با کارگاه هوشمند</Link><Link href="/admin" style={actionStyle}>بازگشت به مرکز مدیریت</Link></div>
       </header>
 
+      <section aria-label="مدیریت صفحات ورود و ثبت‌نام" style={{ marginBottom: 24, padding: 20, borderRadius: 18, border: "1px solid #99f6e4", background: "linear-gradient(115deg,#f0fdfa,#eff6ff)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}><div><strong style={{display:"block",fontSize:18}}>مدیریت صفحات ورود و ثبت‌نام</strong><p style={{margin:"6px 0 0",color:"#475569",lineHeight:1.8}}>قالب‌های احراز هویت، روش ورود و فیلدهای ثبت‌نام را از یک پنل مرکزی تنظیم کن.</p></div><Link href="/admin/templates/auth" style={{...actionStyle,background:"#0f766e",borderColor:"#0f766e",color:"#fff"}}>مدیریت صفحات ورود ↗</Link></section>
+
       <section aria-label="طراح هوشمند قالب‌ها" style={{ marginBottom: 28, padding: 20, borderRadius: 18, border: "1px solid #99f6e4", background: "linear-gradient(115deg,#f0fdfa,#eff6ff)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 240 }}>
           <span aria-hidden="true" style={{ width: 48, height: 48, display: "grid", placeItems: "center", borderRadius: 15, background: "linear-gradient(135deg,#0f766e,#2563eb)", color: "#fff", fontSize: 25 }}>✳</span>
