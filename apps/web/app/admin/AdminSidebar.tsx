@@ -29,6 +29,8 @@ function ChevronIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path 
 function HomeIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v10.5a1 1 0 0 1-1 1h-5.5v-6h-4v6H4.5a1 1 0 0 1-1-1V10Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>}
 function CloseIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>}
 
+const MODULE_ALIASES:Record<string,string>={"domain-management":"web-domain","acceptors":"commission","sellers":"marketplace","payments-settlement":"payments","frontend-management":"page-builder","documents-governance":"documents-office"};
+
 function normalize(nodes:MenuNode[]):MenuNode[]{return [...nodes].sort((a,b)=>a.sort_order-b.sort_order||String(a.id).localeCompare(String(b.id)))}
 function flattenTitles(nodes:MenuNode[]):string[]{return nodes.flatMap(node=>[node.title,...flattenTitles(node.child_items||[])])}
 function menuHref(path:string|undefined,parent:string,title:string){
@@ -97,7 +99,7 @@ export default function AdminSidebar(){
   );
   const children=item.children.flatMap((child:MasterChild,i)=>{
    const legacyCode=child.legacyCode||"";
-   const accessCode=child.moduleCode||item.moduleCode||legacyCode||"";
+   const accessCode=child.moduleCode||MODULE_ALIASES[item.moduleCode||""]||item.moduleCode||legacyCode||"";
    if(accessCode&&!moduleSet.has(accessCode))return [];
    const db=legacyCode?dbByLegacy.get(legacyCode):undefined;
    const childRoute=child.route
