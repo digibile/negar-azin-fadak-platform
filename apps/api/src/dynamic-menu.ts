@@ -13,7 +13,7 @@ router.get("/api/dashboard/menu-tree",requireAuth,async(req:Request,res:Response
  const user=(req as any).user;
  const params:any[]=[panel,CANONICAL_ROOT_KEYS];
  let access="";
- if(user.role!=="admin"&&user.role!=="super_admin"){
+ if(user.role!=="super_admin"){
   params.push(user.role);
   access=" and (mi.permission is null or exists (select 1 from role_permissions rp where rp.role=$3 and rp.permission=mi.permission))";
  }
