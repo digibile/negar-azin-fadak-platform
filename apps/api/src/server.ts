@@ -215,7 +215,7 @@ app.post("/api/auth/otp/verify",asyncHandler(async(req,res)=>{
  if(Number(ipAttempts.rows[0]?.total||0)>40)return res.status(429).json({error:"تلاش‌های زیاد از این شبکه؛ کمی بعد دوباره امتحان کنید"});
  const client=await pool.connect();let user:any=null;
  try{await client.query("begin");
-  const challenge=await client.query("select id,user_id,code_hash,attempts,expires_at from otp_challenges where phone=$1 and purpose='login' and consumed_at is null and send_status='sent' order by created_at desc limit 1 for update",[key]);
+  const challenge=await client.query("select id,user_id,code_hash,attempts,expires_at from otp_challenges where phone=$1 and channel=$2 and purpose='login' and consumed_at is null and send_status='sent' order by created_at desc limit 1 for update",[key,method==="email"?"email":"sms"]);
   if(!challenge.rowCount||new Date(challenge.rows[0].expires_at).getTime()<Date.now()){await client.query("rollback");return res.status(400).json({error:"کد منقضی شده یا پیدا نشد؛ کد جدید بگیرید"});}
   const current=challenge.rows[0];
   if(Number(current.attempts)>=5){await client.query("update otp_challenges set consumed_at=now() where id=$1",[current.id]);await client.query("commit");return res.status(429).json({error:"تعداد تلاش بیش از حد است؛ کد جدید بگیرید"});}
@@ -264,7 +264,7 @@ app.post("/api/auth/register",asyncHandler(async(req,res)=>{
  if(password.length<8||password.length>200)return res.status(400).json({error:"رمز عبور باید حداقل ۸ و حداکثر ۲۰۰ نویسه باشد"});
  if(!verifyHumanCheck(String(req.body?.humanCheck||""),String(req.body?.humanAnswer||"")))return res.status(400).json({error:"تأیید انسانی نامعتبر یا منقضی شده است"});
  const passwordHash=await hashPassword(password);
- const created=await query("insert into users(email,password_hash,full_name,role,status) values($1,$2,$3,'viewer','active') on conflict (email) do nothing returning id,email,full_name,role",[email,passwordHash,fullName]);
+ const created=await query("insert into users(email,password_hash,full_name,role,status) values($1,$2,$3,'customer','active') on conflict (email) do nothing returning id,email,full_name,role",[email,passwordHash,fullName]);
  if(!created.rowCount)return res.status(409).json({error:"با این ایمیل قبلاً حساب ساخته شده است؛ وارد شوید"});
  const user=created.rows[0];
  await issueSession(req,res,{id:user.id,email:user.email,role:user.role});
