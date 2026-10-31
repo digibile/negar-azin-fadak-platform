@@ -1,114 +1,29 @@
 "use client";
-
-import {FormEvent, useEffect, useState, type CSSProperties} from "react";
-
-type HumanCheck={challenge:string;question:string};
-type BrandKey="naf"|"digipay"|"digibile"|"vamcity"|"kipa"|"technolife";
-const brands:Record<BrandKey,{name:string;subtitle:string;title:string;description:string;mark:string;accent:string;dark:string}>={
- naf:{name:"نگار آذین فدک",subtitle:"BUSINESS PLATFORM",title:"ورود به سامانه",description:"ورود امن به پروفایل و داشبورد اختصاصی شما",mark:"ن",accent:"#c9a227",dark:"#8a6c17"},
- digipay:{name:"دیجی‌پی",subtitle:"PAYMENTS & FINANCIAL SERVICES",title:"ورود به دیجی‌پی",description:"ورود امن به خدمات پرداخت و حساب کاربری دیجی‌پی",mark:"پ",accent:"#00a9c7",dark:"#075b91"},
- digibile:{name:"دیجی‌بایل",subtitle:"COMMERCE PLATFORM",title:"ورود به دیجی‌بایل",description:"مدیریت خریدها، سفارش‌ها و حساب بازارگاه شما",mark:"د",accent:"#14b8a6",dark:"#146b68"},
- vamcity:{name:"وام‌سیتی",subtitle:"CREDIT & LENDING",title:"ورود به وام‌سیتی",description:"پیگیری درخواست‌ها و حساب تسهیلات شما",mark:"و",accent:"#8b7cf6",dark:"#4338ca"},
- kipa:{name:"کیپا",subtitle:"SMART SHOPPING",title:"ورود به کیپا",description:"ورود به حساب کاربری و خدمات خرید شما",mark:"ک",accent:"#0f766e",dark:"#115e59"},
- technolife:{name:"تکنولایف",subtitle:"TECHNOLOGY STORE",title:"ورود به تکنولایف",description:"مدیریت سفارش‌ها و حساب فروشگاه فناوری",mark:"ت",accent:"#f43f5e",dark:"#be123c"}
-};
-
-async function getHumanCheck():Promise<HumanCheck>{
- const r=await fetch("/api/auth/human-check",{cache:"no-store",credentials:"include"});
- if(!r.ok)throw new Error("تأیید انسانی در دسترس نیست");
- return await r.json() as HumanCheck;
-}
-
+import {FormEvent,useEffect,useState,type CSSProperties} from "react";
+import "./login.css";
+type Method="mobile"|"email"|"nationalId";type Mode="password"|"otp";type Check={challenge:string;question:string};
+const options:[Method,string,string][]=[["mobile","موبایل","09123456789"],["email","ایمیل","name@company.com"],["nationalId","کد ملی","0123456789"]];
+const digits=(s:string)=>s.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+async function newCheck():Promise<Check>{const r=await fetch("/api/auth/human-check",{cache:"no-store",credentials:"include"});if(!r.ok)throw new Error("دریافت کد امنیتی انجام نشد");return r.json();}
 export default function Login(){
- const [brandKey,setBrandKey]=useState<BrandKey>("naf");
- const brand=brands[brandKey];
- const [check,setCheck]=useState<HumanCheck>({challenge:"",question:"در حال دریافت تأیید انسانی..."});
- const [method,setMethod]=useState<"email"|"mobile"|"nationalId">("email");
- const [authMode,setAuthMode]=useState<"password"|"otp">("password");
- const [otpSent,setOtpSent]=useState(false);
- const [otpCode,setOtpCode]=useState("");
- const [message,setMessage]=useState("");
- const [identifier,setIdentifier]=useState("");
- const [showPassword,setShowPassword]=useState(false);
- const [password,setPassword]=useState("");
- const [answer,setAnswer]=useState("");
- const [error,setError]=useState("");
- const [loading,setLoading]=useState(false);
-
- useEffect(()=>{const requested=new URLSearchParams(window.location.search).get("brand") as BrandKey|null;if(requested&&requested in brands)setBrandKey(requested);getHumanCheck().then(setCheck).catch(e=>setError(e instanceof Error?e.message:"خطا در دریافت تأیید انسانی"));},[]);
-
- async function submit(e:FormEvent<HTMLFormElement>){
-  e.preventDefault();
-  setError("");
-  setMessage("");
-  setLoading(true);
-  try{
-   const normalized=identifier.trim();
-   if(authMode==="otp"){
-    if(method!=="mobile")setMethod("mobile");
-    if(!/^\\+?[0-9۰-۹٠-٩\\s()-]{8,20}$/.test(normalized)){setError("شماره موبایل را به‌درستی وارد کنید");setLoading(false);return;}
-    if(!otpSent){
-     if(!answer.trim()){setError("پاسخ تأیید انسانی را وارد کنید");setLoading(false);return;}
-     const res=await fetch("/api/auth/otp/request",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({phone:normalized,humanCheck:check.challenge,humanAnswer:answer})});
-     const data=await res.json().catch(()=>({}));
-     if(!res.ok)throw new Error(data.error||"ارسال کد انجام نشد");
-     setOtpSent(true);
-     setOtpCode("");
-     setMessage(data.message||"کد ورود ارسال شد");
-     setAnswer("");
-     try{setCheck(await getHumanCheck());}catch{}
-     return;
-    }
-    if(!/^\\d{6}$/.test(otpCode.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))))){setError("کد ورود باید شش رقم باشد");setLoading(false);return;}
-    const verify=await fetch("/api/auth/otp/verify",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({phone:normalized,code:otpCode})});
-    const verified=await verify.json().catch(()=>({}));
-    if(!verify.ok)throw new Error(verified.error||"تأیید کد انجام نشد");
-    const role=verified?.user?.role;
-    window.location.assign(role==="admin"||role==="manager"?"/admin":"/customer");
-    return;
-   }
-   if(method==="email"&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalized)){setError("آدرس ایمیل را به‌درستی وارد کنید");setLoading(false);return;}
-   if(method==="mobile"&&!/^\\+?[0-9۰-۹٠-٩\\s()-]{8,20}$/.test(normalized)){setError("شماره موبایل را به‌درستی وارد کنید");setLoading(false);return;}
-   const normalizedDigits=normalized.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
-   if(method==="nationalId"&&!/^\\d{10}$/.test(normalizedDigits)){setError("کد ملی باید ۱۰ رقم باشد");setLoading(false);return;}
-   const res=await fetch("/api/auth/login",{
-    method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",
-    body:JSON.stringify({method,identifier:method==="nationalId"?normalizedDigits:normalized,password,humanCheck:check.challenge,humanAnswer:answer})
-   });
-   const data=await res.json().catch(()=>({}));
-   if(!res.ok)throw new Error(data.error||"ورود انجام نشد");
-   const role=data?.user?.role;
-   window.location.assign(role==="admin"||role==="manager"?"/admin":"/customer");
-  }catch(e){
-   setError(e instanceof Error?e.message:"خطای داخلی سرویس");
-   try{setCheck(await getHumanCheck());setAnswer("");}catch{}
-  }finally{setLoading(false);}
- }
-
- return <main className="naf-login" style={{"--naf-accent":brand.accent,"--naf-accent-dark":brand.dark} as CSSProperties & {"--naf-accent":string;"--naf-accent-dark":string}}>
-  <button className="naf-theme" type="button" aria-label="تغییر پوسته" title="تغییر پوسته">◐</button>
-  <section className="naf-login-panel">
-   <div className="naf-login-box">
-    <div className="naf-brand"><div className="naf-brand-mark" aria-hidden="true">{brand.mark}</div><div><div className="naf-brand-name">{brand.name}</div><div className="naf-brand-sub">{brand.subtitle}</div></div></div>
-    <h1>{brand.title}</h1>
-    <p className="naf-subtitle">{brand.description}</p>
-    {error&&<div className="naf-error" role="alert">{error}</div>}
-    {message&&<div className="naf-success" role="status">{message}</div>}
-    <form onSubmit={submit} className="naf-login-form">
-     <div className="naf-login-method" role="group" aria-label="نوع احراز هویت"><button type="button" className={authMode==="password"?"active":""} aria-pressed={authMode==="password"} onClick={()=>{setAuthMode("password");setOtpSent(false);setOtpCode("");setMessage("");setError("");}}>رمز عبور</button><button type="button" className={authMode==="otp"?"active":""} aria-pressed={authMode==="otp"} onClick={()=>{setAuthMode("otp");setMethod("mobile");setIdentifier("");setOtpSent(false);setOtpCode("");setMessage("");setError("");}}>کد یکبارمصرف پیامکی</button></div>
-     {authMode==="password"&&<div className="naf-login-method" role="group" aria-label="شناسه ورود"><button type="button" className={method==="email"?"active":""} aria-pressed={method==="email"} onClick={()=>{setMethod("email");setIdentifier("");setError("");}}>ایمیل</button><button type="button" className={method==="mobile"?"active":""} aria-pressed={method==="mobile"} onClick={()=>{setMethod("mobile");setIdentifier("");setError("");}}>موبایل</button><button type="button" className={method==="nationalId"?"active":""} aria-pressed={method==="nationalId"} onClick={()=>{setMethod("nationalId");setIdentifier("");setError("");}}>کد ملی</button></div>}
-     <label><span>{authMode==="otp"?"شماره موبایل":method==="email"?"آدرس ایمیل":method==="mobile"?"شماره موبایل":"کد ملی"}</span><input name="identifier" type={authMode==="password"&&method==="email"?"email":"tel"} inputMode={authMode==="password"&&method==="email"?"email":authMode==="password"&&method==="nationalId"?"numeric":"tel"} autoComplete={authMode==="password"&&method==="email"?"username":authMode==="password"&&method==="mobile"?"tel":"off"} dir="ltr" placeholder={authMode==="password"&&method==="email"?"name@company.com":authMode==="password"&&method==="nationalId"?"0123456789":"09123456789"} maxLength={authMode==="password"&&method==="nationalId"?10:undefined} value={identifier} onChange={e=>setIdentifier(e.target.value)} required/> </label>
-     {authMode==="password"?<label><span>رمز عبور</span><div className="naf-password-wrap"><input name="password" type={showPassword?"text":"password"} autoComplete="current-password" placeholder="رمز عبور خود را وارد کنید" value={password} onChange={e=>setPassword(e.target.value)} required/><button className="naf-password-toggle" type="button" onClick={()=>setShowPassword(v=>!v)} aria-label={showPassword?"پنهان کردن رمز عبور":"نمایش رمز عبور"} aria-pressed={showPassword} title={showPassword?"پنهان کردن رمز":"نمایش رمز"}>{showPassword?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.2A10.8 10.8 0 0112 5c5.5 0 9 7 9 7a15 15 0 01-3.1 3.8M6.2 6.2C3.9 7.7 2 12 2 12s3.5 7 10 7c1.2 0 2.3-.2 3.3-.7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>:<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8"/></svg>}</button></div></label>:otpSent?<label><span>کد شش‌رقمی پیامک‌شده</span><input name="otpCode" type="text" inputMode="numeric" autoComplete="one-time-code" dir="ltr" maxLength={6} placeholder="۱۲۳۴۵۶" value={otpCode} onChange={e=>setOtpCode(e.target.value)} required/></label>:null}
-     {authMode==="password"&&<div className="naf-form-row"><label className="naf-remember"><input type="checkbox" name="remember" value="1"/><span>مرا به خاطر بسپار</span></label><a href={"/forgot-password?brand="+brandKey}>بازیابی دسترسی</a></div>}
-     <input type="hidden" name="humanCheck" value={check.challenge}/>
-     {(authMode==="password"||!otpSent)&&<div className="naf-captcha"><div className="naf-captcha-head"><span>تأیید انسانی</span><b>CAPTCHA</b></div><div className="naf-captcha-body"><strong>{check.question}</strong><input name="humanAnswer" inputMode="numeric" pattern="[0-9]+" autoComplete="off" aria-label="پاسخ تأیید انسانی" placeholder="پاسخ" value={answer} onChange={e=>setAnswer(e.target.value)} required/></div></div>}
-     <button className="naf-primary" type="submit" disabled={loading}>{loading?"در حال پردازش...":authMode==="otp"?(otpSent?"تأیید کد و ورود":"ارسال کد یکبارمصرف"):"ورود امن"}</button>
-     {authMode==="otp"&&otpSent&&<button className="naf-otp-reset" type="button" disabled={loading} onClick={()=>{setOtpSent(false);setOtpCode("");setMessage("");setError("");}}>تغییر شماره یا دریافت کد جدید</button>}
-    </form>
-    <p className="naf-foot">پس از ورود، بر اساس نقش کاربری به داشبورد اختصاصی هدایت می‌شوید · نسخه ۲۰۲۶</p>
-    <p className="naf-foot">حساب کاربری ندارید؟ <a href={"/register?brand="+brandKey}>ایجاد حساب یا ثبت درخواست</a></p>
-   </div>
-  </section>
-  <aside className="naf-visual" aria-label="نمای هسته مرکزی"><div className="naf-orbit"><div className="naf-ring"/><div className="naf-ring naf-r2"/><div className="naf-ring naf-r3"/><div className="naf-core"><span>پروفایل</span><b>کاربر</b></div><p className="naf-caption">ورود امن به فضای اختصاصی {brand.name}</p></div></aside>
- </main>;
+ const [method,setMethod]=useState<Method>("mobile"),[mode,setMode]=useState<Mode>("password"),[identifier,setIdentifier]=useState(""),[password,setPassword]=useState(""),[otp,setOtp]=useState(""),[otpSent,setOtpSent]=useState(false),[check,setCheck]=useState<Check>({challenge:"",question:""}),[answer,setAnswer]=useState(""),[error,setError]=useState(""),[message,setMessage]=useState(""),[loading,setLoading]=useState(false),[showPassword,setShowPassword]=useState(false);
+ useEffect(()=>{newCheck().then(setCheck).catch(e=>setError(e.message));},[]);
+ const reset=(m=method,md=mode)=>{setMethod(m);setMode(md);setIdentifier("");setPassword("");setOtp("");setOtpSent(false);setAnswer("");setError("");setMessage("");newCheck().then(setCheck).catch(()=>{});};
+ async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();setLoading(true);setError("");setMessage("");const value=method==="email"?identifier.trim().toLowerCase():digits(identifier).replace(/[\\s()+-]/g,"");try{
+  if(mode==="otp"&&!otpSent){const r=await fetch("/api/auth/otp/request",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({method,identifier:value,humanCheck:check.challenge,humanAnswer:digits(answer)})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"ارسال کد انجام نشد");setOtpSent(true);setOtp("");setAnswer("");setMessage(d.message||"در صورت تطبیق اطلاعات، کد ارسال می‌شود");setCheck(await newCheck());return;}
+  if(mode==="otp"){const code=digits(otp).replace(/\\D/g,"");if(!/^\\d{6}$/.test(code))throw new Error("کد ورود باید شش رقم باشد");const r=await fetch("/api/auth/otp/verify",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({method,identifier:value,code})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"تأیید کد انجام نشد");const role=d?.user?.role;location.assign(["super_admin","admin","manager"].includes(role)?"/admin":role==="seller"?"/seller":role==="representative"?"/representative":"/customer");return;}
+  const r=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({method,identifier:value,password,humanCheck:check.challenge,humanAnswer:digits(answer)})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"ورود انجام نشد");const role=d?.user?.role;location.assign(["super_admin","admin","manager"].includes(role)?"/admin":role==="seller"?"/seller":role==="representative"?"/representative":"/customer");
+ }catch(e){setError(e instanceof Error?e.message:"خطای غیرمنتظره");try{setCheck(await newCheck());setAnswer("");}catch{}}finally{setLoading(false);}}
+ const question=check.question.replace("کد امنیتی: ","");
+ return <main className="auth-page"><div className="auth-glow auth-glow-one"/><div className="auth-glow auth-glow-two"/><section className="auth-layout">
+  <aside className="auth-showcase"><div className="auth-brand"><span className="auth-brand-mark">س</span><div><b>سوکار</b><small>UNIFIED BUSINESS PLATFORM</small></div></div><div className="auth-showcase-copy"><span>یک حساب، دسترسی یکپارچه</span><h2>مدیریت هوشمند،<br/>از یک نقطه شروع می‌شود.</h2><p>با هویت کاربری خود وارد شوید و بر اساس نقش و سطح دسترسی، خدمات اختصاصی‌تان را دریافت کنید.</p></div><div className="auth-orbit"><div className="auth-ring ring-one"/><div className="auth-ring ring-two"/><div className="auth-ring ring-three"/><div className="auth-core"><b>سوکار</b><small>SECURE ACCESS</small></div><i className="auth-dot dot-one"/><i className="auth-dot dot-two"/></div><small className="auth-showcase-foot">هویت امن · دسترسی متناسب با نقش · تجربه یکپارچه</small></aside>
+  <section className="auth-card"><header className="auth-card-head"><div><small>SECURE SIGN IN</small><h1>به سوکار خوش آمدید</h1><p>برای ورود به حساب خود، شناسه کاربری را انتخاب کنید.</p></div><span className="auth-lock">⌑</span></header>
+   <div className="auth-mode-switch"><button type="button" className={mode==="password"?"selected":""} onClick={()=>reset(method,"password")}>رمز عبور ثابت</button><button type="button" className={mode==="otp"?"selected":""} onClick={()=>reset(method,"otp")}>رمز یک‌بارمصرف</button></div>
+   <div className="auth-methods">{options.map(([id,title])=><button key={id} type="button" className={method===id?"active":""} onClick={()=>reset(id,mode)}>{title}</button>)}</div>
+   <form className="auth-form" onSubmit={submit}><label><span>{method==="mobile"?"شماره موبایل ثبت‌شده":method==="email"?"ایمیل ثبت‌شده":"کد ملی صاحب حساب"}</span><input dir="ltr" type={method==="email"?"email":"text"} inputMode={method==="email"?"email":"numeric"} autoComplete={method==="email"?"username":method==="mobile"?"tel":"off"} placeholder={options.find(x=>x[0]===method)?.[2]} value={identifier} onChange={e=>setIdentifier(e.target.value)} disabled={otpSent} required/></label>
+    {mode==="password"?<label><span>رمز عبور</span><div className="auth-password"><input dir="auto" type={showPassword?"text":"password"} autoComplete="current-password" placeholder="رمز عبور خود را وارد کنید" value={password} onChange={e=>setPassword(e.target.value)} required/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?"پنهان":"نمایش"}</button></div></label>:otpSent?<label><span>کد شش‌رقمی ارسال‌شده</span><input className="auth-otp" dir="ltr" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="۰ ۰ ۰ ۰ ۰ ۰" value={otp} onChange={e=>setOtp(e.target.value)} required/></label>:null}
+    {(mode==="password"||!otpSent)&&<div className="auth-captcha"><div><b>کد امنیتی</b><small>عدد پنج‌رقمی را وارد کنید</small></div><strong>{question||"•••••"}</strong><input dir="ltr" inputMode="numeric" maxLength={5} placeholder="کد امنیتی" value={answer} onChange={e=>setAnswer(e.target.value)} required/></div>}
+    {error&&<div className="auth-alert error" role="alert">{error}</div>}{message&&<div className="auth-alert success" role="status">{message}</div>}
+    <button className="auth-submit" type="submit" disabled={loading}>{loading?"در حال بررسی...":mode==="password"?"ورود امن به حساب":otpSent?"تأیید کد و ورود":"ارسال کد یک‌بارمصرف"}<span>←</span></button>{mode==="otp"&&otpSent&&<button type="button" className="auth-back" onClick={()=>reset(method,"otp")}>تغییر شناسه یا ارسال دوباره کد</button>}</form>
+   <div className="auth-card-foot"><span>نشست امن و محافظت‌شده</span><a href="/forgot-password">بازیابی رمز عبور</a></div><div className="auth-role-note">دسترسی شما بر اساس نقش ثبت‌شده در سامانه تعیین می‌شود.</div></section></section><footer className="auth-footer"><span>© {new Date().getFullYear()} سوکار</span><span>حریم خصوصی · امنیت حساب · پشتیبانی</span></footer></main>;
 }
