@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import "dotenv/config";
 import {pool,query} from "./db.js";
-import {ensureAdmin,hashPassword,verifyPassword,issueSession,clearSession,requireAuth,requireCsrf,requirePermission} from "./auth.js";
+import {hashPassword,verifyPassword,issueSession,clearSession,requireAuth,requireCsrf,requirePermission,isPlatformAdminRole} from "./auth.js";
 import {asyncHandler,errorHandler,notFound} from "./http.js";
 import {loginIdentifierSchema,userCreateSchema,formSchema,pageSchema,menuUpdateSchema} from "./validation.js";
 import {normalizeIranMobile,createOtpCode,otpDigest,verifyOtpDigest,sendKavenegarOtp} from "./otp.js";
@@ -63,7 +63,7 @@ const app=express();
 const resolveRequestTenant=async(req:any)=>resolveTenant(req,(req as any).user);
 
 const requireModulePermission=async(user:any,moduleId:number,action:"read"|"write"|"delete")=>{
- if(user.role==="admin") return true;
+ if(isPlatformAdminRole(user.role)) return true;
  const p=await query(
   "select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=$2 and mp.permission='modules:'||(select code from platform_modules where id=$2)||':'||$3",
   [user.role,moduleId,action]
@@ -289,7 +289,7 @@ app.put("/api/content/menus/:id",requireAuth,requirePermission("menus:manage"),a
 app.get("/api/platform/modules",requireAuth,asyncHandler(async(req,res)=>{
  const user=(req as any).user;
  const params:any[]=[user.role];
- const access=user.role==="admin"?"":"and exists (select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=m.id)";
+ const access=isPlatformAdminRole(user.role)?"":"and exists (select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=m.id)";
  const sql="select m.id,m.code,m.title,m.core,m.parent_id,m.sort_order,m.is_active,coalesce(rt.lifecycle,'planned') as lifecycle,rt.route,rt.api_prefix,rt.owner_team,rt.description,coalesce(rc.record_count,0)::int as record_count from platform_modules m left join module_runtime rt on rt.module_id=m.id left join (select module_id,count(*)::int as record_count from module_records group by module_id) rc on rc.module_id=m.id where m.is_active=true "+access+" order by m.sort_order";
  const r=await query(sql,access?params:[]);
  res.json({items:r.rows,total:r.rowCount});
@@ -300,7 +300,7 @@ app.get("/api/platform/modules/:code",requireAuth,asyncHandler(async(req,res)=>{
  const r=await query("select m.id,m.code,m.title,m.core,m.parent_id,m.sort_order,m.is_active,rt.lifecycle,rt.route,rt.api_prefix,rt.owner_team,rt.description from platform_modules m left join module_runtime rt on rt.module_id=m.id where m.code=$1 and m.is_active=true",[req.params.code]);
  if(!r.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
  const moduleRow=r.rows[0];
- if(user.role!=="admin"){
+ if(!isPlatformAdminRole(user.role)){
   const p=await query("select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=$2",[user.role,moduleRow.id]);
   if(!p.rowCount)return res.status(403).json({error:"دسترسی به ماژول مجاز نیست"});
  }
@@ -313,7 +313,7 @@ app.get("/api/platform/modules/:code/actions",requireAuth,asyncHandler(async(req
  const r=await query("select m.id from platform_modules m where m.code=$1 and m.is_active=true",[req.params.code]);
  if(!r.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
  const p=await query("select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=$2",[user.role,r.rows[0].id]);
- if(user.role!=="admin"&&!p.rowCount)return res.status(403).json({error:"دسترسی مجاز نیست"});
+ if(!isPlatformAdminRole(user.role)&&!p.rowCount)return res.status(403).json({error:"دسترسی مجاز نیست"});
  const actions=await query("select id,action_code,title,permission,is_active from module_actions where module_id=$1 and is_active=true order by id",[r.rows[0].id]);
  res.json(actions.rows);
 }));
@@ -372,4 +372,4 @@ slaSweep.unref();
 void getDigikalaCatalog(true).catch(error=>console.error("Digikala catalog warm-up failed",error));
 const digikalaCatalogSweep=setInterval(()=>getDigikalaCatalog(true).catch(error=>console.error("Digikala catalog refresh failed",error)),5*60*1000);
 digikalaCatalogSweep.unref();
-if(process.env.ADMIN_EMAIL&&process.env.ADMIN_PASSWORD)ensureAdmin(process.env.ADMIN_EMAIL,process.env.ADMIN_PASSWORD).catch(console.error);
+// Administrator accounts are never created or rewritten automatically at startup. Existing identities are preserved.
