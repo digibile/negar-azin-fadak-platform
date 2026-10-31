@@ -60,7 +60,7 @@ export function requirePermission(permission:string){
  };
 }
 export const requireAdmin=requirePermission("users:manage");
-export async function ensureAdmin(email:string,_password:string){
+export async function ensureAdmin(email:string){
  const normalizedEmail=email.trim().toLowerCase();
  if(!normalizedEmail)throw new Error("ADMIN_EMAIL is required for super admin bootstrap");
  const found=await query("select id from users where lower(email)=$1 order by created_at asc limit 1",[normalizedEmail]);
