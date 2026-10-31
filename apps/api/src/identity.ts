@@ -6,7 +6,7 @@ import {requireAuth,requireCsrf} from "./auth.js";
 const router=Router();
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ROLE_KEY=/^[a-z][a-z0-9_-]{1,40}$/;
-const isAdmin=(req:any)=>req.user?.role==="admin";
+const isAdmin=(req:any)=>req.user?.role==="admin"||req.user?.role==="super_admin";
 
 const guardRead=async(req:any,res:any,next:any)=>{
  if(isAdmin(req))return next();
