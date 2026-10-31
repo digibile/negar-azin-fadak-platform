@@ -24,6 +24,7 @@ insert into role_permissions(role,permission) values
  ('admin','dashboard:read'),('admin','organization:read'),('admin','organization:manage'),
  ('admin','finance:read'),('admin','credit:read'),('admin','commerce:read'),('admin','commerce:manage'),
  ('admin','users:manage'),('admin','templates:manage'),('admin','menus:manage'),('admin','frontend:manage'),
+ ('admin','form:manage'),('admin','form:publish'),('admin','form:view'),('admin','form:submission:view'),('admin','form:submission:manage'),
  ('seller','dashboard:read'),('seller','commerce:read'),('seller','commerce:manage'),
  ('representative','dashboard:read'),('representative','customer:read'),
  ('customer','dashboard:read')
