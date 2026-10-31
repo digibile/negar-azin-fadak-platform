@@ -295,7 +295,7 @@ app.put("/api/content/menus/:id",requireAuth,requirePermission("menus:manage"),a
 app.get("/api/platform/modules",requireAuth,asyncHandler(async(req,res)=>{
  const user=(req as any).user;
  const params:any[]=[user.role];
- const access=user.role==="admin"?"":"and exists (select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=m.id)";
+ const access=(user.role==="admin"||user.role==="super_admin")?"":"and exists (select 1 from role_permissions rp join module_permissions mp on mp.permission=rp.permission where rp.role=$1 and mp.module_id=m.id)";
  const sql="select m.id,m.code,m.title,m.core,m.parent_id,m.sort_order,m.is_active,coalesce(rt.lifecycle,'planned') as lifecycle,rt.route,rt.api_prefix,rt.owner_team,rt.description,coalesce(rc.record_count,0)::int as record_count from platform_modules m left join module_runtime rt on rt.module_id=m.id left join (select module_id,count(*)::int as record_count from module_records group by module_id) rc on rc.module_id=m.id where m.is_active=true "+access+" order by m.sort_order";
  const r=await query(sql,access?params:[]);
  res.json({items:r.rows,total:r.rowCount});
