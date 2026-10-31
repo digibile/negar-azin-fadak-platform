@@ -5,7 +5,7 @@ import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
 
 export const authTemplateManagementRouter=Router();
-const defaults={loginTemplate:"unified-login",registerTemplate:"current-register",loginEnabled:true,registerEnabled:true,allowedIdentifiers:["mobile","email","nationalId"],loginMethods:["password","otp"],registrationFields:["fullName","mobile","email","password","confirmPassword"],captchaEnabled:true};
+const defaults={loginTemplate:"unified-login",registerTemplate:"current-register",loginEnabled:true,registerEnabled:true,allowedIdentifiers:["mobile","email","nationalId"],loginMethods:["password","otp"],registrationFields:["fullName","email","password","confirmPassword"],captchaEnabled:true};
 async function tenantFor(req:any){
  const user=(req as any).user;
  return resolveTenant(req,user);
@@ -23,9 +23,9 @@ authTemplateManagementRouter.put("/api/admin/auth-template-settings",requireAuth
  const registerTemplate=body.registerTemplate==="current-register"?"current-register":null;
  if(!loginTemplate||!registerTemplate)return res.status(400).json({error:"قالب انتخاب‌شده معتبر نیست"});
  const settings={...defaults,loginTemplate,registerTemplate,loginEnabled:body.loginEnabled!==false,registerEnabled:body.registerEnabled!==false,
- allowedIdentifiers:Array.isArray(body.allowedIdentifiers)?body.allowedIdentifiers.filter((x:string)=>["mobile","email","nationalId"].includes(x)):defaults.allowedIdentifiers,
- loginMethods:Array.isArray(body.loginMethods)?body.loginMethods.filter((x:string)=>["password","otp"].includes(x)):defaults.loginMethods,
- registrationFields:Array.isArray(body.registrationFields)?body.registrationFields.filter((x:string)=>["fullName","mobile","email","password","confirmPassword","nationalId"].includes(x)):defaults.registrationFields,
+ allowedIdentifiers:Array.isArray(body.allowedIdentifiers)&&body.allowedIdentifiers.some((x:string)=>["mobile","email","nationalId"].includes(x))?body.allowedIdentifiers.filter((x:string)=>["mobile","email","nationalId"].includes(x)):defaults.allowedIdentifiers,
+ loginMethods:Array.isArray(body.loginMethods)&&body.loginMethods.some((x:string)=>["password","otp"].includes(x))?body.loginMethods.filter((x:string)=>["password","otp"].includes(x)):defaults.loginMethods,
+ registrationFields:["fullName","email","password","confirmPassword"],
  captchaEnabled:body.captchaEnabled!==false};
  const user=(req as any).user,client=await pool.connect();
  try{await client.query("begin");
