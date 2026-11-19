@@ -97,7 +97,7 @@ const missingLegacy=expectedLegacyCodes.filter(code=>!masterMenu.includes('"'+co
 if(missingLegacy.length)throw new Error("Legacy menu codes missing from canonical panels: "+missingLegacy.join(", "));
 const routeRegistryBlock=modulePage.match(/const MODULE_ROUTE_REGISTRY\s*:\s*Record<string,\s*\(context:\s*ModuleRouteContext\)\s*=>\s*React\.ReactNode>\s*=\s*\{([\s\S]*?)\n\};/);
 const operationalCodesBlock=modulePage.match(/const operationalModuleCodes\s*=\s*\[([\s\S]*?)\];/);
-const landingCodesBlock=modulePage.match(/const canonicalLandingCodes\s*=\s*\[([\s\S]*?)\];/);
+const landingCodesBlock=modulePage.match(/const canonicalLandingCodes(?:\s*:\s*string\[\])?\s*=\s*\[([\s\S]*?)\];/);
 if(!routeRegistryBlock||!operationalCodesBlock||!landingCodesBlock)throw new Error("Unified module route registry could not be parsed");
 if(modulePage.includes("WORKSPACE_REGISTRY")||modulePage.includes("CANONICAL_LANDING_CODES")||modulePage.includes("CANONICAL_WORKSPACES")||modulePage.includes("GENERIC_OPERATIONAL_WORKSPACES")||modulePage.includes("const canonicalCodes"))throw new Error("Duplicate module dispatcher registries must be removed");
 const declaredCodes=new Set([
