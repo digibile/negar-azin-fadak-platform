@@ -95,6 +95,7 @@ domainMarketplaceRouter.post("/api/marketplace/sellers",requireAuth,requirePermi
   const rate=bodyNumber(req.body?.commissionRate??0);
   if(!legal||!display||rate===null||rate<0||rate>100)return res.status(400).json({error:"اطلاعات فروشنده نامعتبر است"});
   const r=await query("insert into sellers(tenant_id,legal_name,display_name,commission_rate) values($1,$2,$3,$4) returning *",[ctx.id,legal,display,rate]);
+  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.created','seller',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({legalName:legal,displayName:display,commissionRate:rate})]);
   res.status(201).json(r.rows[0]);
 }));
 
@@ -113,6 +114,7 @@ domainMarketplaceRouter.post("/api/marketplace/stores",requireAuth,requirePermis
   const owned=await query("select id from sellers where id=$1 and tenant_id=$2",[seller,ctx.id]);
   if(!owned.rowCount)return res.status(404).json({error:"فروشنده در این محدوده پیدا نشد"});
   const r=await query("insert into stores(tenant_id,seller_id,code,name,slug) values($1,$2,$3,$4,$5) returning *",[ctx.id,seller,code,name,slug]);
+  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'store.created','store',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({sellerId:seller,code,name,slug})]);
   res.status(201).json(r.rows[0]);
 }));
 
@@ -173,6 +175,7 @@ domainMarketplaceRouter.post("/api/marketplace/products",requireAuth,requirePerm
   const submittedAttributes=req.body?.attributes&&typeof req.body.attributes==="object"?req.body.attributes as Record<string,unknown>:{};
   const attributes={inventoryQuantity:10,inventoryVerified:false,inventorySource:"",...submittedAttributes};
   const r=await query("insert into products(tenant_id,seller_id,store_id,sku,title,description,category,category_id,brand_id,price,discount_price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'draft',$13) returning *",[ctx.id,seller,bodyString(req.body?.storeId,100)||null,sku,title,bodyString(req.body?.description,2000)||null,bodyString(req.body?.category,200)||null,categoryId,brandId,price,discountPrice,bodyString(req.body?.currency,10)||"IRR",JSON.stringify(attributes)]);
+  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'product.created','product',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({sellerId:seller,sku,title,price,status:"draft"})]);
   res.status(201).json(r.rows[0]);
 }));
 
