@@ -57,14 +57,15 @@ router.post("/api/marketplace/sellers/:sellerId/licenses",requireAuth,requirePer
 router.get("/api/marketplace/sellers/:sellerId/permissions",requireAuth,requirePermission("seller:permission:view"),asyncHandler(async(req,res)=>{
  const ctx=await sellerAccess(req,(req as any).user,String(req.params.sellerId));if(!ctx)return res.status(403).json({error:"دسترسی به فروشنده مجاز نیست"});
  const r=await query("select permission,enabled from seller_permissions where tenant_id=$1 and seller_id=$2 order by permission",[ctx.id,String(req.params.sellerId)]);
- await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.permissions.updated','seller',$3,$4)",[ctx.id,(req as any).user.id,String(req.params.sellerId),JSON.stringify({permissions:r.rows})]);
  res.json({items:r.rows,total:r.rowCount});
 }));
 router.put("/api/marketplace/sellers/:sellerId/permissions",requireAuth,requirePermission("seller:permission:manage"),asyncHandler(async(req,res)=>{
  const ctx=await sellerAccess(req,(req as any).user,String(req.params.sellerId));if(!ctx)return res.status(403).json({error:"دسترسی به فروشنده مجاز نیست"});
  const items=Array.isArray(req.body?.items)?req.body.items:[];if(items.length>100)return res.status(400).json({error:"تعداد مجوزها بیش از حد مجاز است"});
  for(const item of items){const permission=str(item?.permission,120);if(permission)await query("insert into seller_permissions(seller_id,tenant_id,permission,enabled) values($1,$2,$3,$4) on conflict(seller_id,permission) do update set enabled=excluded.enabled",[String(req.params.sellerId),ctx.id,permission,Boolean(item?.enabled)]);}
- const r=await query("select permission,enabled from seller_permissions where tenant_id=$1 and seller_id=$2 order by permission",[ctx.id,String(req.params.sellerId)]);res.json({items:r.rows,total:r.rowCount});
+ const r=await query("select permission,enabled from seller_permissions where tenant_id=$1 and seller_id=$2 order by permission",[ctx.id,String(req.params.sellerId)]);
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.permissions.updated','seller',$3,$4)",[ctx.id,(req as any).user.id,String(req.params.sellerId),JSON.stringify({permissions:r.rows})]);
+ res.json({items:r.rows,total:r.rowCount});
 }));
 
 export {router as sellerSurfaceRouter};
