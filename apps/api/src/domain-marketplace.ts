@@ -851,7 +851,7 @@ domainMarketplaceRouter.post("/api/marketplace/reference-catalog/materialize",re
   });
 }));
 
-domainMarketplaceRouter.get("/api/marketplace/digikala-catalog",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+domainMarketplaceRouter.get("/api/marketplace/reference-catalog/stored",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const r=await query("select source_product_id as id,sku,title,description,category,source_price as price,original_price,discount_percent,currency,image_url,source_url,brand,rating,source_available,specifications,gallery_images,variants,source_fetched_at from catalog_reference_products where tenant_id=$1 order by category,title limit 500",[ctx.id]);
