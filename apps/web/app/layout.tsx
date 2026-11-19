@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import "./globals.css";\nimport GlobalAIAssistant from "./admin/GlobalAIAssistant";
+import "./globals.css";
+import GlobalAIAssistant from "./admin/GlobalAIAssistant";
 
 const siteUrl = "https://sookar.ir";
 
