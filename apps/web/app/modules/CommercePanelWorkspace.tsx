@@ -192,6 +192,16 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   try{await mutate("/api/marketplace/settlements/"+encodeURIComponent(id)+"/pay","POST",{paymentRef});await load();}
   catch(e){setError(e instanceof Error?e.message:"ثبت پرداخت انجام نشد")}
  };
+ const editSeller=async(s:Row)=>{
+  const legalName=window.prompt("نام حقوقی فروشنده:",s.legal_name||"");
+  if(legalName===null||!legalName.trim())return;
+  const displayName=window.prompt("نام نمایشی فروشنده:",s.display_name||"");
+  if(displayName===null||!displayName.trim())return;
+  const commissionRate=window.prompt("نرخ کمیسیون درصد:",String(s.commission_rate??0));
+  if(commissionRate===null||!Number.isFinite(Number(commissionRate))||Number(commissionRate)<0||Number(commissionRate)>100)return setError("نرخ کمیسیون باید بین صفر تا صد باشد.");
+  try{await mutate("/api/marketplace/sellers/"+encodeURIComponent(s.id),"PATCH",{legalName,displayName,commissionRate:Number(commissionRate)});await load();}
+  catch(e){setError(e instanceof Error?e.message:"ویرایش فروشنده انجام نشد")}
+ };
  const statusSeller=async(id:string,status:string)=>{
   if(!window.confirm("وضعیت فروشنده به «"+status+"» تغییر کند؟"))return;
   try{await mutate("/api/marketplace/sellers/"+encodeURIComponent(id)+"/status","PATCH",{status});await load();}
@@ -214,7 +224,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   {mode==="sellers"&&<section className="runtime-panel">
    <div className="panel-title"><div><h2>فروشندگان</h2><span>{rows.length} رکورد واقعی</span></div></div>
    <div className="control-grid"><input placeholder="نام حقوقی" value={form.legalName||""} onChange={e=>setForm({...form,legalName:e.target.value})}/><input placeholder="نام نمایشی" value={form.displayName||""} onChange={e=>setForm({...form,displayName:e.target.value})}/><input type="number" min="0" max="100" placeholder="کمیسیون %" value={form.commissionRate||""} onChange={e=>setForm({...form,commissionRate:e.target.value})}/><button disabled={saving} onClick={saveSeller}>ثبت فروشنده</button></div>
-   <div className="record-list">{rows.map(r=><article className="record-row" key={r.id}><div><strong>{r.display_name}</strong><small>{r.legal_name} · کمیسیون {r.commission_rate}% · ایجاد {date(r.created_at)}</small></div><select value={r.status} onChange={e=>statusSeller(r.id,e.target.value)}><option value="pending">در انتظار</option><option value="active">فعال</option><option value="suspended">معلق</option><option value="closed">بسته</option></select></article>)}</div>
+   <div className="record-list">{rows.map(r=><article className="record-row" key={r.id}><div><strong>{r.display_name}</strong><small>{r.legal_name} · کمیسیون {r.commission_rate}% · ایجاد {date(r.created_at)}</small></div><div className="command-bar"><button type="button" onClick={()=>editSeller(r)}>ویرایش</button><select value={r.status} onChange={e=>statusSeller(r.id,e.target.value)}><option value="pending">در انتظار</option><option value="active">فعال</option><option value="suspended">معلق</option><option value="closed">بسته</option></select></div></article>)}</div>
   </section>}
 
   {mode==="sellers"&&(tab==="licenses"||tab==="permissions")&&<section className="runtime-panel">
