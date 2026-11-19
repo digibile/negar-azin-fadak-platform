@@ -139,7 +139,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   catch(e){setError(e instanceof Error?e.message:"تأیید تسویه انجام نشد")}
  };
  const paySettlement=async(id:string)=>{
-  const paymentRef=window.prompt("شناسه پیگیری پرداخت واقعی را وارد کنید:")||"";
+  const paymentRef=window.prompt("شماره سند یا شناسه پیگیری بانکی (در صورت وجود):")||"";
   if(!paymentRef.trim())return;
   if(!window.confirm("پرداخت این تسویه ثبت و سند دفترکل ایجاد شود؟"))return;
   try{await mutate("/api/marketplace/settlements/"+encodeURIComponent(id)+"/pay","POST",{paymentRef});await load();}
@@ -189,7 +189,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
     <label>پایان بازه<input type="date" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)}/></label>
     <button type="button" disabled={saving||!periodStart||!periodEnd} onClick={generateSettlements}>{saving?"در حال انجام...":"محاسبه و ایجاد تسویه‌ها"}</button>
    </div>
-   <div className="record-list">{settlements.map(r=><article className="record-row" key={r.id}><div><strong>{r.settlement_no}</strong><small>{r.seller_name||r.seller_id} · ناخالص {money(r.gross_amount)} · کارمزد {money(r.commission_amount)} · خالص {money(r.net_amount)}</small><small>{r.period_start?date(r.period_start):"-"} تا {r.period_end?date(r.period_end):"-"}</small></div><div className="command-bar"><span>{r.status}</span>{r.status==="pending"&&<button type="button" onClick={()=>approveSettlement(r.id)}>تأیید تسویه</button>}{r.status==="approved"&&<button type="button" onClick={()=>paySettlement(r.id)}>ثبت پرداخت</button>}</div></article>)}</div>
+   <div className="record-list">{settlements.map(r=><article className="record-row" key={r.id}><div><strong>{r.settlement_no}</strong><small>{r.seller_name||r.seller_id} · ناخالص {money(r.gross_amount)} · کارمزد {money(r.commission_amount)} · خالص {money(r.net_amount)}</small><small>{r.period_start?date(r.period_start):"-"} تا {r.period_end?date(r.period_end):"-"}</small></div><div className="command-bar"><span>{r.status}</span>{r.status==="pending"&&<button type="button" onClick={()=>approveSettlement(r.id)}>تأیید تسویه</button>}{r.status==="approved"&&<button type="button" onClick={()=>paySettlement(r.id)}>ثبت سند پرداخت</button>}</div></article>)}</div>
   </section>}
 
   {mode==="commerce"&&tab==="sellers"&&<section className="runtime-panel"><div className="panel-title"><div><h2>فروشندگان</h2><span>{sellers.length} رکورد واقعی</span></div></div><div className="record-list">{sellers.map(s=><article className="record-row" key={s.id}><div><strong>{s.display_name}</strong><small>{s.legal_name} · کمیسیون {s.commission_rate}%</small></div><span>{s.status}</span></article>)}</div></section>}
