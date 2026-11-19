@@ -6,6 +6,7 @@ import {useRouter} from "next/navigation";
 import {api} from "../../lib/api";
 import AdminSidebar from "./AdminSidebar";
 import AdminAppearance from "./AdminAppearance";
+import GlobalAIAssistant from "./GlobalAIAssistant";
 import styles from "./ExecutiveShell.module.css";
 
 function CommandCenter(){
@@ -32,5 +33,6 @@ export default function AdminLayout({children}:{children:React.ReactNode}){
    </header>
    <div className={styles.content}>{children}</div>
   </main>
+  <GlobalAIAssistant/>
  </div>;
 }
