@@ -345,19 +345,25 @@ app.post("/api/platform/modules/:code/records",requireAuth,asyncHandler(async(re
  const m=await query("select id from platform_modules where code=$1 and is_active=true",[req.params.code]);if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
  if(!(await requireModulePermission(user,m.rows[0].id,"write")))return res.status(403).json({error:"دسترسی ثبت و ویرایش مجاز نیست"});
  const {recordType,title,status="active",data={}}=req.body||{};if(typeof recordType!=="string"||typeof title!=="string"||!data||typeof data!=="object"||Array.isArray(data))return res.status(400).json({error:"ساختار رکورد نامعتبر است"});
- const r=await query("insert into module_records(tenant_id,module_id,record_type,title,status,data,created_by,updated_by) values($1,$2,$3,$4,$5,$6,$7,$7) returning *",[t.id,m.rows[0].id,recordType,title,status,data,user.id]);res.status(201).json(r.rows[0]);
+ const r=await query("insert into module_records(tenant_id,module_id,record_type,title,status,data,created_by,updated_by) values($1,$2,$3,$4,$5,$6,$7,$7) returning *",[t.id,m.rows[0].id,recordType,title,status,data,user.id]);
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'module.record.created','module_record',$3,$4)",[t.id,user.id,r.rows[0].id,JSON.stringify({moduleCode:req.params.code,recordType,title,status,data})]);
+ res.status(201).json(r.rows[0]);
 }));
 app.patch("/api/platform/modules/:code/records/:id",requireAuth,asyncHandler(async(req,res)=>{
  const user=(req as any).user,t=await resolveRequestTenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const m=await query("select id from platform_modules where code=$1 and is_active=true",[req.params.code]);if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
  if(!(await requireModulePermission(user,m.rows[0].id,"write")))return res.status(403).json({error:"دسترسی ویرایش مجاز نیست"});
- const {title,status,data}=req.body||{};const r=await query("update module_records set title=coalesce($1,title),status=coalesce($2,status),data=coalesce($3,data),updated_by=$6,updated_at=now() where id=$4 and module_id=$5 and tenant_id=$7 returning *",[title,status,data,req.params.id,m.rows[0].id,user.id,t.id]);if(!r.rowCount)return res.status(404).json({error:"رکورد پیدا نشد"});res.json(r.rows[0]);
+ const {title,status,data}=req.body||{};const r=await query("update module_records set title=coalesce($1,title),status=coalesce($2,status),data=coalesce($3,data),updated_by=$6,updated_at=now() where id=$4 and module_id=$5 and tenant_id=$7 returning *",[title,status,data,req.params.id,m.rows[0].id,user.id,t.id]);if(!r.rowCount)return res.status(404).json({error:"رکورد پیدا نشد"});
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'module.record.updated','module_record',$3,$4)",[t.id,user.id,r.rows[0].id,JSON.stringify({moduleCode:req.params.code,recordType:r.rows[0].record_type,title:r.rows[0].title,status:r.rows[0].status,data:r.rows[0].data})]);
+ res.json(r.rows[0]);
 }));
 app.delete("/api/platform/modules/:code/records/:id",requireAuth,asyncHandler(async(req,res)=>{
  const user=(req as any).user,t=await resolveRequestTenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const m=await query("select id from platform_modules where code=$1 and is_active=true",[req.params.code]);if(!m.rowCount)return res.status(404).json({error:"ماژول پیدا نشد"});
  if(!(await requireModulePermission(user,m.rows[0].id,"delete")))return res.status(403).json({error:"دسترسی حذف مجاز نیست"});
- const r=await query("delete from module_records where id=$1 and module_id=$2 and tenant_id=$3 returning id",[req.params.id,m.rows[0].id,t.id]);if(!r.rowCount)return res.status(404).json({error:"رکورد پیدا نشد"});res.status(204).end();
+ const r=await query("delete from module_records where id=$1 and module_id=$2 and tenant_id=$3 returning id,record_type,title",[req.params.id,m.rows[0].id,t.id]);if(!r.rowCount)return res.status(404).json({error:"رکورد پیدا نشد"});
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'module.record.deleted','module_record',$3,$4)",[t.id,user.id,r.rows[0].id,JSON.stringify({moduleCode:req.params.code,recordType:r.rows[0].record_type,title:r.rows[0].title})]);
+ res.status(204).end();
 }));
 
 app.use(notFound);
