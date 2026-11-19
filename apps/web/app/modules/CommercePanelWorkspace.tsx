@@ -78,6 +78,12 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   try{await mutate("/api/marketplace/sellers","POST",{legalName:form.legalName,displayName:form.displayName,commissionRate:Number(form.commissionRate||0)});setForm({});await load();}
   catch(e){setError(e instanceof Error?e.message:"ثبت فروشنده انجام نشد")}finally{setSaving(false)}
  };
+ const chooseSeller=async(id:string)=>{
+  setSelectedSellerId(id);setError("");setLicenses([]);setSellerPermissions([]);
+  if(!id)return;
+  try{const [l,p]=await Promise.all([get("/api/marketplace/sellers/"+encodeURIComponent(id)+"/licenses"),get("/api/marketplace/sellers/"+encodeURIComponent(id)+"/permissions")]);setLicenses(l.items||[]);setSellerPermissions(p.items||[]);}
+  catch(e){setError(e instanceof Error?e.message:"دریافت پرونده فروشنده انجام نشد")}
+ };
  const addLicense=async()=>{
   if(!selectedSellerId||!form.licenseType||!form.licenseNo)return setError("فروشنده، نوع و شماره مجوز الزامی است.");
   setSaving(true);setError("");
@@ -152,7 +158,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
 
   {mode==="sellers"&&(tab==="licenses"||tab==="permissions")&&<section className="runtime-panel">
    <div className="panel-title"><div><h2>{tab==="licenses"?"مجوزها و مدارک فروشنده":"دسترسی‌های فروشنده"}</h2><span>پرونده متصل به فروشنده انتخاب‌شده</span></div></div>
-   <select value={selectedSellerId} onChange={e=>setSelectedSellerId(e.target.value)}><option value="">انتخاب فروشنده</option>{sellers.map(s=><option key={s.id} value={s.id}>{s.display_name}</option>)}</select>
+   <select value={selectedSellerId} onChange={e=>chooseSeller(e.target.value)}><option value="">انتخاب فروشنده</option>{sellers.map(s=><option key={s.id} value={s.id}>{s.display_name}</option>)}</select>
    {tab==="licenses"&&<><div className="control-grid"><input placeholder="نوع مجوز" value={form.licenseType||""} onChange={e=>setForm({...form,licenseType:e.target.value})}/><input placeholder="شماره مجوز" value={form.licenseNo||""} onChange={e=>setForm({...form,licenseNo:e.target.value})}/><input placeholder="مرجع صادرکننده" value={form.issuer||""} onChange={e=>setForm({...form,issuer:e.target.value})}/><input type="date" aria-label="تاریخ صدور" value={form.issuedAt||""} onChange={e=>setForm({...form,issuedAt:e.target.value})}/><input type="date" aria-label="تاریخ انقضا" value={form.expiresAt||""} onChange={e=>setForm({...form,expiresAt:e.target.value})}/><input placeholder="شناسه سند بایگانی" value={form.documentRef||""} onChange={e=>setForm({...form,documentRef:e.target.value})}/><select value={form.licenseStatus||"pending"} onChange={e=>setForm({...form,licenseStatus:e.target.value})}><option value="pending">در انتظار</option><option value="active">فعال</option><option value="expired">منقضی</option><option value="revoked">لغوشده</option></select><button disabled={saving||!selectedSellerId} onClick={addLicense}>ثبت مجوز</button></div><div className="record-list">{licenses.map(l=><article className="record-row" key={l.id}><div><strong>{l.license_type} · {l.license_no}</strong><small>{l.issuer||"مرجع نامشخص"} · انقضا: {l.expires_at?date(l.expires_at):"ثبت نشده"} · سند: {l.document_ref||"متصل نشده"}</small></div><span>{l.status}</span></article>)}</div></>}
    {tab==="permissions"&&<><div className="record-list">{sellerPermissions.map((p,i)=><article className="record-row" key={p.permission}><strong>{p.permission}</strong><label><input type="checkbox" checked={Boolean(p.enabled)} onChange={e=>setSellerPermissions(old=>old.map((x,j)=>j===i?{...x,enabled:e.target.checked}:x))}/> فعال</label></article>)}</div><button type="button" disabled={saving||!selectedSellerId} onClick={savePermissions}>ذخیره دسترسی‌ها</button></>}
   </section>}
