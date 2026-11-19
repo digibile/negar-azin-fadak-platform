@@ -211,6 +211,7 @@ domainMarketplaceRouter.post("/api/marketplace/products/:id/images",requireAuth,
     await client.query("begin");
     if(isMain)await client.query("update product_images set is_main=false,updated_at=now() where tenant_id=$1 and product_id=$2",[ctx.id,req.params.id]);
     const saved=await client.query("insert into product_images(tenant_id,product_id,url,alt_text,is_main,sort_order) values($1,$2,$3,$4,$5,$6) returning id,product_id,url,alt_text,is_main,sort_order",[ctx.id,req.params.id,url,altText,isMain,sortOrder]);
+    await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'product.image.added','product',$3,$4)",[ctx.id,(req as any).user.id,req.params.id,JSON.stringify({imageId:saved.rows[0].id,url,isMain,sortOrder})]);
     await client.query("commit");
     res.status(201).json({item:saved.rows[0]});
   }catch(error){await client.query("rollback");throw error;}finally{client.release();}
@@ -221,6 +222,7 @@ domainMarketplaceRouter.delete("/api/marketplace/products/:id/images/:imageId",r
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const removed=await query("delete from product_images where tenant_id=$1 and product_id=$2 and id=$3 returning id",[ctx.id,req.params.id,req.params.imageId]);
   if(!removed.rowCount)return res.status(404).json({error:"تصویر محصول پیدا نشد"});
+  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'product.image.removed','product',$3,$4)",[ctx.id,(req as any).user.id,req.params.id,JSON.stringify({imageId:removed.rows[0].id})]);
   res.json({deleted:true,id:removed.rows[0].id});
 }));
 
