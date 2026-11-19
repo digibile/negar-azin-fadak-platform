@@ -45,7 +45,15 @@ function promptFor(tool:ToolKey,request:string,framework:string,language:string,
   report:"Create a report specification with purpose, dimensions, filters, columns, aggregation definitions, chart types and empty-state behavior. Do not provide invented numbers or pretend data is connected.",
   template:"Create a complete design-system and page-template specification for a professional Sookar website."
  }[tool];
- return rules.join("\n")+"\nArtifact type: "+tools[tool].label+"\nTask: "+task+"\nName: "+name+"\nFramework: "+framework+"\nLanguage: "+language+"\nUser requirements:\n"+request;
+ return rules.join("
+")+"
+Artifact type: "+tools[tool].label+"
+Task: "+task+"
+Name: "+name+"
+Framework: "+framework+"
+Language: "+language+"
+User requirements:
+"+request;
 }
 function normalizeArtifact(value:any){
  const raw=safeObject(value);
@@ -116,7 +124,8 @@ aiWorkshopRouter.post("/api/ai/workshop/code",requireAuth,asyncHandler(async(req
   "Allowed web file prefix: "+webPrefix,
   "Allowed API file prefix: "+apiPrefix,
   "For Python + FastAPI generate Python service code under the API prefix. For Next.js generate page.tsx and optional scoped CSS under the web prefix. For React generate a component .tsx and optional scoped CSS under the web prefix. If the selected framework includes Python, also generate a FastAPI service module under the API prefix."
- ].join("\n");
+ ].join("
+");
  const response=await fetch(base+"/chat/completions",{method:"POST",headers:{"Authorization":"Bearer "+apiKey,"Content-Type":"application/json"},body:JSON.stringify({model,temperature:0.2,response_format:{type:"json_object"},messages:[{role:"system",content:system},{role:"user",content:"Generate complete implementation source files for this reviewed draft. Return concise, complete files."}]}),signal:AbortSignal.timeout(60000)});
  const payload:any=await response.json().catch(()=>({}));
  if(!response.ok)return res.status(502).json({error:textValue(payload?.error?.message,350)||"تولید کد توسط مدل ناموفق بود."});
@@ -218,7 +227,8 @@ aiWorkshopRouter.post("/api/ai/assistant/chat",requireAuth,asyncHandler(async(re
   "For financial, legal, access-control, or irreversible operations, provide guidance only and require the user's authorized confirmation in the real application workflow.",
   "Do not invent business data, account balances, document contents, API results, integrations, or OCR results. Explain when information is unavailable.",
   "Never request passwords, API keys, OTP codes, or other secrets. Respect tenant isolation and user permissions."
- ].join("\n");
+ ].join("
+");
  const response=await fetch(base+"/chat/completions",{method:"POST",headers:{"Authorization":"Bearer "+apiKey,"Content-Type":"application/json"},body:JSON.stringify({model,temperature:0.25,messages:[{role:"system",content:system},...safe]}),signal:AbortSignal.timeout(45000)});
  const payload:any=await response.json().catch(()=>({}));
  if(!response.ok)return res.status(502).json({error:textValue(payload?.error?.message,300)||"ارتباط با دستیار هوشمند ناموفق بود."});
@@ -229,4 +239,10 @@ aiWorkshopRouter.post("/api/ai/assistant/chat",requireAuth,asyncHandler(async(re
  res.setHeader("Cache-Control","no-store");
  res.json({answer,model,provider:"configured-ai",conversationId});
 }));
-\naiWorkshopRouter.get("/api/ai/assistant/status",requireAuth,asyncHandler(async(req,res)=>{\n const t=await tenant(req);\n if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد."});\n res.setHeader("Cache-Control","no-store");\n res.json({enabled:true});\n}));\n
+
+aiWorkshopRouter.get("/api/ai/assistant/status",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);
+ if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد."});
+ res.setHeader("Cache-Control","no-store");
+ res.json({enabled:true});
+}));
