@@ -229,3 +229,4 @@ aiWorkshopRouter.post("/api/ai/assistant/chat",requireAuth,asyncHandler(async(re
  res.setHeader("Cache-Control","no-store");
  res.json({answer,model,provider:"configured-ai",conversationId});
 }));
+\naiWorkshopRouter.get("/api/ai/assistant/status",requireAuth,asyncHandler(async(req,res)=>{\n const t=await tenant(req);\n if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد."});\n res.setHeader("Cache-Control","no-store");\n res.json({enabled:true});\n}));\n
