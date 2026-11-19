@@ -102,6 +102,29 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   try{await mutate("/api/marketplace/products","POST",{sellerId:form.sellerId,storeId:form.storeId||null,sku:form.sku,title:form.title,description:form.description||"",category:form.category||"",price:Number(form.price),discountPrice:form.discountPrice===""?null:Number(form.discountPrice),currency:form.currency||"IRR"});setForm({});await load();}
   catch(e){setError(e instanceof Error?e.message:"ثبت محصول انجام نشد")}finally{setSaving(false)}
  };
+ const changeStoreStatus=async(id:string,status:string)=>{
+  if(!window.confirm("وضعیت فروشگاه تغییر کند؟"))return;
+  try{await mutate("/api/marketplace/stores/"+encodeURIComponent(id)+"/status","PATCH",{status});await load();}
+  catch(e){setError(e instanceof Error?e.message:"تغییر وضعیت فروشگاه انجام نشد")}
+ };
+ const updateProductInventory=async(p:Row)=>{
+  const quantity=window.prompt("تعداد موجودی واقعی را وارد کنید:",String(p.attributes?.inventoryQuantity??0));
+  if(quantity===null)return;
+  const source=window.prompt("منبع موجودی (فروشنده یا تأمین‌کننده):",String(p.attributes?.inventorySource??""));
+  if(source===null||!source.trim())return setError("منبع موجودی الزامی است.");
+  const sourceType=window.prompt("نوع منبع: seller-owned یا supplier-verified",String(p.attributes?.sourceType??"seller-owned"));
+  if(sourceType===null||!["seller-owned","supplier-verified"].includes(sourceType))return setError("نوع منبع موجودی معتبر نیست.");
+  const supplierReference=sourceType==="supplier-verified"?(window.prompt("شناسه یا مرجع تأمین‌کننده:")||""):"";
+  if(sourceType==="supplier-verified"&&!supplierReference.trim())return setError("مرجع تأمین‌کننده الزامی است.");
+  const verified=window.confirm("اطلاعات موجودی و منبع را بررسی کرده‌اید و تأیید می‌کنید؟");
+  try{await mutate("/api/marketplace/products/"+encodeURIComponent(p.id)+"/inventory","PATCH",{quantity:Number(quantity),source,sourceType,supplierReference,verified});await load();}
+  catch(e){setError(e instanceof Error?e.message:"ثبت موجودی انجام نشد")}
+ };
+ const changeProductStatus=async(id:string,status:string)=>{
+  if(!window.confirm(status==="active"?"محصول پس از بررسی قیمت، فروشنده و موجودی منتشر شود؟":"وضعیت محصول تغییر کند؟"))return;
+  try{await mutate("/api/marketplace/products/"+encodeURIComponent(id)+"/status","PATCH",{status});await load();}
+  catch(e){setError(e instanceof Error?e.message:"تغییر وضعیت محصول انجام نشد")}
+ };
  const changeOrderStatus=async(id:string,status:string)=>{
   const reason=status==="cancelled"?(window.prompt("علت لغو سفارش را وارد کنید:")||"").trim():"";
   if(status==="cancelled"&&!reason)return setError("علت لغو سفارش الزامی است.");
