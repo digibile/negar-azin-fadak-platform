@@ -129,7 +129,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   if(!periodStart||!periodEnd)return setError("ابتدا بازه شروع و پایان را مشخص کنید.");
   if(!window.confirm("برای سفارش‌های پرداخت‌شده این بازه، تسویه‌های فروشندگان ایجاد شود؟"))return;
   setSaving(true);setError("");
-  try{await mutate("/api/marketplace/settlements/generate","POST",{periodStart,periodEnd});await load();}
+  try{await mutate("/api/marketplace/settlements/generate","POST",{periodStart:periodStart+"T00:00:00.000Z",periodEnd:periodEnd+"T23:59:59.999Z"});await load();}
   catch(e){setError(e instanceof Error?e.message:"ایجاد تسویه انجام نشد")}finally{setSaving(false)}
  };
  const approveSettlement=async(id:string)=>{
