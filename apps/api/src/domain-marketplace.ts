@@ -133,6 +133,7 @@ domainMarketplaceRouter.patch("/api/marketplace/stores/:id",requireAuth,requireP
  const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const name=bodyString(req.body?.name,200),slug=bodyString(req.body?.slug,120),domain=bodyString(req.body?.domain,253);
  if(!name&&!slug&&req.body?.domain===undefined)return res.status(400).json({error:"حداقل یک فیلد برای ویرایش لازم است"});
+ if(slug&&!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return res.status(400).json({error:"شناسه نشانی فروشگاه معتبر نیست"});
  if(domain&&!/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(domain))return res.status(400).json({error:"دامنه فروشگاه معتبر نیست"});
  const r=await query("update stores set name=coalesce($1,name),slug=coalesce($2,slug),domain=case when $3::boolean then nullif($4,'') else domain end,updated_at=now() where id=$5 and tenant_id=$6 returning *",[name||null,slug||null,req.body?.domain!==undefined,domain,req.params.id,ctx.id]);
  if(!r.rowCount)return res.status(404).json({error:"فروشگاه پیدا نشد"});
