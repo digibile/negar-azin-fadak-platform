@@ -6,13 +6,21 @@ import {api} from "../../lib/api";
 import styles from "./GlobalAIAssistant.module.css";
 
 type Message={role:"user"|"assistant";content:string};
-type ChatResult={answer:string;model:string};
+type ChatResult={answer:string;model:string};\ntype HistoryResult={messages:{role:"user"|"assistant";content:string}[]};
 export default function GlobalAIAssistant(){
  const pathname=usePathname();
  const [open,setOpen]=useState(false),[draft,setDraft]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const [messages,setMessages]=useState<Message[]>([]);
  const endRef=useRef<HTMLDivElement|null>(null);
  useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth",block:"end"})},[messages,busy,open]);
+ useEffect(()=>{
+  if(!open)return;
+  let cancelled=false;
+  api<HistoryResult>("/api/ai/assistant/history?page="+encodeURIComponent(pathname))
+   .then(result=>{if(!cancelled)setMessages((result.messages||[]).map(m=>({role:m.role,content:m.content})))})
+   .catch(()=>{if(!cancelled)setError("بازیابی تاریخچه گفتگو انجام نشد.")});
+  return()=>{cancelled=true};
+ },[open,pathname]);
  useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==="i"){e.preventDefault();setOpen(v=>!v)}if(e.key==="Escape")setOpen(false)};window.addEventListener("keydown",onKey);return()=>window.removeEventListener("keydown",onKey)},[]);
  async function send(){
   const content=draft.trim();if(!content||busy)return;
