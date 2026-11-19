@@ -7,13 +7,16 @@ import styles from "./GlobalAIAssistant.module.css";
 
 type Message={role:"user"|"assistant";content:string};
 type ChatResult={answer:string;model:string};
-type HistoryResult={messages:{role:"user"|"assistant";content:string}[]};\ntype AssistantStatus={enabled:boolean};
+type HistoryResult={messages:{role:"user"|"assistant";content:string}[]};
+type AssistantStatus={enabled:boolean};
 export default function GlobalAIAssistant(){
  const pathname=usePathname();
  const [open,setOpen]=useState(false),[draft,setDraft]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
- const [messages,setMessages]=useState<Message[]>([]);\n const [enabled,setEnabled]=useState(false);
+ const [messages,setMessages]=useState<Message[]>([]);
+ const [enabled,setEnabled]=useState(false);
  const endRef=useRef<HTMLDivElement|null>(null);
- useEffect(()=>{api<AssistantStatus>("/api/ai/assistant/status").then(result=>setEnabled(result.enabled)).catch(()=>setEnabled(false))},[]);\n useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth",block:"end"})},[messages,busy,open]);
+ useEffect(()=>{api<AssistantStatus>("/api/ai/assistant/status").then(result=>setEnabled(result.enabled)).catch(()=>setEnabled(false))},[]);
+ useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth",block:"end"})},[messages,busy,open]);
  useEffect(()=>{
   if(!open)return;
   let cancelled=false;
