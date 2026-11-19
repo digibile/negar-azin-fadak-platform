@@ -116,8 +116,8 @@ function ModulesContent(){
    setLoading(true);setError("");
    try{
     const [schema,records,actionResponse,menuResponse]=await Promise.all([
-      fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/schema"),{credentials:"include"}),
-      fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/records?page=1&pageSize=50&q="+encodeURIComponent(q)+(filterStatus?"&status="+encodeURIComponent(filterStatus):"")),{credentials:"include"}),
+      fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/schema?recordType="+encodeURIComponent(activeSection||"default")),{credentials:"include"}),
+      fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/records?page=1&pageSize=50&recordType="+encodeURIComponent(activeSection||"record")+"&q="+encodeURIComponent(q)+(filterStatus?"&status="+encodeURIComponent(filterStatus):"")),{credentials:"include"}),
       fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/actions"),{credentials:"include"}),
       fetch(url("/api/dashboard/menu-tree"),{credentials:"include"})
     ]);
@@ -139,7 +139,7 @@ function ModulesContent(){
    }catch(e){setError(e instanceof Error?e.message:"خطا در دریافت اطلاعات");}
    finally{setLoading(false)}
  };
- useEffect(()=>{load()},[code,filterStatus]);
+ useEffect(()=>{load()},[code,filterStatus,activeSection]);
  const fieldValue=(key:string)=>form[key]??"";
  const setField=(key:string,value:unknown)=>setForm(x=>({...x,[key]:value}));
  const save=async()=>{
