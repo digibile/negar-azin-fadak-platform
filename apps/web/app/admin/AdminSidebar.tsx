@@ -31,8 +31,7 @@ function flattenTitles(nodes:MenuNode[]):string[]{return nodes.flatMap(node=>[no
 function menuHref(node:MenuNode){
  if(node.path&&node.path!=="#")return node.path;
  const canonicalChild=MASTER_MENU.flatMap(item=>item.children).find(child=>child.legacyCode===node.menu_key&&child.title===node.title);
- const childRoute=canonicalChild?.route;
- if(childRoute)return childRoute;
+ if(canonicalChild){const child=canonicalChild;const childRoute=child.route;if(childRoute)return childRoute;}
  if(node.menu_key)return "/modules/?code="+encodeURIComponent(node.menu_key);
  return "/admin";
 }
