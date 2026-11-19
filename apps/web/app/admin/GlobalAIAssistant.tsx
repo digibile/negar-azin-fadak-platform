@@ -37,6 +37,7 @@ export default function GlobalAIAssistant(){
   }catch(e){setError(e instanceof Error?e.message:"پاسخی از سرویس دریافت نشد.");}
   finally{setBusy(false)}
  }
+ if(!enabled)return null;
  return <>
   <button type="button" className={styles.launcher} onClick={()=>setOpen(v=>!v)} aria-label={open?"بستن دستیار هوشمند":"باز کردن دستیار هوشمند"} aria-expanded={open}>
    <span className={styles.spark}>✳</span><span className={styles.launcherText}>دستیار هوشمند</span><span className={styles.status}/>
