@@ -74,6 +74,7 @@ merchantRouter.patch("/api/merchants/:id/status",requireAuth,requirePermission("
   if(!["pending","review","active","suspended","rejected","closed"].includes(status))return res.status(400).json({error:"وضعیت پذیرنده نامعتبر است"});
   const r=await query("update payment_merchants set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,t.id]);
   if(!r.rowCount)return res.status(404).json({error:"پذیرنده پیدا نشد"});
+  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'merchant.status.updated','payment_merchant',$3,$4)",[t.id,(req as any).user.id,r.rows[0].id,JSON.stringify({status})]);
   res.json(r.rows[0]);
 }));
 
@@ -83,6 +84,7 @@ merchantRouter.post("/api/merchants/:id/verify",requireAuth,requirePermission("m
   const decision=str(req.body?.decision,20);
   const reason=str(req.body?.reason,500)||null;
   if(!["approve","reject"].includes(decision))return res.status(400).json({error:"تصمیم احراز پذیرنده نامعتبر است"});
+  if(decision==="reject"&&!reason)return res.status(400).json({error:"ثبت علت رد احراز الزامی است"});
   const status=decision==="approve"?"active":"rejected";
   const verificationStatus=decision==="approve"?"verified":"rejected";
   const r=await query(
