@@ -40,6 +40,8 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
  const [error,setError]=useState("");
  const [form,setForm]=useState<Row>({});
  const [saving,setSaving]=useState(false);
+ const [periodStart,setPeriodStart]=useState("");
+ const [periodEnd,setPeriodEnd]=useState("");
 
  const title=useMemo(()=>({commerce:"تجارت و فروشگاه‌ها",domains:"مدیریت دامنه‌ها",sellers:"فروشندگان",payments:"پرداخت و تسویه"} as Record<Mode,string>)[mode],[mode]);
 
@@ -90,6 +92,25 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   try{await mutate("/api/marketplace/domains/"+encodeURIComponent(id)+"/verify","POST",{token});await load();}
   catch(e){setError(e instanceof Error?e.message:"تأیید دامنه انجام نشد")}
  };
+ const generateSettlements=async()=>{
+  if(!periodStart||!periodEnd)return setError("ابتدا بازه شروع و پایان را مشخص کنید.");
+  if(!window.confirm("برای سفارش‌های پرداخت‌شده این بازه، تسویه‌های فروشندگان ایجاد شود؟"))return;
+  setSaving(true);setError("");
+  try{await mutate("/api/marketplace/settlements/generate","POST",{periodStart,periodEnd});await load();}
+  catch(e){setError(e instanceof Error?e.message:"ایجاد تسویه انجام نشد")}finally{setSaving(false)}
+ };
+ const approveSettlement=async(id:string)=>{
+  if(!window.confirm("تسویه تأیید شود؟ پس از تأیید، امکان ثبت پرداخت فراهم می‌شود."))return;
+  try{await mutate("/api/marketplace/settlements/"+encodeURIComponent(id)+"/approve","PATCH",{});await load();}
+  catch(e){setError(e instanceof Error?e.message:"تأیید تسویه انجام نشد")}
+ };
+ const paySettlement=async(id:string)=>{
+  const paymentRef=window.prompt("شناسه پیگیری پرداخت واقعی را وارد کنید:")||"";
+  if(!paymentRef.trim())return;
+  if(!window.confirm("پرداخت این تسویه ثبت و سند دفترکل ایجاد شود؟"))return;
+  try{await mutate("/api/marketplace/settlements/"+encodeURIComponent(id)+"/pay","POST",{paymentRef});await load();}
+  catch(e){setError(e instanceof Error?e.message:"ثبت پرداخت انجام نشد")}
+ };
  const statusSeller=async(id:string,status:string)=>{
   try{await mutate("/api/marketplace/sellers/"+encodeURIComponent(id)+"/status","PATCH",{status});await load();}
   catch(e){setError(e instanceof Error?e.message:"تغییر وضعیت انجام نشد")}
@@ -122,8 +143,13 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   </section>}
 
   {mode==="payments"&&<section className="runtime-panel">
-   <div className="panel-title"><div><h2>تسویه فروشندگان</h2><span>{settlements.length} رکورد واقعی · چرخه تأیید و پرداخت در API موجود است</span></div></div>
-   <div className="record-list">{settlements.map(r=><article className="record-row" key={r.id}><div><strong>{r.settlement_no}</strong><small>{r.seller_name||r.seller_id} · مبلغ خالص {money(r.net_amount)} · {r.period_start?date(r.period_start):"-"} تا {r.period_end?date(r.period_end):"-"}</small></div><span>{r.status}</span></article>)}</div>
+   <div className="panel-title"><div><h2>تسویه فروشندگان</h2><span>{settlements.length} رکورد واقعی · ایجاد، تأیید و ثبت پرداخت</span></div></div>
+   <div className="control-grid">
+    <label>شروع بازه<input type="date" value={periodStart} onChange={e=>setPeriodStart(e.target.value)}/></label>
+    <label>پایان بازه<input type="date" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)}/></label>
+    <button type="button" disabled={saving||!periodStart||!periodEnd} onClick={generateSettlements}>{saving?"در حال انجام...":"محاسبه و ایجاد تسویه‌ها"}</button>
+   </div>
+   <div className="record-list">{settlements.map(r=><article className="record-row" key={r.id}><div><strong>{r.settlement_no}</strong><small>{r.seller_name||r.seller_id} · ناخالص {money(r.gross_amount)} · کارمزد {money(r.commission_amount)} · خالص {money(r.net_amount)}</small><small>{r.period_start?date(r.period_start):"-"} تا {r.period_end?date(r.period_end):"-"}</small></div><div className="command-bar"><span>{r.status}</span>{r.status==="pending"&&<button type="button" onClick={()=>approveSettlement(r.id)}>تأیید تسویه</button>}{r.status==="approved"&&<button type="button" onClick={()=>paySettlement(r.id)}>ثبت پرداخت</button>}</div></article>)}</div>
   </section>}
 
   {mode==="commerce"&&tab==="sellers"&&<section className="runtime-panel"><div className="panel-title"><div><h2>فروشندگان</h2><span>{sellers.length} رکورد واقعی</span></div></div><div className="record-list">{sellers.map(s=><article className="record-row" key={s.id}><div><strong>{s.display_name}</strong><small>{s.legal_name} · کمیسیون {s.commission_rate}%</small></div><span>{s.status}</span></article>)}</div></section>}
