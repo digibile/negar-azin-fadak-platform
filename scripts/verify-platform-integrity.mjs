@@ -235,11 +235,11 @@ if(fs.existsSync(path.join(root,"apps/web/app/modules/SecurityWorkspace.tsx"))||
 const assistantApi=fs.readFileSync(path.join(root,"apps/api/src/ai-workshop.ts"),"utf8");
 const assistantUi=fs.readFileSync(path.join(root,"apps/web/app/admin/GlobalAIAssistant.tsx"),"utf8");
 const assistantMigration=fs.readFileSync(path.join(root,"database/migrations/149_ai_assistant_conversation_history.sql"),"utf8");
-const adminLayout=fs.readFileSync(path.join(root,"apps/web/app/admin/layout.tsx"),"utf8");
+const rootLayout=fs.readFileSync(path.join(root,"apps/web/app/layout.tsx"),"utf8");
 if(!server.includes("app.use(aiWorkshopRouter)"))throw new Error("AI assistant API router is not mounted");
-if(!assistantApi.includes('router.get("/api/ai/assistant/history"')&&!assistantApi.includes('aiWorkshopRouter.get("/api/ai/assistant/history"'))throw new Error("Persistent AI assistant history endpoint is missing");
+if(!assistantApi.includes('router.get("/api/ai/assistant/history"')&&!assistantApi.includes('aiWorkshopRouter.get("/api/ai/assistant/status"')||!assistantApi.includes('aiWorkshopRouter.get("/api/ai/assistant/history"'))throw new Error("Persistent AI assistant history endpoint is missing");
 if(!assistantApi.includes('aiWorkshopRouter.post("/api/ai/assistant/chat"')||!assistantApi.includes("resolveTenant")||!assistantApi.includes("ai_assistant_messages"))throw new Error("AI assistant chat must use authenticated tenant-scoped persistence");
 if(!assistantMigration.includes("unique(tenant_id,user_id,page_path)")||!assistantMigration.includes("references users(id)")||!assistantMigration.includes("references tenants(id)"))throw new Error("AI assistant history must enforce tenant and user ownership");
-if(!adminLayout.includes("<GlobalAIAssistant/>")||!assistantUi.includes("/api/ai/assistant/history")||!assistantUi.includes("/api/ai/assistant/chat"))throw new Error("Global AI assistant must be mounted and use real history/chat APIs");
+if(!rootLayout.includes("<GlobalAIAssistant/>")||!assistantUi.includes("/api/ai/assistant/history")||!assistantUi.includes("/api/ai/assistant/chat"))throw new Error("Global AI assistant must be mounted and use real history/chat APIs");
 
 console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
