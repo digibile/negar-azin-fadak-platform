@@ -45,7 +45,7 @@ function promptFor(tool:ToolKey,request:string,framework:string,language:string,
   report:"Create a report specification with purpose, dimensions, filters, columns, aggregation definitions, chart types and empty-state behavior. Do not provide invented numbers or pretend data is connected.",
   template:"Create a complete design-system and page-template specification for a professional Sookar website."
  }[tool];
- return rules.join("\\n")+"\\nArtifact type: "+tools[tool].label+"\\nTask: "+task+"\\nName: "+name+"\\nFramework: "+framework+"\\nLanguage: "+language+"\\nUser requirements:\\n"+request;
+ return rules.join("\n")+"\nArtifact type: "+tools[tool].label+"\nTask: "+task+"\nName: "+name+"\nFramework: "+framework+"\nLanguage: "+language+"\nUser requirements:\n"+request;
 }
 function normalizeArtifact(value:any){
  const raw=safeObject(value);
