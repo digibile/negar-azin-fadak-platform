@@ -189,7 +189,7 @@ const operationalModuleCodes = [
     "44-marketing-content","45-search-analytics","46-unified-applications","47-contracts-legal","48-shipping-delivery",
     "49-reconciliation","50-release-health"
 ];
-const canonicalLandingCodes: string[] = [];
+const canonicalLandingCodes = [];
 const MODULE_ROUTE_REGISTRY: Record<string, (context: ModuleRouteContext) => React.ReactNode> = {
   "panel:form": () => <FormBuilderWorkspace />,
   "panel:menu": () => <MenuBuilderWorkspace />,
