@@ -226,8 +226,7 @@ aiWorkshopRouter.post("/api/ai/assistant/chat",requireAuth,asyncHandler(async(re
   "For financial, legal, access-control, or irreversible operations, provide guidance only and require the user's authorized confirmation in the real application workflow.",
   "Do not invent business data, account balances, document contents, API results, integrations, or OCR results. Explain when information is unavailable.",
   "Never request passwords, API keys, OTP codes, or other secrets. Respect tenant isolation and user permissions."
- ].join("
-");
+ ].join("\n");
  const response=await fetch(base+"/chat/completions",{method:"POST",headers:{"Authorization":"Bearer "+apiKey,"Content-Type":"application/json"},body:JSON.stringify({model,temperature:0.25,messages:[{role:"system",content:system},...safe]}),signal:AbortSignal.timeout(45000)});
  const payload:any=await response.json().catch(()=>({}));
  if(!response.ok)return res.status(502).json({error:textValue(payload?.error?.message,300)||"ارتباط با دستیار هوشمند ناموفق بود."});
