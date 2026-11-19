@@ -6,7 +6,8 @@ import {api} from "../../lib/api";
 import styles from "./GlobalAIAssistant.module.css";
 
 type Message={role:"user"|"assistant";content:string};
-type ChatResult={answer:string;model:string};\ntype HistoryResult={messages:{role:"user"|"assistant";content:string}[]};
+type ChatResult={answer:string;model:string};
+type HistoryResult={messages:{role:"user"|"assistant";content:string}[]};
 export default function GlobalAIAssistant(){
  const pathname=usePathname();
  const [open,setOpen]=useState(false),[draft,setDraft]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
