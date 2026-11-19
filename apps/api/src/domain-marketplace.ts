@@ -207,7 +207,7 @@ domainMarketplaceRouter.post("/api/marketplace/products",requireAuth,requirePerm
  * Records remain drafts until price, seller, image and inventory have been reviewed.
  * Product images must already be hosted by this platform; external hotlinks are rejected.
  */
-domainMarketplaceRouter.post("/api/marketplace/products/:id/images",requireAuth,requirePermission("product:image:manage"),asyncHandler(async(req,res)=>{
+domainMarketplaceRouter.post("/api/marketplace/products/:id/images",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const url=bodyString(req.body?.url,500);
@@ -228,7 +228,7 @@ domainMarketplaceRouter.post("/api/marketplace/products/:id/images",requireAuth,
   }catch(error){await client.query("rollback");throw error;}finally{client.release();}
 }));
 
-domainMarketplaceRouter.delete("/api/marketplace/products/:id/images/:imageId",requireAuth,requirePermission("product:image:manage"),asyncHandler(async(req,res)=>{
+domainMarketplaceRouter.delete("/api/marketplace/products/:id/images/:imageId",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const removed=await query("delete from product_images where tenant_id=$1 and product_id=$2 and id=$3 returning id",[ctx.id,req.params.id,req.params.imageId]);
