@@ -180,7 +180,7 @@ aiWorkshopRouter.post("/api/ai/assistant/chat",requireAuth,asyncHandler(async(re
  if(!safe.length||safe[safe.length-1].role!=="user")return res.status(400).json({error:"پیام کاربر معتبر نیست."});
  const apiKey=(process.env.AI_API_KEY||process.env.OPENAI_API_KEY||"").trim();
  if(!apiKey)return res.status(503).json({error:"سرویس هوش مصنوعی پیکربندی نشده است؛ AI_API_KEY را در محیط API تنظیم کنید."});
- const base=(process.env.AI_API_BASE_URL||"https://api.openai.com/v1").replace(/\\/+$/,"");
+ const base=(process.env.AI_API_BASE_URL||"https://api.openai.com/v1").replace(/\/+$/,"");
  const model=(process.env.AI_MODEL||"gpt-4.1-mini").trim();
  const system=[
   "You are the built-in Persian assistant for پلتفرم بیزینس نگار آذین فدک ایران.",
@@ -190,7 +190,7 @@ aiWorkshopRouter.post("/api/ai/assistant/chat",requireAuth,asyncHandler(async(re
   "For financial, legal, access-control, or irreversible operations, provide guidance only and require the user's authorized confirmation in the real application workflow.",
   "Do not invent business data, account balances, document contents, API results, integrations, or OCR results. Explain when information is unavailable.",
   "Never request passwords, API keys, OTP codes, or other secrets. Respect tenant isolation and user permissions."
- ].join("\\n");
+ ].join("\n");
  const response=await fetch(base+"/chat/completions",{method:"POST",headers:{"Authorization":"Bearer "+apiKey,"Content-Type":"application/json"},body:JSON.stringify({model,temperature:0.25,messages:[{role:"system",content:system},...safe]}),signal:AbortSignal.timeout(45000)});
  const payload:any=await response.json().catch(()=>({}));
  if(!response.ok)return res.status(502).json({error:textValue(payload?.error?.message,300)||"ارتباط با دستیار هوشمند ناموفق بود."});
