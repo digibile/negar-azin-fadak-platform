@@ -36,6 +36,9 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
  const [selectedDomainSeller,setSelectedDomainSeller]=useState("");
  const [domains,setDomains]=useState<Row[]>([]);
  const [settlements,setSettlements]=useState<Row[]>([]);
+ const [licenses,setLicenses]=useState<Row[]>([]);
+ const [sellerPermissions,setSellerPermissions]=useState<Row[]>([]);
+ const [selectedSellerId,setSelectedSellerId]=useState("");
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
  const [form,setForm]=useState<Row>({});
@@ -54,7 +57,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
     setSelectedDomainSeller(sid);
     if(sid){const d=await get("/api/marketplace/sellers/"+encodeURIComponent(sid)+"/domains");setDomains(d.items||[]);}
    }else if(mode==="sellers"){
-    const s=await get("/api/marketplace/sellers");setRows(s.items||[]);setSellers(s.items||[]);
+    const s=await get("/api/marketplace/sellers");setRows(s.items||[]);setSellers(s.items||[]);const sid=selectedSellerId||s.items?.[0]?.id||"";setSelectedSellerId(sid);if(sid){const [l,p]=await Promise.all([get("/api/marketplace/sellers/"+encodeURIComponent(sid)+"/licenses"),get("/api/marketplace/sellers/"+encodeURIComponent(sid)+"/permissions")]);setLicenses(l.items||[]);setSellerPermissions(p.items||[]);}
    }else if(mode==="payments"){
     const p=await get("/api/marketplace/settlements");setSettlements(Array.isArray(p)?p:(p.items||[]));
    }else{
@@ -74,6 +77,18 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   setSaving(true);setError("");
   try{await mutate("/api/marketplace/sellers","POST",{legalName:form.legalName,displayName:form.displayName,commissionRate:Number(form.commissionRate||0)});setForm({});await load();}
   catch(e){setError(e instanceof Error?e.message:"ثبت فروشنده انجام نشد")}finally{setSaving(false)}
+ };
+ const addLicense=async()=>{
+  if(!selectedSellerId||!form.licenseType||!form.licenseNo)return setError("فروشنده، نوع و شماره مجوز الزامی است.");
+  setSaving(true);setError("");
+  try{await mutate("/api/marketplace/sellers/"+encodeURIComponent(selectedSellerId)+"/licenses","POST",{licenseType:form.licenseType,licenseNo:form.licenseNo,issuer:form.issuer,issuedAt:form.issuedAt||null,expiresAt:form.expiresAt||null,status:form.licenseStatus||"pending",documentRef:form.documentRef});setForm({});await load();}
+  catch(e){setError(e instanceof Error?e.message:"ثبت مجوز انجام نشد")}finally{setSaving(false)}
+ };
+ const savePermissions=async()=>{
+  if(!selectedSellerId)return;
+  setSaving(true);setError("");
+  try{await mutate("/api/marketplace/sellers/"+encodeURIComponent(selectedSellerId)+"/permissions","PUT",{items:sellerPermissions.map(p=>({permission:p.permission,enabled:Boolean(p.enabled)}))});await load();}
+  catch(e){setError(e instanceof Error?e.message:"ذخیره دسترسی‌ها انجام نشد")}finally{setSaving(false)}
  };
  const saveStore=async()=>{
   setSaving(true);setError("");
@@ -126,7 +141,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   </header>
   {error&&<div className="error runtime-error">{error}</div>}
   <nav className="module-subnav">
-   {(mode==="commerce"?["sellers","stores","products","orders"]:mode==="domains"?["domains"]:mode==="sellers"?["sellers"]:["payments"]).map(x=><button type="button" className={tab===x?"active":""} key={x} onClick={()=>setTab(x)}>{({sellers:"فروشندگان",stores:"فروشگاه‌ها",products:"محصولات",orders:"سفارش‌ها",domains:"دامنه‌ها",payments:"تسویه‌ها"} as any)[x]}</button>)}
+   {(mode==="commerce"?["sellers","stores","products","orders"]:mode==="domains"?["domains"]:mode==="sellers"?["sellers","licenses","permissions"]:["payments"]).map(x=><button type="button" className={tab===x?"active":""} key={x} onClick={()=>setTab(x)}>{({sellers:"فروشندگان",stores:"فروشگاه‌ها",products:"محصولات",orders:"سفارش‌ها",domains:"دامنه‌ها",payments:"تسویه‌ها",licenses:"مجوزها",permissions:"دسترسی‌ها"} as any)[x]}</button>)}
   </nav>
 
   {mode==="sellers"&&<section className="runtime-panel">
@@ -135,6 +150,12 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
    <div className="record-list">{rows.map(r=><article className="record-row" key={r.id}><div><strong>{r.display_name}</strong><small>{r.legal_name} · کمیسیون {r.commission_rate}% · ایجاد {date(r.created_at)}</small></div><select value={r.status} onChange={e=>statusSeller(r.id,e.target.value)}><option value="pending">در انتظار</option><option value="active">فعال</option><option value="suspended">معلق</option><option value="closed">بسته</option></select></article>)}</div>
   </section>}
 
+  {mode==="sellers"&&(tab==="licenses"||tab==="permissions")&&<section className="runtime-panel">
+   <div className="panel-title"><div><h2>{tab==="licenses"?"مجوزها و مدارک فروشنده":"دسترسی‌های فروشنده"}</h2><span>پرونده متصل به فروشنده انتخاب‌شده</span></div></div>
+   <select value={selectedSellerId} onChange={e=>setSelectedSellerId(e.target.value)}><option value="">انتخاب فروشنده</option>{sellers.map(s=><option key={s.id} value={s.id}>{s.display_name}</option>)}</select>
+   {tab==="licenses"&&<><div className="control-grid"><input placeholder="نوع مجوز" value={form.licenseType||""} onChange={e=>setForm({...form,licenseType:e.target.value})}/><input placeholder="شماره مجوز" value={form.licenseNo||""} onChange={e=>setForm({...form,licenseNo:e.target.value})}/><input placeholder="مرجع صادرکننده" value={form.issuer||""} onChange={e=>setForm({...form,issuer:e.target.value})}/><input type="date" aria-label="تاریخ صدور" value={form.issuedAt||""} onChange={e=>setForm({...form,issuedAt:e.target.value})}/><input type="date" aria-label="تاریخ انقضا" value={form.expiresAt||""} onChange={e=>setForm({...form,expiresAt:e.target.value})}/><input placeholder="شناسه سند بایگانی" value={form.documentRef||""} onChange={e=>setForm({...form,documentRef:e.target.value})}/><select value={form.licenseStatus||"pending"} onChange={e=>setForm({...form,licenseStatus:e.target.value})}><option value="pending">در انتظار</option><option value="active">فعال</option><option value="expired">منقضی</option><option value="revoked">لغوشده</option></select><button disabled={saving||!selectedSellerId} onClick={addLicense}>ثبت مجوز</button></div><div className="record-list">{licenses.map(l=><article className="record-row" key={l.id}><div><strong>{l.license_type} · {l.license_no}</strong><small>{l.issuer||"مرجع نامشخص"} · انقضا: {l.expires_at?date(l.expires_at):"ثبت نشده"} · سند: {l.document_ref||"متصل نشده"}</small></div><span>{l.status}</span></article>)}</div></>}
+   {tab==="permissions"&&<><div className="record-list">{sellerPermissions.map((p,i)=><article className="record-row" key={p.permission}><strong>{p.permission}</strong><label><input type="checkbox" checked={Boolean(p.enabled)} onChange={e=>setSellerPermissions(old=>old.map((x,j)=>j===i?{...x,enabled:e.target.checked}:x))}/> فعال</label></article>)}</div><button type="button" disabled={saving||!selectedSellerId} onClick={savePermissions}>ذخیره دسترسی‌ها</button></>}
+  </section>}
   {mode==="domains"&&<section className="runtime-panel">
    <div className="panel-title"><div><h2>دامنه‌های فروشندگان</h2><span>ثبت، مشاهده و تأیید واقعی دامنه</span></div></div>
    <select value={selectedDomainSeller} onChange={e=>setSelectedDomainSeller(e.target.value)}><option value="">فروشنده را انتخاب کنید</option>{sellers.map(s=><option key={s.id} value={s.id}>{s.display_name}</option>)}</select>
