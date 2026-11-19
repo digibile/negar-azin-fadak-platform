@@ -132,6 +132,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   if(description===null)return;
   const discountPrice=window.prompt("قیمت تخفیف (خالی برای حذف):",String(p.discount_price??""));
   if(discountPrice===null)return;
+  if(discountPrice.trim()!==""&&(!Number.isFinite(Number(discountPrice))||Number(discountPrice)<0||Number(discountPrice)>Number(price)))return setError("قیمت تخفیف باید بین صفر و قیمت اصلی باشد.");
   try{await mutate("/api/marketplace/products/"+encodeURIComponent(p.id),"PATCH",{title,price:Number(price),category,description,discountPrice:discountPrice.trim()===""?null:Number(discountPrice)});await load();}
   catch(e){setError(e instanceof Error?e.message:"ویرایش محصول انجام نشد")}
  };
