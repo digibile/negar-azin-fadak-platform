@@ -116,7 +116,7 @@ function ModulesContent(){
    setLoading(true);setError("");
    try{
     const [schema,records,actionResponse,menuResponse]=await Promise.all([
-      fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/schema?recordType="+encodeURIComponent(activeSection||"default")),{credentials:"include"}),
+      fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/schema"),{credentials:"include"}),
       fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/records?page=1&pageSize=50&recordType="+encodeURIComponent(activeSection||"record")+"&q="+encodeURIComponent(q)+(filterStatus?"&status="+encodeURIComponent(filterStatus):"")),{credentials:"include"}),
       fetch(url("/api/platform/modules/"+encodeURIComponent(code)+"/actions"),{credentials:"include"}),
       fetch(url("/api/dashboard/menu-tree"),{credentials:"include"})
