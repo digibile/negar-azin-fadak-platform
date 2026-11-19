@@ -148,6 +148,7 @@ export default function AdminSidebar(){
     </Link>
     <label className={styles["sidebar-search"]}><span><SearchIcon/></span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="جستجوی منو و زیرمنو..." aria-label="جستجوی منو"/>{query&&<button type="button" aria-label="پاک کردن جستجو" onClick={()=>setQuery("")}>×</button>}</label>
    </div>
+<div className={styles["sidebar-scroll-region"]}>
    <div className={styles["sidebar-caption"]}><span>منوی مرکزی سازمان</span></div>
    {error&&<div className={styles["sidebar-menu-error"]}>{error}</div>}
    <nav className={styles["master-nav"]}>
@@ -184,6 +185,7 @@ export default function AdminSidebar(){
      <Link className={styles["master-child"]} href="/modules/?code=50-release-health" onClick={closeMobile}><span className={styles["master-child-index"]}>07</span>پشتیبان‌گیری، بازیابی و سلامت سامانه</Link>
     </div>
    </nav>
+   </div>
    <footer className={styles["sidebar-footer"]}>
     <Link href="/admin/templates" onClick={closeMobile}><span>▦</span><div><b>کتابخانه مرکزی قالب‌ها</b><small>قالب پایه، فروشگاه، لندتک و پرداخت</small></div></Link>
     <Link href="/admin/editors" onClick={closeMobile}><span>✦</span><div><b>ویرایشگرهای سامانه</b><small>صفحه، فرم و منو</small></div></Link>
