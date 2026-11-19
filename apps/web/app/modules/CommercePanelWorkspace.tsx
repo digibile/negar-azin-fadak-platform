@@ -183,6 +183,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   catch(e){setError(e instanceof Error?e.message:"ثبت پرداخت انجام نشد")}
  };
  const statusSeller=async(id:string,status:string)=>{
+  if(!window.confirm("وضعیت فروشنده به «"+status+"» تغییر کند؟"))return;
   try{await mutate("/api/marketplace/sellers/"+encodeURIComponent(id)+"/status","PATCH",{status});await load();}
   catch(e){setError(e instanceof Error?e.message:"تغییر وضعیت انجام نشد")}
  };
