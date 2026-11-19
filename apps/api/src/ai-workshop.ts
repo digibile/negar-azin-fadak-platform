@@ -1,6 +1,6 @@
 import {Router} from "express";
 import {randomUUID} from "node:crypto";
-import {query} from "./db.js";
+import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
@@ -170,23 +170,51 @@ aiWorkshopRouter.post("/api/ai/workshop/save",requireAuth,asyncHandler(async(req
  res.status(201).json({kind:key+"-draft",item:saved.rows[0],message:"خروجی در صفحه‌ساز مرکزی ذخیره شد؛ هنوز منتشر نشده است."});
 }));
 
+aiWorkshopRouter.get("/api/ai/assistant/history",requireAuth,asyncHandler(async(req,res)=>{
+ const user=(req as any).user;
+ const t=await tenant(req);
+ if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد."});
+ const page=typeof req.query.page==="string"?req.query.page.slice(0,240):"/";
+ const result=await query(
+  "select m.id,m.role,m.content,m.model,m.created_at from ai_assistant_conversations c join ai_assistant_messages m on m.conversation_id=c.id where c.tenant_id=$1 and c.user_id=$2 and c.page_path=$3 order by m.created_at desc,m.id desc limit 40",
+  [t.id,user.id,page]
+ );
+ res.setHeader("Cache-Control","no-store");
+ res.json({messages:result.rows.reverse()});
+}));
+
 aiWorkshopRouter.post("/api/ai/assistant/chat",requireAuth,asyncHandler(async(req,res)=>{
  const user=(req as any).user;
  const messages=Array.isArray(req.body?.messages)?req.body.messages.slice(-16):[];
- const page=typeof req.body?.page==="string"?req.body.page.slice(0,240):"/";
+ const page=typeof req.body?.page==="string"&&req.body.page.startsWith("/")?req.body.page.slice(0,240):"/";
  const title=typeof req.body?.pageTitle==="string"?req.body.pageTitle.slice(0,120):"صفحه جاری";
  if(!messages.length||messages.length>16)return res.status(400).json({error:"گفتگو خالی یا بیش از حد طولانی است."});
  const safe=messages.map((m:any)=>({role:m?.role==="assistant"?"assistant":"user",content:typeof m?.content==="string"?m.content.trim().slice(0,4000):""})).filter((m:any)=>m.content);
  if(!safe.length||safe[safe.length-1].role!=="user")return res.status(400).json({error:"پیام کاربر معتبر نیست."});
  const apiKey=(process.env.AI_API_KEY||process.env.OPENAI_API_KEY||"").trim();
  if(!apiKey)return res.status(503).json({error:"سرویس هوش مصنوعی پیکربندی نشده است؛ AI_API_KEY را در محیط API تنظیم کنید."});
+ const t=await tenant(req);
+ if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد."});
  const base=(process.env.AI_API_BASE_URL||"https://api.openai.com/v1").replace(/\/+$/,"");
  const model=(process.env.AI_MODEL||"gpt-4.1-mini").trim();
+ const client=await pool.connect();
+ let conversationId:string;
+ try{
+  await client.query("begin");
+  const conversation=await client.query(
+   "insert into ai_assistant_conversations(tenant_id,user_id,page_path,page_title) values($1,$2,$3,$4) on conflict(tenant_id,user_id,page_path) do update set page_title=excluded.page_title,updated_at=now() returning id",
+   [t.id,user.id,page,title]
+  );
+  conversationId=conversation.rows[0].id;
+  await client.query("insert into ai_assistant_messages(conversation_id,role,content) values($1,'user',$2)",[conversationId,safe[safe.length-1].content]);
+  await client.query("update ai_assistant_conversations set updated_at=now() where id=$1",[conversationId]);
+  await client.query("commit");
+ }catch(error){await client.query("rollback");throw error;}finally{client.release();}
  const system=[
   "You are the built-in Persian assistant for پلتفرم بیزینس نگار آذین فدک ایران.",
   "Answer in Persian, clearly and accurately. You are aware of the current UI location but you do not automatically have access to its records.",
-  "Current page: "+title+" ("+page+"). Signed-in role: "+String(user.role||"user")+".",
-  "Never claim to have read database records, changed data, sent messages, approved transactions, or performed actions unless a connected tool actually did so. No tools are available in this chat endpoint.",
+  "Current page: "+title+" ("+page+"). Signed-in role: "+String(user.role||"user")+". Tenant: "+t.name+".",
+  "Never claim to have read database records, changed data, sent messages, approved transactions, or performed actions unless a connected tool actually did so. No operational tools are available in this chat endpoint.",
   "For financial, legal, access-control, or irreversible operations, provide guidance only and require the user's authorized confirmation in the real application workflow.",
   "Do not invent business data, account balances, document contents, API results, integrations, or OCR results. Explain when information is unavailable.",
   "Never request passwords, API keys, OTP codes, or other secrets. Respect tenant isolation and user permissions."
@@ -196,6 +224,8 @@ aiWorkshopRouter.post("/api/ai/assistant/chat",requireAuth,asyncHandler(async(re
  if(!response.ok)return res.status(502).json({error:textValue(payload?.error?.message,300)||"ارتباط با دستیار هوشمند ناموفق بود."});
  const answer=textValue(payload?.choices?.[0]?.message?.content,6000);
  if(!answer)return res.status(502).json({error:"پاسخ معتبری از مدل دریافت نشد."});
+ await query("insert into ai_assistant_messages(conversation_id,role,content,model) values($1,'assistant',$2,$3)",[conversationId,answer,model]);
+ await query("update ai_assistant_conversations set updated_at=now() where id=$1",[conversationId]);
  res.setHeader("Cache-Control","no-store");
- res.json({answer,model,provider:"configured-ai"});
+ res.json({answer,model,provider:"configured-ai",conversationId});
 }));
