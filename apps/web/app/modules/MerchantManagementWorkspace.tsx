@@ -57,7 +57,15 @@ export default function MerchantManagementWorkspace(){
    await load();
  };
  const verify=async(id:string,decision:"approve"|"reject")=>{
-   try{await mutate("/api/merchants/"+id+"/verify",{decision,reason:decision==="approve"?"تأیید توسط کاربر مجاز":""});}catch(e){setError(e instanceof Error?e.message:"خطا در احراز");}
+   const reason=decision==="reject"?(window.prompt("علت رد احراز را ثبت کنید:")||"").trim():"تأیید پس از بررسی مدارک";
+   if(decision==="reject"&&!reason)return setError("ثبت علت رد الزامی است.");
+   if(!window.confirm(decision==="approve"?"احراز این پذیرنده تأیید شود؟":"احراز این پذیرنده با علت ثبت‌شده رد شود؟"))return;
+   try{
+     const r=await fetch(url("/api/merchants/"+id+"/verify"),{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:JSON.stringify({decision,reason})});
+     const b=await r.json().catch(()=>null);
+     if(!r.ok)throw new Error(b?.error||"عملیات احراز انجام نشد");
+     await load();
+   }catch(e){setError(e instanceof Error?e.message:"خطا در احراز");}
  };
  return <main className="module-runtime canonical-module" dir="rtl">
   <header className="page-head">
