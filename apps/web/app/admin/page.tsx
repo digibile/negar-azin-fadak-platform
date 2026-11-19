@@ -4,6 +4,7 @@ import Link from "next/link";
 import {useEffect,useMemo,useState} from "react";
 import {api} from "../../lib/api";
 import styles from "./ExecutiveDashboard.module.css";
+import {MASTER_MENU} from "./master-menu";
 
 type MenuNode={id:string|number;menu_key?:string|null;title:string;path?:string|null;icon?:string|null;sort_order?:number;child_items?:MenuNode[]};
 type ModuleItem={id?:number;code:string;title:string;core?:string;lifecycle?:string;record_count?:number;route?:string|null;description?:string|null};
@@ -106,7 +107,7 @@ export default function Admin(){
   </section>
 
   {menuError?<div className={styles.emptyState}><span>!</span><b>منوی مدیریتی در دسترس نیست</b><p>{menuError}</p></div>:loading?<div className={styles.loadingGrid}>{Array.from({length:6},(_,i)=><div key={i}/>)}</div>:<>
-   <section className={styles.panelGrid}>
+   <section className={styles.panelGrid+" canonical-panel-grid"} data-canonical-panel-count={MASTER_MENU.length}>
     {panels.map((panel,index)=>{
      const children=panel.child_items||[];
      const href=panel.path&&panel.path!=="#"?panel.path:"/modules/";
