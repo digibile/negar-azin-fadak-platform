@@ -1,5 +1,6 @@
 import {Router} from "express";
 import {randomBytes} from "node:crypto";
+import {resolveTxt} from "node:dns/promises";
 import {query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
@@ -32,8 +33,12 @@ router.post("/api/marketplace/sellers/:sellerId/domains",requireAuth,requirePerm
 router.post("/api/marketplace/domains/:id/verify",requireAuth,requirePermission("seller:domain:manage"),asyncHandler(async(req,res)=>{
  const d=await query("select * from seller_domains where id=$1",[req.params.id]);if(!d.rowCount)return res.status(404).json({error:"دامنه پیدا نشد"});
  const ctx=await sellerAccess(req,(req as any).user,d.rows[0].seller_id);if(!ctx)return res.status(403).json({error:"دسترسی به دامنه مجاز نیست"});
- if(str(req.body?.token,200)!==d.rows[0].verification_token)return res.status(400).json({error:"کد تأیید دامنه نادرست است"});
- const r=await query("update seller_domains set verification_status='verified',verified_at=now(),updated_at=now() where id=$1 returning *",[req.params.id]);res.json(r.rows[0]);
+ const recordName="_naf-verification."+d.rows[0].hostname;
+ let records:string[][]=[];
+ try{records=await resolveTxt(recordName);}catch{return res.status(409).json({error:"رکورد TXT تأیید هنوز در DNS قابل مشاهده نیست",recordName,expectedValue:d.rows[0].verification_token});}
+ const verified=records.some(parts=>parts.join("")===d.rows[0].verification_token);
+ if(!verified)return res.status(409).json({error:"رکورد TXT پیدا شد اما مقدار آن با کد چالش مطابقت ندارد",recordName,expectedValue:d.rows[0].verification_token});
+ const r=await query("update seller_domains set verification_status='verified',verified_at=now(),updated_at=now() where id=$1 and tenant_id=$2 returning *",[req.params.id,ctx.id]);res.json(r.rows[0]);
 }));
 router.get("/api/marketplace/sellers/:sellerId/licenses",requireAuth,requirePermission("seller:license:view"),asyncHandler(async(req,res)=>{
  const ctx=await sellerAccess(req,(req as any).user,String(req.params.sellerId));if(!ctx)return res.status(403).json({error:"دسترسی به فروشنده مجاز نیست"});
