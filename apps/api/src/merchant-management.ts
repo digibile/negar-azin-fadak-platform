@@ -49,6 +49,7 @@ merchantRouter.post("/api/merchants",requireAuth,requirePermission("merchant:man
     "insert into payment_merchants(tenant_id,code,legal_name,display_name,business_type,national_id,tax_id,iban,settlement_account_ref,contract_ref,commission_rate,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning *",
     [t.id,code,legalName,displayName,businessType,str(req.body?.nationalId,80)||null,str(req.body?.taxId,80)||null,str(req.body?.iban,50)||null,str(req.body?.settlementAccountRef,120)||null,str(req.body?.contractRef,120)||null,commissionRate,req.body?.metadata&&typeof req.body.metadata==="object"?req.body.metadata:{}]
   );
+  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'merchant.created','payment_merchant',$3,$4)",[t.id,(req as any).user.id,r.rows[0].id,JSON.stringify({code,legalName,displayName,businessType,commissionRate})]);
   res.status(201).json(r.rows[0]);
 }));
 
@@ -64,6 +65,7 @@ merchantRouter.patch("/api/merchants/:id",requireAuth,requirePermission("merchan
     [str(req.body?.legalName,250)||null,str(req.body?.displayName,250)||null,businessType,str(req.body?.nationalId,80)||null,str(req.body?.taxId,80)||null,str(req.body?.iban,50)||null,str(req.body?.settlementAccountRef,120)||null,str(req.body?.contractRef,120)||null,commissionRate,req.params.id,t.id]
   );
   if(!r.rowCount)return res.status(404).json({error:"پذیرنده پیدا نشد"});
+  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'merchant.updated','payment_merchant',$3,$4)",[t.id,(req as any).user.id,r.rows[0].id,JSON.stringify({legalName:r.rows[0].legal_name,displayName:r.rows[0].display_name,commissionRate:r.rows[0].commission_rate,contractRef:r.rows[0].contract_ref})]);
   res.json(r.rows[0]);
 }));
 
