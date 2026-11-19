@@ -50,11 +50,15 @@ router.get("/api/marketplace/sellers/:sellerId/licenses",requireAuth,requirePerm
 router.post("/api/marketplace/sellers/:sellerId/licenses",requireAuth,requirePermission("seller:license:manage"),asyncHandler(async(req,res)=>{
  const ctx=await sellerAccess(req,(req as any).user,String(req.params.sellerId));if(!ctx)return res.status(403).json({error:"دسترسی به فروشنده مجاز نیست"});
  const type=str(req.body?.licenseType,100),no=str(req.body?.licenseNo,150);if(!type||!no)return res.status(400).json({error:"نوع و شماره مجوز الزامی است"});
- const r=await query("insert into seller_licenses(tenant_id,seller_id,license_type,license_no,issuer,issued_at,expires_at,status,document_ref,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",[ctx.id,String(req.params.sellerId),type,no,str(req.body?.issuer,200)||null,req.body?.issuedAt||null,req.body?.expiresAt||null,["pending","active","expired","revoked"].includes(req.body?.status)?req.body.status:"pending",str(req.body?.documentRef,500)||null,req.body?.metadata&&typeof req.body.metadata==="object"?req.body.metadata:{}]);res.status(201).json(r.rows[0]);
+ const r=await query("insert into seller_licenses(tenant_id,seller_id,license_type,license_no,issuer,issued_at,expires_at,status,document_ref,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",[ctx.id,String(req.params.sellerId),type,no,str(req.body?.issuer,200)||null,req.body?.issuedAt||null,req.body?.expiresAt||null,["pending","active","expired","revoked"].includes(req.body?.status)?req.body.status:"pending",str(req.body?.documentRef,500)||null,req.body?.metadata&&typeof req.body.metadata==="object"?req.body.metadata:{}]);
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.license.created','seller_license',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({sellerId:req.params.sellerId,licenseType:type,licenseNo:no,status:r.rows[0].status,documentRef:r.rows[0].document_ref})]);
+ res.status(201).json(r.rows[0]);
 }));
 router.get("/api/marketplace/sellers/:sellerId/permissions",requireAuth,requirePermission("seller:permission:view"),asyncHandler(async(req,res)=>{
  const ctx=await sellerAccess(req,(req as any).user,String(req.params.sellerId));if(!ctx)return res.status(403).json({error:"دسترسی به فروشنده مجاز نیست"});
- const r=await query("select permission,enabled from seller_permissions where tenant_id=$1 and seller_id=$2 order by permission",[ctx.id,String(req.params.sellerId)]);res.json({items:r.rows,total:r.rowCount});
+ const r=await query("select permission,enabled from seller_permissions where tenant_id=$1 and seller_id=$2 order by permission",[ctx.id,String(req.params.sellerId)]);
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.permissions.updated','seller',$3,$4)",[ctx.id,(req as any).user.id,String(req.params.sellerId),JSON.stringify({permissions:r.rows})]);
+ res.json({items:r.rows,total:r.rowCount});
 }));
 router.put("/api/marketplace/sellers/:sellerId/permissions",requireAuth,requirePermission("seller:permission:manage"),asyncHandler(async(req,res)=>{
  const ctx=await sellerAccess(req,(req as any).user,String(req.params.sellerId));if(!ctx)return res.status(403).json({error:"دسترسی به فروشنده مجاز نیست"});
