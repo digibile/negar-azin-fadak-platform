@@ -134,8 +134,8 @@ if(!sidebar.includes("const childRoute=child.route"))throw new Error("Sidebar do
 const unroutedLegacy=expectedLegacyCodes.filter(code=>!declaredCodes.has(code));
 if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered in a real dispatcher branch/workspace: "+unroutedLegacy.join(", "));
 
-if(!sidebar.includes("const visit=(nodes:MenuNode[])")||!sidebar.includes("visit(node.child_items||[])"))throw new Error("Legacy menu merge must index every nested level");
-if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.includes("...flattenTitles(x.dbChildren)"))throw new Error("Menu search must include all nested legacy levels");
+if(!sidebar.includes("function containsPath(node:MenuNode,path:string)")||!sidebar.includes("(node.child_items||[]).some(child=>containsPath(child,path))"))throw new Error("Central menu navigation must inspect every nested API node");
+if(!sidebar.includes("function filterTree(nodes:MenuNode[],query:string)")||!sidebar.includes("filterTree(node.child_items||[],query)"))throw new Error("Menu search must include every nested API node without dropping ancestors");
 
 const dynamicMenu=fs.readFileSync(path.join(root,"apps/api/src/dynamic-menu.ts"),"utf8");
 const workflowDir=path.join(root,".github/workflows");
