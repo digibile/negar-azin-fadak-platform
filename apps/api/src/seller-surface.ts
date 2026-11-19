@@ -28,6 +28,7 @@ router.post("/api/marketplace/sellers/:sellerId/domains",requireAuth,requirePerm
  if(!/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(hostname))return res.status(400).json({error:"نام دامنه معتبر نیست"});
  if(storeId){const s=await query("select id from stores where id=$1 and tenant_id=$2 and seller_id=$3",[storeId,ctx.id,String(req.params.sellerId)]);if(!s.rowCount)return res.status(404).json({error:"فروشگاه معتبر نیست"});}
  const r=await query("insert into seller_domains(tenant_id,seller_id,store_id,hostname,verification_token,is_primary,ssl_mode) values($1,$2,$3,$4,$5,$6,$7) returning *",[ctx.id,String(req.params.sellerId),storeId,hostname,randomBytes(24).toString("hex"),Boolean(req.body?.isPrimary),req.body?.sslMode==="external"?"external":"managed"]);
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.domain.created','seller_domain',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({hostname,storeId,sslMode:r.rows[0].ssl_mode})]);
  res.status(201).json(r.rows[0]);
 }));
 router.post("/api/marketplace/domains/:id/verify",requireAuth,requirePermission("seller:domain:manage"),asyncHandler(async(req,res)=>{
@@ -38,7 +39,9 @@ router.post("/api/marketplace/domains/:id/verify",requireAuth,requirePermission(
  try{records=await resolveTxt(recordName);}catch{return res.status(409).json({error:"رکورد TXT تأیید هنوز در DNS قابل مشاهده نیست",recordName,expectedValue:d.rows[0].verification_token});}
  const verified=records.some(parts=>parts.join("")===d.rows[0].verification_token);
  if(!verified)return res.status(409).json({error:"رکورد TXT پیدا شد اما مقدار آن با کد چالش مطابقت ندارد",recordName,expectedValue:d.rows[0].verification_token});
- const r=await query("update seller_domains set verification_status='verified',verified_at=now(),updated_at=now() where id=$1 and tenant_id=$2 returning *",[req.params.id,ctx.id]);res.json(r.rows[0]);
+ const r=await query("update seller_domains set verification_status='verified',verified_at=now(),updated_at=now() where id=$1 and tenant_id=$2 returning *",[req.params.id,ctx.id]);
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.domain.dns_verified','seller_domain',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({hostname:d.rows[0].hostname,recordName})]);
+ res.json(r.rows[0]);
 }));
 router.get("/api/marketplace/sellers/:sellerId/licenses",requireAuth,requirePermission("seller:license:view"),asyncHandler(async(req,res)=>{
  const ctx=await sellerAccess(req,(req as any).user,String(req.params.sellerId));if(!ctx)return res.status(403).json({error:"دسترسی به فروشنده مجاز نیست"});
