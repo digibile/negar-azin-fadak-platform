@@ -18,7 +18,7 @@ const commandPage=fs.readFileSync(path.join(root,"apps/web/app/command-center/pa
 const masterMenu=fs.readFileSync(path.join(root,"apps/web/app/admin/master-menu.ts"),"utf8");
 const sidebar=fs.readFileSync(path.join(root,"apps/web/app/admin/AdminSidebar.tsx"),"utf8");
 const marketplaceApi=fs.readFileSync(path.join(root,"apps/api/src/domain-marketplace.ts"),"utf8");
-const marketplaceRoutes=[...marketplaceApi.matchAll(/domainMarketplaceRouter\\.(get|post|patch|put|delete)\\("([^"]+)"/g)].map(match=>match[1].toUpperCase()+" "+match[2]);
+const marketplaceRoutes=[...marketplaceApi.matchAll(/domainMarketplaceRouter\.(get|post|patch|put|delete)\("([^"]+)"/g)].map(match=>match[1].toUpperCase()+" "+match[2]);
 const duplicateMarketplaceRoutes=marketplaceRoutes.filter((route,index)=>marketplaceRoutes.indexOf(route)!==index);
 if(duplicateMarketplaceRoutes.length)throw new Error("Duplicate marketplace API routes: "+[...new Set(duplicateMarketplaceRoutes)].join(", "));
 const modulePage=fs.readFileSync(path.join(root,"apps/web/app/modules/page.tsx"),"utf8");
