@@ -140,8 +140,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
  };
  const paySettlement=async(id:string)=>{
   const paymentRef=window.prompt("شماره سند یا شناسه پیگیری بانکی (در صورت وجود):")||"";
-  if(!paymentRef.trim())return;
-  if(!window.confirm("پرداخت این تسویه ثبت و سند دفترکل ایجاد شود؟"))return;
+  if(!window.confirm("ثبت پرداخت در دفترکل و تغییر وضعیت تسویه به پرداخت‌شده انجام شود؟ شماره پیگیری واردشده صرفاً مرجع ثبت است و انتقال بانکی انجام نمی‌دهد."))return;
   try{await mutate("/api/marketplace/settlements/"+encodeURIComponent(id)+"/pay","POST",{paymentRef});await load();}
   catch(e){setError(e instanceof Error?e.message:"ثبت پرداخت انجام نشد")}
  };
