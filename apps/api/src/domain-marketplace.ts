@@ -99,6 +99,17 @@ domainMarketplaceRouter.post("/api/marketplace/sellers",requireAuth,requirePermi
   res.status(201).json(r.rows[0]);
 }));
 
+domainMarketplaceRouter.patch("/api/marketplace/sellers/:id",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const legal=bodyString(req.body?.legalName,250),display=bodyString(req.body?.displayName,250);
+ const rate=req.body?.commissionRate===undefined?null:bodyNumber(req.body?.commissionRate);
+ if(rate!==null&&(rate<0||rate>100))return res.status(400).json({error:"نرخ کمیسیون باید بین صفر تا صد باشد"});
+ if(!legal&&!display&&rate===null)return res.status(400).json({error:"حداقل یک فیلد برای ویرایش لازم است"});
+ const r=await query("update sellers set legal_name=coalesce($1,legal_name),display_name=coalesce($2,display_name),commission_rate=coalesce($3,commission_rate),updated_at=now() where id=$4 and tenant_id=$5 returning *",[legal||null,display||null,rate,req.params.id,ctx.id]);
+ if(!r.rowCount)return res.status(404).json({error:"فروشنده پیدا نشد"});
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.updated','seller',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({legalName:r.rows[0].legal_name,displayName:r.rows[0].display_name,commissionRate:r.rows[0].commission_rate})]);
+ res.json(r.rows[0]);
+}));
 domainMarketplaceRouter.get("/api/marketplace/stores",requireAuth,requirePermission("store:view"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
