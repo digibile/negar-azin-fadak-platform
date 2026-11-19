@@ -120,11 +120,10 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   catch(e){setError(e instanceof Error?e.message:"ثبت دامنه انجام نشد")}finally{setSaving(false)}
  };
  const verifyDomain=async(id:string)=>{
-  const token=window.prompt("کد تأیید دامنه را وارد کنید")||"";
-  if(!token)return;
+  if(!window.confirm("رکورد TXT دامنه را ثبت کرده‌اید؟ سامانه اکنون DNS را بررسی می‌کند."))return;
   setError("");
-  try{await mutate("/api/marketplace/domains/"+encodeURIComponent(id)+"/verify","POST",{token});await load();}
-  catch(e){setError(e instanceof Error?e.message:"تأیید دامنه انجام نشد")}
+  try{await mutate("/api/marketplace/domains/"+encodeURIComponent(id)+"/verify","POST",{});await load();}
+  catch(e){setError(e instanceof Error?e.message:"تأیید DNS دامنه انجام نشد")}
  };
  const generateSettlements=async()=>{
   if(!periodStart||!periodEnd)return setError("ابتدا بازه شروع و پایان را مشخص کنید.");
@@ -178,7 +177,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
    <div className="panel-title"><div><h2>دامنه‌های فروشندگان</h2><span>ثبت، مشاهده و تأیید واقعی دامنه</span></div></div>
    <select value={selectedDomainSeller} onChange={e=>setSelectedDomainSeller(e.target.value)}><option value="">فروشنده را انتخاب کنید</option>{sellers.map(s=><option key={s.id} value={s.id}>{s.display_name}</option>)}</select>
    <div className="control-grid"><input placeholder="example.ir" value={form.hostname||""} onChange={e=>setForm({...form,hostname:e.target.value})}/><input placeholder="شناسه فروشگاه، در صورت نیاز" value={form.storeId||""} onChange={e=>setForm({...form,storeId:e.target.value})}/><select value={form.sslMode||"managed"} onChange={e=>setForm({...form,sslMode:e.target.value})}><option value="managed">SSL مدیریت‌شده</option><option value="external">SSL خارجی</option></select><button disabled={!selectedDomainSeller||saving} onClick={addDomain}>ثبت دامنه</button></div>
-   <div className="record-list">{domains.map(d=><article className="record-row" key={d.id}><div><strong>{d.hostname}</strong><small>{d.verification_status} · SSL: {d.ssl_mode} · {d.is_primary?"دامنه اصلی":"دامنه عادی"}</small>{d.verification_status!=="verified"&&<small>کد چالش ثبت‌شده: <code>{d.verification_token}</code> · این کد به‌تنهایی مالکیت DNS را اثبات نمی‌کند.</small>}</div>{d.verification_status!=="verified"&&<button onClick={()=>verifyDomain(d.id)}>تأیید</button>}</article>)}</div>
+   <div className="record-list">{domains.map(d=><article className="record-row" key={d.id}><div><strong>{d.hostname}</strong><small>{d.verification_status} · SSL: {d.ssl_mode} · {d.is_primary?"دامنه اصلی":"دامنه عادی"}</small>{d.verification_status!=="verified"&&<small>رکورد TXT: <code>_naf-verification.{d.hostname}</code></small><small>مقدار TXT: <code>{d.verification_token}</code></small>}</div>{d.verification_status!=="verified"&&<button onClick={()=>verifyDomain(d.id)}>تأیید</button>}</article>)}</div>
   </section>}
 
   {mode==="payments"&&<section className="runtime-panel">
