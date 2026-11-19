@@ -110,6 +110,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
  const updateProductInventory=async(p:Row)=>{
   const quantity=window.prompt("تعداد موجودی واقعی را وارد کنید:",String(p.attributes?.inventoryQuantity??0));
   if(quantity===null)return;
+  if(!Number.isInteger(Number(quantity))||Number(quantity)<0)return setError("موجودی باید عدد صحیح صفر یا بیشتر باشد.");
   const source=window.prompt("منبع موجودی (فروشنده یا تأمین‌کننده):",String(p.attributes?.inventorySource??""));
   if(source===null||!source.trim())return setError("منبع موجودی الزامی است.");
   const sourceType=window.prompt("نوع منبع: seller-owned یا supplier-verified",String(p.attributes?.sourceType??"seller-owned"));
