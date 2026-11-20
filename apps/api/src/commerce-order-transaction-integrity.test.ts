@@ -5,6 +5,12 @@ import fs from "node:fs";
 const sales=fs.readFileSync(new URL("./sales-revenue.ts",import.meta.url),"utf8");
 const purchasing=fs.readFileSync(new URL("./purchasing-supply.ts",import.meta.url),"utf8");
 
+test("sales order creation requires an active tenant-owned customer and products",()=>{
+ assert.ok(sales.includes("from sales_partners where id=$1 and tenant_id=$2 and status='active'"));
+ assert.ok(sales.includes("from sales_products where tenant_id=$1 and status='active' and id=any($2::uuid[])"));
+ assert.ok(sales.includes("x.discountRate>100||x.taxRate<0||x.taxRate>100"));
+});
+
 test("sales order status changes serialize on the tenant-owned order row",()=>{
  assert.ok(sales.includes("select * from sales_orders where id=$1 and tenant_id=$2 for update"));
  assert.ok(sales.includes("update sales_orders set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *"));
