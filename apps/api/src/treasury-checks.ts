@@ -6,7 +6,7 @@ import {resolveTenant} from "./tenant-context.js";
 const router=Router();
 const tenantOf=async(req:Request)=>resolveTenant(req,(req as any).user);
 const deny=(res:Response,status:number,error:string)=>res.status(status).json({error});
-const validDate=(v:unknown)=>typeof v==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(v);
+const validDate=(v:unknown)=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v);
 const allowedStatuses=[
  "registered","awaiting_collection","deposited","assigned","issued","in_transit",
  "collected","returned","protested","refunded","cancelled","settled"
