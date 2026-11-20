@@ -286,6 +286,78 @@ checkoutRouter.get("/api/storefront/orders",requireAuth,asyncHandler(async(req,r
  const r=await query("select o.id,o.order_no,o.status,o.currency,o.subtotal,o.shipping_amount,o.total_amount,o.delivery_method_id,o.delivery_method_snapshot,o.payment_method,o.created_at,o.paid_at,a.recipient_name,a.mobile,a.province,a.city,a.address_line,a.postal_code,(select jsonb_agg(jsonb_build_object('productId',oi.product_id,'sku',p.sku,'title',p.title,'quantity',oi.quantity,'unitPrice',oi.unit_price,'lineTotal',oi.line_total) order by oi.created_at) from marketplace_order_items oi join products p on p.id=oi.product_id where oi.order_id=o.id) as items,(select jsonb_agg(jsonb_build_object('id',mp.id,'paymentNo',mp.payment_no,'amount',mp.amount,'method',mp.method,'status',mp.status,'providerCode',mp.provider_code,'paidAt',mp.paid_at) order by mp.created_at desc) from marketplace_payments mp where mp.order_id=o.id and mp.tenant_id=o.tenant_id) as payments from marketplace_orders o left join marketplace_customer_addresses a on a.id=o.delivery_address_id and a.tenant_id=o.tenant_id where o.tenant_id=$1 and o.customer_ref=$2 order by o.created_at desc limit 100",[t.id,(req as any).user.id]);
  res.json({items:r.rows,total:r.rowCount});
 }));
+checkoutRouter.get("/api/storefront/returns",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const r=await query("select rr.id,rr.request_no,rr.order_id,rr.order_item_id,rr.requested_quantity,rr.reason_code,rr.description,rr.status,rr.decision_reason,rr.received_at,rr.inspected_at,rr.created_at,rr.updated_at,o.order_no,oi.product_id,p.title product_title,oi.quantity order_quantity from marketplace_return_requests rr join marketplace_orders o on o.id=rr.order_id and o.tenant_id=rr.tenant_id join marketplace_order_items oi on oi.id=rr.order_item_id and oi.order_id=o.id join products p on p.id=oi.product_id where rr.tenant_id=$1 and rr.customer_ref=$2 order by rr.created_at desc",[t.id,(req as any).user.id]);
+ res.json({items:r.rows,total:r.rowCount});
+}));
+
+checkoutRouter.post("/api/storefront/orders/:id/returns",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const itemId=s(req.body?.orderItemId,100),quantity=n(req.body?.quantity),reason=s(req.body?.reasonCode,40),description=s(req.body?.description,2000);
+ const reasons=["damaged","defective","wrong_item","not_as_described","missing_parts","changed_mind","other"];
+ if(!itemId||quantity===null||quantity<=0||!Number.isFinite(quantity)||!reasons.includes(reason))return res.status(400).json({error:"قلم سفارش، تعداد و دلیل مرجوعی معتبر الزامی است"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const order=await client.query("select id,order_no,status from marketplace_orders where id=$1 and tenant_id=$2 and customer_ref=$3 for update",[req.params.id,t.id,(req as any).user.id]);
+  if(!order.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش متعلق به این حساب پیدا نشد"});}
+  if(order.rows[0].status!=="delivered"&&order.rows[0].status!=="returned"){await client.query("rollback");return res.status(409).json({error:"درخواست مرجوعی فقط برای سفارش تحویل‌شده قابل ثبت است"});}
+  const item=await client.query("select oi.id,oi.quantity,p.title from marketplace_order_items oi join products p on p.id=oi.product_id where oi.id=$1 and oi.order_id=$2 for update of oi",[itemId,order.rows[0].id]);
+  if(!item.rowCount){await client.query("rollback");return res.status(404).json({error:"قلم انتخاب‌شده متعلق به این سفارش نیست"});}
+  const previous=await client.query("select coalesce(sum(requested_quantity),0)::numeric quantity from marketplace_return_requests where tenant_id=$1 and order_item_id=$2 and status not in ('rejected','cancelled')",[t.id,itemId]);
+  const remaining=Number(item.rows[0].quantity)-Number(previous.rows[0].quantity);
+  if(quantity>remaining+0.000001){await client.query("rollback");return res.status(409).json({error:"تعداد درخواستی از تعداد باقی‌مانده قابل مرجوعی بیشتر است",remainingQuantity:Math.max(0,remaining)});}
+  const requestNo="RET-"+randomUUID().replace(/-/g,"").slice(0,18).toUpperCase();
+  const created=await client.query("insert into marketplace_return_requests(tenant_id,order_id,order_item_id,customer_ref,request_no,requested_quantity,reason_code,description) values($1,$2,$3,$4,$5,$6,$7,$8) returning id,request_no,order_id,order_item_id,requested_quantity,reason_code,description,status,created_at",[t.id,order.rows[0].id,itemId,(req as any).user.id,requestNo,quantity,reason,description]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'storefront.return.requested','marketplace_return_request',$3,$4)",[t.id,(req as any).user.id,created.rows[0].id,JSON.stringify({requestNo,orderId:order.rows[0].id,orderItemId:itemId,quantity,reason})]);
+  await client.query("commit");
+  await emitBusinessEvent({tenantId:t.id,eventKey:"return.requested",subjectType:"marketplace_return_request",subjectId:created.rows[0].id,userId:(req as any).user.id,input:{requestNo,orderId:order.rows[0].id,orderNo:order.rows[0].order_no}});
+  res.status(201).json({item:created.rows[0]});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
+checkoutRouter.post("/api/storefront/returns/:id/cancel",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const current=await client.query("select * from marketplace_return_requests where id=$1 and tenant_id=$2 and customer_ref=$3 for update",[req.params.id,t.id,(req as any).user.id]);
+  if(!current.rowCount){await client.query("rollback");return res.status(404).json({error:"درخواست مرجوعی متعلق به این حساب پیدا نشد"});}
+  if(current.rows[0].status!=="submitted"){await client.query("rollback");return res.status(409).json({error:"فقط درخواست بررسی‌نشده قابل لغو است"});}
+  const updated=await client.query("update marketplace_return_requests set status='cancelled',updated_at=now() where id=$1 and tenant_id=$2 returning id,request_no,status",[req.params.id,t.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'storefront.return.cancelled','marketplace_return_request',$3,$4,$5)",[t.id,(req as any).user.id,req.params.id,JSON.stringify({status:"submitted"}),JSON.stringify({status:"cancelled"})]);
+  await client.query("commit");
+  await emitBusinessEvent({tenantId:t.id,eventKey:"return.cancelled",subjectType:"marketplace_return_request",subjectId:req.params.id,userId:(req as any).user.id,input:{requestNo:updated.rows[0].request_no}});
+  res.json({item:updated.rows[0]});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
+checkoutRouter.get("/api/marketplace/returns",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query("select rr.*,o.order_no,o.store_id,o.seller_id,oi.product_id,p.title product_title from marketplace_return_requests rr join marketplace_orders o on o.id=rr.order_id and o.tenant_id=rr.tenant_id join marketplace_order_items oi on oi.id=rr.order_item_id and oi.order_id=o.id join products p on p.id=oi.product_id where rr.tenant_id=$1 order by rr.created_at desc limit 500",[t.id]);
+ res.json({items:r.rows,total:r.rowCount});
+}));
+
+checkoutRouter.patch("/api/marketplace/returns/:id/status",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const target=s(req.body?.status,24),reason=s(req.body?.decisionReason,1000);
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const current=await client.query("select * from marketplace_return_requests where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+  if(!current.rowCount){await client.query("rollback");return res.status(404).json({error:"درخواست مرجوعی پیدا نشد"});}
+  const transitions:Record<string,string[]>={submitted:["approved","rejected"],approved:["received","cancelled"],received:["inspected"],inspected:["closed"]};
+  if(!(transitions[current.rows[0].status]||[]).includes(target)){await client.query("rollback");return res.status(409).json({error:"تغییر وضعیت درخواست مرجوعی مجاز نیست"});}
+  if(target==="rejected"&&!reason){await client.query("rollback");return res.status(400).json({error:"دلیل رد درخواست الزامی است"});}
+  const updated=await client.query("update marketplace_return_requests set status=$1,decision_reason=$2,reviewed_by=$3,received_at=case when $1='received' then now() else received_at end,inspected_at=case when $1='inspected' then now() else inspected_at end,updated_at=now() where id=$4 and tenant_id=$5 returning *",[target,reason||null,(req as any).user.id,req.params.id,t.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'marketplace.return.status.changed','marketplace_return_request',$3,$4,$5)",[t.id,(req as any).user.id,req.params.id,JSON.stringify({status:current.rows[0].status}),JSON.stringify({status:target,reason})]);
+  await client.query("commit");
+  await emitBusinessEvent({tenantId:t.id,eventKey:"return.status.changed",subjectType:"marketplace_return_request",subjectId:req.params.id,userId:(req as any).user.id,input:{requestNo:updated.rows[0].request_no,status:target}});
+  res.json({item:updated.rows[0]});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
 checkoutRouter.post("/api/storefront/orders/:id/cancel",requireAuth,asyncHandler(async(req,res)=>{
  const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
  const client=await pool.connect();
