@@ -330,4 +330,5 @@ console.log("MARKETPLACE_CARRIER_INVOICE_RECONCILIATION_INTEGRITY_OK");
 const carrierInvoiceFinanceMigration=read("database/migrations/160_logistics_carrier_invoice_finance_link.sql");
 if(!carrierInvoiceFinanceMigration.includes("party_id")||!carrierInvoiceFinanceMigration.includes("payable_id")||!carrierInvoiceFinanceMigration.includes("ledger_adjustment_entry_id"))throw new Error("Carrier invoices must link to the existing supplier, payable subledger and ledger adjustment");
 if(!carrierInvoiceApi.includes("party_type='supplier'")||!carrierInvoiceApi.includes("invoice_amount")||!carrierInvoiceApi.includes("variance>0"))throw new Error("Carrier invoice approval must validate a supplier and use actual invoice amount plus signed variance");
+if(!carrierInvoiceApi.includes("revenueReduction")||!carrierInvoiceApi.includes("expenseReduction")||!carrierInvoiceApi.includes("invoiceAmount<=0"))throw new Error("Carrier invoice variance must preserve the original shipping margin and cost split and require a positive invoice");
 console.log("MARKETPLACE_CARRIER_INVOICE_FINANCE_LINK_INTEGRITY_OK");
