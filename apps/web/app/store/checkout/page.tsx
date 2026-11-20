@@ -8,6 +8,7 @@ import "./checkout-address.css";
 type Cart={id:string;customer_ref:string;store_id:string;currency:string;status:string};
 type Item={id:string;product_id:string;quantity:number;unit_price:string;sku:string;title:string};
 type Facility={id:string;facility_no:string;approved_amount:string;available_amount:string;currency:string;status:string;product_code:string;interest_rate?:string|null;approved_term_months?:number|null};
+type DeliveryMethod={id:string;code:string;title:string;carrier_type:string;business_days_min:number;business_days_max:number;base_cost:string;currency:string};
 
 function CheckoutContent(){
  const search=useSearchParams();
@@ -15,6 +16,8 @@ function CheckoutContent(){
  const paymentNo=search.get("paymentNo")||"";
  const [cart,setCart]=useState<Cart|null>(null),[items,setItems]=useState<Item[]>([]);
  const [facilities,setFacilities]=useState<Facility[]>([]);
+  const [deliveryMethods,setDeliveryMethods]=useState<DeliveryMethod[]>([]),[deliveryMethodId,setDeliveryMethodId]=useState("");
+  const [deliveryPricingNote,setDeliveryPricingNote]=useState("");
  const [method,setMethod]=useState<"online"|"credit">("online");
  const [shippingAddress,setShippingAddress]=useState({recipientName:"",recipientPhone:"",province:"",city:"",addressLine:"",postalCode:"",unit:""});
  const [facilityId,setFacilityId]=useState("");
@@ -34,6 +37,7 @@ function CheckoutContent(){
     const r=await fetch("/api/checkout/carts/"+encodeURIComponent(cartId),{credentials:"include"});
     const b=await r.json();if(!r.ok)throw new Error(b.error||"دریافت سبد ناموفق بود");
     setCart(b.cart);setItems(b.items||[]);
+     const dr=await fetch("/api/checkout/carts/"+encodeURIComponent(cartId)+"/delivery-methods",{credentials:"include"});const db=await dr.json();if(!dr.ok)throw new Error(db.error||"دریافت روش‌های ارسال ناموفق بود");setDeliveryMethods(db.items||[]);setDeliveryPricingNote(db.pricingNote||"");setDeliveryMethodId((current:string)=>(db.items||[]).some((x:DeliveryMethod)=>x.id===current)?current:(db.items||[])[0]?.id||"");
     const f=await fetch("/api/lendtech/my-facilities",{credentials:"include"});
     const fb=await f.json();if(f.ok){setFacilities(fb.items||[]);if((fb.items||[]).length)setFacilityId(fb.items[0].id);}
    }
@@ -77,12 +81,13 @@ function CheckoutContent(){
  }
  async function checkoutAndPay(){
   if(!cartId||!items.length)return;
-  if(!shippingAddress.recipientName.trim()||!shippingAddress.recipientPhone.trim()||!shippingAddress.province.trim()||!shippingAddress.city.trim()||!shippingAddress.addressLine.trim()||!shippingAddress.postalCode.trim()){setError("برای ادامه خرید، اطلاعات کامل نشانی تحویل را وارد کنید.");return;}
+  if(!deliveryMethodId){setError("برای ادامه خرید، یک روش ارسال مجاز انتخاب کنید.");return;}
+   if(!shippingAddress.recipientName.trim()||!shippingAddress.recipientPhone.trim()||!shippingAddress.province.trim()||!shippingAddress.city.trim()||!shippingAddress.addressLine.trim()||!shippingAddress.postalCode.trim()){setError("برای ادامه خرید، اطلاعات کامل نشانی تحویل را وارد کنید.");return;}
   setBusy(true);setError("");setMessage("");
   try{
    let oid=orderId;
    if(!oid){
-    const cr=await fetch("/api/checkout/carts/"+encodeURIComponent(cartId)+"/checkout",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({paymentMethod:method,shippingAddress})});
+    const cr=await fetch("/api/checkout/carts/"+encodeURIComponent(cartId)+"/checkout",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({paymentMethod:method,shippingAddress,deliveryMethodId})});
     const cb=await cr.json();if(!cr.ok)throw new Error(cb.error||"ثبت سفارش ناموفق بود");
     oid=cb.order.id;setOrderId(oid);
    }else{const ar=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/shipping-address",{method:"PATCH",credentials:"include",headers:headers(),body:JSON.stringify({shippingAddress})});const ab=await ar.json();if(!ar.ok)throw new Error(ab.error||"ثبت نشانی تحویل ناموفق بود");}
@@ -112,12 +117,13 @@ function CheckoutContent(){
    {error&&<div className="pay-notice" role="alert">{error}</div>}{message&&<div className="sk-checkout-message" role="status">{message}</div>}
    {loading?<div className="product-card sk-checkout-loading" role="status"><span className="sk-checkout-spinner" aria-hidden="true" />در حال دریافت سبد و بررسی وضعیت سفارش…</div>:cartId==="history"&&order?<article className="product-card sk-checkout-order-status"><span>پیگیری سفارش</span><h2>{order.order_no||order.id}</h2><p>وضعیت سفارش: {order.status}</p><p>وضعیت پرداخت: {order.payments?.[0]?.status||"ثبت نشده"}</p><p>مبلغ: {Number(order.total_amount||0).toLocaleString("fa-IR")} {order.currency||"IRR"}</p>{(order.items||[]).map((item:any)=><div className="module-row" key={item.id}><strong>{item.title}</strong><span>{Number(item.quantity).toLocaleString("fa-IR")} عدد</span></div>)}{pendingPaymentId&&<button type="button" className="sk-checkout-secondary" disabled={busy} onClick={verifyPendingPayment}>بررسی مجدد وضعیت پرداخت</button>}<Link href="/account/orders">بازگشت به سفارش‌های من</Link></article>:items.length===0?<div className="product-card sk-checkout-empty"><h2>سبد قابل تسویه نیست</h2><p>این سبد خالی است یا قبلاً تسویه شده. برای ثبت سفارش جدید، به فروشگاه برگردید.</p><Link className="sk-checkout-primary" href="/store/shop">مرور کالاها</Link></div>:<div className="plan-grid sk-checkout-grid">
     <article className="product-card sk-checkout-card sk-delivery-address"><span>اطلاعات تحویل</span><h3>نشانی دریافت سفارش</h3><p>این نشانی همراه سفارش ذخیره می‌شود و مبنای تحویل مرسوله خواهد بود.</p><div className="sk-delivery-address-grid"><label>نام گیرنده<input required value={shippingAddress.recipientName} onChange={e=>setShippingAddress(p=>({...p,recipientName:e.target.value}))} placeholder="نام و نام خانوادگی"/></label><label>شماره همراه گیرنده<input required inputMode="tel" value={shippingAddress.recipientPhone} onChange={e=>setShippingAddress(p=>({...p,recipientPhone:e.target.value}))} placeholder="09…"/></label><label>استان<input required value={shippingAddress.province} onChange={e=>setShippingAddress(p=>({...p,province:e.target.value}))} placeholder="استان"/></label><label>شهر<input required value={shippingAddress.city} onChange={e=>setShippingAddress(p=>({...p,city:e.target.value}))} placeholder="شهر"/></label><label className="wide">نشانی دقیق<input required value={shippingAddress.addressLine} onChange={e=>setShippingAddress(p=>({...p,addressLine:e.target.value}))} placeholder="خیابان، کوچه، پلاک، طبقه"/></label><label>کدپستی<input required inputMode="numeric" value={shippingAddress.postalCode} onChange={e=>setShippingAddress(p=>({...p,postalCode:e.target.value}))} placeholder="۱۰ رقم"/></label><label>واحد / پلاک تکمیلی<input value={shippingAddress.unit} onChange={e=>setShippingAddress(p=>({...p,unit:e.target.value}))} placeholder="اختیاری"/></label></div></article>
- <article className="product-card sk-checkout-card"><span>خلاصه سفارش</span><h3>{items.length.toLocaleString("fa-IR")} قلم</h3>{items.map(i=><div key={i.id} className="module-row"><div><strong>{i.title}</strong><small>{i.sku} · تعداد {Number(i.quantity).toLocaleString("fa-IR")}</small></div><span>{(Number(i.unit_price)*Number(i.quantity)).toLocaleString("fa-IR")} {cart?.currency||"IRR"}</span></div>)}<hr/><strong>جمع کل: {total.toLocaleString("fa-IR")} {cart?.currency||"IRR"}</strong></article>
+ <article className="product-card sk-checkout-card sk-delivery-method"><span>روش ارسال</span><h3>انتخاب روش تحویل</h3>{deliveryMethods.length===0?<p>برای همه کالاهای این سبد روش ارسال مشترک و فعالی تعریف نشده است. از مدیریت روش‌های ارسال، کالاها را به روش مناسب تخصیص دهید.</p>:deliveryMethods.map(d=><label className="sk-checkout-choice" key={d.id}><input type="radio" name="deliveryMethod" checked={deliveryMethodId===d.id} onChange={()=>setDeliveryMethodId(d.id)}/><span><strong>{d.title}</strong><small>{d.carrier_type} · {d.business_days_min} تا {d.business_days_max} روز کاری</small><small>تعرفه پایه: {Number(d.base_cost).toLocaleString("fa-IR")} {d.currency}</small></span></label>)}{deliveryPricingNote&&<p className="sk-checkout-disclaimer">{deliveryPricingNote}</p>}</article>
+     <article className="product-card sk-checkout-card"><span>خلاصه سفارش</span><h3>{items.length.toLocaleString("fa-IR")} قلم</h3>{items.map(i=><div key={i.id} className="module-row"><div><strong>{i.title}</strong><small>{i.sku} · تعداد {Number(i.quantity).toLocaleString("fa-IR")}</small></div><span>{(Number(i.unit_price)*Number(i.quantity)).toLocaleString("fa-IR")} {cart?.currency||"IRR"}</span></div>)}<hr/><strong>جمع کل: {total.toLocaleString("fa-IR")} {cart?.currency||"IRR"}</strong></article>
     <article className="product-card sk-checkout-card"><span>مرحله پرداخت</span><h3>انتخاب روش پرداخت</h3>
      <label className="sk-checkout-choice"><input type="radio" checked={method==="online"} onChange={()=>setMethod("online")}/> پرداخت آنلاین از درگاه متصل</label>
      <label className="sk-checkout-choice"><input type="radio" checked={method==="credit"} onChange={()=>setMethod("credit")}/> استفاده از اعتبار خرید فعال</label>
      {method==="online"&&<p className="sk-checkout-disclaimer">پرداخت فقط پس از تأیید درگاه واقعی نهایی می‌شود. واردکردن شماره مرجع به‌تنهایی پرداخت محسوب نمی‌شود.</p>}{method==="credit"&&<div><label>تسهیلات اعتباری فعال<select value={facilityId} onChange={e=>setFacilityId(e.target.value)}><option value="">انتخاب کنید</option>{facilities.map(f=><option key={f.id} value={f.id}>{f.facility_no} · مانده {Number(f.available_amount).toLocaleString("fa-IR")} {f.currency}</option>)}</select></label>{facilities.length===0&&<p>تسهیلات فعال قابل مصرف برای این حساب پیدا نشد.</p>}</div>}
-     <button className="sk-checkout-primary" disabled={busy||!!pendingPaymentId||!items.length||(method==="credit"&&!facilityId)} onClick={checkoutAndPay}>{busy?"در حال ثبت درخواست…":method==="credit"?"ادامه با اعتبار خرید":"ثبت درخواست پرداخت"}</button>
+     <button className="sk-checkout-primary" disabled={busy||!!pendingPaymentId||!items.length||!deliveryMethodId||(method==="credit"&&!facilityId)} onClick={checkoutAndPay}>{busy?"در حال ثبت درخواست…":method==="credit"?"ادامه با اعتبار خرید":"ثبت درخواست پرداخت"}</button>
      {pendingPaymentId&&<button type="button" className="sk-checkout-secondary" disabled={busy} onClick={verifyPendingPayment}>{busy?"در حال بررسی…":"بررسی مجدد وضعیت پرداخت"}</button>}
      {orderId&&<div><p>شماره سفارش داخلی: {orderId}</p><Link href={"/store/checkout?cart="+encodeURIComponent(cartId)+"&order="+encodeURIComponent(orderId)}>مشاهده وضعیت ←</Link></div>}
     </article>
