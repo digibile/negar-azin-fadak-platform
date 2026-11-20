@@ -25,7 +25,7 @@ test("marketplace fulfillment validates all mappings and reserves only available
  const route=logistics.slice(start,end);
  assert.ok(route.includes("order.status!==\"paid\""));
  assert.ok(route.includes("mil.quantity_factor"));
- assert.ok(route.includes("all products"));
+ assert.ok(route.includes("همه کالاهای سفارش باید به کالای انبار متصل"));
  assert.ok(route.includes("for update"));
  assert.ok(route.includes("quantity-reserved_quantity"));
  assert.ok(route.includes("reserved_quantity=reserved_quantity+$1"));
