@@ -570,7 +570,7 @@ const processMarketplaceReturnRefund=asyncHandler(async(req,res)=>{
   }else{
   const ord=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[rr.rows[0].order_id,t.id]);
   if(!ord.rowCount||!["paid","processing","delivered","returned"].includes(ord.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"سفارش در وضعیت قابل بازپرداخت نیست"});}
-  const item=await client.query("select oi.id,oi.product_id,oi.quantity,oi.unit_price,oi.line_total,p.title from marketplace_order_items oi join products p on p.id=oi.product_id where oi.id=$1 and oi.order_id=$2 for update of oi",[rr.rows[0].order_item_id,ord.rows[0].id]);
+  const item=await client.query("select oi.id,oi.product_id,oi.quantity,oi.quantity order_quantity,oi.unit_price,oi.line_total,p.title from marketplace_order_items oi join products p on p.id=oi.product_id where oi.id=$1 and oi.order_id=$2 for update of oi",[rr.rows[0].order_item_id,ord.rows[0].id]);
   if(!item.rowCount){await client.query("rollback");return res.status(404).json({error:"قلم سفارش برای این درخواست پیدا نشد"});}
   const qty=Number(rr.rows[0].received_quantity),restockQuantity=Number(rr.rows[0].restock_quantity),orderedQuantity=Number(item.rows[0].order_quantity),lineTotal=Number(item.rows[0].line_total);
   const amount=Number((lineTotal*qty/orderedQuantity).toFixed(2));
@@ -596,9 +596,9 @@ const processMarketplaceReturnRefund=asyncHandler(async(req,res)=>{
   const providerResult={status:"refunded",providerTransactionId:"credit-"+refund.id,providerPayload:{creditFacilityId:order.credit_facility_ref,restoredAmount:Number(refund.amount)}};
   providerRefundId=providerResult.providerTransactionId;providerPayload=providerResult.providerPayload;
  }else{
-  const provider=getPaymentProvider(providerCode);
-  let providerResult:any;
+  let provider:any,providerResult:any;
   try{
+   provider=getPaymentProvider(providerCode);
    providerResult=await provider.refundPayment({providerTransactionId:payment.provider_transaction_id||payment.provider_ref||"",amount:Number(refund.amount),metadata:{orderId:order.id,paymentId:payment.id,returnRequestId:requestId,refundId:refund.id,idempotencyKey:refund.provider_idempotency_key}});
   }catch(providerError:any){
    const message=String(providerError?.message||"خطای نامشخص در ارتباط با درگاه").slice(0,500);
