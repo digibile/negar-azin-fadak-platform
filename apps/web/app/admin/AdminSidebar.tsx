@@ -26,6 +26,7 @@ function HomeIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="
 function CloseIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>}
 
 function normalize(nodes:MenuNode[]):MenuNode[]{return [...nodes].sort((a,b)=>a.sort_order-b.sort_order||String(a.id).localeCompare(String(b.id)))}
+function countDescendants(node:MenuNode):number{const children=node.child_items||[];return children.length+children.reduce((total,child)=>total+countDescendants(child),0)}
 function flattenTitles(nodes:MenuNode[]):string[]{return nodes.flatMap(node=>[node.title,...flattenTitles(node.child_items||[])])}
 function menuHref(node:MenuNode){
  if(node.path&&node.path!=="#")return node.path;
@@ -71,6 +72,7 @@ export default function AdminSidebar(){
  const [open,setOpen]=useState<Record<string,boolean>>({});
  const [mobileOpen,setMobileOpen]=useState(false);
  const [updateAvailable,setUpdateAvailable]=useState(false);
+ const [allExpanded,setAllExpanded]=useState(false);
 
  useEffect(()=>{
   let alive=true;
@@ -113,22 +115,23 @@ export default function AdminSidebar(){
    </div>
    <div className={styles["sidebar-scroll-region"]}>
     <div className={styles["sidebar-caption"]}><span>منوی مرکزی سازمان</span><span>{menuItems.length.toLocaleString("fa-IR")} پنل</span></div>
+    {menuItems.length>0&&<div className={styles["sidebar-tree-tools"]}><span>{menuItems.reduce((n,item)=>n+countDescendants(item),0).toLocaleString("fa-IR")} زیرمنوی ثبت‌شده در کل ساختار</span><button type="button" onClick={()=>setAllExpanded(v=>!v)}>{allExpanded?"بستن همه سطوح":"بازکردن همه سطوح"}</button></div>}
     {error&&<div className={styles["sidebar-menu-error"]}>{error}</div>}
     <nav className={styles["master-nav"]}>
      {filtered.map((item,index)=>{
-      const expanded=Boolean(normalizedQuery)||Boolean(open[String(item.id)]);
+      const expanded=allExpanded||Boolean(normalizedQuery)||Boolean(open[String(item.id)]);
       const current=menuHref(item)===pathname;
       const children=normalize(item.child_items||[]);
       return <section className={styles["master-item"]+" "+(current?styles["is-current"]:"")+" "+(expanded?styles["is-open"]:"")} key={item.id}>
        <div className={styles["master-header"]}>
         <span className={styles["master-open"]}>{String(index+1).padStart(2,"0")}</span>
         <Link className={styles["master-title-button"]} href={menuHref(item)} onClick={closeMobile}>
-         <span className={styles["master-copy"]}><strong>{item.title}</strong><small>{children.length.toLocaleString("fa-IR")} زیرمنو · {item.menu_key||"منوی سازمان"}</small></span>
+         <span className={styles["master-copy"]}><strong>{item.title}</strong><small>{children.length.toLocaleString("fa-IR")} زیرمنوی مستقیم · {countDescendants(item).toLocaleString("fa-IR")} گزینه در کل شاخه · {item.menu_key||"منوی سازمان"}</small></span>
         </Link>
         {children.length>0?<button type="button" className={styles["master-chevron-button"]} onClick={()=>toggle(String(item.id))} aria-expanded={expanded} aria-label={(expanded?"بستن ":"باز کردن ")+item.title}><span className={styles["master-chevron"]}><ChevronIcon/></span></button>:<span className={styles["master-chevron-button"]+" "+styles["empty-chevron"]}/>}
        </div>
        {expanded&&children.length>0&&<div className={styles["master-children"]}>
-        {children.map(child=><TreeNode key={child.id} node={child} pathname={pathname} closeMobile={closeMobile} depth={0} forceExpanded={Boolean(normalizedQuery)}/>)}
+        {children.map(child=><TreeNode key={child.id} node={child} pathname={pathname} closeMobile={closeMobile} depth={0} forceExpanded={allExpanded||Boolean(normalizedQuery)}/>)}
        </div>}
       </section>;
      })}
