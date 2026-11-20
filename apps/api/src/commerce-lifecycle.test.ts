@@ -23,6 +23,7 @@ test("purchase order status endpoint cannot bypass receipt, invoice or payment o
  assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"invoiced","paid"),false);
  assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"draft","paid"),false);
  assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"sent","paid"),false);
+ assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"partially_received","cancelled"),false);
  assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"paid","cancelled"),false);
  assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"cancelled","approved"),false);
 });
