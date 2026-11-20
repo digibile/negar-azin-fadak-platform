@@ -2,14 +2,10 @@ import {Router,type Request,type Response} from "express";
 import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {resolveTenant} from "./tenant-context.js";
+import {salesOrderTransitions,isAllowedLifecycleTransition} from "./commerce-lifecycle.js";
 const router=Router();
 const tenantOf=async(req:Request)=>resolveTenant(req,(req as any).user);
 const deny=(res:Response,s:number,e:string)=>res.status(s).json({error:e});
-const nextStatus:Record<string,string[]>={
- draft:["pending_credit","cancelled"],pending_credit:["confirmed","cancelled"],
- confirmed:["reserved","cancelled"],reserved:["delivering","cancelled"],delivering:["delivered","cancelled"],
- delivered:["invoiced","returned"],invoiced:["returned"],returned:[],cancelled:[]
-};
 async function event(t:string,type:string,id:string,from:string|null,to:string,ev:string,reason:string|null,user:string){
  await query("insert into sales_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,reason,actor_user_id) values($1,$2,$3,$4,$5,$6,$7,$8)",[t,type,id,from,to,ev,reason,user]);
 }
@@ -63,11 +59,51 @@ router.post("/api/sales/orders",requireAuth,requirePermission("modules:22-sales-
  const c=await pool.connect();try{await c.query("begin");const o=await c.query("insert into sales_orders(tenant_id,order_no,partner_id,due_date,subtotal,discount_total,tax_total,total,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",[t.id,orderNo,b.partnerId,b.dueDate||null,tt.subtotal,tt.discountTotal,tt.taxTotal,tt.total,b.notes||"",(req as any).user.id]);for(const x of normalized)await c.query("insert into sales_order_items(order_id,product_id,quantity,unit_price,discount_rate,tax_rate,line_total) values($1,$2,$3,$4,$5,$6,$7)",[o.rows[0].id,x.productId,x.quantity,x.unitPrice,x.discountRate,x.taxRate,x.quantity*x.unitPrice*(1-x.discountRate/100)*(1+x.taxRate/100)]);await c.query("insert into sales_events(tenant_id,entity_type,entity_id,to_status,event_type,actor_user_id) values($1,'order',$2,'draft','create',$3)",[t.id,o.rows[0].id,(req as any).user.id]);await c.query("commit");res.status(201).json(o.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
 router.patch("/api/sales/orders/:id/status",requireAuth,requirePermission("modules:22-sales-revenue:approve"),async(req,res)=>{
- const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const r=await query("select * from sales_orders where id=$1 and tenant_id=$2",[req.params.id,t.id]);if(!r.rowCount)return deny(res,404,"سفارش پیدا نشد");const old=r.rows[0],to=String(req.body?.status||"");if(!nextStatus[old.status]?.includes(to))return deny(res,409,"تغییر وضعیت سفارش مجاز نیست");
- const c=await pool.connect();try{await c.query("begin");if(to==="confirmed"){const pr=await c.query("select credit_limit,credit_used from sales_partners where id=$1 and tenant_id=$2 for update",[old.partner_id,t.id]);if(pr.rowCount&&num(pr.rows[0].credit_limit)>0&&num(pr.rows[0].credit_used)+num(old.total)>num(pr.rows[0].credit_limit))return deny(res,409,"سقف اعتبار مشتری کافی نیست");} if(to==="reserved"){const it=await c.query("select * from sales_order_items where order_id=$1 for update",[old.id]);for(const x of it.rows){const p=await c.query("select stock_available from sales_products where id=$1 and tenant_id=$2 for update",[x.product_id,t.id]);if(!p.rowCount||num(p.rows[0].stock_available)<num(x.quantity))return deny(res,409,"موجودی کافی نیست");await c.query("update sales_products set stock_available=stock_available-$1,updated_at=now() where id=$2",[x.quantity,x.product_id]);await c.query("update sales_order_items set reserved_qty=quantity where id=$1",[x.id]);}}
- if(to==="confirmed"){await c.query("update sales_partners set credit_used=credit_used+$1,updated_at=now() where id=$2 and tenant_id=$3",[old.total,old.partner_id,t.id]);}
- if(to==="cancelled"&&["reserved","delivering"].includes(old.status)){const it=await c.query("select product_id,reserved_qty from sales_order_items where order_id=$1",[old.id]);for(const x of it.rows)await c.query("update sales_products set stock_available=stock_available+$1,updated_at=now() where id=$2 and tenant_id=$3",[x.reserved_qty,x.product_id,t.id]);}
- const u=await c.query("update sales_orders set status=$1,updated_at=now() where id=$2 returning *",[to,old.id]);await c.query("insert into sales_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id) values($1,'order',$2,$3,$4,'status_change',$5)",[t.id,old.id,old.status,to,(req as any).user.id]);await c.query("commit");res.json(u.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const to=String(req.body?.status||""),reason=String(req.body?.reason||"").trim().slice(0,500)||null;
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const locked=await c.query("select * from sales_orders where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+  if(!locked.rowCount){await c.query("rollback");return deny(res,404,"سفارش پیدا نشد");}
+  const old=locked.rows[0];
+  if(!isAllowedLifecycleTransition(salesOrderTransitions,old.status,to)){await c.query("rollback");return deny(res,409,"تغییر وضعیت سفارش مجاز نیست");}
+  if(to==="confirmed"){
+   const partner=await c.query("select credit_limit,credit_used from sales_partners where id=$1 and tenant_id=$2 for update",[old.partner_id,t.id]);
+   if(!partner.rowCount){await c.query("rollback");return deny(res,409,"مشتری سفارش در این سازمان پیدا نشد");}
+   const limit=num(partner.rows[0].credit_limit),used=num(partner.rows[0].credit_used),total=num(old.total);
+   if(![limit,used,total].every(Number.isFinite)||total<0||(limit>0&&used+total>limit)){await c.query("rollback");return deny(res,409,"سقف اعتبار مشتری کافی نیست");}
+   await c.query("update sales_partners set credit_used=credit_used+$1,updated_at=now() where id=$2 and tenant_id=$3",[total,old.partner_id,t.id]);
+  }
+  if(to==="reserved"){
+   const items=await c.query("select * from sales_order_items where order_id=$1 order by product_id for update",[old.id]);
+   if(!items.rowCount){await c.query("rollback");return deny(res,409,"سفارش قلم قابل رزرو ندارد");}
+   for(const item of items.rows){
+    const quantity=num(item.quantity);
+    if(!Number.isFinite(quantity)||quantity<=0){await c.query("rollback");return deny(res,409,"مقدار یکی از اقلام سفارش معتبر نیست");}
+    const product=await c.query("select stock_available from sales_products where id=$1 and tenant_id=$2 for update",[item.product_id,t.id]);
+    if(!product.rowCount||num(product.rows[0].stock_available)<quantity){await c.query("rollback");return deny(res,409,"موجودی کافی نیست");}
+    await c.query("update sales_products set stock_available=stock_available-$1,updated_at=now() where id=$2 and tenant_id=$3",[quantity,item.product_id,t.id]);
+    await c.query("update sales_order_items set reserved_qty=quantity where id=$1",[item.id]);
+   }
+  }
+  if(to==="cancelled"&&["confirmed","reserved","delivering"].includes(old.status)){
+   if(["reserved","delivering"].includes(old.status)){
+    const items=await c.query("select product_id,reserved_qty from sales_order_items where order_id=$1 for update",[old.id]);
+    for(const item of items.rows){
+     const reserved=num(item.reserved_qty);
+     if(reserved>0)await c.query("update sales_products set stock_available=stock_available+$1,updated_at=now() where id=$2 and tenant_id=$3",[reserved,item.product_id,t.id]);
+     await c.query("update sales_order_items set reserved_qty=0 where order_id=$1 and product_id=$2",[old.id,item.product_id]);
+    }
+   }
+   await c.query("update sales_partners set credit_used=greatest(0,credit_used-$1),updated_at=now() where id=$2 and tenant_id=$3",[num(old.total),old.partner_id,t.id]);
+  }
+  const updated=await c.query("update sales_orders set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[to,old.id,t.id]);
+  if(!updated.rowCount){await c.query("rollback");return deny(res,409,"سفارش در این فاصله تغییر کرده است");}
+  await c.query("insert into sales_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,reason,actor_user_id) values($1,'order',$2,$3,$4,'status_change',$5,$6)",[t.id,old.id,old.status,to,reason,(req as any).user.id]);
+  await c.query("commit");
+  res.json(updated.rows[0]);
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/sales/invoices",requireAuth,requirePermission("modules:22-sales-revenue:invoice"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};const o=await query("select * from sales_orders where id=$1 and tenant_id=$2",[b.orderId,t.id]);if(!o.rowCount||!["delivered","invoiced"].includes(o.rows[0].status))return deny(res,409,"سفارش هنوز قابل صدور فاکتور نیست");
