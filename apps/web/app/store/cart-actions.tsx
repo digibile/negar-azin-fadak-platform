@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {useRouter} from "next/navigation";
 import { useEffect, useState } from "react";
 
 export type StoreCartProduct = {
@@ -87,8 +88,10 @@ export function AddToCartButton({ product, compact = false }: { product: StoreCa
 }
 
 export function CartView() {
+  const router = useRouter();
   const [items, setItems] = useState<StoreCartItem[]>([]);
   const [cartNotice, setCartNotice] = useState("");
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
   useEffect(() => {
     const refresh = () => setItems(readCart());
     refresh();
@@ -124,6 +127,50 @@ export function CartView() {
     setItems([]);
   }
 
+  async function continueToCheckout() {
+    setCartNotice("");
+    if (!items.length || checkoutBusy) return;
+    if (items.some(item => item.is_demo_product)) {
+      setCartNotice("کالاهای نمونه فقط از مسیر شبیه‌سازی خرید قابل ادامه هستند.");
+      return;
+    }
+    const storeIds = [...new Set(items.map(item => item.store_id).filter((value): value is string => Boolean(value)))];
+    if (storeIds.length !== 1 || items.some(item => !item.store_id)) {
+      setCartNotice("برای ثبت سفارش عملیاتی، همه کالاها باید متعلق به یک فروشگاه فعال باشند. سبد چندفروشگاهی فعلاً باید جدا شود.");
+      return;
+    }
+    setCheckoutBusy(true);
+    try {
+      const profileResponse = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
+      const profile = await profileResponse.json().catch(() => ({}));
+      if (!profileResponse.ok || !profile.user?.id) {
+        router.push("/login?next=" + encodeURIComponent("/store/cart"));
+        return;
+      }
+      const csrfToken = document.cookie.split(";").map(value => value.trim()).find(value => value.startsWith("naf_csrf="))?.slice(9) || "";
+      const headers = { "Content-Type": "application/json", "X-CSRF-Token": csrfToken };
+      const cartResponse = await fetch("/api/checkout/carts", {
+        method: "POST", credentials: "include", headers,
+        body: JSON.stringify({ customerRef: profile.user.id, storeId: storeIds[0], currency: items[0].currency || "IRR" })
+      });
+      const cartBody = await cartResponse.json().catch(() => ({}));
+      if (!cartResponse.ok || !cartBody.id) throw new Error(cartBody.error || "ایجاد سبد عملیاتی ناموفق بود.");
+      for (const item of items) {
+        const itemResponse = await fetch("/api/checkout/carts/" + encodeURIComponent(cartBody.id) + "/items", {
+          method: "POST", credentials: "include", headers,
+          body: JSON.stringify({ productId: item.id, quantity: item.quantity })
+        });
+        const itemBody = await itemResponse.json().catch(() => ({}));
+        if (!itemResponse.ok) throw new Error(itemBody.error || ("افزودن کالای «" + item.title + "» به سبد عملیاتی ناموفق بود."));
+      }
+      router.push("/store/checkout?cart=" + encodeURIComponent(cartBody.id));
+    } catch (error) {
+      setCartNotice(error instanceof Error ? error.message : "آماده‌سازی سفارش ناموفق بود.");
+    } finally {
+      setCheckoutBusy(false);
+    }
+  }
+
   return <main className="sk-store" dir="rtl">
     <div className="sk-service-strip"><div className="sk-wrap sk-service-inner"><span>سبد خرید سوکار</span><div><Link href="/store">ادامه خرید</Link><Link href="/store/faq">راهنمای خرید</Link></div></div></div>
     <header className="sk-header"><div className="sk-wrap sk-header-main">
@@ -148,7 +195,7 @@ export function CartView() {
         <p className="sk-cart-notice"><strong>{items.some(item => item.is_demo_product) ? "سبد آزمایشی" : "پیش از سفارش"}</strong><span>{items.some(item => item.is_demo_product) ? "کالاها در پایگاه داده سوکار ثبت شده‌اند، اما قیمت و موجودی مرجع‌اند. این مسیر برای آزمایش است و پرداخت واقعی ندارد." : "این سبد در مرورگر ذخیره شده است. پیش از خرید واقعی، فروشنده، قیمت و موجودی باید تأیید شوند."}</span></p>
         {items.length > 0 && items.every(item => item.is_demo_product)
           ? <Link href="/store/demo-checkout" className="sk-cart-checkout">ادامه مراحل آزمایشی خرید</Link>
-          : <Link href="/login" className={items.length ? "sk-cart-checkout" : "sk-cart-checkout is-disabled"} aria-disabled={!items.length}>ورود به حساب کاربری</Link>}
+          : <button type="button" className={"sk-cart-checkout" + (!items.length || checkoutBusy ? " is-disabled" : "")} disabled={!items.length || checkoutBusy} onClick={continueToCheckout}>{checkoutBusy ? "در حال آماده‌سازی سفارش…" : "ورود و ادامه خرید واقعی"}</button>}
         {items.some(item => item.is_demo_product) && items.some(item => !item.is_demo_product) && <p className="sk-cart-notice">سبد ترکیبی است. برای جلوگیری از اشتباه، کالاهای آزمایشی را از کالاهای واقعی جدا کنید؛ سفارش آزمایشی فقط برای سبدی شامل کالاهای آزمایشی فعال است.</p>}
         <Link href="/store/shop" className="sk-cart-continue"><span aria-hidden="true">←</span> ادامه جست‌وجوی کالاها</Link>
       </aside>
