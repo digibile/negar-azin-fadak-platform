@@ -36,7 +36,7 @@ const actions:Record<string,Array<{status:string;label:string;reason?:boolean;da
  pending:[{status:"confirmed",label:"تأیید سفارش"},{status:"cancelled",label:"لغو سفارش",reason:true,danger:true}],
  confirmed:[{status:"cancelled",label:"لغو سفارش",reason:true,danger:true}],
  paid:[{status:"processing",label:"شروع آماده‌سازی"},{status:"return_request",label:"درخواست مرجوعی",reason:true,danger:true}],
- processing:[{status:"shipped",label:"ثبت ارسال"},{status:"return_request",label:"درخواست مرجوعی",reason:true,danger:true}],
+ processing:[{status:"return_request",label:"درخواست مرجوعی",reason:true,danger:true}],
  shipped:[{status:"delivered",label:"ثبت تحویل"},{status:"return_request",label:"درخواست مرجوعی",reason:true,danger:true}],
  delivered:[{status:"return_request",label:"درخواست مرجوعی",reason:true,danger:true}]
 };
@@ -111,7 +111,7 @@ export default function OrdersPage(){
  return <main className="enterprise-main" dir="rtl">
   <header className="platform-header">
    <div><span className="section-kicker">عملیات تجارت</span><h1>مدیریت سفارش‌ها</h1><p>چرخه سفارش، ثبت ممیزی و تفکیک وضعیت پرداخت از عملیات ارسال</p></div>
-   <button type="button" onClick={()=>void load()} disabled={loading}>بازخوانی سفارش‌ها</button>
+   <div className="platform-header-actions"><a className="platform-shipping-link" href="/marketplace/shipping">مدیریت ارسال و رهگیری</a><button type="button" onClick={()=>void load()} disabled={loading}>بازخوانی سفارش‌ها</button></div>
   </header>
   {error&&<p className="enterprise-loading error" role="alert">{error}</p>}
   {notice&&<p className="enterprise-loading" role="status">{notice}</p>}
