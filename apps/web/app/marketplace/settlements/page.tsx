@@ -4,7 +4,7 @@ import {api} from "../../../lib/api";
 import "./settlements-workspace.css";
 
 type Settlement={
- id:string;settlement_no:string;seller_name?:string;gross_amount:string|number;
+ id:string;settlement_no:string;seller_name?:string;currency?:string;gross_amount:string|number;
  commission_amount?:string|number;net_amount:string|number;status:string;
  order_count?:number;created_at?:string;
 };
@@ -35,9 +35,9 @@ export default function SettlementsPage(){
    {!loading&&error&&<p className="settlements-state error" role="alert">{error}</p>}
    {!loading&&!error&&items.map(x=><article className="settlement-card" key={x.id}>
     <div className="settlement-number"><b>{x.settlement_no}</b><small>{x.seller_name||"فروشنده"} · {date(x.created_at)}</small></div>
-    <div className="settlement-metric"><small>مبلغ ناخالص</small><strong>{amount(x.gross_amount)}</strong></div>
-    <div className="settlement-metric"><small>کارمزد</small><strong>{amount(x.commission_amount)}</strong></div>
-    <div className="settlement-metric"><small>خالص فروشنده</small><strong>{amount(x.net_amount)}</strong></div>
+    <div className="settlement-metric"><small>مبلغ ناخالص</small><strong>{amount(x.gross_amount)} {x.currency||"IRR"}</strong></div>
+    <div className="settlement-metric"><small>کارمزد</small><strong>{amount(x.commission_amount)} {x.currency||"IRR"}</strong></div>
+    <div className="settlement-metric"><small>خالص فروشنده</small><strong>{amount(x.net_amount)} {x.currency||"IRR"}</strong></div>
     <span className="settlement-status" data-status={x.status}>{statusLabels[x.status]||x.status}</span>
     <small>{Number(x.order_count||0).toLocaleString("fa-IR")} سفارش</small>
    </article>)}
