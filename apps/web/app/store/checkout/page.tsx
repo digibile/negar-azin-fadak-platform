@@ -20,7 +20,8 @@ function CheckoutContent(){
  const total=useMemo(()=>items.reduce((sum,x)=>sum+Number(x.price)*x.quantity,0),[items]);
  const storeIds=[...new Set(items.map(x=>x.store_id).filter((x):x is string=>Boolean(x)))];
  const currencies=[...new Set(items.map(x=>x.currency))];
- const eligible=items.length>0&&storeIds.length===1&&currencies.length===1&&items.every(x=>Boolean(x.store_id)&&!x.is_demo_product);\n const shippingQuoteAvailable=false;
+ const eligible=items.length>0&&storeIds.length===1&&currencies.length===1&&items.every(x=>Boolean(x.store_id)&&!x.is_demo_product);
+ const shippingQuoteAvailable=false;
  async function refreshAddresses(){const d=await request("/api/storefront/addresses");setAddresses(d.items||[]);const a=(d.items||[]).find((x:Address)=>x.is_default)||(d.items||[])[0];if(a)setSelected(a.id);}
  useEffect(()=>{let live=true;(async()=>{try{const me=await request("/api/auth/me");if(!live)return;setAuthenticated(Boolean(me.user?.id));const raw=JSON.parse(localStorage.getItem(KEY)||"[]");setItems(Array.isArray(raw)?raw.filter((x:any)=>x&&typeof x.id==="string"&&Number.isInteger(Number(x.quantity))&&Number(x.quantity)>0):[]);await refreshAddresses();const orderId=search.get("order");if(orderId){const list=await request("/api/storefront/orders");const found=(list.items||[]).find((x:any)=>x.id===orderId);if(found)setOrder(found);}}catch(e){if(live){const m=e instanceof Error?e.message:"خطا در دریافت اطلاعات";if(m.includes("احراز هویت")||m.includes("نشست"))setAuthenticated(false);else setError(m);}}})();return()=>{live=false};},[search]);
  function resetAddressForm(){setEditingAddressId("");setFormOpen(false);setForm({recipientName:"",mobile:"",province:"",city:"",addressLine:"",postalCode:"",isDefault:false});}
