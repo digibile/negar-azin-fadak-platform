@@ -116,6 +116,17 @@ router.post("/api/treasury-bank/cashboxes",requireAuth,requirePermission("treasu
 });
 router.post("/api/treasury-bank/cashboxes/:id/movements",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};if(!date(b.movementDate)||!(Number(b.amount)>0)||!["in","out"].includes(b.direction))return deny(res,400,"گردش تنخواه نامعتبر است");
- const c=await pool.connect();try{await c.query("begin");const cb=await c.query("select * from treasury_cashboxes where id=$1 and tenant_id=$2 for update",[String(String(req.params.id)),t.id]);if(!cb.rowCount)return deny(res,404,"تنخواه پیدا نشد");const next=Number(cb.rows[0].current_balance)+(b.direction==="in"?Number(b.amount):-Number(b.amount));if(next<0)return deny(res,409,"موجودی تنخواه کافی نیست");if(cb.rows[0].max_balance!=null&&next>Number(cb.rows[0].max_balance))return deny(res,409,"سقف تنخواه رعایت نمی‌شود");const m=await c.query("insert into treasury_cash_movements(tenant_id,cashbox_id,movement_no,movement_date,amount,direction,description,reference_no,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *",[t.id,String(String(req.params.id)),b.movementNo||String(Date.now()),b.movementDate,Number(b.amount),b.direction,b.description||"",b.referenceNo||null,(req as any).user.id]);await c.query("update treasury_cashboxes set current_balance=$1,updated_at=now() where id=$2",[next,String(String(req.params.id))]);await c.query("commit");await audit(t.id,(req as any).user.id,"cash_movement",m.rows[0].id,"create",null,m.rows[0]);res.status(201).json(m.rows[0]);}catch(e){await c.query("rollback");throw e}finally{c.release()}
+ const c=await pool.connect();try{
+  await c.query("begin");
+  const cb=await c.query("select * from treasury_cashboxes where id=$1 and tenant_id=$2 and status='active' for update",[String(req.params.id),t.id]);
+  if(!cb.rowCount){await c.query("rollback");return deny(res,404,"تنخواه فعال پیدا نشد");}
+  const next=Number(cb.rows[0].current_balance)+(b.direction==="in"?Number(b.amount):-Number(b.amount));
+  if(next<0){await c.query("rollback");return deny(res,409,"موجودی تنخواه کافی نیست");}
+  if(cb.rows[0].max_balance!=null&&next>Number(cb.rows[0].max_balance)){await c.query("rollback");return deny(res,409,"سقف تنخواه رعایت نمی‌شود");}
+  const m=await c.query("insert into treasury_cash_movements(tenant_id,cashbox_id,movement_no,movement_date,amount,direction,description,reference_no,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *",[t.id,String(req.params.id),b.movementNo||String(Date.now()),b.movementDate,Number(b.amount),b.direction,b.description||"",b.referenceNo||null,(req as any).user.id]);
+  await c.query("update treasury_cashboxes set current_balance=$1,updated_at=now() where id=$2 and tenant_id=$3",[next,String(req.params.id),t.id]);
+  await c.query("insert into treasury_audit(tenant_id,entity_type,entity_id,action,actor_user_id,after_data) values($1,'cash_movement',$2,'create',$3,$4)",[t.id,m.rows[0].id,(req as any).user.id,m.rows[0]]);
+  await c.query("commit");res.status(201).json(m.rows[0]);
+ }catch(e:any){await c.query("rollback").catch(()=>{});if(e?.code==="23505")return deny(res,409,"شماره گردش تنخواه تکراری است");throw e}finally{c.release()}
 });
 export {router as treasuryBankRouter};
