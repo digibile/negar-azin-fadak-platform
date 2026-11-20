@@ -284,6 +284,29 @@ checkoutRouter.get("/api/storefront/orders",requireAuth,asyncHandler(async(req,r
  const r=await query("select o.id,o.order_no,o.status,o.subtotal,o.total_amount,o.payment_method,o.created_at,o.paid_at,a.recipient_name,a.mobile,a.province,a.city,a.address_line,a.postal_code,(select jsonb_agg(jsonb_build_object('productId',oi.product_id,'sku',p.sku,'title',p.title,'quantity',oi.quantity,'unitPrice',oi.unit_price,'lineTotal',oi.line_total) order by oi.created_at) from marketplace_order_items oi join products p on p.id=oi.product_id where oi.order_id=o.id) as items,(select jsonb_agg(jsonb_build_object('id',mp.id,'paymentNo',mp.payment_no,'amount',mp.amount,'method',mp.method,'status',mp.status,'providerCode',mp.provider_code,'paidAt',mp.paid_at) order by mp.created_at desc) from marketplace_payments mp where mp.order_id=o.id and mp.tenant_id=o.tenant_id) as payments from marketplace_orders o left join marketplace_customer_addresses a on a.id=o.delivery_address_id and a.tenant_id=o.tenant_id where o.tenant_id=$1 and o.customer_ref=$2 order by o.created_at desc limit 100",[t.id,(req as any).user.id]);
  res.json({items:r.rows,total:r.rowCount});
 }));
+checkoutRouter.post("/api/storefront/orders/:id/cancel",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const order=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 and customer_ref=$3 for update",[req.params.id,t.id,(req as any).user.id]);
+  if(!order.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش متعلق به این حساب پیدا نشد"});}
+  if(order.rows[0].status==="cancelled"){await client.query("commit");return res.json({order:order.rows[0],alreadyCancelled:true});}
+  if(!["pending","confirmed"].includes(order.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"لغو سفارش پس از شروع پردازش یا پرداخت از این مسیر مجاز نیست"});}
+  const paid=await client.query("select 1 from marketplace_payments where tenant_id=$1 and order_id=$2 and status='paid' limit 1",[t.id,order.rows[0].id]);
+  if(paid.rowCount){await client.query("rollback");return res.status(409).json({error:"سفارش دارای پرداخت موفق است و باید از مسیر بازپرداخت پیگیری شود"});}
+  const items=await client.query("select product_id,quantity from marketplace_order_items where order_id=$1",[order.rows[0].id]);
+  for(const item of items.rows){
+   await client.query("update product_inventory set reserved_quantity=greatest(0,reserved_quantity-$1),updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[Number(item.quantity),t.id,item.product_id,order.rows[0].store_id]);
+  }
+  const updated=await client.query("update marketplace_orders set status='cancelled',cancellation_reason=$1,cancelled_at=now(),updated_at=now() where id=$2 and tenant_id=$3 returning id,order_no,status,total_amount",[s(req.body?.reason,500)||"لغو توسط مشتری",order.rows[0].id,t.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'storefront.order.cancelled','marketplace_order',$3,$4,$5)",[t.id,(req as any).user.id,order.rows[0].id,JSON.stringify({status:order.rows[0].status}),JSON.stringify({status:"cancelled",reason:s(req.body?.reason,500)||"لغو توسط مشتری"})]);
+  await client.query("commit");
+  await emitBusinessEvent({tenantId:t.id,eventKey:"order.cancelled",subjectType:"marketplace_order",subjectId:order.rows[0].id,userId:(req as any).user.id,input:{orderId:order.rows[0].id,orderNo:order.rows[0].order_no,reason:s(req.body?.reason,500)||"لغو توسط مشتری"}});
+  res.json({order:updated.rows[0]});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
 checkoutRouter.post("/api/storefront/checkout",requireAuth,asyncHandler(async(req,res)=>{
  const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
  return res.status(503).json({code:"SHIPPING_QUOTE_UNAVAILABLE",error:"ثبت سفارش تا اتصال سرویس معتبر نرخ‌گذاری و تأیید هزینه ارسال فعال نیست"});
