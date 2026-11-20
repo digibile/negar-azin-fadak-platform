@@ -3,6 +3,7 @@ import {useEffect,useState} from "react";
 import {api} from "../../../lib/api";
 import "./settlements-workspace.css";
 
+type RecoveryClaim={id:string;seller_name?:string;settlement_no:string;order_no:string;refund_no:string;amount:string|number;currency?:string;status:string;created_at?:string;payment_ref?:string};
 type Settlement={
  id:string;settlement_no:string;seller_name?:string;currency?:string;gross_amount:string|number;
  commission_amount?:string|number;net_amount:string|number;status:string;
@@ -15,6 +16,10 @@ const date=(value?:string)=>value?new Date(value).toLocaleDateString("fa-IR"):"�
 export default function SettlementsPage(){
  const [items,setItems]=useState<Settlement[]>([]);
  const [error,setError]=useState("");
+ const [claims,setClaims]=useState<RecoveryClaim[]>([]);
+ const [claimError,setClaimError]=useState("");
+ const [collecting,setCollecting]=useState("");
+ const [paymentRefs,setPaymentRefs]=useState<Record<string,string>>({});
  const [loading,setLoading]=useState(true);
  useEffect(()=>{
   let active=true;
@@ -24,7 +29,7 @@ export default function SettlementsPage(){
    .finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;};
  },[]);
- return <main className="enterprise-main commerce-settlements" dir="rtl">
+ const collect=async(id:string)=>{\n  const paymentRef=(paymentRefs[id]||"").trim();if(!paymentRef){setClaimError("شماره مرجع دریافت وجه را وارد کنید");return;}\n  setCollecting(id);setClaimError("");\n  try{await api<any>(`/api/marketplace/seller-recoveries/${id}/collect`,{method:"POST",body:JSON.stringify({paymentRef})});const r=await api<any>("/api/marketplace/seller-recoveries");setClaims(Array.isArray(r?.items)?r.items:[]);}\n  catch(e:any){setClaimError(e.message||"ثبت وصول مطالبه ناموفق بود");}\n  finally{setCollecting("");}\n };\n return <main className="enterprise-main commerce-settlements" dir="rtl">
   <header className="platform-header settlements-intro">
    <div><span className="section-kicker">تجارت و تسویه</span><h1>تسویه فروشندگان</h1><p>مبالغ ناخالص، کارمزد و خالص قابل پرداخت هر دوره</p></div>
    <div className="settlements-count"><strong>{items.length.toLocaleString("fa-IR")}</strong><span>پرونده تسویه</span></div>
