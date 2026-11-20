@@ -139,3 +139,6 @@ if(!recoveryMigration.includes("marketplace_seller_recovery_claims")||!recoveryM
 if(!recoveryApi.includes("/api/marketplace/seller-recoveries")||!recoveryApi.includes('claim.status==="recovered"')||!recoveryApi.includes("marketplace_seller_recovery_collection"))throw new Error("Seller recovery listing and idempotent collection API are required");
 if(refundRoute.includes('settlementLink.rows.some((x:any)=>x.status==="paid")'))throw new Error("Refunds after seller payout must create a seller recovery claim instead of being blocked");
 if(!checkoutApi.includes("marketplace_seller_recovery_claims")||!checkoutApi.includes("seller_recovery.claim_created")||!checkoutApi.includes('accountCode:"1202"'))throw new Error("Refunds after seller payout must recognize a seller receivable in the ledger");
+
+if(!checkoutApi.includes("select ss.id,ss.seller_id,ss.status,ss.adjustment_amount"))throw new Error("Post-payout refund claims must resolve the seller from the paid settlement");
+if(!settlementPage.includes("/api/marketplace/seller-recoveries")||!settlementPage.includes("/collect")||!settlementPage.includes("paymentRef"))throw new Error("Settlement workspace must expose seller recovery collection");
