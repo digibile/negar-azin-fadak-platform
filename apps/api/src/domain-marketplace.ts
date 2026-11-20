@@ -302,14 +302,17 @@ domainMarketplaceRouter.patch("/api/marketplace/orders/:id/status",requireAuth,r
  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const next=bodyString(req.body?.status,30);
  const reason=bodyString(req.body?.reason,500)||null;
+ // This endpoint is only for fulfillment lifecycle changes.
+ // Payment/refund status is owned by domain-checkout payment/refund transactions.
+ // Cancellation must use /cancel so reserved inventory is released atomically.
  const allowed:Record<string,string[]>={
-  pending:["confirmed","cancelled"],
-  confirmed:["paid","cancelled"],
-  paid:["processing","refunded"],
+  pending:["confirmed"],
+  confirmed:[],
+  paid:["processing"],
   processing:["shipped","returned"],
   shipped:["delivered","returned"],
-  delivered:["returned","refunded"],
-  returned:["refunded"],
+  delivered:["returned"],
+  returned:[],
   cancelled:[],
   refunded:[]
  };
