@@ -394,11 +394,15 @@ checkoutRouter.post("/api/marketplace/returns/:id/inspect",requireAuth,requirePe
 
 checkoutRouter.get("/api/marketplace/returns/finance-mappings",requireAuth,requirePermission("accounting-finance.read"),asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const [products,warehouses]=await Promise.all([
+ const [products,warehouses,inventoryProducts,financeProducts,inventoryWarehouses,financeWarehouses]=await Promise.all([
   query("select l.id,l.inventory_product_id,ip.sku inventory_sku,ip.name inventory_name,l.finance_product_id,fp.code finance_code,fp.title finance_title,l.quantity_factor,l.status from marketplace_finance_product_links l join inventory_products ip on ip.id=l.inventory_product_id and ip.tenant_id=l.tenant_id join finance_products fp on fp.id=l.finance_product_id and fp.tenant_id=l.tenant_id where l.tenant_id=$1 order by ip.name",[t.id]),
-  query("select l.id,l.inventory_warehouse_id,iw.code inventory_code,iw.name inventory_name,l.finance_warehouse_id,fw.code finance_code,fw.title finance_title,l.status from marketplace_finance_warehouse_links l join inventory_warehouses iw on iw.id=l.inventory_warehouse_id and iw.tenant_id=l.tenant_id join finance_warehouses fw on fw.id=l.finance_warehouse_id and fw.tenant_id=l.tenant_id where l.tenant_id=$1 order by iw.name",[t.id])
+  query("select l.id,l.inventory_warehouse_id,iw.code inventory_code,iw.name inventory_name,l.finance_warehouse_id,fw.code finance_code,fw.title finance_title,l.status from marketplace_finance_warehouse_links l join inventory_warehouses iw on iw.id=l.inventory_warehouse_id and iw.tenant_id=l.tenant_id join finance_warehouses fw on fw.id=l.finance_warehouse_id and fw.tenant_id=l.tenant_id where l.tenant_id=$1 order by iw.name",[t.id]),
+  query("select id,sku,name from inventory_products where tenant_id=$1 and status='active' order by name",[t.id]),
+  query("select id,code,title from finance_products where tenant_id=$1 and is_active=true order by title",[t.id]),
+  query("select id,code,name from inventory_warehouses where tenant_id=$1 and status='active' order by name",[t.id]),
+  query("select id,code,title from finance_warehouses where tenant_id=$1 and status='active' order by title",[t.id])
  ]);
- res.json({products:products.rows,warehouses:warehouses.rows});
+ res.json({products:products.rows,warehouses:warehouses.rows,inventoryProducts:inventoryProducts.rows,financeProducts:financeProducts.rows,inventoryWarehouses:inventoryWarehouses.rows,financeWarehouses:financeWarehouses.rows});
 }));
 checkoutRouter.put("/api/marketplace/returns/finance-mappings/products",requireAuth,requirePermission("accounting-finance.write"),requirePermission("modules:23-inventory-warehouse:write"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
