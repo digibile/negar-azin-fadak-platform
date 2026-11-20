@@ -1,7 +1,7 @@
 import {Router} from "express";
 import {randomBytes} from "node:crypto";
 import {resolveTxt} from "node:dns/promises";
-import {query} from "./db.js";
+import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
@@ -65,10 +65,18 @@ router.get("/api/marketplace/sellers/:sellerId/permissions",requireAuth,requireP
 router.put("/api/marketplace/sellers/:sellerId/permissions",requireAuth,requirePermission("seller:permission:manage"),asyncHandler(async(req,res)=>{
  const ctx=await sellerAccess(req,(req as any).user,String(req.params.sellerId));if(!ctx)return res.status(403).json({error:"دسترسی به فروشنده مجاز نیست"});
  const items=Array.isArray(req.body?.items)?req.body.items:[];if(items.length>100)return res.status(400).json({error:"تعداد مجوزها بیش از حد مجاز است"});
- for(const item of items){const permission=str(item?.permission,120);if(permission)await query("insert into seller_permissions(seller_id,tenant_id,permission,enabled) values($1,$2,$3,$4) on conflict(seller_id,permission) do update set enabled=excluded.enabled",[String(req.params.sellerId),ctx.id,permission,Boolean(item?.enabled)]);}
- const r=await query("select permission,enabled from seller_permissions where tenant_id=$1 and seller_id=$2 order by permission",[ctx.id,String(req.params.sellerId)]);
- await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.permissions.updated','seller',$3,$4)",[ctx.id,(req as any).user.id,String(req.params.sellerId),JSON.stringify({permissions:r.rows})]);
- res.json({items:r.rows,total:r.rowCount});
+ const normalized=items.map((item:any)=>({permission:str(item?.permission,120),enabled:Boolean(item?.enabled)}));
+ if(normalized.some(x=>!x.permission)||new Set(normalized.map(x=>x.permission)).size!==normalized.length)return res.status(400).json({error:"فهرست مجوزها نامعتبر یا دارای مورد تکراری است"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  await client.query("select id from sellers where id=$1 and tenant_id=$2 for update",[String(req.params.sellerId),ctx.id]);
+  for(const item of normalized)await client.query("insert into seller_permissions(seller_id,tenant_id,permission,enabled) values($1,$2,$3,$4) on conflict(seller_id,permission) do update set tenant_id=excluded.tenant_id,enabled=excluded.enabled",[String(req.params.sellerId),ctx.id,item.permission,item.enabled]);
+  const r=await client.query("select permission,enabled from seller_permissions where tenant_id=$1 and seller_id=$2 order by permission",[ctx.id,String(req.params.sellerId)]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.permissions.updated','seller',$3,$4)",[ctx.id,(req as any).user.id,String(req.params.sellerId),JSON.stringify({permissions:r.rows})]);
+  await client.query("commit");
+  res.json({items:r.rows,total:r.rowCount});
+ }catch(error){await client.query("rollback");throw error;}finally{client.release();}
 }));
 
 export {router as sellerSurfaceRouter};
