@@ -294,13 +294,6 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
     await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller_recovery.claim_created','seller_recovery_claim',$3,$4)",[t.id,(req as any).user.id,claim.rows[0].id,JSON.stringify({orderId:order.id,settlementId:paidSettlement.id,amount:Number(order.seller_payable),currency:order.currency||"IRR"})]);
    }
   }
-  if(order.status==="returned"){
-   const items=await client.query("select * from marketplace_order_items where order_id=$1",[order.id]);
-   for(const item of items.rows){
-    await client.query("update product_inventory set quantity=quantity+$1,updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[item.quantity,t.id,item.product_id,order.store_id]);
-    await client.query("insert into inventory_movements(tenant_id,product_id,store_id,movement_type,quantity,reference_type,reference_id,created_by) values($1,$2,$3,'refund',$4,'marketplace_refund',$5,$6)",[t.id,item.product_id,order.store_id,Number(item.quantity),rr.rows[0].id,(req as any).user.id]);
-   }
-  }
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'payment.refunded','marketplace_order',$3,$4)",[t.id,(req as any).user.id,order.id,JSON.stringify({refundId:rr.rows[0].id,amount:rr.rows[0].amount,ledgerReversal:true})]);
   await client.query("commit");
   await emitBusinessEvent({tenantId:t.id,eventKey:"payment.refunded",subjectType:"marketplace_order",subjectId:order.id,userId:(req as any).user.id,input:{orderId:order.id,refundId:rr.rows[0].id,amount:Number(rr.rows[0].amount)}});
