@@ -107,4 +107,7 @@ test("purchase supplier quote selection locks tenant RFQ and only selects an act
  assert.ok(purchasing.includes("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active' for update"));
  assert.ok(purchasing.includes("where id=$1 and tenant_id=$2 and status in ('sent','quoting','compared') returning id"));
  assert.ok(purchasing.includes("'supplier_selected'"));
+ assert.ok(purchasing.includes("select id,status from purchase_requests where id=$1 and tenant_id=$2 for update"));
+ assert.ok(purchasing.includes('request.rows[0].status!=="rfq"'));
+ assert.ok(purchasing.includes("where id=$1 and tenant_id=$2 and status='rfq' returning id"));
 });
