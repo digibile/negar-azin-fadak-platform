@@ -87,7 +87,7 @@ router.post("/api/sales/quotes/:id/convert",requireAuth,requirePermission("modul
   if(!partner.rowCount){await cx.query("rollback");return deny(res,409,"مشتری پیش‌فاکتور دیگر فعال یا متعلق به سازمان نیست");}
   const no=String(req.body?.orderNo||"SO-"+Date.now()).trim();
   if(!no||no.length>100){await cx.query("rollback");return deny(res,400,"شماره سفارش معتبر نیست");}
-  const o=await cx.query("insert into sales_orders(tenant_id,order_no,partner_id,quote_id,due_date,subtotal,discount_total,tax_total,total,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,no,old.partner_id,old.id,old.valid_until,old.subtotal,old.discount_total,old.tax_total,old.total,old.notes,(req as any).user.id]);
+  const o=await cx.query("insert into sales_orders(tenant_id,order_no,partner_id,quote_id,due_date,subtotal,discount_total,tax_total,total,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,no,old.partner_id,old.id,null,old.subtotal,old.discount_total,old.tax_total,old.total,old.notes,(req as any).user.id]);
   const qi=await cx.query("select * from sales_quote_items where quote_id=$1 order by id",[old.id]);
   if(!qi.rowCount){await cx.query("rollback");return deny(res,409,"پیش‌فاکتور قلم قابل تبدیل ندارد");}
   for(const x of qi.rows){
