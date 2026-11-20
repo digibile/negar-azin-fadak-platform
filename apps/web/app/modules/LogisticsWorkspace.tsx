@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from "react";
 import type {ReactNode} from "react";
 import styles from "./LogisticsWorkspace.module.css";
+import {ManagementDialog,ManagementToolbar} from "../components/ManagementWorkspaceTools";
 
 type R=Record<string,any>;
 const labels:Record<string,string>={
@@ -74,6 +75,7 @@ export default function LogisticsWorkspace(){
     ["dashboard","داشبورد"],["plans","برنامه تأمین"],["orders","سفارش تأمین"],["shipments","حمل"],
     ["dispatch","ارسال و تحویل"],["vehicles","ناوگان"],["drivers","رانندگان"],["routes","مسیرها"],["tracking","رهگیری"],["reports","گزارش لجستیک"]
   ];
+  const exportRows:R[]=tab==="plans"?plans:tab==="orders"?orders:tab==="vehicles"?vehicles:tab==="drivers"?drivers:tab==="routes"?routes:tab==="shipments"||tab==="dispatch"||tab==="tracking"?ships:tab==="reports"?[...(reports.byShipment||[]),...(reports.byVehicle||[]),...(reports.byRoute||[])]:[...plans,...orders,...ships];
 
   const planAction=(x:R)=>{
     const next:xstatus[]=[];
@@ -99,6 +101,7 @@ export default function LogisticsWorkspace(){
       <button onClick={load} disabled={loading}>{loading?"در حال دریافت...":"بازخوانی داده‌ها"}</button>
     </header>
     {error&&<div className={styles.error}>{error}</div>}
+    <ManagementToolbar rows={exportRows} filename={"logistics-"+tab} onCreate={()=>document.querySelector(`.${styles.panel} .${styles.form}`)?.scrollIntoView({behavior:"smooth",block:"center"})}/>
     <nav>{tabs.map(([k,t])=><button className={tab===k?styles.active:""} key={k} onClick={()=>setTab(k)}>{t}</button>)}</nav>
 
     {tab==="dashboard"&&<section className={styles.cards}>
@@ -203,7 +206,8 @@ export default function LogisticsWorkspace(){
 
 type xstatus=[string,string];
 function Table({rows,cols,action}:{rows:R[];cols:string[];action?:(x:R)=>ReactNode}){
-  return <div className={styles.table}>{rows.map(x=><div className={styles.row} key={String(x.id||JSON.stringify(x))}>
-    {cols.map(c=><span key={c}><b>{labels[c]||c}</b>{fmt(x[c])}</span>)}{action&&<span>{action(x)}</span>}
-  </div>)}{!rows.length&&<div className={styles.empty}>داده‌ای ثبت نشده است.</div>}</div>;
+  const [selected,setSelected]=useState<R|null>(null);
+  return <><div className={styles.table}>{rows.map(x=><div className={styles.row} key={String(x.id||JSON.stringify(x))}>
+    {cols.map(c=><span key={c}><b>{labels[c]||c}</b>{fmt(x[c])}</span>)}<span><button type="button" onClick={()=>setSelected(x)}>مشاهده</button>{action&&action(x)}</span>
+  </div>)}{!rows.length&&<div className={styles.empty}>داده‌ای ثبت نشده است.</div>}</div>{selected&&<ManagementDialog title="جزئیات عملیات لجستیک" onClose={()=>setSelected(null)}><dl className="management-detail-grid">{Object.entries(selected).map(([key,value])=><div key={key}><dt>{labels[key]||key}</dt><dd>{value===null||value===undefined?"—":typeof value==="object"?JSON.stringify(value):fmt(value)}</dd></div>)}</dl></ManagementDialog>}</>;
 }
