@@ -34,7 +34,7 @@ settlementRouter.post("/api/marketplace/settlements/generate",requireAuth,requir
    const group=bySellerCurrency.get(key)||{sellerId:o.seller_id,currency,rows:[]};
    group.rows.push(o);bySellerCurrency.set(key,group);
   }
-  const created=[];
+  const created:any[]=[];
   for(const group of bySellerCurrency.values()){
    const {sellerId,currency,rows}=group;
    const gross=rows.reduce((a,o)=>a+Number(o.total_amount),0);
