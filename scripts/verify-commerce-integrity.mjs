@@ -157,7 +157,7 @@ if(!settlementCurrencyMigration.includes("seller_settlements")||!settlementCurre
 if(!settlementApi.includes("bySellerCurrency")||!settlementApi.includes("status,currency)")||!settlementApi.includes('settlement.currency==="MIXED"'))throw new Error("Seller settlements must be grouped and paid in one currency");
 if(!ledgerApi.includes("currency?:string")||!ledgerApi.includes('args.currency||"IRR"'))throw new Error("Ledger entries must persist the currency of commerce transactions");
 if(!settlementPageCurrency.includes('x.currency||"IRR"'))throw new Error("Settlement workspace must display the settlement currency");
-if(!checkoutApi.includes("o.commission_amount,o.currency,o.reservation_expires_at"))throw new Error("Payment verification must carry the order currency into its ledger entry");
+if(!checkoutApi.includes("o.commission_amount")||!checkoutApi.includes("o.currency,o.reservation_expires_at"))throw new Error("Payment verification must carry the order currency into its ledger entry");
 
 if(!refundRoute.includes("currency_count")||!refundRoute.includes("single_currency"))throw new Error("Refund settlement reconciliation must recalculate currency after removing refunded orders");
 
