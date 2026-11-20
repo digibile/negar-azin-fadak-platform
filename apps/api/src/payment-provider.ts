@@ -20,6 +20,20 @@ export interface PaymentResult {
  redirectUrl?:string;
 }
 
+export interface RefundStatusLookupResult {
+ /** Provider-confirmed current state. A timeout or transport error must throw, never map to failed. */
+ status:"pending"|"refunded"|"failed";
+ providerCode:string;
+ providerTransactionId:string;
+ providerPayload:Record<string,unknown>;
+}
+
+export interface RefundStatusLookupRequest {
+ providerTransactionId:string;
+ amount:number;
+ metadata?:Record<string,unknown>;
+}
+
 export interface PaymentProvider {
  readonly code:string;
  /** True only when refundPayment deduplicates repeated calls using metadata.idempotencyKey. */
@@ -27,6 +41,8 @@ export interface PaymentProvider {
  createPayment(input:PaymentRequest):Promise<PaymentResult>;
  verifyPayment(input:{providerTransactionId:string;amount:number;metadata?:Record<string,unknown>}):Promise<PaymentResult>;
  refundPayment(input:{providerTransactionId:string;amount:number;metadata?:Record<string,unknown>}):Promise<PaymentResult>;
+ /** Optional authoritative status query. Omit unless the provider documents and implements it. */
+ lookupRefundStatus?(input:RefundStatusLookupRequest):Promise<RefundStatusLookupResult>;
 }
 
 type HttpAction="create"|"verify"|"refund";
@@ -104,6 +120,21 @@ function configured(code:string):PaymentProvider|undefined{
   timeoutMs:Math.max(1000,Math.min(30000,Number(env("PAYMENT_PROVIDER_"+normalized.toUpperCase()+"_TIMEOUT_MS"))||10000)),
   idempotentRefunds:env("PAYMENT_PROVIDER_"+normalized.toUpperCase()+"_IDEMPOTENT_REFUNDS").toLowerCase()==="true"
  });
+}
+
+export type RefundStatusLookupOutcome=
+ | {supported:false;providerCode:string}
+ | {supported:true;result:RefundStatusLookupResult};
+
+/** Never infer a refund state when the adapter has no documented lookup operation. */
+export async function lookupPaymentRefundStatus(provider:PaymentProvider,input:RefundStatusLookupRequest):Promise<RefundStatusLookupOutcome>{
+ if(!provider.lookupRefundStatus)return {supported:false,providerCode:provider.code};
+ const result=await provider.lookupRefundStatus(input);
+ if(result.providerCode!==provider.code||result.providerTransactionId!==input.providerTransactionId){
+  throw new Error("پاسخ استعلام بازپرداخت با شناسه درگاه یا تراکنش درخواست‌شده مطابقت ندارد");
+ }
+ if(!["pending","refunded","failed"].includes(result.status))throw new Error("وضعیت استعلام بازپرداخت نامعتبر است");
+ return {supported:true,result};
 }
 
 export function getPaymentProvider(code=process.env.PAYMENT_PROVIDER||"unconfigured"):PaymentProvider{
