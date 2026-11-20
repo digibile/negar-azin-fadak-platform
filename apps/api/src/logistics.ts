@@ -131,11 +131,16 @@ logisticsRouter.post("/api/logistics/marketplace-orders/:orderId/shipments",requ
     const driver=(await c.query("select * from logistics_drivers where id=$1 and tenant_id=$2",[b.driverId,t.id])).rows[0];
     if(!driver||driver.status!=="active"){await c.query("rollback");return fail(res,409,"راننده فعال پیدا نشد");}
     if(driver.license_expiry&&new Date(driver.license_expiry)<new Date()){await c.query("rollback");return fail(res,409,"گواهینامه راننده منقضی شده است");}
+    let route:any=null;
+    if(b.routeId){
+      route=(await c.query("select * from logistics_routes where id=$1 and tenant_id=$2 for update",[b.routeId,t.id])).rows[0];
+      if(!route||route.status!=="active"){await c.query("rollback");return fail(res,409,"مسیر انتخاب‌شده فعال نیست یا پیدا نشد");}
+    }
     const shipmentNo=String(b.shipmentNo||("SHP-"+order.order_no)).trim();
     if(!shipmentNo){await c.query("rollback");return fail(res,400,"شماره مرسوله الزامی است");}
     const shipment=(await c.query(
-      "insert into logistics_shipments(tenant_id,shipment_no,marketplace_order_id,vehicle_id,driver_id,origin,destination,tracking_code,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *",
-      [t.id,shipmentNo,order.id,vehicle.id,driver.id,String(b.origin||"انبار فروشنده"),String(b.destination||"نشانی مشتری"),b.trackingCode||null,(req as any).user.id]
+      "insert into logistics_shipments(tenant_id,shipment_no,marketplace_order_id,route_id,vehicle_id,driver_id,origin,destination,tracking_code,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",
+      [t.id,shipmentNo,order.id,route?.id||null,vehicle.id,driver.id,String(b.origin||route?.origin||"انبار فروشنده"),String(b.destination||route?.destination||"نشانی مشتری"),b.trackingCode||null,(req as any).user.id]
     )).rows[0];
     await c.query("update logistics_vehicles set status='assigned' where id=$1 and tenant_id=$2",[vehicle.id,t.id]);
     await c.query("insert into logistics_delivery_events(tenant_id,shipment_id,status,location,description,actor_user_id) values($1,$2,'planned',$3,$4,$5)",[t.id,shipment.id,shipment.origin,"مرسوله برای سفارش فروشگاه ایجاد شد",(req as any).user.id]);
