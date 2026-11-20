@@ -19,7 +19,7 @@ async function context(req:any,user:User){return resolveTenant(req,user);}async 
 
 router.get("/api/marketplace/sellers/:sellerId/domains",requireAuth,requirePermission("seller:domain:view"),asyncHandler(async(req,res)=>{
  const ctx=await sellerAccess(req,(req as any).user,String(req.params.sellerId));if(!ctx)return res.status(403).json({error:"دسترسی به فروشنده مجاز نیست"});
- const r=await query("select * from seller_domains where tenant_id=$1 and seller_id=$2 order by created_at desc",[ctx.id,String(req.params.sellerId)]);res.json({items:r.rows,total:r.rowCount});
+ const r=await query("select id,tenant_id,seller_id,store_id,hostname,is_primary,ssl_mode,verification_status,verified_at,created_at,updated_at from seller_domains where tenant_id=$1 and seller_id=$2 order by created_at desc",[ctx.id,String(req.params.sellerId)]);res.json({items:r.rows,total:r.rowCount});
 }));
 router.post("/api/marketplace/sellers/:sellerId/domains",requireAuth,requirePermission("seller:domain:manage"),asyncHandler(async(req,res)=>{
  const ctx=await sellerAccess(req,(req as any).user,String(req.params.sellerId));if(!ctx)return res.status(403).json({error:"دسترسی به فروشنده مجاز نیست"});
