@@ -9,6 +9,6 @@ export default function Returns() {
       <article><span className="sk-info-eyebrow">مرحله ۰۳</span><h2>مدارک لازم را آماده کنید</h2><p>شماره سفارش، شرح کوتاه مسئله و در صورت نیاز تصاویر مرتبط را آماده کنید. اطلاعات کارت بانکی، رمز پویا یا رمز عبور را ارسال نکنید.</p></article>
       <article><span className="sk-info-eyebrow">مرحله ۰۴</span><h2>وضعیت را پیگیری کنید</h2><p>درخواست معتبر باید به سفارش ثبت‌شده متصل باشد. اگر سفارش در حساب شما نمایش داده نمی‌شود، ابتدا از ورود با حساب درست مطمئن شوید.</p></article>
     </div>
-    <article><h2>نکته مهم</h2><p>فرم ثبت مرجوعی آنلاین در این مسیر هنوز به چرخه عملیاتی سفارش متصل نشده است؛ برای جلوگیری از ایجاد انتظار اشتباه، این صفحه فعلاً راهنمای مراحل است و ادعای ثبت درخواست نمی‌کند.</p><div className="store-actions"><Link href="/account/orders">سفارش‌های حساب</Link><Link href="/store/faq" className="secondary">راهنمای خرید</Link><Link href="/login" className="secondary">ورود به حساب</Link></div></article>
+    <article><h2>نکته مهم</h2><p>ثبت درخواست آنلاین برای اقلام سفارش تحویل‌شده از حساب مشتری انجام می‌شود. درخواست پس از ثبت در صف بررسی فروشگاه قرار می‌گیرد؛ تأیید مرجوعی به‌تنهایی به معنی انجام بازپرداخت وجه نیست.</p><div className="store-actions"><Link href="/account/returns">ثبت و پیگیری آنلاین مرجوعی</Link><Link href="/account/orders" className="secondary">سفارش‌های حساب</Link><Link href="/store/faq" className="secondary">راهنمای خرید</Link><Link href="/login" className="secondary">ورود به حساب</Link></div></article>
   </StoreInfoPage>;
 }

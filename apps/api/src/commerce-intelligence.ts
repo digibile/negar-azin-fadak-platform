@@ -150,9 +150,28 @@ commerceIntelligenceRouter.post("/api/commerce/financing-programs",requireAuth,r
  const r=await query("insert into financing_programs(tenant_id,brand_id,supplier_id,code,title,financing_type,rate_percent,fixed_fee,min_amount,max_amount,min_term_months,max_term_months,approval_business_days,approval_business_days_min,approval_business_days_max,offer_validity_minutes,requires_preapproval,wallet_mode,currency,status,rules) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) returning *",[t.id,b.brandId||null,b.supplierId,str(b.code,80),str(b.title,200),b.financingType||"installment",num(b.ratePercent)||0,num(b.fixedFee)||0,num(b.minAmount)||0,num(b.maxAmount),num(b.minTermMonths),num(b.maxTermMonths),Number(b.approvalBusinessDays)||0,Number(b.approvalBusinessDaysMin ?? b.approvalBusinessDays ?? 0),Number(b.approvalBusinessDaysMax ?? b.approvalBusinessDays ?? 0),Number(b.offerValidityMinutes)||1440,b.requiresPreapproval!==false,b.walletMode||"credit_only",b.currency||"IRR",b.status||"draft",b.rules||{}]);res.status(201).json(r.rows[0]);
 }));
 
+commerceIntelligenceRouter.get("/api/commerce/delivery-methods",requireAuth,requirePermission("supplier:manage"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query("select id,code,title,carrier_type,business_days_min,business_days_max,cutoff_hour_local,cost,currency,enabled,rules from commerce_delivery_methods where tenant_id=$1 order by enabled desc,cost,title",[t.id]);
+ res.json({items:r.rows,total:r.rowCount});
+}));
+
 commerceIntelligenceRouter.post("/api/commerce/delivery-methods",requireAuth,requirePermission("supplier:manage"),requireCsrf,asyncHandler(async(req,res)=>{
- const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const b=req.body||{};if(!b.code||!b.title)return res.status(400).json({error:"کد و عنوان روش تحویل الزامی است"});
- const r=await query("insert into commerce_delivery_methods(tenant_id,code,title,carrier_type,business_days_min,business_days_max,cutoff_hour_local,cost,currency,enabled,rules) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,str(b.code,80),str(b.title,200),b.carrierType||"courier",Number(b.businessDaysMin)||0,Number(b.businessDaysMax)||0,Number(b.cutoffHourLocal??12),num(b.cost)||0,b.currency||"IRR",b.enabled!==false,b.rules||{}]);res.status(201).json(r.rows[0]);
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const b=req.body||{},code=str(b.code,80),title=str(b.title,200),carrierType=str(b.carrierType,30)||"courier",min=num(b.businessDaysMin??0),max=num(b.businessDaysMax??0),cutoff=num(b.cutoffHourLocal??12),cost=num(b.cost??0),currency=str(b.currency||"IRR",10).toUpperCase();
+ if(!code||!title)return res.status(400).json({error:"کد و عنوان روش تحویل الزامی است"});
+ if(!["courier","post","pickup","freight","digital"].includes(carrierType)||min===null||max===null||!Number.isInteger(min)||!Number.isInteger(max)||min<0||max<min||max>365||cutoff===null||!Number.isInteger(cutoff)||cutoff<0||cutoff>23||cost===null||cost<0||!/^[A-Z]{3,10}$/.test(currency)||!b.rules||typeof b.rules!=="object"||Array.isArray(b.rules))return res.status(400).json({error:"نوع تحویل، بازه روز کاری، ساعت برش، هزینه، ارز یا قواعد معتبر نیست"});
+ const r=await query("insert into commerce_delivery_methods(tenant_id,code,title,carrier_type,business_days_min,business_days_max,cutoff_hour_local,cost,currency,enabled,rules) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,code,title,carrierType,min,max,cutoff,cost,currency,b.enabled!==false,b.rules]);res.status(201).json(r.rows[0]);
+}));
+
+commerceIntelligenceRouter.patch("/api/commerce/delivery-methods/:id",requireAuth,requirePermission("supplier:manage"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const current=await query("select * from commerce_delivery_methods where id=$1 and tenant_id=$2",[req.params.id,t.id]);
+ if(!current.rowCount)return res.status(404).json({error:"روش تحویل پیدا نشد"});
+ const old=current.rows[0],b=req.body||{},code=str(b.code??old.code,80),title=str(b.title??old.title,200),carrierType=str(b.carrierType??old.carrier_type,30),min=num(b.businessDaysMin??old.business_days_min),max=num(b.businessDaysMax??old.business_days_max),cutoff=num(b.cutoffHourLocal??old.cutoff_hour_local),cost=num(b.cost??old.cost),currency=str(b.currency??old.currency,10).toUpperCase(),enabled=b.enabled===undefined?old.enabled:Boolean(b.enabled),rules=b.rules===undefined?old.rules:b.rules;
+ if(!code||!title||!["courier","post","pickup","freight","digital"].includes(carrierType)||min===null||max===null||!Number.isInteger(min)||!Number.isInteger(max)||min<0||max<min||max>365||cutoff===null||!Number.isInteger(cutoff)||cutoff<0||cutoff>23||cost===null||cost<0||!/^[A-Z]{3,10}$/.test(currency)||!rules||typeof rules!=="object"||Array.isArray(rules))return res.status(400).json({error:"اطلاعات روش تحویل معتبر نیست"});
+ const r=await query("update commerce_delivery_methods set code=$1,title=$2,carrier_type=$3,business_days_min=$4,business_days_max=$5,cutoff_hour_local=$6,cost=$7,currency=$8,enabled=$9,rules=$10 where id=$11 and tenant_id=$12 returning *",[code,title,carrierType,min,max,cutoff,cost,currency,enabled,rules,req.params.id,t.id]);
+ res.json(r.rows[0]);
 }));
 
 commerceIntelligenceRouter.post("/api/commerce/quotes",requireAuth,requirePermission("quote:manage"),requireCsrf,asyncHandler(async(req,res)=>{

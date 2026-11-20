@@ -672,3 +672,5 @@ html,body{font-family:"IRANSansX","Vazirmatn","Segoe UI",Tahoma,sans-serif;backg
 .naf-password-toggle:focus-visible{outline:2px solid var(--naf-accent);outline-offset:1px}
 .naf-password-toggle svg{width:19px;height:19px;display:block}
 .naf-login-form input[type=tel]{direction:ltr;text-align:left}
+
+.management-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}.management-detail-grid>div{padding:12px;border:1px solid var(--border,#e5e7eb);border-radius:10px;min-width:0}.management-detail-grid dt{font-size:10px;color:var(--muted,#667085);margin-bottom:6px}.management-detail-grid dd{margin:0;font-size:12px;overflow-wrap:anywhere}@media(max-width:640px){.management-detail-grid{grid-template-columns:1fr}}

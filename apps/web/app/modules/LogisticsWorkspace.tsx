@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from "react";
 import type {ReactNode} from "react";
 import styles from "./LogisticsWorkspace.module.css";
+import {ManagementDialog,ManagementToolbar} from "../components/ManagementWorkspaceTools";
 
 type R=Record<string,any>;
 const labels:Record<string,string>={
@@ -34,7 +35,7 @@ const api=async(path:string,init:RequestInit={})=>{
 const fmt=(v:any)=>v===null||v===undefined||v===""?"":statusLabels[String(v)]||String(v);
 
 export default function LogisticsWorkspace(){
-  const [tab,setTab]=useState("dashboard"),[o,setO]=useState<R>({}),[plans,setPlans]=useState<R[]>([]),[orders,setOrders]=useState<R[]>([]),
+  const [createOpen,setCreateOpen]=useState(false),[editing,setEditing]=useState<{kind:string;id:string}|null>(null),[tab,setTab]=useState("dashboard"),[o,setO]=useState<R>({}),[plans,setPlans]=useState<R[]>([]),[orders,setOrders]=useState<R[]>([]),
     [vehicles,setVehicles]=useState<R[]>([]),[drivers,setDrivers]=useState<R[]>([]),[routes,setRoutes]=useState<R[]>([]),
     [ships,setShips]=useState<R[]>([]),[reports,setReports]=useState<R>({}),[track,setTrack]=useState<R|null>(null),[error,setError]=useState("");
   const [plan,setPlan]=useState({planNo:"",plannedDate:"",notes:""});
@@ -59,8 +60,8 @@ export default function LogisticsWorkspace(){
   };
   useEffect(()=>{load()},[]);
 
-  const post=async(path:string,body:any)=>{
-    try{await api(path,{method:"POST",body:JSON.stringify(body)});await load()}
+  const post=async(path:string,body:any,method="POST")=>{
+    try{await api(path,{method,body:JSON.stringify(body)});setCreateOpen(false);setEditing(null);await load()}
     catch(e:any){setError(e.message)}
   };
   const patch=async(path:string,body:any)=>{
@@ -74,6 +75,7 @@ export default function LogisticsWorkspace(){
     ["dashboard","داشبورد"],["plans","برنامه تأمین"],["orders","سفارش تأمین"],["shipments","حمل"],
     ["dispatch","ارسال و تحویل"],["vehicles","ناوگان"],["drivers","رانندگان"],["routes","مسیرها"],["tracking","رهگیری"],["reports","گزارش لجستیک"]
   ];
+  const exportRows:R[]=tab==="plans"?plans:tab==="orders"?orders:tab==="vehicles"?vehicles:tab==="drivers"?drivers:tab==="routes"?routes:tab==="shipments"||tab==="dispatch"||tab==="tracking"?ships:tab==="reports"?[...(reports.byShipment||[]),...(reports.byVehicle||[]),...(reports.byRoute||[])]:[...plans,...orders,...ships];
 
   const planAction=(x:R)=>{
     const next:xstatus[]=[];
@@ -99,6 +101,7 @@ export default function LogisticsWorkspace(){
       <button onClick={load} disabled={loading}>{loading?"در حال دریافت...":"بازخوانی داده‌ها"}</button>
     </header>
     {error&&<div className={styles.error}>{error}</div>}
+    <ManagementToolbar rows={exportRows} filename={"logistics-"+tab} onCreate={["plans","orders","shipments","vehicles","drivers","routes"].includes(tab)?()=>{setEditing(null);if(tab==="plans")setPlan({planNo:"",plannedDate:"",notes:""});if(tab==="orders")setOrder({orderNo:"",planId:"",origin:"",destination:"",cargoDescription:"",quantity:"",requestedDate:"",notes:""});if(tab==="vehicles")setVehicle({plateNo:"",title:"",vehicleType:"",capacity:""});if(tab==="drivers")setDriver({name:"",mobile:"",licenseNo:"",licenseExpiry:""});if(tab==="routes")setRoute({code:"",name:"",origin:"",destination:"",distanceKm:""});if(tab==="shipments")setShip({shipmentNo:"",supplyOrderId:"",origin:"",destination:"",trackingCode:"",routeId:"",vehicleId:"",driverId:""});setCreateOpen(true)}:undefined} createLabel={tab==="plans"?"ایجاد برنامه تأمین":tab==="orders"?"ایجاد سفارش تأمین":tab==="shipments"?"ثبت حمل":tab==="vehicles"?"افزودن خودرو":tab==="drivers"?"افزودن راننده":"افزودن مسیر"}/>
     <nav>{tabs.map(([k,t])=><button className={tab===k?styles.active:""} key={k} onClick={()=>setTab(k)}>{t}</button>)}</nav>
 
     {tab==="dashboard"&&<section className={styles.cards}>
@@ -110,18 +113,18 @@ export default function LogisticsWorkspace(){
 
     {tab==="plans"&&<section className={styles.panel}>
       <h2>برنامه تأمین</h2>
-      <div className={styles.form}>
+      {createOpen&&tab==="plans"&&<ManagementDialog title={editing?.kind==="plans"?"ویرایش برنامه تأمین":"ایجاد برنامه تأمین"} dirty={Boolean(plan.planNo||plan.plannedDate||plan.notes)} onClose={()=>setCreateOpen(false)}><div className={styles.form}>
         <input placeholder="شماره برنامه" value={plan.planNo} onChange={e=>setPlan({...plan,planNo:e.target.value})}/>
         <input type="date" value={plan.plannedDate} onChange={e=>setPlan({...plan,plannedDate:e.target.value})}/>
         <input placeholder="یادداشت" value={plan.notes} onChange={e=>setPlan({...plan,notes:e.target.value})}/>
-        <button onClick={()=>post("/api/logistics/plans",plan)}>ثبت برنامه</button>
-      </div>
-      <Table rows={plans} cols={["plan_no","status","planned_date","notes"]} action={planAction}/>
+        <button onClick={()=>post(editing?.kind==="plans"?"/api/logistics/plans/"+editing.id:"/api/logistics/plans",plan,editing?.kind==="plans"?"PATCH":"POST")}>{editing?.kind==="plans"?"ذخیره تغییرات":"ثبت برنامه"}</button>
+      </div></ManagementDialog>}
+      <Table rows={plans} cols={["plan_no","status","planned_date","notes"]} action={(x:R)=><>{planAction(x)}<button onClick={()=>{setEditing({kind:"plans",id:x.id});setPlan({planNo:x.plan_no,plannedDate:String(x.planned_date||"").slice(0,10),notes:x.notes||""});setCreateOpen(true)}}>ویرایش</button></>}/>
     </section>}
 
     {tab==="orders"&&<section className={styles.panel}>
       <h2>سفارش تأمین</h2>
-      <div className={styles.form}>
+      {createOpen&&tab==="orders"&&<ManagementDialog title={editing?.kind==="orders"?"ویرایش سفارش تأمین":"ایجاد سفارش تأمین"} dirty={Boolean(order.orderNo||order.planId||order.origin||order.destination||order.cargoDescription||order.quantity||order.requestedDate||order.notes)} onClose={()=>setCreateOpen(false)}><div className={styles.form}>
         <input placeholder="شماره سفارش" value={order.orderNo} onChange={e=>setOrder({...order,orderNo:e.target.value})}/>
         <select value={order.planId} onChange={e=>setOrder({...order,planId:e.target.value})}><option value="">برنامه تأمین</option>{plans.filter(x=>["approved","released"].includes(x.status)).map(x=><option key={x.id} value={x.id}>{x.plan_no}</option>)}</select>
         <input placeholder="مبدأ" value={order.origin} onChange={e=>setOrder({...order,origin:e.target.value})}/>
@@ -130,14 +133,14 @@ export default function LogisticsWorkspace(){
         <input type="number" min="0" placeholder="مقدار" value={order.quantity} onChange={e=>setOrder({...order,quantity:e.target.value})}/>
         <input type="date" value={order.requestedDate} onChange={e=>setOrder({...order,requestedDate:e.target.value})}/>
         <input placeholder="یادداشت" value={order.notes} onChange={e=>setOrder({...order,notes:e.target.value})}/>
-        <button onClick={()=>post("/api/logistics/orders",order)}>ثبت سفارش</button>
-      </div>
-      <Table rows={orders} cols={["order_no","plan_no","status","origin","destination","quantity","requested_date"]} action={orderAction}/>
+        <button onClick={()=>post(editing?.kind==="orders"?"/api/logistics/orders/"+editing.id:"/api/logistics/orders",order,editing?.kind==="orders"?"PATCH":"POST")}>{editing?.kind==="orders"?"ذخیره تغییرات":"ثبت سفارش"}</button>
+      </div></ManagementDialog>}
+      <Table rows={orders} cols={["order_no","plan_no","status","origin","destination","quantity","requested_date"]} action={(x:R)=><>{orderAction(x)}{x.status==="draft"&&<button onClick={()=>{setEditing({kind:"orders",id:x.id});setOrder({orderNo:x.order_no,planId:x.plan_id||"",origin:x.origin,destination:x.destination,cargoDescription:x.cargo_description||"",quantity:String(x.quantity??""),requestedDate:String(x.requested_date||"").slice(0,10),notes:x.notes||""});setCreateOpen(true)}}>ویرایش</button>}</>}/>
     </section>}
 
     {tab==="shipments"&&<section className={styles.panel}>
       <h2>حمل</h2>
-      <div className={styles.form}>
+      {createOpen&&tab==="shipments"&&<ManagementDialog title="ثبت حمل" dirty={Boolean(ship.shipmentNo||ship.supplyOrderId||ship.origin||ship.destination||ship.trackingCode||ship.routeId||ship.vehicleId||ship.driverId)} onClose={()=>setCreateOpen(false)}><div className={styles.form}>
         <input placeholder="شماره مرسوله" value={ship.shipmentNo} onChange={e=>setShip({...ship,shipmentNo:e.target.value})}/>
         <select value={ship.supplyOrderId} onChange={e=>{
           const id=e.target.value,x=orders.find(v=>v.id===id);
@@ -150,7 +153,7 @@ export default function LogisticsWorkspace(){
         <select value={ship.vehicleId} onChange={e=>setShip({...ship,vehicleId:e.target.value})}><option value="">ناوگان</option>{availableVehicles.map(x=><option key={x.id} value={x.id}>{x.title} · {x.plate_no}</option>)}</select>
         <select value={ship.driverId} onChange={e=>setShip({...ship,driverId:e.target.value})}><option value="">راننده</option>{activeDrivers.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>
         <button onClick={()=>post("/api/logistics/shipments",ship)}>ثبت حمل</button>
-      </div>
+      </div></ManagementDialog>}
       <Table rows={ships} cols={["shipment_no","order_no","status","tracking_code","origin","destination","route_name","plate_no","driver_name"]}/>
     </section>}
 
@@ -168,20 +171,20 @@ export default function LogisticsWorkspace(){
 
     {tab==="vehicles"&&<section className={styles.panel}>
       <h2>ناوگان</h2>
-      <div className={styles.form}><input placeholder="پلاک" value={vehicle.plateNo} onChange={e=>setVehicle({...vehicle,plateNo:e.target.value})}/><input placeholder="عنوان" value={vehicle.title} onChange={e=>setVehicle({...vehicle,title:e.target.value})}/><input placeholder="نوع خودرو" value={vehicle.vehicleType} onChange={e=>setVehicle({...vehicle,vehicleType:e.target.value})}/><input type="number" min="0" placeholder="ظرفیت" value={vehicle.capacity} onChange={e=>setVehicle({...vehicle,capacity:e.target.value})}/><button onClick={()=>post("/api/logistics/vehicles",vehicle)}>ثبت خودرو</button></div>
-      <Table rows={vehicles} cols={["plate_no","title","vehicle_type","capacity","status"]}/>
+      {createOpen&&tab==="vehicles"&&<ManagementDialog title={editing?.kind==="vehicles"?"ویرایش خودرو":"افزودن خودرو"} dirty={Boolean(vehicle.plateNo||vehicle.title||vehicle.vehicleType||vehicle.capacity)} onClose={()=>setCreateOpen(false)}><div className={styles.form}><input placeholder="پلاک" value={vehicle.plateNo} onChange={e=>setVehicle({...vehicle,plateNo:e.target.value})}/><input placeholder="عنوان" value={vehicle.title} onChange={e=>setVehicle({...vehicle,title:e.target.value})}/><input placeholder="نوع خودرو" value={vehicle.vehicleType} onChange={e=>setVehicle({...vehicle,vehicleType:e.target.value})}/><input type="number" min="0" placeholder="ظرفیت" value={vehicle.capacity} onChange={e=>setVehicle({...vehicle,capacity:e.target.value})}/><button onClick={()=>post(editing?.kind==="vehicles"?"/api/logistics/vehicles/"+editing.id:"/api/logistics/vehicles",vehicle,editing?.kind==="vehicles"?"PATCH":"POST")}>{editing?.kind==="vehicles"?"ذخیره تغییرات":"ثبت خودرو"}</button></div></ManagementDialog>}
+      <Table rows={vehicles} cols={["plate_no","title","vehicle_type","capacity","status"]} action={(x:R)=><button disabled={x.status==="assigned"} onClick={()=>{setEditing({kind:"vehicles",id:x.id});setVehicle({plateNo:x.plate_no,title:x.title,vehicleType:x.vehicle_type||"",capacity:String(x.capacity??"")});setCreateOpen(true)}}>ویرایش</button>}/>
     </section>}
 
     {tab==="drivers"&&<section className={styles.panel}>
       <h2>رانندگان</h2>
-      <div className={styles.form}><input placeholder="نام راننده" value={driver.name} onChange={e=>setDriver({...driver,name:e.target.value})}/><input placeholder="موبایل" value={driver.mobile} onChange={e=>setDriver({...driver,mobile:e.target.value})}/><input placeholder="شماره گواهینامه" value={driver.licenseNo} onChange={e=>setDriver({...driver,licenseNo:e.target.value})}/><input type="date" value={driver.licenseExpiry} onChange={e=>setDriver({...driver,licenseExpiry:e.target.value})}/><button onClick={()=>post("/api/logistics/drivers",driver)}>ثبت راننده</button></div>
-      <Table rows={drivers} cols={["name","mobile","license_no","license_expiry","status"]}/>
+      {createOpen&&tab==="drivers"&&<ManagementDialog title={editing?.kind==="drivers"?"ویرایش راننده":"افزودن راننده"} dirty={Boolean(driver.name||driver.mobile||driver.licenseNo||driver.licenseExpiry)} onClose={()=>setCreateOpen(false)}><div className={styles.form}><input placeholder="نام راننده" value={driver.name} onChange={e=>setDriver({...driver,name:e.target.value})}/><input placeholder="موبایل" value={driver.mobile} onChange={e=>setDriver({...driver,mobile:e.target.value})}/><input placeholder="شماره گواهینامه" value={driver.licenseNo} onChange={e=>setDriver({...driver,licenseNo:e.target.value})}/><input type="date" value={driver.licenseExpiry} onChange={e=>setDriver({...driver,licenseExpiry:e.target.value})}/><button onClick={()=>post(editing?.kind==="drivers"?"/api/logistics/drivers/"+editing.id:"/api/logistics/drivers",driver,editing?.kind==="drivers"?"PATCH":"POST")}>{editing?.kind==="drivers"?"ذخیره تغییرات":"ثبت راننده"}</button></div></ManagementDialog>}
+      <Table rows={drivers} cols={["name","mobile","license_no","license_expiry","status"]} action={(x:R)=><button onClick={()=>{setEditing({kind:"drivers",id:x.id});setDriver({name:x.name,mobile:x.mobile||"",licenseNo:x.license_no||"",licenseExpiry:String(x.license_expiry||"").slice(0,10)});setCreateOpen(true)}}>ویرایش</button>}/>
     </section>}
 
     {tab==="routes"&&<section className={styles.panel}>
       <h2>مسیرها</h2>
-      <div className={styles.form}><input placeholder="کد مسیر" value={route.code} onChange={e=>setRoute({...route,code:e.target.value})}/><input placeholder="نام مسیر" value={route.name} onChange={e=>setRoute({...route,name:e.target.value})}/><input placeholder="مبدأ" value={route.origin} onChange={e=>setRoute({...route,origin:e.target.value})}/><input placeholder="مقصد" value={route.destination} onChange={e=>setRoute({...route,destination:e.target.value})}/><input type="number" min="0" placeholder="مسافت کیلومتر" value={route.distanceKm} onChange={e=>setRoute({...route,distanceKm:e.target.value})}/><button onClick={()=>post("/api/logistics/routes",route)}>ثبت مسیر</button></div>
-      <Table rows={routes} cols={["code","name","origin","destination","distance_km","status"]}/>
+      {createOpen&&tab==="routes"&&<ManagementDialog title={editing?.kind==="routes"?"ویرایش مسیر":"افزودن مسیر"} dirty={Boolean(route.code||route.name||route.origin||route.destination||route.distanceKm)} onClose={()=>setCreateOpen(false)}><div className={styles.form}><input placeholder="کد مسیر" value={route.code} onChange={e=>setRoute({...route,code:e.target.value})}/><input placeholder="نام مسیر" value={route.name} onChange={e=>setRoute({...route,name:e.target.value})}/><input placeholder="مبدأ" value={route.origin} onChange={e=>setRoute({...route,origin:e.target.value})}/><input placeholder="مقصد" value={route.destination} onChange={e=>setRoute({...route,destination:e.target.value})}/><input type="number" min="0" placeholder="مسافت کیلومتر" value={route.distanceKm} onChange={e=>setRoute({...route,distanceKm:e.target.value})}/><button onClick={()=>post(editing?.kind==="routes"?"/api/logistics/routes/"+editing.id:"/api/logistics/routes",route,editing?.kind==="routes"?"PATCH":"POST")}>{editing?.kind==="routes"?"ذخیره تغییرات":"ثبت مسیر"}</button></div></ManagementDialog>}
+      <Table rows={routes} cols={["code","name","origin","destination","distance_km","status"]} action={(x:R)=><button onClick={()=>{setEditing({kind:"routes",id:x.id});setRoute({code:x.code,name:x.name,origin:x.origin||"",destination:x.destination||"",distanceKm:String(x.distance_km??"")});setCreateOpen(true)}}>ویرایش</button>}/>
     </section>}
 
     {tab==="tracking"&&<section className={styles.panel}>
@@ -203,7 +206,8 @@ export default function LogisticsWorkspace(){
 
 type xstatus=[string,string];
 function Table({rows,cols,action}:{rows:R[];cols:string[];action?:(x:R)=>ReactNode}){
-  return <div className={styles.table}>{rows.map(x=><div className={styles.row} key={String(x.id||JSON.stringify(x))}>
-    {cols.map(c=><span key={c}><b>{labels[c]||c}</b>{fmt(x[c])}</span>)}{action&&<span>{action(x)}</span>}
-  </div>)}{!rows.length&&<div className={styles.empty}>داده‌ای ثبت نشده است.</div>}</div>;
+  const [selected,setSelected]=useState<R|null>(null);
+  return <><div className={styles.table}>{rows.map(x=><div className={styles.row} key={String(x.id||JSON.stringify(x))}>
+    {cols.map(c=><span key={c}><b>{labels[c]||c}</b>{fmt(x[c])}</span>)}<span><button type="button" onClick={()=>setSelected(x)}>مشاهده</button>{action&&action(x)}</span>
+  </div>)}{!rows.length&&<div className={styles.empty}>داده‌ای ثبت نشده است.</div>}</div>{selected&&<ManagementDialog title="جزئیات عملیات لجستیک" onClose={()=>setSelected(null)}><dl className="management-detail-grid">{Object.entries(selected).map(([key,value])=><div key={key}><dt>{labels[key]||key}</dt><dd>{value===null||value===undefined?"—":typeof value==="object"?JSON.stringify(value):fmt(value)}</dd></div>)}</dl></ManagementDialog>}</>;
 }
