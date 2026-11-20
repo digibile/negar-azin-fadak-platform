@@ -4,7 +4,7 @@ import Link from "next/link";
 import {useParams,useSearchParams} from "next/navigation";
 import {useEffect,useMemo,useState} from "react";
 import {AddToCartButton,CartCount} from "../../cart-actions";
-import "../product-detail.css";
+import "../../product-detail.css";
 
 type Product={
  id:string;sku:string;title:string;description:string|null;category:string|null;
