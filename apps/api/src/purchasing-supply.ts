@@ -113,7 +113,10 @@ router.patch("/api/purchasing/rfqs/:id/select",requireAuth,requirePermission("mo
   if(!chosen.rowCount){await c.query("rollback");return deny(res,409,"پیشنهاد هنگام انتخاب تغییر کرده است");}
   const rfq=await c.query("update purchase_rfqs set status='selected' where id=$1 and tenant_id=$2 and status in ('sent','quoting','compared') returning id",[selected.rfq_id,t.id]);
   if(!rfq.rowCount){await c.query("rollback");return deny(res,409,"استعلام هنگام انتخاب تغییر کرده است");}
-  await c.query("update purchase_requests set status='approved',updated_at=now() where id=$1 and tenant_id=$2",[selected.request_id,t.id]);
+  const request=await c.query("select id,status from purchase_requests where id=$1 and tenant_id=$2 for update",[selected.request_id,t.id]);
+  if(!request.rowCount||request.rows[0].status!=="rfq"){await c.query("rollback");return deny(res,409,"درخواست خرید مرتبط دیگر در مرحله استعلام نیست");}
+  const approvedRequest=await c.query("update purchase_requests set status='approved',updated_at=now() where id=$1 and tenant_id=$2 and status='rfq' returning id",[selected.request_id,t.id]);
+  if(!approvedRequest.rowCount){await c.query("rollback");return deny(res,409,"درخواست خرید هنگام انتخاب پیشنهاد تغییر کرده است");}
   await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id,reason) values($1,'rfq',$2,$3,'selected','supplier_selected',$4,$5)",[t.id,selected.rfq_id,selected.rfq_status,(req as any).user.id,"انتخاب پیشنهاد "+(selected.quote_no||selected.id)]);
   await c.query("commit");res.json(chosen.rows[0]);
  }catch(error){await c.query("rollback");throw error;}finally{c.release();}
