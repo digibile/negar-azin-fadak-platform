@@ -322,43 +322,64 @@ logisticsRouter.post("/api/logistics/shipments",requireAuth,requirePermission("m
 }));
 
 logisticsRouter.patch("/api/logistics/shipments/:id/status",requireAuth,asyncHandler(async(req,res)=>{
-  const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
-  const s=(await query("select * from logistics_shipments where id=$1 and tenant_id=$2",[req.params.id,t.id])).rows[0];
-  if(!s)return fail(res,404,"مرسوله پیدا نشد");
-  const isDelivery=["delivered","failed"].includes(b.status);
-  const permission=isDelivery?"modules:12-logistics-supply:deliver":"modules:12-logistics-supply:dispatch";
-  if(!(await can(req,permission)))return fail(res,403,"دسترسی لازم برای این عملیات وجود ندارد");
-  const allowed:any={planned:["assigned","cancelled"],assigned:["picked_up","cancelled"],picked_up:["in_transit","failed"],in_transit:["delivered","failed"],failed:["assigned","cancelled"],delivered:[],cancelled:[]};
-  if(!allowed[s.status]?.includes(b.status))return fail(res,409,"تغییر وضعیت مرسوله مجاز نیست");
-  if(b.status==="picked_up"&&(!s.vehicle_id||!s.driver_id))return fail(res,409,"مرسوله بدون ناوگان و راننده قابل دریافت نیست");
-  if(b.status==="delivered"&&!String(b.location||"").trim())return fail(res,400,"محل تحویل الزامی است");
-  if(b.status==="failed"&&!String(b.reason||"").trim())return fail(res,400,"علت عدم تحویل الزامی است");
+  const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   const c=await pool.connect();
+  let beforeStatus="";
+  let shipmentId="";
   try{
     await c.query("begin");
-    const r=(await c.query(
-      "update logistics_shipments set status=$1,dispatch_at=case when $1='in_transit' then coalesce(dispatch_at,now()) else dispatch_at end,delivered_at=case when $1='delivered' then now() else delivered_at end,delivered_reason=case when $1='delivered' then $2 else delivered_reason end,failed_reason=case when $1='failed' then $2 else failed_reason end,updated_at=now() where id=$3 and tenant_id=$4 returning *",
-      [b.status,b.status==="failed"?b.reason:(b.status==="delivered"?b.location:null),s.id,t.id]
-    )).rows[0];
-    if(s.vehicle_id&&["delivered","failed","cancelled"].includes(b.status)){
-      await c.query("update logistics_vehicles set status='available' where id=$1 and tenant_id=$2 and status='assigned'",[s.vehicle_id,t.id]);
-    }
-    if(s.supply_order_id&&b.status==="in_transit"){
-      await c.query("update logistics_supply_orders set status='shipped',updated_at=now() where id=$1 and tenant_id=$2 and status in ('assigned','approved')",[s.supply_order_id,t.id]);
-    }
-    if(s.supply_order_id&&b.status==="delivered"){
-      await c.query("update logistics_supply_orders set status='delivered',updated_at=now() where id=$1 and tenant_id=$2",[s.supply_order_id,t.id]);
-    }
-    if(s.supply_order_id&&b.status==="cancelled"){
-      await c.query("update logistics_supply_orders set status='cancelled',updated_at=now() where id=$1 and tenant_id=$2 and status not in ('delivered','cancelled')",[s.supply_order_id,t.id]);
-    }
-    await c.query("insert into logistics_delivery_events(tenant_id,shipment_id,status,location,description,actor_user_id) values($1,$2,$3,$4,$5,$6)",[t.id,s.id,b.status,b.location||null,b.description||b.reason||null,(req as any).user.id]);
-    await c.query("commit");
-    await audit(t.id,"shipment",s.id,"status_change",s.status,b.status,(req as any).user.id,b.reason||b.location);
-    res.json(r);
-  }catch(e){await c.query("rollback");throw e}finally{c.release();}
-}));
+    const shipment=(await c.query("select * from logistics_shipments where id=$1 and tenant_id=$2 for update",[req.params.id,t.id])).rows[0];
+    if(!shipment){await c.query("rollback");return fail(res,404,"مرسوله پیدا نشد");}
+    shipmentId=shipment.id;beforeStatus=shipment.status;
+    const isDelivery=["delivered","failed"].includes(b.status);
+    const permission=isDelivery?"modules:12-logistics-supply:deliver":"modules:12-logistics-supply:dispatch";
+    if(!(await can(req,permission))){await c.query("rollback");return fail(res,403,"دسترسی لازم برای این عملیات وجود ندارد");}
+    const allowed:any={planned:["assigned","cancelled"],assigned:["picked_up","cancelled"],picked_up:["in_transit","failed"],in_transit:["delivered","failed"],failed:["assigned","cancelled"],delivered:[],cancelled:[]};
+    if(!allowed[shipment.status]?.includes(b.status)){await c.query("rollback");return fail(res,409,"تغییر وضعیت مرسوله مجاز نیست");}
+    if(b.status==="picked_up"&&(!shipment.vehicle_id||!shipment.driver_id)){await c.query("rollback");return fail(res,409,"مرسوله بدون ناوگان و راننده قابل دریافت نیست");}
+    if(b.status==="delivered"&&!String(b.location||"").trim()){await c.query("rollback");return fail(res,400,"محل تحویل الزامی است");}
+    if(b.status==="failed"&&!String(b.reason||"").trim()){await c.query("rollback");return fail(res,400,"علت عدم تحویل الزامی است");}
 
+    const updated=(await c.query(
+      "update logistics_shipments set status=$1,dispatch_at=case when $1='in_transit' then coalesce(dispatch_at,now()) else dispatch_at end,delivered_at=case when $1='delivered' then now() else delivered_at end,delivered_reason=case when $1='delivered' then $2 else delivered_reason end,failed_reason=case when $1='failed' then $2 else failed_reason end,updated_at=now() where id=$3 and tenant_id=$4 and status=$5 returning *",
+      [b.status,b.status==="failed"?b.reason:(b.status==="delivered"?b.location:null),shipment.id,t.id,shipment.status]
+    )).rows[0];
+    if(!updated){await c.query("rollback");return fail(res,409,"وضعیت مرسوله هم‌زمان تغییر کرده است؛ اطلاعات را تازه‌سازی کنید");}
+
+    if(shipment.vehicle_id&&["delivered","failed","cancelled"].includes(b.status)){
+      await c.query("update logistics_vehicles set status='available' where id=$1 and tenant_id=$2 and status='assigned'",[shipment.vehicle_id,t.id]);
+    }
+    if(shipment.supply_order_id&&["in_transit","delivered","cancelled"].includes(b.status)){
+      const supply=(await c.query("select * from logistics_supply_orders where id=$1 and tenant_id=$2 for update",[shipment.supply_order_id,t.id])).rows[0];
+      if(supply&&b.status==="in_transit"&&["assigned","approved"].includes(supply.status)){
+        const reservations=(await c.query("select * from marketplace_inventory_reservations where tenant_id=$1 and supply_order_id=$2 and status='reserved' order by inventory_product_id for update",[t.id,supply.id])).rows;
+        if(supply.marketplace_order_id&&!reservations.length)throw new Error("رزرو انبار این سفارش موجود نیست؛ حرکت مرسوله متوقف شد");
+        for(const reservation of reservations){
+          const consumed=await c.query("update inventory_stock set quantity=quantity-$1,reserved_quantity=reserved_quantity-$1,updated_at=now() where tenant_id=$2 and warehouse_id=$3 and product_id=$4 and quantity >= $1 and reserved_quantity >= $1",[reservation.quantity,t.id,reservation.warehouse_id,reservation.inventory_product_id]);
+          if(!consumed.rowCount)throw new Error("موجودی یا رزرو انبار با دفتر رزرو هم‌خوانی ندارد؛ حرکت مرسوله متوقف شد");
+          await c.query("update marketplace_inventory_reservations set status='consumed',updated_at=now() where id=$1 and tenant_id=$2",[reservation.id,t.id]);
+          await c.query("insert into inventory_events(tenant_id,entity_type,entity_id,event_type,quantity,actor_user_id,reason) values($1,'marketplace_reservation',$2,'consumed',$3,$4,$5)",[t.id,reservation.id,reservation.quantity,(req as any).user.id,"حرکت مرسوله "+shipment.shipment_no]);
+        }
+        await c.query("update logistics_supply_orders set status='shipped',updated_at=now() where id=$1 and tenant_id=$2",[supply.id,t.id]);
+      }else if(supply&&b.status==="delivered"){
+        await c.query("update logistics_supply_orders set status='delivered',updated_at=now() where id=$1 and tenant_id=$2 and status not in ('cancelled')",[supply.id,t.id]);
+      }else if(supply&&b.status==="cancelled"&&["draft","submitted","approved","assigned"].includes(supply.status)){
+        const reservations=(await c.query("select * from marketplace_inventory_reservations where tenant_id=$1 and supply_order_id=$2 and status='reserved' order by inventory_product_id for update",[t.id,supply.id])).rows;
+        for(const reservation of reservations){
+          const released=await c.query("update inventory_stock set reserved_quantity=reserved_quantity-$1,updated_at=now() where tenant_id=$2 and warehouse_id=$3 and product_id=$4 and reserved_quantity >= $1",[reservation.quantity,t.id,reservation.warehouse_id,reservation.inventory_product_id]);
+          if(!released.rowCount)throw new Error("رزرو انبار با دفتر موجودی هم‌خوانی ندارد؛ لغو مرسوله متوقف شد");
+          await c.query("update marketplace_inventory_reservations set status='released',updated_at=now() where id=$1 and tenant_id=$2",[reservation.id,t.id]);
+          await c.query("insert into inventory_events(tenant_id,entity_type,entity_id,event_type,quantity,actor_user_id,reason) values($1,'marketplace_reservation',$2,'released',$3,$4,$5)",[t.id,reservation.id,reservation.quantity,(req as any).user.id,"لغو مرسوله "+shipment.shipment_no]);
+        }
+        await c.query("update logistics_supply_orders set status='cancelled',updated_at=now() where id=$1 and tenant_id=$2",[supply.id,t.id]);
+      }
+    }
+    await c.query("insert into logistics_delivery_events(tenant_id,shipment_id,status,location,description,actor_user_id) values($1,$2,$3,$4,$5,$6)",[t.id,shipment.id,b.status,b.location||null,b.description||b.reason||null,(req as any).user.id]);
+    await c.query("commit");
+    await audit(t.id,"shipment",shipment.id,"status_change",beforeStatus,b.status,(req as any).user.id,b.reason||b.location);
+    res.json(updated);
+  }catch(e:any){await c.query("rollback");throw e;}finally{c.release();}
+}));
 logisticsRouter.get("/api/logistics/shipments/:id/tracking",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   if(!(await can(req,"modules:12-logistics-supply:track")))return fail(res,403,"دسترسی رهگیری ندارید");
