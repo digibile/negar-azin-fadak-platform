@@ -167,7 +167,7 @@ logisticsRouter.patch("/api/logistics/orders/:id/status",requireAuth,requirePerm
         await c.query("insert into inventory_events(tenant_id,entity_type,entity_id,event_type,quantity,actor_user_id,reason) values($1,'marketplace_reservation',$2,'consumed',$3,$4,$5)",[t.id,reservation.id,reservation.quantity,(req as any).user.id,"اعزام سفارش "+o.order_no]);
       }
     }else if(b.status==="cancelled"&&["draft","submitted","approved","assigned"].includes(o.status)){
-      const activeShipment=await c.query("select id,status from logistics_shipments where tenant_id=$1 and supply_order_id=$2 and status in ('planned','assigned','picked_up','in_transit') limit 1 for update",[t.id,o.id]);
+      const activeShipment=await c.query("select id,status from logistics_shipments where tenant_id=$1 and supply_order_id=$2 and status in ('planned','assigned','picked_up','in_transit','failed') limit 1 for update",[t.id,o.id]);
       if(activeShipment.rowCount){await c.query("rollback");return fail(res,409,"ابتدا مرسوله فعال را از مسیر حمل لغو کنید");}
       const reservations=(await c.query("select * from marketplace_inventory_reservations where tenant_id=$1 and supply_order_id=$2 and status='reserved' order by inventory_product_id for update",[t.id,o.id])).rows;
       for(const reservation of reservations){
@@ -365,7 +365,7 @@ logisticsRouter.patch("/api/logistics/shipments/:id/status",requireAuth,asyncHan
         await c.query("update logistics_supply_orders set status='shipped',updated_at=now() where id=$1 and tenant_id=$2",[supply.id,t.id]);
       }else if(supply&&b.status==="delivered"){
         await c.query("update logistics_supply_orders set status='delivered',updated_at=now() where id=$1 and tenant_id=$2 and status not in ('cancelled')",[supply.id,t.id]);
-      }else if(supply&&b.status==="cancelled"&&["draft","submitted","approved","assigned"].includes(supply.status)){
+      }else if(supply&&b.status==="cancelled"&&["planned","assigned"].includes(shipment.status)&&["draft","submitted","approved","assigned"].includes(supply.status)){
         const reservations=(await c.query("select * from marketplace_inventory_reservations where tenant_id=$1 and supply_order_id=$2 and status='reserved' order by inventory_product_id for update",[t.id,supply.id])).rows;
         for(const reservation of reservations){
           const released=await c.query("update inventory_stock set reserved_quantity=reserved_quantity-$1,updated_at=now() where tenant_id=$2 and warehouse_id=$3 and product_id=$4 and reserved_quantity >= $1",[reservation.quantity,t.id,reservation.warehouse_id,reservation.inventory_product_id]);
