@@ -347,6 +347,36 @@ router.patch("/api/purchasing/returns/:id/status",requireAuth,requirePermission(
   await c.query("commit");res.json(updated.rows[0]);
  }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
-router.post("/api/purchasing/evaluations",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const total=(n(b.qualityScore)+n(b.deliveryScore)+n(b.priceScore)+n(b.serviceScore))/4;const r=await query("insert into supplier_evaluations(tenant_id,supplier_id,period_start,period_end,quality_score,delivery_score,price_score,service_score,total_score,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,b.supplierId,b.periodStart,b.periodEnd,n(b.qualityScore),n(b.deliveryScore),n(b.priceScore),n(b.serviceScore),total,b.notes||null,(req as any).user.id]);res.status(201).json(r.rows[0])});
-router.post("/api/purchasing/contracts",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const r=await query("insert into supplier_contracts(tenant_id,contract_no,supplier_id,title,status,start_date,end_date,value,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",[t.id,b.contractNo||"SC-"+Date.now(),b.supplierId,b.title,b.status||"draft",b.startDate||null,b.endDate||null,n(b.value),b.notes||null,(req as any).user.id]);res.status(201).json(r.rows[0])});
+router.post("/api/purchasing/evaluations",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{
+ const t=await tenantOf(req),b=req.body||{};
+ if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const scores=[n(b.qualityScore),n(b.deliveryScore),n(b.priceScore),n(b.serviceScore)];
+ const start=String(b.periodStart||""),end=String(b.periodEnd||"");
+ if(!b.supplierId||scores.some(x=>!Number.isFinite(x)||x<0||x>100)||!/^\d{4}-\d{2}-\d{2}$/.test(start)||!/^\d{4}-\d{2}-\d{2}$/.test(end)||start>end)return deny(res,400,"تأمین‌کننده، بازه ارزیابی یا امتیازهای صفر تا صد معتبر نیست");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const supplier=await c.query("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active' for update",[b.supplierId,t.id]);
+  if(!supplier.rowCount){await c.query("rollback");return deny(res,400,"تأمین‌کننده فعال و متعلق به سازمان انتخاب نشده است");}
+  const total=scores.reduce((a,x)=>a+x,0)/4;
+  const r=await c.query("insert into supplier_evaluations(tenant_id,supplier_id,period_start,period_end,quality_score,delivery_score,price_score,service_score,total_score,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,b.supplierId,start,end,...scores,total,String(b.notes||"").trim().slice(0,2000),(req as any).user.id]);
+  await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,to_status,event_type,actor_user_id) values($1,'supplier_evaluation',$2,'recorded','create',$3)",[t.id,r.rows[0].id,(req as any).user.id]);
+  await c.query("commit");res.status(201).json(r.rows[0]);
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
+});
+router.post("/api/purchasing/contracts",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{
+ const t=await tenantOf(req),b=req.body||{},value=n(b.value),no=String(b.contractNo||"SC-"+Date.now()).trim(),title=String(b.title||"").trim();
+ const status=String(b.status||"draft"),start=b.startDate?String(b.startDate):null,end=b.endDate?String(b.endDate):null;
+ if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ if(!b.supplierId||!no||no.length>100||!title||title.length>240||!Number.isFinite(value)||value<0||!["draft","active","expired","terminated"].includes(status)||start&&!/^\d{4}-\d{2}-\d{2}$/.test(start)||end&&!/^\d{4}-\d{2}-\d{2}$/.test(end)||start&&end&&start>end)return deny(res,400,"تأمین‌کننده، شماره، عنوان، مبلغ، وضعیت یا تاریخ قرارداد معتبر نیست");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const supplier=await c.query("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active' for update",[b.supplierId,t.id]);
+  if(!supplier.rowCount){await c.query("rollback");return deny(res,400,"تأمین‌کننده فعال و متعلق به سازمان انتخاب نشده است");}
+  const r=await c.query("insert into supplier_contracts(tenant_id,contract_no,supplier_id,title,status,start_date,end_date,value,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",[t.id,no,b.supplierId,title,status,start,end,value,String(b.notes||"").trim().slice(0,4000),(req as any).user.id]);
+  await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,to_status,event_type,actor_user_id) values($1,'supplier_contract',$2,$3,'create',$4)",[t.id,r.rows[0].id,status,(req as any).user.id]);
+  await c.query("commit");res.status(201).json(r.rows[0]);
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
+});
 export {router as purchasingSupplyRouter};
