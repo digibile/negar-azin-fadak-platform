@@ -125,7 +125,45 @@ router.patch("/api/purchasing/orders/:id/status",requireAuth,requirePermission("
  }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/purchasing/receipts",requireAuth,requirePermission("modules:21-purchasing-supply:receive"),async(req,res)=>{
- const t=await tenantOf(req),b=req.body||{},items=Array.isArray(b.items)?b.items:[];if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");if(!b.orderId||!items.length)return deny(res,400,"سفارش و اقلام دریافت الزامی است");const c=await pool.connect();try{await c.query("begin");const o=await c.query("select * from purchase_orders where id=$1 and tenant_id=$2 for update",[b.orderId,t.id]);if(!o.rowCount||!["sent","partially_received"].includes(o.rows[0].status))return deny(res,409,"سفارش آماده دریافت نیست");for(const x of items){const it=await c.query("select * from purchase_order_items where id=$1 and order_id=$2 for update",[x.orderItemId,b.orderId]);if(!it.rowCount)return deny(res,400,"قلم سفارش نامعتبر است");const row=it.rows[0],qty=n(x.quantity),open=n(row.quantity)-n(row.received_qty);if(qty<=0||qty>open)return deny(res,409,"مقدار دریافت بیش از مانده سفارش است");await c.query("update purchase_order_items set received_qty=received_qty+$1 where id=$2",[qty,row.id]);}const no=b.receiptNo||"GRN-"+Date.now();const g=await c.query("insert into purchase_receipts(tenant_id,receipt_no,order_id,status,inspector_user_id,notes,created_by) values($1,$2,$3,'received',$4,$5,$4) returning *",[t.id,no,b.orderId,(req as any).user.id,b.notes||null]);for(const x of items)await c.query("insert into purchase_receipt_items(receipt_id,order_item_id,quantity,accepted_qty,rejected_qty) values($1,$2,$3,$4,$5)",[g.rows[0].id,x.orderItemId,n(x.quantity),n(x.acceptedQty||x.quantity),n(x.rejectedQty)]);const rem=await c.query("select count(*) filter(where received_qty<quantity) remaining from purchase_order_items where order_id=$1",[b.orderId]);await c.query("update purchase_orders set status=$1,updated_at=now() where id=$2",[(Number(rem.rows[0].remaining)>0)?"partially_received":"received",b.orderId]);await c.query("commit");res.status(201).json(g.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
+ const t=await tenantOf(req),b=req.body||{},items=Array.isArray(b.items)?b.items:[];
+ if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ if(!b.orderId||!items.length)return deny(res,400,"سفارش و اقلام دریافت الزامی است");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const order=await c.query("select * from purchase_orders where id=$1 and tenant_id=$2 for update",[b.orderId,t.id]);
+  if(!order.rowCount){await c.query("rollback");return deny(res,404,"سفارش خرید پیدا نشد");}
+  const old=order.rows[0];
+  if(!["sent","partially_received"].includes(old.status)){await c.query("rollback");return deny(res,409,"سفارش آماده دریافت نیست");}
+  const seen=new Set<string>(),normalized=[];
+  for(const raw of items){
+   const item=raw||{},itemId=String(item.orderItemId||""),quantity=Number(item.quantity);
+   const accepted=item.acceptedQty===undefined?quantity:Number(item.acceptedQty),rejected=item.rejectedQty===undefined?0:Number(item.rejectedQty);
+   if(!itemId||seen.has(itemId)||![quantity,accepted,rejected].every(Number.isFinite)||quantity<=0||accepted<0||rejected<0||Math.abs(accepted+rejected-quantity)>0.000001){
+    await c.query("rollback");return deny(res,400,"اقلام دریافت تکراری یا مقادیر دریافت، پذیرفته و مردود نامعتبر هستند");
+   }
+   seen.add(itemId);
+   const found=await c.query("select * from purchase_order_items where id=$1 and order_id=$2 for update",[itemId,old.id]);
+   if(!found.rowCount){await c.query("rollback");return deny(res,400,"قلم سفارش متعلق به این سفارش نیست");}
+   const row=found.rows[0],open=Number(row.quantity)-Number(row.received_qty||0);
+   if(!Number.isFinite(open)||quantity>open+0.000001){await c.query("rollback");return deny(res,409,"مقدار دریافت از مانده سفارش بیشتر است");}
+   normalized.push({id:itemId,quantity,accepted,rejected});
+  }
+  const receiptNo=String(b.receiptNo||"GRN-"+Date.now()).trim();
+  if(!receiptNo||receiptNo.length>100){await c.query("rollback");return deny(res,400,"شماره رسید دریافت معتبر نیست");}
+  const receipt=await c.query("insert into purchase_receipts(tenant_id,receipt_no,order_id,status,inspector_user_id,notes,created_by) values($1,$2,$3,'received',$4,$5,$4) returning *",[t.id,receiptNo,old.id,(req as any).user.id,b.notes||null]);
+  for(const item of normalized){
+   await c.query("update purchase_order_items set received_qty=received_qty+$1 where id=$2 and order_id=$3",[item.quantity,item.id,old.id]);
+   await c.query("insert into purchase_receipt_items(receipt_id,order_item_id,quantity,accepted_qty,rejected_qty) values($1,$2,$3,$4,$5)",[receipt.rows[0].id,item.id,item.quantity,item.accepted,item.rejected]);
+  }
+  const remaining=await c.query("select count(*) filter(where received_qty<quantity) remaining from purchase_order_items where order_id=$1",[old.id]);
+  const next=Number(remaining.rows[0].remaining)>0?"partially_received":"received";
+  const updated=await c.query("update purchase_orders set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning id",[next,old.id,t.id]);
+  if(!updated.rowCount)throw new Error("وضعیت سفارش هنگام ثبت رسید تغییر کرده است");
+  await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id,reason) values($1,'order',$2,$3,$4,'receipt',$5,$6)",[t.id,old.id,old.status,next,(req as any).user.id,"رسید "+receiptNo]);
+  await c.query("commit");
+  res.status(201).json({receipt:receipt.rows[0],orderStatus:next});
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/purchasing/invoices",requireAuth,requirePermission("modules:21-purchasing-supply:invoice"),async(req,res)=>{
  const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const o=await query("select * from purchase_orders where id=$1 and tenant_id=$2",[b.orderId,t.id]);if(!o.rowCount||!["received"].includes(o.rows[0].status))return deny(res,409,"فقط سفارش کاملاً دریافت‌شده قابل فاکتور است");const x=o.rows[0];const r=await query("insert into purchase_invoices(tenant_id,invoice_no,supplier_id,order_id,status,subtotal,tax_total,total,due_date,notes,created_by) values($1,$2,$3,$4,'issued',$5,$6,$7,$8,$9,$10) returning *",[t.id,b.invoiceNo||"PINV-"+Date.now(),x.supplier_id,x.id,x.subtotal,x.tax_total,x.total,b.dueDate||null,b.notes||null,(req as any).user.id]);await query("update purchase_orders set status='invoiced',updated_at=now() where id=$1",[x.id]);await query("insert into purchase_financial_events(tenant_id,source_type,source_id,event_type,amount,state,reference_no) values($1,'purchase_invoice',$2,'invoice_received',$3,'pending_accounting',$4)",[t.id,r.rows[0].id,x.total,r.rows[0].invoice_no]);res.status(201).json(r.rows[0]);
