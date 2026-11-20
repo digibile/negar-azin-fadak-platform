@@ -49,3 +49,11 @@ test("paid storefront orders can be linked to logistics once by stable order id"
  assert.ok(source.includes("marketplace_order_linked"));
  assert.ok(source.includes("idempotent:true"));
 });
+
+
+test("logistics storefront fulfillment queue lists only paid tenant orders and exposes existing linkage",()=>{
+ assert.ok(source.includes('/api/logistics/marketplace-orders/eligible'));
+ assert.ok(source.includes("where o.tenant_id=$1 and o.status='paid'"));
+ assert.ok(source.includes("so.marketplace_order_id=o.id"));
+ assert.ok(source.includes("as supply_order_id"));
+});
