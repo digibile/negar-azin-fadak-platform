@@ -8,7 +8,8 @@ import "./tracking-workspace.css";
 
 type Event={id:string|number;status:string;location?:string|null;description?:string|null;occurred_at:string};
 type Shipment={id:string;shipment_no:string;status:string;tracking_code?:string|null;origin:string;destination:string;dispatch_at?:string|null;delivered_at?:string|null;delivered_reason?:string|null};
-type Tracking={order:{id:string;order_no:string};shipment:Shipment|null;events:Event[]};
+type CustomerNotice={id:string;title:string;body:string;status:string;created_at:string;read_at?:string|null};
+type Tracking={order:{id:string;order_no:string};shipment:Shipment|null;events:Event[];notifications:CustomerNotice[]};
 const labels:Record<string,string>={planned:"برنامه‌ریزی‌شده",assigned:"ناوگان تخصیص یافته",picked_up:"دریافت از انبار",in_transit:"در مسیر",delivered:"تحویل‌شده",failed:"عدم تحویل",cancelled:"لغوشده"};
 const date=(v?:string|null)=>v?new Date(v).toLocaleString("fa-IR"):"—";
 
@@ -17,6 +18,7 @@ export default function OrderTrackingPage(){
  const [data,setData]=useState<Tracking|null>(null);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
+ const [noticeBusy,setNoticeBusy]=useState<string|null>(null);
  const load=useCallback(async()=>{
   if(!params?.id)return;
   setLoading(true);setError("");
@@ -39,6 +41,7 @@ export default function OrderTrackingPage(){
      <span className={"tracking-status status-"+data.shipment.status}>{labels[data.shipment.status]||data.shipment.status}</span>
     </article>
     <div className="tracking-route"><div><small>مبدأ</small><b>{data.shipment.origin}</b></div><span>←</span><div><small>مقصد</small><b>{data.shipment.destination}</b></div></div>
+    {data.notifications?.length>0&&<section className="tracking-notifications"><header><div><h2>اعلان‌های سفارش</h2><p>تغییر وضعیت مرسوله برای شما ثبت شده است.</p></div><span>{data.notifications.filter(n=>n.status!=="read").length.toLocaleString("fa-IR")} خوانده‌نشده</span></header><ul>{data.notifications.map(n=><li key={n.id} className={n.status==="read"?"is-read":""}><div><b>{n.title}</b><p>{n.body}</p><time>{date(n.created_at)}</time></div>{n.status!=="read"&&<button type="button" disabled={noticeBusy===n.id} onClick={async()=>{setNoticeBusy(n.id);try{await api("/api/marketplace/orders/"+encodeURIComponent(params.id)+"/notifications/"+encodeURIComponent(n.id)+"/read",{method:"PATCH"});await load()}catch(e){setError(e instanceof Error?e.message:"ثبت وضعیت اعلان ناموفق بود.")}finally{setNoticeBusy(null)}}}>{noticeBusy===n.id?"در حال ثبت…":"خواندم"}</button>}</li>)}</ul></section>}
     <section className="tracking-timeline"><header><h2>تاریخچه جابه‌جایی</h2><button type="button" onClick={()=>void load()} disabled={loading}>به‌روزرسانی</button></header>
      {data.events.length?<ol>{data.events.map((event,i)=><li key={event.id}><span className="tracking-dot"/><div><b>{labels[event.status]||event.status}</b><time>{date(event.occurred_at)}</time>{event.location&&<small>موقعیت: {event.location}</small>}{event.description&&<p>{event.description}</p>}</div></li>)}</ol>:<p className="tracking-empty">هنوز رویدادی برای این مرسوله ثبت نشده است.</p>}
     </section>

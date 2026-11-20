@@ -179,6 +179,10 @@ if(!customerTracking.includes("/api/marketplace/orders/")||!customerTracking.inc
 if(!customerOrdersPage.includes("latest_shipment_id")||!customerOrdersPage.includes("/tracking"))throw new Error("Customer order history must link to shipment tracking when a shipment exists");
 if(orderLifecycle.includes('processing:["shipped"]')&&!orderLifecycle.includes("ثبت ارسال سفارش فقط پس از شروع حرکت مرسوله"))throw new Error("Marketplace order shipping must be controlled by logistics events");
 
+const logisticsNotifications=read("apps/api/src/logistics.ts");
+const customerTrackingNotifications=read("apps/web/app/account/orders/[id]/tracking/page.tsx");
+if(!logisticsNotifications.includes("insert into platform_notifications")||!logisticsNotifications.includes("/api/marketplace/orders/:orderId/notifications/:notificationId/read")||!logisticsNotifications.includes("platform_notifications where tenant_id=$1 and user_id=$2"))throw new Error("Marketplace shipment lifecycle must create customer in-app notifications and allow owner-only read acknowledgements");
+if(!customerTrackingNotifications.includes("اعلان‌های سفارش")||!customerTrackingNotifications.includes("/notifications/"))throw new Error("Customer shipment tracking must display and acknowledge order notifications");
 const shippingAddressMigration=read("database/migrations/156_marketplace_order_shipping_address.sql");
 const checkoutDomain=read("apps/api/src/domain-checkout.ts");
 const marketplaceShippingPage=read("apps/web/app/marketplace/shipping/page.tsx");
