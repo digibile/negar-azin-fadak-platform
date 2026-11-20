@@ -46,6 +46,7 @@ router.post("/api/purchasing/suppliers/import",requireAuth,requirePermission("mo
  const seen=new Set<string>();
  for(const row of normalized){
   if(!row.code||!row.name)return deny(res,400,"کد و نام تأمین‌کننده در ردیف "+row.row+" الزامی است");
+  if(row.code.length>80||row.name.length>250||(row.nationalId&&row.nationalId.length>30)||(row.phone&&row.phone.length>40)||(row.email&&row.email.length>254))return deny(res,400,"طول یکی از فیلدهای ردیف "+row.row+" بیش از حد مجاز است");
   if(seen.has(row.code))return deny(res,400,"کد تکراری در فایل: "+row.code);
   seen.add(row.code);
   if(!Number.isInteger(row.paymentTermsDays)||row.paymentTermsDays<0||row.paymentTermsDays>3650)return deny(res,400,"مهلت پرداخت در ردیف "+row.row+" باید عدد صحیح بین صفر تا ۳۶۵۰ باشد");
