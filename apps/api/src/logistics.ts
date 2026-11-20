@@ -37,8 +37,10 @@ logisticsRouter.get("/api/logistics/plans",requireAuth,asyncHandler(async(req,re
 }));
 logisticsRouter.post("/api/logistics/plans",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
-  if(!b.planNo)return fail(res,400,"شماره برنامه الزامی است");
-  const r=await query("insert into logistics_supply_plans(tenant_id,plan_no,planned_date,notes,created_by) values($1,$2,$3,$4,$5) returning *",[t.id,b.planNo,b.plannedDate||null,b.notes||null,(req as any).user.id]);
+  const planNo=String(b.planNo??"").trim();
+  if(!planNo||planNo.length>120)return fail(res,400,"شماره برنامه معتبر نیست");
+  if(b.plannedDate&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(b.plannedDate)))return fail(res,400,"تاریخ برنامه معتبر نیست");
+  const r=await query("insert into logistics_supply_plans(tenant_id,plan_no,planned_date,notes,created_by) values($1,$2,$3,$4,$5) returning *",[t.id,planNo,b.plannedDate||null,b.notes||null,(req as any).user.id]);
   await audit(t.id,"supply_plan",r.rows[0].id,"created",null,r.rows[0].status,(req as any).user.id);
   res.status(201).json(r.rows[0]);
 }));
@@ -63,8 +65,8 @@ logisticsRouter.get("/api/logistics/orders",requireAuth,asyncHandler(async(req,r
 }));
 logisticsRouter.post("/api/logistics/orders",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
-  const quantity=Number(b.quantity??0);
-  if(!b.orderNo||!String(b.origin).trim()||!String(b.destination).trim())return fail(res,400,"شماره سفارش، مبدأ و مقصد الزامی است");
+  const quantity=Number(b.quantity??0),orderNo=String(b.orderNo??"").trim(),origin=String(b.origin??"").trim(),destination=String(b.destination??"").trim();
+  if(!orderNo||orderNo.length>120||!origin||origin.length>250||!destination||destination.length>250)return fail(res,400,"شماره سفارش، مبدأ و مقصد معتبر و الزامی هستند");
   if(!Number.isFinite(quantity)||quantity<0)return fail(res,400,"مقدار سفارش باید عدد معتبر و غیرمنفی باشد");
   if(b.planId){
     const p=(await query("select id,status from logistics_supply_plans where id=$1 and tenant_id=$2",[b.planId,t.id])).rows[0];
@@ -73,7 +75,7 @@ logisticsRouter.post("/api/logistics/orders",requireAuth,requirePermission("modu
   }
   const r=await query(
     "insert into logistics_supply_orders(tenant_id,order_no,plan_id,origin,destination,cargo_description,quantity,requested_date,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",
-    [t.id,b.orderNo,b.planId||null,b.origin,b.destination,b.cargoDescription||null,quantity,b.requestedDate||null,b.notes||null,(req as any).user.id]
+    [t.id,orderNo,b.planId||null,origin,destination,b.cargoDescription||null,quantity,b.requestedDate||null,b.notes||null,(req as any).user.id]
   );
   await audit(t.id,"supply_order",r.rows[0].id,"created",null,r.rows[0].status,(req as any).user.id);
   res.status(201).json(r.rows[0]);
@@ -95,8 +97,9 @@ logisticsRouter.get("/api/logistics/vehicles",requireAuth,asyncHandler(async(req
 }));
 logisticsRouter.post("/api/logistics/vehicles",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
-  if(!b.plateNo||!b.title)return fail(res,400,"پلاک و عنوان الزامی است");
-  const r=(await query("insert into logistics_vehicles(tenant_id,plate_no,title,vehicle_type,capacity) values($1,$2,$3,$4,$5) returning *",[t.id,b.plateNo,b.title,b.vehicleType||null,Number(b.capacity||0)])).rows[0];await audit(t.id,"vehicle",r.id,"created",null,r.status,(req as any).user.id);res.status(201).json(r);
+  const plateNo=String(b.plateNo??"").trim(),title=String(b.title??"").trim(),capacity=Number(b.capacity??0);
+  if(!plateNo||plateNo.length>40||!title||title.length>160||!Number.isFinite(capacity)||capacity<0)return fail(res,400,"پلاک، عنوان و ظرفیت خودرو معتبر هستند");
+  const r=(await query("insert into logistics_vehicles(tenant_id,plate_no,title,vehicle_type,capacity) values($1,$2,$3,$4,$5) returning *",[t.id,plateNo,title,b.vehicleType||null,capacity])).rows[0];await audit(t.id,"vehicle",r.id,"created",null,r.status,(req as any).user.id);res.status(201).json(r);
 }));
 
 logisticsRouter.patch("/api/logistics/vehicles/:id",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
@@ -114,8 +117,10 @@ logisticsRouter.get("/api/logistics/drivers",requireAuth,asyncHandler(async(req,
 }));
 logisticsRouter.post("/api/logistics/drivers",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
-  if(!b.name)return fail(res,400,"نام راننده الزامی است");
-  const r=(await query("insert into logistics_drivers(tenant_id,name,mobile,license_no,license_expiry) values($1,$2,$3,$4,$5) returning *",[t.id,b.name,b.mobile||null,b.licenseNo||null,b.licenseExpiry||null])).rows[0];await audit(t.id,"driver",r.id,"created",null,r.status,(req as any).user.id);res.status(201).json(r);
+  const name=String(b.name??"").trim(),mobile=String(b.mobile??"").trim(),licenseNo=String(b.licenseNo??"").trim();
+  if(!name||name.length>160||mobile.length>40||licenseNo.length>80)return fail(res,400,"اطلاعات راننده معتبر نیست");
+  if(b.licenseExpiry&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(b.licenseExpiry)))return fail(res,400,"تاریخ اعتبار گواهینامه معتبر نیست");
+  const r=(await query("insert into logistics_drivers(tenant_id,name,mobile,license_no,license_expiry) values($1,$2,$3,$4,$5) returning *",[t.id,name,mobile||null,licenseNo||null,b.licenseExpiry||null])).rows[0];await audit(t.id,"driver",r.id,"created",null,r.status,(req as any).user.id);res.status(201).json(r);
 }));
 logisticsRouter.get("/api/logistics/routes",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
@@ -123,8 +128,9 @@ logisticsRouter.get("/api/logistics/routes",requireAuth,asyncHandler(async(req,r
 }));
 logisticsRouter.post("/api/logistics/routes",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
-  if(!b.code||!b.name||!b.origin||!b.destination)return fail(res,400,"اطلاعات مسیر کامل نیست");
-  const r=(await query("insert into logistics_routes(tenant_id,code,name,origin,destination,distance_km) values($1,$2,$3,$4,$5,$6) returning *",[t.id,b.code,b.name,b.origin,b.destination,Number(b.distanceKm||0)])).rows[0];await audit(t.id,"route",r.id,"created",null,r.status,(req as any).user.id);res.status(201).json(r);
+  const code=String(b.code??"").trim(),name=String(b.name??"").trim(),origin=String(b.origin??"").trim(),destination=String(b.destination??"").trim(),distance=Number(b.distanceKm??0);
+  if(!code||code.length>80||!name||name.length>160||!origin||origin.length>250||!destination||destination.length>250||!Number.isFinite(distance)||distance<0)return fail(res,400,"اطلاعات مسیر و مسافت باید معتبر باشند");
+  const r=(await query("insert into logistics_routes(tenant_id,code,name,origin,destination,distance_km) values($1,$2,$3,$4,$5,$6) returning *",[t.id,code,name,origin,destination,distance])).rows[0];await audit(t.id,"route",r.id,"created",null,r.status,(req as any).user.id);res.status(201).json(r);
 }));
 
 
