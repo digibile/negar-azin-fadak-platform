@@ -100,6 +100,22 @@ if(!customerOrders.includes('import "./orders-workspace.css"')||!customerOrdersC
 if(!checkoutPage.includes('cartId==="history"')||!checkoutPage.includes('order.payments?.[0]?.status'))throw new Error("Order tracking must work without an active cart session");
 console.log("COMMERCE_STOREFRONT_INTEGRITY_OK");
 
+const deliveryMethodsApi=read("apps/api/src/logistics.ts");
+const deliveryMethodsPage=read("apps/web/app/marketplace/shipping/delivery-methods/page.tsx");
+const deliveryMethodsCss=read("apps/web/app/marketplace/shipping/delivery-methods/delivery-methods.css");
+const deliveryMethodsMigration=read("database/migrations/115_delivery_and_quote_reminders.sql");
+if(!deliveryMethodsMigration.includes("create table if not exists commerce_delivery_methods")||!deliveryMethodsMigration.includes("carrier_type")||!deliveryMethodsMigration.includes("business_days_min")||!deliveryMethodsMigration.includes("cost numeric(20,2)"))throw new Error("Delivery methods workspace must reuse the existing canonical delivery-method schema");
+for(const route of ['/api/logistics/delivery-methods','/api/logistics/delivery-methods/:id/enabled'])if(!deliveryMethodsApi.includes(route))throw new Error("Tenant-scoped delivery method API is missing: "+route);
+if(!deliveryMethodsApi.includes('where tenant_id=$1 order by enabled desc,title')||!deliveryMethodsApi.includes('where id=$2 and tenant_id=$3 returning'))throw new Error("Delivery method reads and updates must be tenant-scoped");
+if(!deliveryMethodsApi.includes('requirePermission("modules:12-logistics-supply:write")')||!deliveryMethodsApi.includes('maxDays<minDays')||!deliveryMethodsApi.includes('cost<0'))throw new Error("Delivery method writes must enforce logistics permission and tariff validation");
+if(!deliveryMethodsPage.includes('/api/logistics/delivery-methods')||!deliveryMethodsPage.includes('تعریف روش ارسال')||!deliveryMethodsPage.includes('تعرفه پایه'))throw new Error("Delivery methods workspace must use the operational API and show tariff details");
+if(!deliveryMethodsPage.includes('به‌تنهایی به مشتری اعلام یا به سفارش اضافه نمی‌شود')||!deliveryMethodsPage.includes('هیچ هزینه‌ای به مبلغ سفارش اضافه نمی‌شود'))throw new Error("Unquoted base tariffs must not be presented as a customer shipping quote");
+if(!deliveryMethodsCss.includes('.delivery-method-form')||!deliveryMethodsCss.includes('@media(max-width:560px)'))throw new Error("Delivery methods workspace must include responsive isolated styles");
+const shippingWorkspaceWithTariffLink=read("apps/web/app/marketplace/shipping/page.tsx");
+if(!shippingWorkspaceWithTariffLink.includes('/marketplace/shipping/delivery-methods'))throw new Error("Shipping workspace must link to delivery method management");
+console.log("DELIVERY_METHODS_INTEGRITY_OK");
+
+
 
 const reservationMigration=read("database/migrations/149_marketplace_reservation_expiry.sql");
 const notificationWorker=read("apps/api/src/notification-worker.ts");
