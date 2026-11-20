@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import MarketplacePro from "./MarketplacePro";
+import MarketplacePage from "./MarketplacePage";
 
 export const metadata: Metadata = {
-  title: "بازارگاه نگار آذین فدک | Marketplace Pro",
-  description: "بازارگاه حرفه‌ای نگار آذین فدک ایران؛ جست‌وجوی کالا، دسته‌بندی محصولات، اطلاعات فروشندگان و سبد خرید واکنش‌گرا.",
-  robots: { index: false, follow: false }
+  title: "بازارگاه سوکار | خرید و فروش یکپارچه",
+  description: "کالاها، دسته‌بندی‌ها و فروشگاه‌های فعال را در بازارگاه سوکار کشف و مقایسه کنید.",
+  alternates: { canonical: "/marketplace" },
+  robots: { index: false, follow: true }
 };
 
 export default function MarketplaceRoute() {
-  return <MarketplacePro />;
+  return <MarketplacePage />;
 }
