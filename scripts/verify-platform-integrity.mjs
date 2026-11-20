@@ -134,7 +134,7 @@ const firstChildren=[...firstPanel[4].matchAll(/child\("([^"]+)"(?:,\s*(?:"([^"]
 const firstDestinations=firstChildren.map(child=>child[2]||child[3]).filter(Boolean);
 if(new Set(firstDestinations).size!==firstDestinations.length)throw new Error("Panel 01 contains duplicate child destinations");
 if(!masterMenu.includes('child("مرکز فرماندهی عملیاتی","","command-center","/command-center")'))throw new Error("Panel 01 command center route is not explicitly registered");
-if(!sidebar.includes("const childRoute=child.route"))throw new Error("Sidebar does not honor explicit canonical child routes");
+if(!sidebar.includes('if(node.path&&node.path!=="#")return node.path')||!sidebar.includes('if(node.menu_key)return "/modules/?code="+encodeURIComponent(node.menu_key)'))throw new Error("Sidebar must honor backend-provided paths and resolve pathless menu nodes through their menu keys");
 const unroutedLegacy=expectedLegacyCodes.filter(code=>!declaredCodes.has(code));
 if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered in a real dispatcher branch/workspace: "+unroutedLegacy.join(", "));
 
