@@ -65,7 +65,7 @@ test("postgres integration: checkout payment settlement refund and tenant isolat
   await client.query("insert into seller_settlements(id,tenant_id,seller_id,settlement_no,period_start,period_end,gross_amount,commission_amount,net_amount,status) values($1,$2,$3,$4,now()-interval '1 day',now()+interval '1 day',100000,10000,90000,'approved')",[
    settlementA,tenantA,sellerA,"SET-A-"+suffix
   ]);
-  await client.query("insert into seller_settlement_items(tenant_id,settlement_id,order_id,gross_amount,commission_amount,net_amount) values($1,$2,$3,100000,10000,90000)",[
+  await client.query("insert into seller_settlement_items(tenant_id,settlement_id,order_id,gross_amount,commission_amount,net_amount,shipping_amount) values($1,$2,$3,100000,10000,90000,5000)",[
    tenantA,settlementA,orderA
   ]);
   const settlementEntry=await client.query("insert into ledger_entries(tenant_id,entry_no,source_type,source_id,description) values($1,$2,'marketplace_settlement',$3,'integration settlement') returning id",[
@@ -92,6 +92,8 @@ test("postgres integration: checkout payment settlement refund and tenant isolat
    tenantA,productA,storeA,refundA
   ]);
 
+  const settlementShipping=await client.query("select shipping_amount from seller_settlement_items where tenant_id=$1 and order_id=$2",[tenantA,orderA]);
+  assert.equal(settlementShipping.rows[0].shipping_amount,"5000.00");
   const crossTenantOrder=await client.query("select 1 from marketplace_orders where tenant_id=$1 and id=$2",[tenantB,orderA]);
   const crossTenantPayment=await client.query("select 1 from marketplace_payments where tenant_id=$1 and id=$2",[tenantB,paymentA]);
   const balances=await client.query("select coalesce(sum(debit),0)::numeric as debits,coalesce(sum(credit),0)::numeric as credits from ledger_lines where entry_id in($1,$2,$3)",[
