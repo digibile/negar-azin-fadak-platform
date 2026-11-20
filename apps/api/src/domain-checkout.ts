@@ -404,6 +404,39 @@ checkoutRouter.get("/api/marketplace/returns/finance-mappings",requireAuth,requi
  ]);
  res.json({products:products.rows,warehouses:warehouses.rows,inventoryProducts:inventoryProducts.rows,financeProducts:financeProducts.rows,inventoryWarehouses:inventoryWarehouses.rows,financeWarehouses:financeWarehouses.rows});
 }));
+
+checkoutRouter.get("/api/marketplace/returns/finance-handover-readiness",requireAuth,requirePermission("order:manage"),requirePermission("accounting-finance.read"),asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query(`select q.id,q.return_request_id,rr.request_no,q.status,q.quarantine_quantity,q.warehouse_id,iw.code inventory_warehouse_code,iw.name inventory_warehouse_name,
+  q.supplier_party_id,ap.party_code supplier_code,ap.title supplier_title,ap.party_type supplier_type,ap.status supplier_status,
+  q.source_purchase_id,p.invoice_no purchase_invoice_no,p.status purchase_status,p.supplier_id purchase_supplier_id,
+  q.finance_product_id,fp.code finance_product_code,fp.title finance_product_title,fp.is_active finance_product_active,q.finance_quantity,
+  exists(select 1 from finance_purchase_lines fpl where fpl.purchase_id=p.id and fpl.product_id=q.finance_product_id) purchase_line_matches_product,
+  fwl.finance_warehouse_id,fw.code finance_warehouse_code,fw.title finance_warehouse_title,fw.status finance_warehouse_status
+ from marketplace_return_quarantine q
+ join marketplace_return_requests rr on rr.id=q.return_request_id and rr.tenant_id=q.tenant_id
+ left join inventory_warehouses iw on iw.id=q.warehouse_id and iw.tenant_id=q.tenant_id
+ left join accounting_parties ap on ap.id=q.supplier_party_id and ap.tenant_id=q.tenant_id
+ left join finance_purchases p on p.id=q.source_purchase_id and p.tenant_id=q.tenant_id
+ left join finance_products fp on fp.id=q.finance_product_id and fp.tenant_id=q.tenant_id
+ left join marketplace_finance_warehouse_links fwl on fwl.tenant_id=q.tenant_id and fwl.inventory_warehouse_id=q.warehouse_id and fwl.status='active'
+ left join finance_warehouses fw on fw.id=fwl.finance_warehouse_id and fw.tenant_id=q.tenant_id
+ where q.tenant_id=$1 and q.status in ('quarantined','supplier_handover')
+ order by q.created_at desc limit 500`,[t.id]);
+ const items=r.rows.map((item:any)=>{
+  const blockers:string[]=[];
+  if(item.status!=="supplier_handover")blockers.push("تحویل فیزیکی به تأمین‌کننده هنوز ثبت نشده است");
+  if(item.supplier_type!=="supplier"||item.supplier_status!=="active")blockers.push("طرف‌حساب تأمین‌کننده فعال و معتبر ثبت نشده است");
+  if(!item.source_purchase_id||!["confirmed","received","paid"].includes(item.purchase_status))blockers.push("فاکتور خرید مرجع معتبر ثبت نشده است");
+  if(item.purchase_supplier_id!==item.supplier_party_id)blockers.push("تأمین‌کننده فاکتور خرید با تأمین‌کننده تحویل یکسان نیست");
+  if(!item.finance_product_id||!Number(item.finance_quantity))blockers.push("snapshot کالای مالی و مقدار تبدیل‌شده موجود نیست");
+  if(item.finance_product_active!==true)blockers.push("کالای مالی snapshot‌شده فعال یا قابل شناسایی نیست");
+  if(item.purchase_line_matches_product!==true)blockers.push("ردیف کالای متناظر در فاکتور خرید پیدا نشد");
+  if(item.inventory_warehouse_code===null||item.finance_warehouse_id===null||item.finance_warehouse_status!=="active")blockers.push("نگاشت انبار قرنطینه به انبار مالی فعال کامل نیست");
+  return {...item,structuralReady:blockers.length===0,blockers,postingReady:false};
+ });
+ res.json({items,summary:{total:items.length,structurallyReady:items.filter((x:any)=>x.structuralReady).length,blocked:items.filter((x:any)=>!x.structuralReady).length},postingPolicy:{ready:false,blockers:["گردش ثبت رسید قرنطینه در دفتر موجودی مالی هنوز پیاده‌سازی نشده است","روش مصوب ارزش‌گذاری کالای برگشتی و بهای تمام‌شده هنوز در مدل فعلی تعیین نشده است"],note:"این گزارش فقط‌خواندنی است و هیچ سند، مانده موجودی یا ثبت حسابداری ایجاد یا تغییر نمی‌دهد."}});
+}));
 checkoutRouter.put("/api/marketplace/returns/finance-mappings/products",requireAuth,requirePermission("accounting-finance.write"),requirePermission("modules:23-inventory-warehouse:write"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const inventoryProductId=s(req.body?.inventoryProductId,100),financeProductId=s(req.body?.financeProductId,100),factor=Number(req.body?.quantityFactor??1);
