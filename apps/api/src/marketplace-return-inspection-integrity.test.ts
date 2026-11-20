@@ -203,3 +203,19 @@ test("finance mapping endpoints never post stock or create accounting documents"
  assert.ok(!routes.includes("finance_inventory_balances"));
  assert.ok(!routes.includes("inventory_stock"));
 });
+
+test("supplier handover validates purchase product mapping and cumulative quantity under purchase lock",()=>{
+ const start=checkout.indexOf('checkoutRouter.patch("/api/marketplace/returns/:id/disposition"');
+ const end=checkout.indexOf('checkoutRouter.patch("/api/marketplace/returns/:id/status"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes("finance_purchase_lines"));
+ assert.ok(route.includes("marketplace_inventory_product_links"));
+ assert.ok(route.includes("marketplace_finance_product_links"));
+ assert.ok(route.includes("for update"));
+ assert.ok(route.includes("priorReturns"));
+ assert.ok(route.includes("purchaseQuantity"));
+ assert.ok(route.includes("financeQuantity"));
+ assert.ok(route.includes("mil.quantity_factor"));
+ assert.ok(route.includes("mfl.quantity_factor"));
+ assert.ok(route.includes("مقدار کالای قرنطینه از مقدار باقیمانده ردیف کالای فاکتور خرید بیشتر است"));
+});
