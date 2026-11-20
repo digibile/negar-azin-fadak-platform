@@ -344,9 +344,8 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
    {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",debit:Number(order.seller_payable)},
    {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",debit:Number(order.commission_amount)}
   ];
-  if(refundCarrierCost>0)refundLedgerLines.push({accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",debit:refundCarrierCost});
   if(refundCustomerShipping>refundCarrierCost)refundLedgerLines.push({accountCode:"4201",accountName:"درآمد خدمات حمل",accountType:"revenue",debit:refundCustomerShipping-refundCarrierCost});
-  if(refundCarrierCost>refundCustomerShipping)refundLedgerLines.push({accountCode:"5201",accountName:"هزینه مازاد حمل سفارش",accountType:"expense",credit:refundCarrierCost-refundCustomerShipping});
+  if(refundCustomerShipping>0)refundLedgerLines.push({accountCode:"5202",accountName:"هزینه بازپرداخت وجه حمل به مشتری",accountType:"expense",debit:refundCustomerShipping});
   refundLedgerLines.push(payment.rows[0].provider_code==="credit_facility"
    ? {accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",credit:Number(order.total_amount)}
    : {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:Number(order.total_amount)});
