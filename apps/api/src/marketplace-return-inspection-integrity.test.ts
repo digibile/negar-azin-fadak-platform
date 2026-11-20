@@ -3,7 +3,7 @@ import test from "node:test";
 import fs from "node:fs";
 
 const checkout=fs.readFileSync(new URL("./domain-checkout.ts",import.meta.url),"utf8");
-const migration=fs.readFileSync(new URL("../../../database/migrations/125_marketplace_return_inspection_receipt.sql",import.meta.url),"utf8");
+const migration=fs.readFileSync(new URL("../../../database/migrations/999_storefront_return_inspection_receipt.sql",import.meta.url),"utf8");
 const page=fs.readFileSync(new URL("../../web/app/marketplace/returns/page.tsx",import.meta.url),"utf8");
 
 test("return inspection is a tenant-scoped, permission-checked warehouse receipt operation",()=>{
@@ -47,6 +47,8 @@ test("migration enforces tenant-safe receipt and warehouse references",()=>{
  assert.ok(migration.includes("foreign key(tenant_id,inspection_warehouse_id)"));
  assert.ok(migration.includes("foreign key(tenant_id,inventory_receipt_document_id)"));
  assert.ok(migration.includes("references inventory_documents(tenant_id,id)"));
+ assert.ok(migration.includes("received_quantity numeric(20,3)"));
+ assert.ok(migration.indexOf("received_quantity")<migration.indexOf("restock_quantity"));
 });
 
 test("returns workspace requires warehouse and separates received from restockable quantity",()=>{
