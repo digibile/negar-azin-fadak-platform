@@ -1,6 +1,9 @@
 -- Track non-restockable returned goods outside saleable inventory.
 begin;
 
+create unique index if not exists inventory_warehouses_tenant_id_uq
+ on inventory_warehouses(tenant_id,id);
+
 create table if not exists marketplace_return_quarantine(
  id uuid primary key default gen_random_uuid(),
  tenant_id uuid not null,
