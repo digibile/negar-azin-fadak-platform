@@ -412,7 +412,7 @@ logisticsRouter.post("/api/logistics/carrier-invoices",requireAuth,requirePermis
   const invoiceAmount=Number(b.invoiceAmount);
   const notes=String(b.notes||"").trim().slice(0,1000);
   if(!invoiceNo)return fail(res,400,"شماره صورتحساب شرکت حمل الزامی است");
-  if(b.invoiceAmount===undefined||b.invoiceAmount===null||String(b.invoiceAmount).trim()===""||!Number.isFinite(invoiceAmount)||invoiceAmount<0)return fail(res,400,"مبلغ صورتحساب باید عدد معتبر و غیرمنفی باشد");
+  if(b.invoiceAmount===undefined||b.invoiceAmount===null||String(b.invoiceAmount).trim()===""||!Number.isFinite(invoiceAmount)||invoiceAmount<=0)return fail(res,400,"مبلغ صورتحساب باید عدد معتبر و بزرگ‌تر از صفر باشد");
   const c=await pool.connect();
   try{
     await c.query("begin");
