@@ -244,7 +244,6 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
   }
   if(!["paid","processing","delivered","returned"].includes(order.status)){await client.query("rollback");return res.status(409).json({error:"فقط سفارش پرداخت‌شده قابل بازگشت وجه است"});}
   const settlementLink=await client.query("select ss.id,ss.status,ss.adjustment_amount from seller_settlement_items si join seller_settlements ss on ss.id=si.settlement_id and ss.tenant_id=si.tenant_id where si.tenant_id=$1 and si.order_id=$2 for update of ss",[t.id,order.id]);
-  if(settlementLink.rows.some((x:any)=>x.status==="paid")){await client.query("rollback");return res.status(409).json({error:"این سفارش قبلاً در تسویه پرداخت‌شده فروشنده قرار گرفته است؛ ابتدا فرآیند مطالبه وجه از فروشنده باید ثبت شود"});}
   for(const linked of settlementLink.rows){
    if(!["pending","approved"].includes(linked.status))continue;
    await client.query("delete from seller_settlement_items where tenant_id=$1 and settlement_id=$2 and order_id=$3",[t.id,linked.id,order.id]);
@@ -283,6 +282,18 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
     ? {accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",credit:Number(order.total_amount)}
     : {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:Number(order.total_amount)}
   ]});
+  const paidSettlement=settlementLink.rows.find((x:any)=>x.status==="paid");
+  if(paidSettlement&&Number(order.seller_payable)>0){
+   const claim=await client.query("insert into marketplace_seller_recovery_claims(tenant_id,seller_id,settlement_id,order_id,refund_id,amount,currency,status,reason,created_by) values($1,$2,$3,$4,$5,$6,$7,'open',$8,$9) on conflict(tenant_id,order_id) do nothing returning *",[t.id,paidSettlement.seller_id,paidSettlement.id,order.id,rr.rows[0].id,Number(order.seller_payable),order.currency||"IRR","بازپرداخت سفارش پس از پرداخت تسویه فروشنده",(req as any).user.id]);
+   if(claim.rowCount){
+    const recoveryEntry=await postLedgerEntry(client,{tenantId:t.id,entryNo:"SRC-"+claim.rows[0].id,sourceType:"marketplace_seller_recovery",sourceId:claim.rows[0].id,description:"ثبت مطالبه از فروشنده بابت بازپرداخت سفارش "+order.order_no,createdBy:(req as any).user.id,currency:order.currency||"IRR",lines:[
+     {accountCode:"1202",accountName:"مطالبات از فروشندگان",accountType:"asset",debit:Number(order.seller_payable)},
+     {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",credit:Number(order.seller_payable)}
+    ]});
+    await client.query("update marketplace_seller_recovery_claims set recognition_ledger_entry_id=$2 where id=$1 and tenant_id=$3",[claim.rows[0].id,recoveryEntry,t.id]);
+    await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller_recovery.claim_created','seller_recovery_claim',$3,$4)",[t.id,(req as any).user.id,claim.rows[0].id,JSON.stringify({orderId:order.id,settlementId:paidSettlement.id,amount:Number(order.seller_payable),currency:order.currency||"IRR"})]);
+   }
+  }
   if(order.status==="returned"){
    const items=await client.query("select * from marketplace_order_items where order_id=$1",[order.id]);
    for(const item of items.rows){
