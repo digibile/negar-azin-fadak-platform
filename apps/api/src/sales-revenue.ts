@@ -62,7 +62,7 @@ router.post("/api/sales/quotes",requireAuth,requirePermission("modules:22-sales-
 router.patch("/api/sales/quotes/:id/status",requireAuth,requirePermission("modules:22-sales-revenue:approve"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const to=String(req.body?.status||""),reason=String(req.body?.reason||"").trim().slice(0,500)||null,cx=await pool.connect();
- const flow:Record<string,string[]>={draft:["submitted","cancelled"],submitted:["approved","rejected","expired"],approved:["converted","cancelled"],rejected:[],expired:[],converted:[],cancelled:[]};
+ const flow:Record<string,string[]>={draft:["submitted","cancelled"],submitted:["approved","rejected","expired"],approved:["cancelled"],rejected:[],expired:[],converted:[],cancelled:[]};
  try{
   await cx.query("begin");
   const q=await cx.query("select * from sales_quotes where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
