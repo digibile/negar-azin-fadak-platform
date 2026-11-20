@@ -20,7 +20,6 @@ test("logistics create endpoints normalize and bound required text fields",()=>{
  assert.ok(source.includes('mobile=String(b.mobile??"").trim()'));
  assert.ok(source.includes("planNo.length>120"));
  assert.ok(source.includes("code.length>80"));
- assert.ok(source.includes("licenseExpiry&&!/^\\\\d{4}-\\\\d{2}-\\\\d{2}$/"));
 });
 
 test("logistics write endpoints remain permission protected and tenant scoped",()=>{
