@@ -273,13 +273,14 @@ logisticsRouter.patch("/api/logistics/shipments/:id/status",requireAuth,asyncHan
       await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.order_delivered','marketplace_order',$3,$4)",[t.id,(req as any).user.id,s.marketplace_order_id,JSON.stringify({shipmentId:s.id,location:b.location})]);
     }
     await c.query("insert into logistics_delivery_events(tenant_id,shipment_id,status,location,description,actor_user_id) values($1,$2,$3,$4,$5,$6)",[t.id,s.id,b.status,b.location||null,b.description||b.reason||null,(req as any).user.id]);
-    const customerNotice:any={
+    const customerNoticeMap:Record<string,string[]>={
       assigned:["مرسوله آماده ارسال شد","ناوگان و راننده برای سفارش شما تخصیص یافتند."],
       picked_up:["مرسوله از انبار دریافت شد","مرسوله سفارش شما از مبدأ دریافت شد."],
       in_transit:["سفارش شما در مسیر تحویل است","مرسوله سفارش شما ارسال شده و در مسیر مقصد قرار دارد."],
       delivered:["سفارش شما تحویل شد","تحویل سفارش شما در سامانه ثبت شد."],
       failed:["تحویل سفارش انجام نشد","برای مرسوله شما عدم تحویل ثبت شده است. لطفاً جزئیات رهگیری را بررسی کنید."]
-    }[b.status];
+    };
+    const customerNotice=customerNoticeMap[String(b.status)];
     if(s.marketplace_order_id&&customerNotice){
       const customer=marketplaceOrder||((await c.query("select customer_ref,order_no from marketplace_orders where id=$1 and tenant_id=$2",[s.marketplace_order_id,t.id])).rows[0]);
       if(customer?.customer_ref&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(customer.customer_ref)){
