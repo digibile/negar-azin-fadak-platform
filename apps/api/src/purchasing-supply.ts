@@ -98,7 +98,25 @@ router.post("/api/purchasing/quotes",requireAuth,requirePermission("modules:21-p
  const sub=items.reduce((a:any,x:any)=>a+n(x.quantity)*n(x.unitPrice),0),tax=items.reduce((a:any,x:any)=>a+n(x.quantity)*n(x.unitPrice)*n(x.taxRate)/100,0),total=sub+tax+n(b.shippingTotal),c=await pool.connect();try{await c.query("begin");const q=await c.query("insert into purchase_supplier_quotes(rfq_id,supplier_id,quote_no,subtotal,tax_total,shipping_total,total,delivery_days,quality_score,notes) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",[b.rfqId,b.supplierId,b.quoteNo||null,sub,tax,n(b.shippingTotal),total,n(b.deliveryDays),n(b.qualityScore),b.notes||null]);for(const x of items)await c.query("insert into purchase_supplier_quote_items(quote_id,product_name,quantity,unit_price,tax_rate,line_total) values($1,$2,$3,$4,$5,$6)",[q.rows[0].id,x.productName,n(x.quantity),n(x.unitPrice),n(x.taxRate),n(x.quantity)*n(x.unitPrice)*(1+n(x.taxRate)/100)]);await c.query("update purchase_rfqs set status='quoting' where id=$1",[b.rfqId]);await c.query("update purchase_rfq_suppliers set status='responded' where rfq_id=$1 and supplier_id=$2",[b.rfqId,b.supplierId]);await c.query("commit");res.status(201).json(q.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
 router.patch("/api/purchasing/rfqs/:id/select",requireAuth,requirePermission("modules:21-purchasing-supply:approve"),async(req,res)=>{
- const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const q=await query("select q.*,r.request_id from purchase_supplier_quotes q join purchase_rfqs r on r.id=q.rfq_id where q.id=$1 and r.tenant_id=$2",[req.params.id,t.id]);if(!q.rowCount)return deny(res,404,"پیشنهاد پیدا نشد");const x=q.rows[0];const c=await pool.connect();try{await c.query("begin");await c.query("update purchase_supplier_quotes set status='rejected' where rfq_id=$1",[x.rfq_id]);await c.query("update purchase_supplier_quotes set status='selected' where id=$1",[x.id]);await c.query("update purchase_rfqs set status='selected' where id=$1",[x.rfq_id]);await c.query("update purchase_requests set status='approved',updated_at=now() where id=$1",[x.request_id]);await c.query("commit");res.json({...x,status:"selected"})}catch(e){await c.query("rollback");throw e}finally{c.release()}
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const q=await c.query("select q.*,r.request_id,r.status rfq_status from purchase_supplier_quotes q join purchase_rfqs r on r.id=q.rfq_id where q.id=$1 and r.tenant_id=$2 for update of q,r",[req.params.id,t.id]);
+  if(!q.rowCount){await c.query("rollback");return deny(res,404,"پیشنهاد متعلق به این سازمان پیدا نشد");}
+  const selected=q.rows[0];
+  if(selected.status!=="received"||!["sent","quoting","compared"].includes(selected.rfq_status)){await c.query("rollback");return deny(res,409,"این پیشنهاد یا استعلام در وضعیت قابل انتخاب نیست");}
+  const supplier=await c.query("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active' for update",[selected.supplier_id,t.id]);
+  if(!supplier.rowCount){await c.query("rollback");return deny(res,409,"تأمین‌کننده پیشنهاد دیگر فعال یا متعلق به سازمان نیست");}
+  await c.query("update purchase_supplier_quotes set status='rejected' where rfq_id=$1 and id<>$2",[selected.rfq_id,selected.id]);
+  const chosen=await c.query("update purchase_supplier_quotes set status='selected' where id=$1 and rfq_id=$2 and status='received' returning *",[selected.id,selected.rfq_id]);
+  if(!chosen.rowCount){await c.query("rollback");return deny(res,409,"پیشنهاد هنگام انتخاب تغییر کرده است");}
+  const rfq=await c.query("update purchase_rfqs set status='selected' where id=$1 and tenant_id=$2 and status in ('sent','quoting','compared') returning id",[selected.rfq_id,t.id]);
+  if(!rfq.rowCount){await c.query("rollback");return deny(res,409,"استعلام هنگام انتخاب تغییر کرده است");}
+  await c.query("update purchase_requests set status='approved',updated_at=now() where id=$1 and tenant_id=$2",[selected.request_id,t.id]);
+  await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id,reason) values($1,'rfq',$2,$3,'selected','supplier_selected',$4,$5)",[t.id,selected.rfq_id,selected.rfq_status,(req as any).user.id,"انتخاب پیشنهاد "+(selected.quote_no||selected.id)]);
+  await c.query("commit");res.json(chosen.rows[0]);
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/purchasing/orders",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{
  const t=await tenantOf(req),b=req.body||{},items=Array.isArray(b.items)?b.items:[];
