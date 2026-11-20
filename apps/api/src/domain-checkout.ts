@@ -155,10 +155,6 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandl
     if(!providerTransactionId){await client.query("rollback");return res.status(502).json({error:"درگاه شناسه تراکنش معتبر برنگرداند"});}
     const pendingStatus=providerResult.status==="authorized"?"authorized":providerResult.status==="failed"?"failed":"pending";
     const failureReason=providerResult.status==="failed"?String((providerPayload as any)?.message||"درگاه پرداخت این تلاش را ناموفق اعلام کرد").slice(0,500):null;
-    if(pendingStatus==="pending"&&!redirectUrl){
-     await client.query("rollback");
-     return res.status(502).json({error:"درگاه پرداخت وضعیت انتظار را بدون نشانی انتقال به صفحه پرداخت برگرداند"});
-    }
     const pending=await client.query("insert into marketplace_payments(tenant_id,order_id,payment_no,amount,method,status,provider_ref,provider_code,idempotency_key,provider_transaction_id,provider_payload,redirect_url,failure_reason) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) on conflict(tenant_id,idempotency_key) where idempotency_key is not null do update set updated_at=now() returning *",[t.id,o.rows[0].id,paymentNo,Number(o.rows[0].total_amount),requestedMethod,pendingStatus,providerTransactionId,providerCode,idempotencyKey,providerTransactionId,JSON.stringify(providerPayload),redirectUrl||null,failureReason]);
     await client.query("commit");
     return res.status(pendingStatus==="failed"?200:202).json({status:pending.rows[0].status,payment:pending.rows[0],redirectUrl:redirectUrl||null,providerCode});
