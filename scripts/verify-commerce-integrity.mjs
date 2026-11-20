@@ -78,5 +78,13 @@ for(const route of [
   if(!checkoutApi.includes(route))throw new Error("Customer-owned commerce route must not require an operator-only permission: "+route);
 }
 if(!checkoutApi.includes('const cancellationReason=s(req.body?.reason,500)')||!checkoutApi.includes('JSON.stringify({reason:cancellationReason})'))throw new Error("Order cancellation must require and audit the customer's reason");
+const checkoutPage=read("apps/web/app/store/checkout/page.tsx");
+const paymentMigration=read("database/migrations/131_persist_marketplace_payment_redirects.sql");
+if(!checkoutApi.includes('checkoutRouter.post("/api/marketplace/payments/:paymentId/verify",requireAuth,asyncHandler'))throw new Error("Customer payment return must use the authenticated payment verification endpoint");
+if(!checkoutApi.includes('provider.verifyPayment({providerTransactionId:payment.provider_transaction_id')||!checkoutApi.includes('providerResult.status==="paid"'))throw new Error("A gateway payment must be verified server-side before it is marked paid");
+if(!checkoutApi.includes('redirectUrl:redirectUrl||null')||!checkoutApi.includes('status:pending.rows[0].status'))throw new Error("Pending gateway attempts must persist and return their redirect URL and payment record");
+if(!checkoutApi.includes('returnUrl:')||!checkoutApi.includes('paymentNo='+encodeURIComponent(paymentNo)))throw new Error("Gateway create request must include the exact order and payment return reference");
+if(!paymentMigration.includes("add column if not exists redirect_url text")||!paymentMigration.includes("failure_reason text"))throw new Error("Pending payment migration must persist redirect and failure metadata");
+if(!checkoutPage.includes('window.location.assign(pb.redirectUrl)')||!checkoutPage.includes('/api/marketplace/payments/'))throw new Error("Store checkout must redirect to the gateway and verify the returned payment");
 console.log("COMMERCE_STOREFRONT_INTEGRITY_OK");
 
