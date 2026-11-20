@@ -558,7 +558,7 @@ const processMarketplaceReturnRefund=asyncHandler(async(req,res)=>{
    await client.query("commit");return res.status(200).json({refund:existing.rows[0],alreadyRefunded:true,pending:false});
   }
   if(existing.rowCount){
-   const claim=await client.query("update marketplace_refunds set provider_claim_token=gen_random_uuid(),provider_claimed_at=now(),provider_attempt_count=provider_attempt_count+1,provider_last_attempt_at=now(),provider_idempotency_key=coalesce(provider_idempotency_key,'return-refund-'||id::text),updated_at=now() where id=$1 and tenant_id=$2 and status in ('pending','failed') and (provider_claimed_at is null or provider_claimed_at<now()-interval '2 minutes') returning *",[existing.rows[0].id,t.id]);
+   const claim=await client.query("update marketplace_refunds set provider_claim_token=gen_random_uuid(),provider_claimed_at=now(),provider_attempt_count=greatest(provider_attempt_count+1,2),provider_last_attempt_at=now(),provider_idempotency_key=coalesce(provider_idempotency_key,'return-refund-'||id::text),updated_at=now() where id=$1 and tenant_id=$2 and status in ('pending','failed') and (provider_claimed_at is null or provider_claimed_at<now()-interval '2 minutes') returning *",[existing.rows[0].id,t.id]);
    if(!claim.rowCount){
     await client.query("commit");return res.status(202).json({refund:existing.rows[0],pending:existing.rows[0].status==="pending",retryInSeconds:30,message:"درخواست بازپرداخت دیگری در حال پیگیری است"});
    }
