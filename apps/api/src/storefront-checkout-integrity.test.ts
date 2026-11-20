@@ -72,6 +72,8 @@ test("customer checkout UI sends product identifiers only and delegates final am
  assert.ok(webCheckout.includes("deliveryMethodId:selectedDeliveryMethodId"));
  assert.ok(webCheckout.includes("startPayment"));
  assert.ok(webCheckout.includes("verifyPayment"));
+ assert.ok(webCheckout.includes("checkoutRequestKey(signature)"));
+ assert.ok(webCheckout.includes("sessionStorage.removeItem(\"sookar.store.checkout.request.v1\")"));
 });
 
 test("customer order history exposes payment verification and safe cancellation actions",()=>{
