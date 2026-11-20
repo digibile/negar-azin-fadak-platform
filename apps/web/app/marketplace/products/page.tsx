@@ -559,6 +559,7 @@ export default function ProductsPage() {
           <strong className="mp-product-price">{needsPriceReview ? "نیازمند قیمت‌گذاری" : money(item.price, item.currency)}</strong>
           <span className={"mp-status status-" + item.status}><i />{statusLabel[item.status] || item.status}</span>
           <div className="mp-row-actions">
+            <button type="button" onClick={() => setViewingProduct(item)}>مشاهده</button>
             <button type="button" onClick={() => startEdit(item)} disabled={savingId === item.id}>ویرایش قیمت و مشخصات</button>
             <button type="button" onClick={() => inventoryEditingId === item.id ? setInventoryEditingId("") : startInventoryEdit(item)} disabled={savingId === item.id}>ثبت / ویرایش موجودی</button>
             {item.status === "active"
