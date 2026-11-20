@@ -6,6 +6,9 @@ const checkout=fs.readFileSync(new URL("./domain-checkout.ts",import.meta.url),"
 const migration=fs.readFileSync(new URL("../../../database/migrations/999_storefront_customer_checkout.sql",import.meta.url),"utf8");
 const webCheckout=fs.readFileSync(new URL("../../web/app/store/checkout/page.tsx",import.meta.url),"utf8");
 const customerOrders=fs.readFileSync(new URL("../../web/app/account/orders/page.tsx",import.meta.url),"utf8");
+const productPage=fs.readFileSync(new URL("../../web/app/store/product/[slug]/page.tsx",import.meta.url),"utf8");
+const productControls=fs.readFileSync(new URL("../../web/app/store/product/[slug]/ProductPurchaseControls.tsx",import.meta.url),"utf8");
+const productCss=fs.readFileSync(new URL("../../web/app/store/product/[slug]/digikala-product.css",import.meta.url),"utf8");
 
 test("storefront delivery options are tenant scoped and validate every requested product",()=>{
  assert.ok(checkout.includes('checkoutRouter.get("/api/storefront/delivery-methods"'));
@@ -83,4 +86,14 @@ test("customer order history exposes payment verification and safe cancellation 
  assert.ok(customerOrders.includes("/verify-payment"));
  assert.ok(customerOrders.includes("لغو سفارش"));
  assert.ok(customerOrders.includes("بررسی نتیجه پرداخت"));
+});
+
+
+test("canonical product detail supports selected quantity before adding to the shared cart",()=>{
+ assert.ok(productPage.includes('import ProductPurchaseControls from "./ProductPurchaseControls"'));
+ assert.ok(productPage.includes("<ProductPurchaseControls product="));
+ assert.ok(productControls.includes("quantity={quantity}"));
+ assert.ok(productControls.includes("Math.min(maximum,value+1)"));
+ assert.ok(productControls.includes("Math.max(1,value-1)"));
+ assert.ok(productCss.includes(".sk-product-quantity-control"));
 });
