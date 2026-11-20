@@ -211,3 +211,10 @@ const settlementShippingPage=read("apps/web/app/marketplace/settlements/page.tsx
 const settlementShippingMigration=read("database/migrations/155_marketplace_settlement_shipping_snapshot.sql");
 if(!settlementShippingMigration.includes("shipping_amount numeric(20,2)")||!settlementShippingApi.includes("shipping_amount_total")||!settlementShippingApi.includes("Math.max(0,Number(o.shipping_amount||0))"))throw new Error("Seller settlements must snapshot customer shipping charges per order without inventing carrier costs");
 if(!settlementShippingApi.includes("/api/marketplace/settlements/:id")||!settlementShippingApi.includes("'shippingAmount',si.shipping_amount")||!settlementShippingPage.includes("هزینه ارسال ثبت‌شده")||!settlementShippingPage.includes("جزئیات سفارش‌ها"))throw new Error("Seller settlement detail must expose the persisted shipping breakdown");
+
+const checkoutPaymentAttempt=read("apps/web/app/store/checkout/page.tsx");
+if(!checkoutPaymentAttempt.includes("const [paymentAttemptKey,setPaymentAttemptKey]=useState(\"\")"))throw new Error("Checkout must retain an idempotency key for the active payment attempt");
+if(!checkoutPaymentAttempt.includes("idempotencyKey:attemptKey"))throw new Error("Checkout retries must reuse the same payment-attempt idempotency key");
+if(!checkoutPaymentAttempt.includes('disabled={busy||!!pendingPaymentId||!items.length'))throw new Error("Checkout must prevent a second payment while an earlier attempt is pending");
+if(!checkoutPaymentAttempt.includes('pb.status||pb.payment?.status||"pending"'))throw new Error("Checkout must interpret idempotent responses using the persisted payment status");
+if(!checkoutPaymentAttempt.includes('setPaymentAttemptKey("")'))throw new Error("Checkout must release the idempotency key after a definitive paid or failed result");
