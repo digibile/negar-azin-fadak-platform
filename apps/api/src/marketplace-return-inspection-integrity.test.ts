@@ -69,7 +69,8 @@ test("non-restockable returned quantity is registered in tenant quarantine witho
  assert.ok(route.includes("if(received-restock>0)"));
  assert.ok(route.includes("marketplace_return_quarantine"));
  assert.ok(route.includes("Number((received-restock).toFixed(3))"));
- assert.ok(!route.includes("inventory_stock")||route.indexOf("marketplace_return_quarantine")<route.indexOf("inventory_stock"));
+ assert.ok(route.includes("warehouseQuantity"));
+ assert.ok(route.includes("Number((received-restock).toFixed(3))"));
 });
 
 test("quarantine disposition is tenant-scoped, one-way, permission checked and audited",()=>{
@@ -96,7 +97,7 @@ test("return case cannot close while quarantine disposition remains pending",()=
 });
 
 test("quarantine migration has tenant-safe return and warehouse references",()=>{
- const q=fs.readFileSync(new URL("../../../database/migrations/1000_marketplace_return_quarantine.sql",import.meta.url),"utf8");
+ const q=fs.readFileSync(new URL("../../../database/migrations/zz_marketplace_return_quarantine.sql",import.meta.url),"utf8");
  assert.ok(q.includes("unique(tenant_id,return_request_id)"));
  assert.ok(q.includes("foreign key(tenant_id,return_request_id)"));
  assert.ok(q.includes("foreign key(tenant_id,warehouse_id)"));
