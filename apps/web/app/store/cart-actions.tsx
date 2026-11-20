@@ -149,7 +149,9 @@ export function CartView() {
         <p className="sk-cart-notice"><strong>{items.some(item => item.is_demo_product) ? "سبد آزمایشی" : "پیش از سفارش"}</strong><span>{items.some(item => item.is_demo_product) ? "کالاها در پایگاه داده سوکار ثبت شده‌اند، اما قیمت و موجودی مرجع‌اند. این مسیر برای آزمایش است و پرداخت واقعی ندارد." : "این سبد در مرورگر ذخیره شده است. پیش از خرید واقعی، فروشنده، قیمت و موجودی باید تأیید شوند."}</span></p>
         {items.length > 0 && items.every(item => item.is_demo_product)
           ? <Link href="/store/demo-checkout" className="sk-cart-checkout">ادامه مراحل آزمایشی خرید</Link>
-          : <Link href="/login" className={items.length ? "sk-cart-checkout" : "sk-cart-checkout is-disabled"} aria-disabled={!items.length}>ورود به حساب کاربری</Link>}
+          : items.some(item => item.is_demo_product)
+            ? <span className="sk-cart-checkout is-disabled" aria-disabled="true">کالاهای آزمایشی را از سبد حذف کنید</span>
+            : <Link href="/store/checkout" className={items.length ? "sk-cart-checkout" : "sk-cart-checkout is-disabled"} aria-disabled={!items.length}>ادامه به نشانی و ثبت سفارش</Link>}
         {items.some(item => item.is_demo_product) && items.some(item => !item.is_demo_product) && <p className="sk-cart-notice">سبد ترکیبی است. برای جلوگیری از اشتباه، کالاهای آزمایشی را از کالاهای واقعی جدا کنید؛ سفارش آزمایشی فقط برای سبدی شامل کالاهای آزمایشی فعال است.</p>}
         <Link href="/store/shop" className="sk-cart-continue"><span aria-hidden="true">←</span> ادامه جست‌وجوی کالاها</Link>
       </aside>
