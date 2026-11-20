@@ -110,6 +110,9 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandl
   const idempotencyKey=s(req.body?.idempotencyKey,160)||null;
   if(idempotencyKey){const existing=await client.query("select * from marketplace_payments where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey]);if(existing.rowCount){await client.query("rollback");return res.status(200).json({payment:existing.rows[0],redirectUrl:existing.rows[0].provider_payload?.redirectUrl||null,order:{id:o.rows[0].id,status:o.rows[0].status}});}}
   const requestedMethod=s(req.body?.method,50)||"online";
+  if(requestedMethod==="credit"&&o.rows[0].customer_ref===paymentOwner.id&&paymentOwner.role!=="admin"){
+   await client.query("rollback");return res.status(403).json({error:"اتصال اعتبار خرید به هویت مشتری در این مسیر هنوز تأیید نشده است"});
+  }
   let providerCode=s(req.body?.providerCode,40)||"";
   let providerTransactionId=s(req.body?.providerRef,200)||"";
   let providerPayload:any={};
