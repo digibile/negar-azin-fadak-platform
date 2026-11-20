@@ -1,84 +1,32 @@
 "use client";
-
 import Link from "next/link";
 import {Suspense,useEffect,useMemo,useState} from "react";
 import {useSearchParams} from "next/navigation";
-
-type Cart={id:string;customer_ref:string;store_id:string;currency:string;status:string};
-type Item={id:string;product_id:string;quantity:number;unit_price:string;sku:string;title:string};
-type Facility={id:string;facility_no:string;approved_amount:string;available_amount:string;currency:string;status:string;product_code:string;interest_rate?:string|null;approved_term_months?:number|null};
-
+import "./storefront-checkout.css";
+type CartItem={id:string;sku:string;title:string;price:number|string;currency:string;quantity:number;store_id?:string|null;is_demo_product?:boolean};
+type Address={id:string;recipient_name:string;mobile:string;province:string;city:string;address_line:string;postal_code:string;is_default:boolean};
+type Order={id:string;order_no:string;status:string;total_amount:number|string};
+const KEY="sookar.store.cart.v1";
+const csrf=()=>typeof document==="undefined"?"":document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
+async function request(path:string,method="GET",body?:unknown){const token=csrf();const r=await fetch(path,{method,credentials:"include",cache:"no-store",headers:{"accept":"application/json",...(body?{"content-type":"application/json"}:{}),...(method!=="GET"&&token?{"x-csrf-token":token}:{})},body:body?JSON.stringify(body):undefined});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"درخواست ناموفق بود");return d;}
+const money=(v:number|string,c="IRR")=>Number(v).toLocaleString("fa-IR")+" "+(c==="IRR"?"ریال":c);
 function CheckoutContent(){
  const search=useSearchParams();
- const cartId=search.get("cart")||"";
- const [cart,setCart]=useState<Cart|null>(null),[items,setItems]=useState<Item[]>([]);
- const [facilities,setFacilities]=useState<Facility[]>([]);
- const [method,setMethod]=useState<"online"|"credit">("online");
- const [facilityId,setFacilityId]=useState("");
- const [orderId,setOrderId]=useState(search.get("order")||"");
- const [order,setOrder]=useState<any>(null);
- const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[message,setMessage]=useState(""),[error,setError]=useState("");
- const csrf=()=>typeof document==="undefined"?"":document.cookie.split("; ").find(x=>x.startsWith("naf_csrf="))?.split("=")[1]||"";
- const headers=()=>({"content-type":"application/json","x-csrf-token":csrf()});
- const total=useMemo(()=>items.reduce((s,i)=>s+Number(i.unit_price)*Number(i.quantity),0),[items]);
-
- async function load(){
-  if(!cartId){setLoading(false);return;}
-  setLoading(true);setError("");
-  try{
-   const r=await fetch("/api/checkout/carts/"+encodeURIComponent(cartId),{credentials:"include"});
-   const b=await r.json();if(!r.ok)throw new Error(b.error||"دریافت سبد ناموفق بود");
-   setCart(b.cart);setItems(b.items||[]);
-   const f=await fetch("/api/lendtech/my-facilities",{credentials:"include"});
-   const fb=await f.json();if(f.ok){setFacilities(fb.items||[]);if((fb.items||[]).length)setFacilityId(fb.items[0].id);}
-   if(orderId){const or=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});const ob=await or.json();if(or.ok)setOrder(ob.order);}
-  }catch(e){setError(e instanceof Error?e.message:"خطا در دریافت سبد");}
-  finally{setLoading(false);}
- }
- async function checkoutAndPay(){
-  if(!cartId||!items.length)return;
-  setBusy(true);setError("");setMessage("");
-  try{
-   let oid=orderId;
-   if(!oid){
-    const cr=await fetch("/api/checkout/carts/"+encodeURIComponent(cartId)+"/checkout",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({paymentMethod:method})});
-    const cb=await cr.json();if(!cr.ok)throw new Error(cb.error||"ثبت سفارش ناموفق بود");
-    oid=cb.order.id;setOrderId(oid);
-   }
-   const pr=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/payment",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({
-    method,creditFacilityId:method==="credit"?facilityId:undefined,idempotencyKey:"WEB-"+oid
-   })});
-   const pb=await pr.json();if(!pr.ok)throw new Error(pb.error||"پرداخت ناموفق بود");
-   const resolvedOrder=pb.order||{id:oid,status:pb.status||"pending"};
-   setOrder(resolvedOrder);
-   setMessage(resolvedOrder.status==="paid"||pb.status==="paid"?"پرداخت توسط سرویس پرداخت تأیید شد.":"سفارش ثبت شد؛ وضعیت پرداخت هنوز نهایی نیست و باید از سرویس پرداخت پیگیری شود.");
-  }catch(e){setError(e instanceof Error?e.message:"خطا در ثبت سفارش");}
-  finally{setBusy(false);}
- }
- useEffect(()=>{load();},[cartId,orderId]);
- if(!cartId)return <main className="sookar-store" dir="rtl"><section className="store-section"><div className="product-card sk-checkout-empty"><span>تکمیل خرید</span><h1>سبد سفارش مشخص نیست</h1><p>برای ادامه خرید واقعی باید پس از ورود، سبد معتبر سامانه را انتخاب کنید. سبد آزمایشی مرورگر در این مسیر پذیرفته نمی‌شود.</p><Link className="sk-checkout-primary" href="/store/cart">بازگشت به سبد خرید</Link></div></section></main>;
- return <main className="sookar-store" dir="rtl">
-  <header className="store-header"><Link href="/store" className="store-logo"><b>سوکار</b><span>تکمیل خرید</span></Link><nav><Link href="/store">فروشگاه</Link><Link href="/marketplace">بازارگاه</Link><Link href="/pay">مرکز اعتبار</Link></nav></header>
-  <section className="store-section sk-checkout-workspace">
-   <div className="sk-checkout-progress" aria-label="مراحل خرید"><span className="is-current"><b>۱</b><small>بررسی سفارش</small></span><i /><span className="is-current"><b>۲</b><small>پرداخت</small></span><i /><span className={order?.status==="paid"?"is-complete":""}><b>۳</b><small>تأیید نهایی</small></span></div>
-   <header className="sk-checkout-heading"><div><span>تسویه سفارش</span><h1>تکمیل خرید</h1><p>مبلغ و اقلام سفارش را بررسی کنید و سپس روش پرداخت را انتخاب کنید. وضعیت نهایی فقط بر اساس پاسخ سرویس پرداخت نمایش داده می‌شود.</p></div><Link href="/store/cart">بازگشت به سبد</Link></header>
-   {error&&<div className="pay-notice" role="alert">{error}</div>}{message&&<div className="sk-checkout-message" role="status">{message}</div>}
-   {loading?<div className="product-card sk-checkout-loading" role="status"><span className="sk-checkout-spinner" aria-hidden="true" />در حال دریافت سبد و بررسی وضعیت سفارش…</div>:items.length===0?<div className="product-card sk-checkout-empty"><h2>سبد قابل تسویه نیست</h2><p>این سبد خالی است یا قبلاً تسویه شده. برای ثبت سفارش جدید، به فروشگاه برگردید.</p><Link className="sk-checkout-primary" href="/store/shop">مرور کالاها</Link></div>:<div className="plan-grid sk-checkout-grid">
-    <article className="product-card sk-checkout-card"><span>خلاصه سفارش</span><h3>{items.length.toLocaleString("fa-IR")} قلم</h3>{items.map(i=><div key={i.id} className="module-row"><div><strong>{i.title}</strong><small>{i.sku} · تعداد {Number(i.quantity).toLocaleString("fa-IR")}</small></div><span>{(Number(i.unit_price)*Number(i.quantity)).toLocaleString("fa-IR")} {cart?.currency||"IRR"}</span></div>)}<hr/><strong>جمع کل: {total.toLocaleString("fa-IR")} {cart?.currency||"IRR"}</strong></article>
-    <article className="product-card sk-checkout-card"><span>مرحله پرداخت</span><h3>انتخاب روش پرداخت</h3>
-     <label className="sk-checkout-choice"><input type="radio" checked={method==="online"} onChange={()=>setMethod("online")}/> پرداخت آنلاین از درگاه متصل</label>
-     <label className="sk-checkout-choice"><input type="radio" checked={method==="credit"} onChange={()=>setMethod("credit")}/> استفاده از اعتبار خرید فعال</label>
-     {method==="online"&&<p className="sk-checkout-disclaimer">پرداخت فقط پس از تأیید درگاه واقعی نهایی می‌شود. واردکردن شماره مرجع به‌تنهایی پرداخت محسوب نمی‌شود.</p>}{method==="credit"&&<div><label>تسهیلات اعتباری فعال<select value={facilityId} onChange={e=>setFacilityId(e.target.value)}><option value="">انتخاب کنید</option>{facilities.map(f=><option key={f.id} value={f.id}>{f.facility_no} · مانده {Number(f.available_amount).toLocaleString("fa-IR")} {f.currency}</option>)}</select></label>{facilities.length===0&&<p>تسهیلات فعال قابل مصرف برای این حساب پیدا نشد.</p>}</div>}
-     <button className="sk-checkout-primary" disabled={busy||!items.length||(method==="credit"&&!facilityId)} onClick={checkoutAndPay}>{busy?"در حال ثبت درخواست…":method==="credit"?"ادامه با اعتبار خرید":"ثبت درخواست پرداخت"}</button>
-     {orderId&&<div><p>شماره سفارش داخلی: {orderId}</p><Link href={"/store/checkout?cart="+encodeURIComponent(cartId)+"&order="+encodeURIComponent(orderId)}>مشاهده وضعیت ←</Link></div>}
-    </article>
-   </div>}
-   {order&&<article className="product-card sk-checkout-order-status"><span>وضعیت سفارش</span><h2>{order.status==="paid"?"پرداخت تأیید شد":order.status==="cancelled"?"سفارش لغو شده":"در انتظار تأیید نهایی"}</h2><p>شناسه سفارش: <b>{order.id}</b></p><p>{order.status==="paid"?"سرویس پرداخت وضعیت موفق را اعلام کرده است.":"سفارش ایجاد شده، اما تا تأیید سرویس پرداخت نباید آن را پرداخت‌شده در نظر گرفت."}</p><Link href="/account/orders">رفتن به سفارش‌های حساب ←</Link></article>}
-  </section>
- </main>;
+ const [items,setItems]=useState<CartItem[]>([]),[addresses,setAddresses]=useState<Address[]>([]);
+ const [selected,setSelected]=useState(""),[authenticated,setAuthenticated]=useState<boolean|null>(null);
+ const [formOpen,setFormOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ const [order,setOrder]=useState<Order|null>(null);
+ const [form,setForm]=useState({recipientName:"",mobile:"",province:"",city:"",addressLine:"",postalCode:"",isDefault:true});
+ const total=useMemo(()=>items.reduce((sum,x)=>sum+Number(x.price)*x.quantity,0),[items]);
+ const storeIds=[...new Set(items.map(x=>x.store_id).filter((x):x is string=>Boolean(x)))];
+ const currencies=[...new Set(items.map(x=>x.currency))];
+ const eligible=items.length>0&&storeIds.length===1&&currencies.length===1&&items.every(x=>Boolean(x.store_id)&&!x.is_demo_product);
+ async function refreshAddresses(){const d=await request("/api/storefront/addresses");setAddresses(d.items||[]);const a=(d.items||[]).find((x:Address)=>x.is_default)||(d.items||[])[0];if(a)setSelected(a.id);}
+ useEffect(()=>{let live=true;(async()=>{try{const me=await request("/api/auth/me");if(!live)return;setAuthenticated(Boolean(me.user?.id));const raw=JSON.parse(localStorage.getItem(KEY)||"[]");setItems(Array.isArray(raw)?raw.filter((x:any)=>x&&typeof x.id==="string"&&Number.isInteger(Number(x.quantity))&&Number(x.quantity)>0):[]);await refreshAddresses();const orderId=search.get("order");if(orderId){const list=await request("/api/storefront/orders");const found=(list.items||[]).find((x:any)=>x.id===orderId);if(found)setOrder(found);}}catch(e){if(live){const m=e instanceof Error?e.message:"خطا در دریافت اطلاعات";if(m.includes("احراز هویت")||m.includes("نشست"))setAuthenticated(false);else setError(m);}}})();return()=>{live=false};},[search]);
+ async function saveAddress(){setBusy(true);setError("");try{await request("/api/storefront/addresses","POST",form);await refreshAddresses();setFormOpen(false);setForm({recipientName:"",mobile:"",province:"",city:"",addressLine:"",postalCode:"",isDefault:false});}catch(e){setError(e instanceof Error?e.message:"ذخیره نشانی ناموفق بود");}finally{setBusy(false);}}
+ async function createOrder(){if(!eligible){setError("سبد باید شامل کالاهای واقعی از یک فروشگاه و یک ارز باشد. کالای فاقد فروشگاه یا موجودی تأییدشده قابل سفارش نیست.");return;}if(!selected){setError("نشانی تحویل را انتخاب کنید.");return;}setBusy(true);setError("");try{const d=await request("/api/storefront/checkout","POST",{storeId:storeIds[0],addressId:selected,idempotencyKey:crypto.randomUUID(),items:items.map(x=>({productId:x.id,quantity:x.quantity}))});setOrder(d.order);localStorage.setItem(KEY,"[]");window.dispatchEvent(new CustomEvent("sookar-cart-updated"));setItems([]);}catch(e){setError(e instanceof Error?e.message:"ثبت سفارش ناموفق بود");}finally{setBusy(false);}}
+ if(authenticated===false)return <main className="sk-customer-checkout" dir="rtl"><section className="sk-customer-checkout-card sk-customer-checkout-empty"><h1>برای ادامه خرید وارد شوید</h1><p>سبد خرید شما در مرورگر باقی می‌ماند. پس از ورود دوباره به این صفحه برگردید.</p><Link href="/login?brand=digibile&next=%2Fstore%2Fcheckout">ورود به حساب کاربری</Link></section></main>;
+ return <main className="sk-customer-checkout" dir="rtl"><header className="sk-customer-checkout-header"><Link href="/store">سوکار <small>فروشگاه اینترنتی</small></Link><nav><Link href="/store/cart">سبد خرید</Link><Link href="/account/orders">سفارش‌های من</Link></nav></header><div className="sk-customer-checkout-wrap"><div className="sk-customer-checkout-title"><div><span>مرحله نهایی خرید</span><h1>{order?"سفارش ثبت شد":"نشانی تحویل و ثبت سفارش"}</h1><p>قیمت و موجودی کالاها هنگام ثبت سفارش دوباره در سرور بررسی می‌شوند.</p></div><Link href="/store/shop">ادامه خرید ←</Link></div>{error&&<div className="sk-customer-checkout-error" role="alert">{error}</div>}
+ {order?<section className="sk-customer-checkout-card sk-customer-checkout-order"><span>شماره سفارش</span><h2>{order.order_no}</h2><p>مبلغ کالاها: <b>{money(order.total_amount,currencies[0]||"IRR")}</b></p><p>وضعیت: <b>{order.status==="paid"?"پرداخت‌شده":"در انتظار تکمیل هزینه ارسال و پرداخت"}</b></p><p className="sk-customer-checkout-note">سفارش در سامانه ثبت شده است. تا زمانی که هزینه ارسال از سرویس معتبر حمل محاسبه و به سفارش افزوده نشده، پرداخت فعال نمی‌شود. مبلغ نمایش‌داده‌شده فعلاً جمع کالاهاست، نه مبلغ نهایی تحویل.</p><Link href="/account/orders">مشاهده سفارش‌های من</Link></section>:<div className="sk-customer-checkout-grid"><section className="sk-customer-checkout-card"><div className="sk-customer-checkout-head"><h2>نشانی تحویل</h2><button onClick={()=>setFormOpen(x=>!x)}>{formOpen?"بستن":"افزودن نشانی"}</button></div>{addresses.map(a=><label key={a.id} className={"sk-customer-address "+(selected===a.id?"active":"")}><input type="radio" checked={selected===a.id} onChange={()=>setSelected(a.id)}/><span><b>{a.recipient_name} · {a.mobile}</b><small>{a.province}، {a.city}، {a.address_line}، کدپستی {a.postal_code}</small></span>{a.is_default&&<em>پیش‌فرض</em>}</label>)}{!addresses.length&&!formOpen&&<p>برای ثبت سفارش، ابتدا نشانی خود را اضافه کنید.</p>}{formOpen&&<div className="sk-customer-address-form">{[["recipientName","نام گیرنده"],["mobile","شماره موبایل"],["province","استان"],["city","شهر"],["addressLine","نشانی کامل"],["postalCode","کدپستی"]].map(([key,label])=><label key={key}>{label}<input value={(form as any)[key]} onChange={e=>setForm({...form,[key]:e.target.value})}/></label>)}<button disabled={busy} onClick={saveAddress}>ذخیره نشانی</button></div>}</section><aside className="sk-customer-checkout-card"><h2>خلاصه سبد</h2>{items.map(x=><div className="sk-customer-checkout-line" key={x.id}><span>{x.title}<small>تعداد {x.quantity.toLocaleString("fa-IR")}</small></span><b>{money(Number(x.price)*x.quantity,x.currency)}</b></div>)}<div className="sk-customer-checkout-total"><span>جمع کالاها</span><strong>{money(total,currencies[0]||"IRR")}</strong></div><p className="sk-customer-checkout-note">هزینه ارسال هنوز از سرویس نرخ‌گذاری حمل دریافت نشده است. برای جلوگیری از دریافت مبلغ ناقص، پرداخت در این مرحله فعال نیست.</p>{!eligible&&<p className="sk-customer-checkout-warning">یک یا چند کالا فروشگاه، انبار تأییدشده یا ارز سازگار ندارند.</p>}<button className="sk-customer-checkout-submit" disabled={busy||!eligible||!selected} onClick={createOrder}>{busy?"در حال ثبت…":"ثبت سفارش و دریافت شماره پیگیری"}</button></aside></div>}</div></main>;
 }
-
-
-export default function CheckoutPage(){
- return <Suspense fallback={<main className="sookar-store" dir="rtl"><section className="store-section"><div className="product-card">در حال آماده‌سازی پرداخت...</div></section></main>}><CheckoutContent /></Suspense>;
-}
+export default function CheckoutPage(){return <Suspense fallback={<main className="sk-customer-checkout" dir="rtl"><div className="sk-customer-checkout-empty">در حال بارگذاری…</div></main>}><CheckoutContent/></Suspense>}
