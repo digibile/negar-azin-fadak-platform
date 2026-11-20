@@ -138,7 +138,8 @@ async function sweepPaymentReviews(){
     const result=await provider.refundPayment({
      providerTransactionId:row.provider_transaction_id,
      amount:Number(row.amount),
-     metadata:{reason:"merchant_review_timeout",reviewId:row.review_id,paymentIntentId:row.payment_intent_id}
+     idempotencyKey:"merchant-review-reversal-"+row.payment_intent_id,
+     metadata:{reason:"merchant_review_timeout",reviewId:row.review_id,paymentIntentId:row.payment_intent_id,idempotencyKey:"merchant-review-reversal-"+row.payment_intent_id}
     });
     if(result.status!=="refunded") throw new Error("Provider برگشت وجه را نهایی نکرد");
     await client.query("update payment_merchant_reviews set status='reversed',updated_at=now() where id=$1",[row.review_id]);
