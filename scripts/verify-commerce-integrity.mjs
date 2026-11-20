@@ -54,7 +54,7 @@ if(!checkoutApi.includes('"/api/marketplace/orders/:id/cancel"')||!checkoutApi.i
 if(!orderPage.includes('"/api/marketplace/orders/"+encodeURIComponent(order.id)+"/cancel"'))throw new Error("Order UI must call the dedicated inventory-safe cancellation endpoint");
 
 if(!cartActions.includes('"/api/auth/me"')||!cartActions.includes('"/api/checkout/carts"')||!cartActions.includes('"/items"'))throw new Error("Browser cart must hand off authenticated items to the operational checkout API");
-if(!cartActions.includes('new Set(items.map(item => item.store_id')||!cartActions.includes('new Set(items.map(item => item.currency')))throw new Error("Browser cart must prevent unsupported multi-store or mixed-currency checkout");
+if(!cartActions.includes('new Set(items.map(item => item.store_id')||!cartActions.includes('new Set(items.map(item => item.currency'))throw new Error("Browser cart must prevent unsupported multi-store or mixed-currency checkout");
 if(!cartActions.includes('"/store/checkout?cart="'))throw new Error("Operational cart handoff must open the checkout route");
 if(!cartActions.includes('import "./cart-workspace.css"')||!cartCss.includes(".sk-store .sk-cart-checkout"))throw new Error("Cart checkout controls must use isolated styles");
 const settlementPage=read("apps/web/app/marketplace/settlements/page.tsx");
