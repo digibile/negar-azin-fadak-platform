@@ -15,10 +15,10 @@ export const salesOrderTransitions:LifecycleMap={
 export const purchaseOrderTransitions:LifecycleMap={
  draft:["approved","cancelled"],
  approved:["sent","cancelled"],
- sent:["partially_received","received","cancelled"],
- partially_received:["received","cancelled"],
- received:["invoiced"],
- invoiced:["paid"],
+ sent:["cancelled"],
+ partially_received:["cancelled"],
+ received:[],
+ invoiced:[],
  paid:[],
  cancelled:[]
 };
