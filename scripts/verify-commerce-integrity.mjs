@@ -100,3 +100,10 @@ if(!customerOrders.includes('import "./orders-workspace.css"')||!customerOrdersC
 if(!checkoutPage.includes('cartId==="history"')||!checkoutPage.includes('order?.payments'))throw new Error("Order tracking must work without an active cart session");
 console.log("COMMERCE_STOREFRONT_INTEGRITY_OK");
 
+
+const reservationMigration=read("database/migrations/132_marketplace_reservation_expiry.sql");
+const notificationWorker=read("apps/api/src/notification-worker.ts");
+if(!reservationMigration.includes("reservation_expires_at")||!reservationMigration.includes("reservation_released_at"))throw new Error("Marketplace reservation expiry must be persisted on the canonical order");
+if(!checkoutApi.includes("MARKETPLACE_RESERVATION_TTL_MINUTES")||!checkoutApi.includes("reservation_expires_at"))throw new Error("New marketplace orders must receive a bounded stock reservation expiry");
+if(!checkoutApi.includes("payment.reservation_expired")||!checkoutApi.includes("مهلت رزرو موجودی این سفارش پایان یافته است"))throw new Error("Payment start and verification must reject expired reservations");
+if(!notificationWorker.includes("expireMarketplaceReservations")||!notificationWorker.includes("reserved_quantity=greatest(0,reserved_quantity-$1)")||!notificationWorker.includes("order.reservation_expired"))throw new Error("Existing worker must release expired reservations and audit the order transition");
