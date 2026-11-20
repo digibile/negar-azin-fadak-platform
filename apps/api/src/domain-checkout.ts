@@ -616,8 +616,8 @@ checkoutRouter.post("/api/marketplace/returns/:id/refund",requireAuth,requirePer
   const totals=await finalize.query("select coalesce(sum(amount),0) amount from marketplace_refunds where tenant_id=$1 and payment_id=$2 and status='refunded'",[t.id,payment.id]);
   if(Number(totals.rows[0].amount)+0.005>=Number(currentPayment.rows[0].amount))await finalize.query("update marketplace_payments set status='refunded',updated_at=now() where id=$1 and tenant_id=$2",[payment.id,t.id]);
   if(returnItem.restockQuantity>0){
-   const stock=await finalize.query("update product_inventory set quantity=quantity+$1,updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4 returning id",[returnItem.restockQuantity,t.id,returnItem.product_id,currentOrder.rows[0].store_id]);
-   if(!stock.rowCount)throw new Error("ردیف موجودی فروشگاه برای بازگشت کالای سالم پیدا نشد");
+   const stock=await finalize.query("insert into product_inventory(tenant_id,product_id,store_id,quantity,reserved_quantity) values($2,$3,$4,$1,0) on conflict(product_id,store_id) do update set quantity=product_inventory.quantity+excluded.quantity,updated_at=now() where product_inventory.tenant_id=excluded.tenant_id returning id",[returnItem.restockQuantity,t.id,returnItem.product_id,currentOrder.rows[0].store_id]);
+   if(!stock.rowCount)throw new Error("مالکیت ردیف موجودی فروشگاه با سازمان سفارش مطابقت ندارد");
    await finalize.query("insert into inventory_movements(tenant_id,product_id,store_id,movement_type,quantity,reference_type,reference_id,created_by) values($1,$2,$3,'refund',$4,'marketplace_refund',$5,$6)",[t.id,returnItem.product_id,currentOrder.rows[0].store_id,returnItem.restockQuantity,refund.id,(req as any).user.id]);
   }
   await finalize.query("update marketplace_return_requests set status='closed',updated_at=now() where id=$1 and tenant_id=$2 and status='inspected'",[requestId,t.id]);
