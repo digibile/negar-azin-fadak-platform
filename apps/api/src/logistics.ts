@@ -119,7 +119,8 @@ logisticsRouter.post("/api/logistics/orders/from-marketplace/:orderId",requireAu
       if(!updated.rowCount)throw new Error("موجودی آزاد انبار هنگام رزرو تغییر کرده است؛ عملیات دوباره بررسی شود");
     }
     for(const item of orderItems){
-      await c.query("insert into marketplace_inventory_reservations(tenant_id,supply_order_id,marketplace_order_id,warehouse_id,marketplace_product_id,inventory_product_id,quantity,status) values($1,$2,$3,$4,$5,$6,$7,'reserved')",[t.id,created.id,order.id,warehouse.id,item.product_id,item.inventory_product_id,item.warehouse_quantity]);
+      const reservation=(await c.query("insert into marketplace_inventory_reservations(tenant_id,supply_order_id,marketplace_order_id,warehouse_id,marketplace_product_id,inventory_product_id,quantity,status) values($1,$2,$3,$4,$5,$6,$7,'reserved') returning id",[t.id,created.id,order.id,warehouse.id,item.product_id,item.inventory_product_id,item.warehouse_quantity])).rows[0];
+      await c.query("insert into inventory_events(tenant_id,entity_type,entity_id,event_type,quantity,actor_user_id,reason) values($1,'marketplace_reservation',$2,'reserved',$3,$4,$5)",[t.id,reservation.id,item.warehouse_quantity,(req as any).user.id,"رزرو سفارش "+order.order_no]);
     }
     await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,actor_user_id,reason) values($1,'supply_order',$2,'marketplace_order_linked',null,'submitted',$3,$4)",[t.id,created.id,(req as any).user.id,"سفارش فروشگاه "+order.order_no+"؛ رزرو موجودی انبار"]);
     await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'logistics.marketplace_order_linked','logistics_supply_order',$3,$4)",[t.id,(req as any).user.id,created.id,JSON.stringify({marketplaceOrderId:order.id,orderNo:order.order_no,warehouseId:warehouse.id,reservedItems:orderItems.length})]);
@@ -163,6 +164,7 @@ logisticsRouter.patch("/api/logistics/orders/:id/status",requireAuth,requirePerm
         const consumed=await c.query("update inventory_stock set quantity=quantity-$1,reserved_quantity=reserved_quantity-$1,updated_at=now() where tenant_id=$2 and warehouse_id=$3 and product_id=$4 and quantity >= $1 and reserved_quantity >= $1",[reservation.quantity,t.id,reservation.warehouse_id,reservation.inventory_product_id]);
         if(!consumed.rowCount)throw new Error("موجودی یا رزرو انبار با مقدار ثبت‌شده هم‌خوانی ندارد؛ اعزام متوقف شد");
         await c.query("update marketplace_inventory_reservations set status='consumed',updated_at=now() where id=$1 and tenant_id=$2",[reservation.id,t.id]);
+        await c.query("insert into inventory_events(tenant_id,entity_type,entity_id,event_type,quantity,actor_user_id,reason) values($1,'marketplace_reservation',$2,'consumed',$3,$4,$5)",[t.id,reservation.id,reservation.quantity,(req as any).user.id,"اعزام سفارش "+o.order_no]);
       }
     }else if(b.status==="cancelled"&&["draft","submitted","approved","assigned"].includes(o.status)){
       const reservations=(await c.query("select * from marketplace_inventory_reservations where tenant_id=$1 and supply_order_id=$2 and status='reserved' order by inventory_product_id for update",[t.id,o.id])).rows;
@@ -170,6 +172,7 @@ logisticsRouter.patch("/api/logistics/orders/:id/status",requireAuth,requirePerm
         const released=await c.query("update inventory_stock set reserved_quantity=reserved_quantity-$1,updated_at=now() where tenant_id=$2 and warehouse_id=$3 and product_id=$4 and reserved_quantity >= $1",[reservation.quantity,t.id,reservation.warehouse_id,reservation.inventory_product_id]);
         if(!released.rowCount)throw new Error("مقدار رزرو انبار با دفتر رزرو هم‌خوانی ندارد؛ لغو متوقف شد");
         await c.query("update marketplace_inventory_reservations set status='released',updated_at=now() where id=$1 and tenant_id=$2",[reservation.id,t.id]);
+        await c.query("insert into inventory_events(tenant_id,entity_type,entity_id,event_type,quantity,actor_user_id,reason) values($1,'marketplace_reservation',$2,'released',$3,$4,$5)",[t.id,reservation.id,reservation.quantity,(req as any).user.id,"لغو سفارش "+o.order_no]);
       }
     }
     const r=(await c.query("update logistics_supply_orders set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[b.status,(req as any).user.id,o.id,t.id])).rows[0];
