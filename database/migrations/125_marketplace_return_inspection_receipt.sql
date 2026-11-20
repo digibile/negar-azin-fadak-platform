@@ -7,8 +7,10 @@ create unique index if not exists inventory_documents_tenant_id_uq
   on inventory_documents(tenant_id,id);
 
 alter table marketplace_return_requests
-  add column if not exists received_quantity numeric(20,3) not null default 0 check(received_quantity>=0),
-  add column if not exists restock_quantity numeric(20,3) not null default 0 check(restock_quantity>=0 and restock_quantity<=received_quantity),
+  add column if not exists received_quantity numeric(20,3) not null default 0 check(received_quantity>=0);
+alter table marketplace_return_requests
+  add column if not exists restock_quantity numeric(20,3) not null default 0 check(restock_quantity>=0 and restock_quantity<=received_quantity);
+alter table marketplace_return_requests
   add column if not exists inspection_notes text,
   add column if not exists inspection_result text check(inspection_result in ('restocked','partial','non_restockable')),
   add column if not exists inspection_warehouse_id uuid,
