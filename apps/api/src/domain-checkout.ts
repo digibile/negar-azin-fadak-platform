@@ -407,7 +407,7 @@ checkoutRouter.get("/api/marketplace/returns/finance-mappings",requireAuth,requi
 
 checkoutRouter.get("/api/marketplace/returns/finance-handover-readiness",requireAuth,requirePermission("order:manage"),requirePermission("accounting-finance.read"),asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query(`select q.id,q.return_request_id,rr.request_no,q.status,q.quarantine_quantity,q.warehouse_id,iw.code inventory_warehouse_code,iw.name inventory_warehouse_name,
+ const r=await query(`select q.id,q.return_request_id,rr.request_no,q.status,q.quarantine_quantity,q.warehouse_id,iw.code inventory_warehouse_code,iw.name inventory_warehouse_name,iw.status inventory_warehouse_status,
   q.supplier_party_id,ap.party_code supplier_code,ap.title supplier_title,ap.party_type supplier_type,ap.status supplier_status,
   q.source_purchase_id,p.invoice_no purchase_invoice_no,p.status purchase_status,p.supplier_id purchase_supplier_id,
   q.finance_product_id,fp.code finance_product_code,fp.title finance_product_title,fp.is_active finance_product_active,q.finance_quantity,
@@ -432,7 +432,7 @@ checkoutRouter.get("/api/marketplace/returns/finance-handover-readiness",require
   if(!item.finance_product_id||!Number(item.finance_quantity))blockers.push("snapshot کالای مالی و مقدار تبدیل‌شده موجود نیست");
   if(item.finance_product_active!==true)blockers.push("کالای مالی snapshot‌شده فعال یا قابل شناسایی نیست");
   if(item.purchase_line_matches_product!==true)blockers.push("ردیف کالای متناظر در فاکتور خرید پیدا نشد");
-  if(item.inventory_warehouse_code===null||item.finance_warehouse_id===null||item.finance_warehouse_status!=="active")blockers.push("نگاشت انبار قرنطینه به انبار مالی فعال کامل نیست");
+  if(item.inventory_warehouse_status!=="active"||item.finance_warehouse_id===null||item.finance_warehouse_status!=="active")blockers.push("انبار قرنطینه و نگاشت آن به انبار مالی باید فعال باشند");
   return {...item,structuralReady:blockers.length===0,blockers,postingReady:false};
  });
  res.json({items,summary:{total:items.length,structurallyReady:items.filter((x:any)=>x.structuralReady).length,blocked:items.filter((x:any)=>!x.structuralReady).length},postingPolicy:{ready:false,blockers:["گردش ثبت رسید قرنطینه در دفتر موجودی مالی هنوز پیاده‌سازی نشده است","روش مصوب ارزش‌گذاری کالای برگشتی و بهای تمام‌شده هنوز در مدل فعلی تعیین نشده است"],note:"این گزارش فقط‌خواندنی است و هیچ سند، مانده موجودی یا ثبت حسابداری ایجاد یا تغییر نمی‌دهد."}});
