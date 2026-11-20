@@ -295,6 +295,10 @@ if(!deliveryQuoteCheckoutPage.includes("addressChanged")||!deliveryQuoteCheckout
 if(!deliveryQuoteMarketplaceApi.includes("o.delivery_quote_required"))throw new Error("Marketplace order listing must expose whether a delivery quote is required");
 if(!deliveryQuoteCheckoutApi.includes("هزینه بازپرداخت وجه حمل به مشتری")||!deliveryQuoteCheckoutApi.includes("refundLedgerLines"))throw new Error("Refund accounting must return the customer's shipping charge without silently extinguishing the carrier payable");
 console.log("MARKETPLACE_DELIVERY_QUOTE_ADDRESS_AND_REFUND_INTEGRITY_OK");
+if(!deliveryQuoteCheckoutApi.includes("const [items,payment,refund,deliveryQuote]=await Promise.all([")||!deliveryQuoteCheckoutApi.includes("deliveryQuote:deliveryQuote.rows[0]||null"))throw new Error("Order detail must correctly resolve and return the active delivery quote query result");
+if(!deliveryQuoteCheckoutApi.includes("debit:Math.min(refundCustomerShipping,refundCarrierCost)"))throw new Error("Shipping refund journal must reverse delivery margin and recognize only the carrier-cost portion as refund expense");
+console.log("MARKETPLACE_DELIVERY_QUOTE_ORDER_DETAIL_AND_REFUND_BALANCE_OK");
+
 
 
 
