@@ -22,8 +22,8 @@ async function canAccessCustomer(req:any,customerRef:string,permissions:string|s
 }
 
 checkoutRouter.post("/api/checkout/carts",requireAuth,asyncHandler(async(req,res)=>{
- let t=await ctx(req);
- if(!t)t=await resolvePublicTenant(req);
+ let t=typeof req.headers["x-tenant-id"]==="string"?await ctx(req):await resolvePublicTenant(req);
+ if(!t)t=await ctx(req);
  if(!t)return res.status(403).json({error:"فروشگاه عمومی معتبری برای این دامنه پیدا نشد"});
  const customer=s(req.body?.customerRef),store=s(req.body?.storeId);
  if(!customer||!store)return res.status(400).json({error:"شناسه مشتری و فروشگاه الزامی است"});
