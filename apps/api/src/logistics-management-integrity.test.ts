@@ -39,3 +39,13 @@ test("shipment dispatch serializes driver assignment and rejects concurrent acti
  assert.ok(source.includes("select id,status,license_expiry from logistics_drivers where id=$1 and tenant_id=$2 for update"));
  assert.ok(source.includes("from logistics_shipments where tenant_id=$1 and driver_id=$2 and status in ('planned','assigned','picked_up','in_transit')"));
 });
+
+
+test("paid storefront orders can be linked to logistics once by stable order id",()=>{
+ assert.ok(source.includes('/api/logistics/orders/from-marketplace/:orderId'));
+ assert.ok(source.includes('requirePermission("modules:12-logistics-supply:write")'));
+ assert.ok(source.includes('if(order.status!=="paid")'));
+ assert.ok(source.includes("marketplace_order_id=$2"));
+ assert.ok(source.includes("marketplace_order_linked"));
+ assert.ok(source.includes("idempotent:true"));
+});
