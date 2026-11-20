@@ -207,19 +207,30 @@ logisticsRouter.post("/api/logistics/shipments",requireAuth,requirePermission("m
 
 logisticsRouter.patch("/api/logistics/shipments/:id/status",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
-  const s=(await query("select * from logistics_shipments where id=$1 and tenant_id=$2",[req.params.id,t.id])).rows[0];
-  if(!s)return fail(res,404,"مرسوله پیدا نشد");
   const isDelivery=["delivered","failed"].includes(b.status);
   const permission=isDelivery?"modules:12-logistics-supply:deliver":"modules:12-logistics-supply:dispatch";
   if(!(await can(req,permission)))return fail(res,403,"دسترسی لازم برای این عملیات وجود ندارد");
-  const allowed:any={planned:["assigned","cancelled"],assigned:["picked_up","cancelled"],picked_up:["in_transit","failed"],in_transit:["delivered","failed"],failed:["assigned","cancelled"],delivered:[],cancelled:[]};
-  if(!allowed[s.status]?.includes(b.status))return fail(res,409,"تغییر وضعیت مرسوله مجاز نیست");
-  if(b.status==="picked_up"&&(!s.vehicle_id||!s.driver_id))return fail(res,409,"مرسوله بدون ناوگان و راننده قابل دریافت نیست");
   if(b.status==="delivered"&&!String(b.location||"").trim())return fail(res,400,"محل تحویل الزامی است");
   if(b.status==="failed"&&!String(b.reason||"").trim())return fail(res,400,"علت عدم تحویل الزامی است");
+  const allowed:any={planned:["assigned","cancelled"],assigned:["picked_up","cancelled"],picked_up:["in_transit","failed"],in_transit:["delivered","failed"],failed:["assigned","cancelled"],delivered:[],cancelled:[]};
   const c=await pool.connect();
   try{
     await c.query("begin");
+    const s=(await c.query("select * from logistics_shipments where id=$1 and tenant_id=$2 for update",[req.params.id,t.id])).rows[0];
+    if(!s){await c.query("rollback");return fail(res,404,"مرسوله پیدا نشد");}
+    if(!allowed[s.status]?.includes(b.status)){await c.query("rollback");return fail(res,409,"تغییر وضعیت مرسوله مجاز نیست");}
+    if(b.status==="picked_up"&&(!s.vehicle_id||!s.driver_id)){await c.query("rollback");return fail(res,409,"مرسوله بدون ناوگان و راننده قابل دریافت نیست");}
+    let marketplaceOrder:any=null;
+    if(s.marketplace_order_id&&["in_transit","delivered"].includes(b.status)){
+      marketplaceOrder=(await c.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[s.marketplace_order_id,t.id])).rows[0];
+      const expected=b.status==="in_transit"?"processing":"shipped";
+      if(!marketplaceOrder||marketplaceOrder.status!==expected){await c.query("rollback");return fail(res,409,b.status==="in_transit"?"سفارش باید در وضعیت آماده‌سازی باشد":"سفارش پیش از ثبت تحویل باید ارسال شده باشد");}
+    }
+    if(b.status==="assigned"&&s.vehicle_id){
+      const vehicle=(await c.query("select status from logistics_vehicles where id=$1 and tenant_id=$2 for update",[s.vehicle_id,t.id])).rows[0];
+      if(!vehicle||vehicle.status!=="available"){await c.query("rollback");return fail(res,409,"ناوگان برای تخصیص مجدد در دسترس نیست");}
+      await c.query("update logistics_vehicles set status='assigned' where id=$1 and tenant_id=$2",[s.vehicle_id,t.id]);
+    }
     const r=(await c.query(
       "update logistics_shipments set status=$1,dispatch_at=case when $1='in_transit' then coalesce(dispatch_at,now()) else dispatch_at end,delivered_at=case when $1='delivered' then now() else delivered_at end,delivered_reason=case when $1='delivered' then $2 else delivered_reason end,failed_reason=case when $1='failed' then $2 else failed_reason end,updated_at=now() where id=$3 and tenant_id=$4 returning *",
       [b.status,b.status==="failed"?b.reason:(b.status==="delivered"?b.location:null),s.id,t.id]
@@ -237,11 +248,11 @@ logisticsRouter.patch("/api/logistics/shipments/:id/status",requireAuth,asyncHan
       await c.query("update logistics_supply_orders set status='cancelled',updated_at=now() where id=$1 and tenant_id=$2 and status not in ('delivered','cancelled')",[s.supply_order_id,t.id]);
     }
     if(s.marketplace_order_id&&b.status==="in_transit"){
-      await c.query("update marketplace_orders set status='shipped',shipped_at=coalesce(shipped_at,now()),updated_at=now() where id=$1 and tenant_id=$2 and status='processing'",[s.marketplace_order_id,t.id]);
+      await c.query("update marketplace_orders set status='shipped',shipped_at=coalesce(shipped_at,now()),updated_at=now() where id=$1 and tenant_id=$2",[s.marketplace_order_id,t.id]);
       await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.order_shipped','marketplace_order',$3,$4)",[t.id,(req as any).user.id,s.marketplace_order_id,JSON.stringify({shipmentId:s.id,trackingCode:s.tracking_code})]);
     }
     if(s.marketplace_order_id&&b.status==="delivered"){
-      await c.query("update marketplace_orders set status='delivered',delivered_at=coalesce(delivered_at,now()),updated_at=now() where id=$1 and tenant_id=$2 and status='shipped'",[s.marketplace_order_id,t.id]);
+      await c.query("update marketplace_orders set status='delivered',delivered_at=coalesce(delivered_at,now()),updated_at=now() where id=$1 and tenant_id=$2",[s.marketplace_order_id,t.id]);
       await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.order_delivered','marketplace_order',$3,$4)",[t.id,(req as any).user.id,s.marketplace_order_id,JSON.stringify({shipmentId:s.id,location:b.location})]);
     }
     await c.query("insert into logistics_delivery_events(tenant_id,shipment_id,status,location,description,actor_user_id) values($1,$2,$3,$4,$5,$6)",[t.id,s.id,b.status,b.location||null,b.description||b.reason||null,(req as any).user.id]);
