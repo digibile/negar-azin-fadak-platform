@@ -266,6 +266,7 @@ test("financial handover readiness report is tenant-scoped, read-only and fails 
 });
 test("returns workspace exposes the read-only financial handover readiness report and posting blockers",()=>{
  assert.ok(page.includes("/api/marketplace/returns/finance-handover-readiness"));
+ assert.ok(page.includes("async function loadFinanceReadiness"));
  assert.ok(page.includes("گزارش آمادگی تحویل قرنطینه به گردش مالی"));
  assert.ok(page.includes("صدور سند مالی: هنوز مجاز نیست."));
  assert.ok(page.includes("postingPolicy.blockers"));
