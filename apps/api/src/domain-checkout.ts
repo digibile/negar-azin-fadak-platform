@@ -11,44 +11,57 @@ export const checkoutRouter=Router();
 const s=(v:unknown,n=200)=>typeof v==="string"?v.trim().slice(0,n):"";
 const n=(v:unknown)=>{const x=Number(v);return Number.isFinite(x)?x:null;};
 async function ctx(req:any){return resolveTenant(req,(req as any).user);}
+async function canAccessCustomer(req:any,customerRef:string,permissions:string|string[]=[]):Promise<boolean>{
+ const user=req.user;
+ if(!user)return false;
+ if(customerRef===user.id||user.role==="admin")return true;
+ const allowed=Array.isArray(permissions)?permissions:[permissions];
+ if(!allowed.length)return false;
+ const result=await query("select 1 from role_permissions where role=$1 and permission=any($2::text[]) limit 1",[user.role,allowed]);
+ return Boolean(result.rowCount);
+}
 
-checkoutRouter.post("/api/checkout/carts",requireAuth,requirePermission("cart:manage"),asyncHandler(async(req,res)=>{
+checkoutRouter.post("/api/checkout/carts",requireAuth,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const customer=s(req.body?.customerRef),store=s(req.body?.storeId);
  if(!customer||!store)return res.status(400).json({error:"شناسه مشتری و فروشگاه الزامی است"});
+ if(!(await canAccessCustomer(req,customer,"cart:manage")))return res.status(403).json({error:"فقط مالک حساب یا اپراتور مجاز می‌تواند برای این مشتری سبد بسازد"});
  const ok=await query("select id from stores where id=$1 and tenant_id=$2 and status='active'",[store,t.id]);
  if(!ok.rowCount)return res.status(404).json({error:"فروشگاه معتبر نیست"});
  const r=await query("insert into cart_sessions(tenant_id,customer_ref,store_id,currency) values($1,$2,$3,$4) returning *",[t.id,customer,store,s(req.body?.currency,10)||"IRR"]);
  res.status(201).json(r.rows[0]);
 }));
 
-checkoutRouter.post("/api/checkout/carts/:id/items",requireAuth,requirePermission("cart:manage"),asyncHandler(async(req,res)=>{
+checkoutRouter.post("/api/checkout/carts/:id/items",requireAuth,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const product=s(req.body?.productId),qty=n(req.body?.quantity);
  if(!product||qty===null||qty<=0)return res.status(400).json({error:"محصول و تعداد معتبر الزامی است"});
- const c=await query("select id,store_id,status from cart_sessions where id=$1 and tenant_id=$2",[req.params.id,t.id]);
+ const c=await query("select id,store_id,status,customer_ref from cart_sessions where id=$1 and tenant_id=$2",[req.params.id,t.id]);
  if(!c.rowCount||c.rows[0].status!=="open")return res.status(404).json({error:"سبد باز پیدا نشد"});
+ if(!(await canAccessCustomer(req,c.rows[0].customer_ref,"cart:manage")))return res.status(403).json({error:"دسترسی به این سبد مجاز نیست"});
  const p=await query("select id,price from products where id=$1 and tenant_id=$2 and store_id=$3 and status='active'",[product,t.id,c.rows[0].store_id]);
  if(!p.rowCount)return res.status(404).json({error:"محصول فعال پیدا نشد"});
  const r=await query("insert into cart_items(cart_id,product_id,quantity,unit_price) values($1,$2,$3,$4) on conflict(cart_id,product_id) do update set quantity=cart_items.quantity+excluded.quantity,unit_price=excluded.unit_price returning *",[req.params.id,product,qty,p.rows[0].price]);
  res.status(201).json(r.rows[0]);
 }));
 
-checkoutRouter.get("/api/checkout/carts/:id",requireAuth,requirePermission("cart:manage"),asyncHandler(async(req,res)=>{
+checkoutRouter.get("/api/checkout/carts/:id",requireAuth,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const c=await query("select * from cart_sessions where id=$1 and tenant_id=$2",[req.params.id,t.id]);
  if(!c.rowCount)return res.status(404).json({error:"سبد پیدا نشد"});
+ if(!(await canAccessCustomer(req,c.rows[0].customer_ref,"cart:manage")))return res.status(403).json({error:"دسترسی به این سبد مجاز نیست"});
  const items=await query("select ci.*,p.sku,p.title from cart_items ci join products p on p.id=ci.product_id where ci.cart_id=$1 order by ci.created_at",[req.params.id]);
  res.json({cart:c.rows[0],items:items.rows});
 }));
 
-checkoutRouter.post("/api/checkout/carts/:id/checkout",requireAuth,requirePermission("checkout:manage"),asyncHandler(async(req,res)=>{
+checkoutRouter.post("/api/checkout/carts/:id/checkout",requireAuth,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const client=await pool.connect();
  try{
   await client.query("begin");
   const c=await client.query("select * from cart_sessions where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
   if(!c.rowCount||c.rows[0].status!=="open"){await client.query("rollback");return res.status(409).json({error:"سبد قابل تسویه نیست"});}
+  if(!(await canAccessCustomer(req,c.rows[0].customer_ref,["checkout:manage","cart:manage"]))){await client.query("rollback");return res.status(403).json({error:"فقط مالک سبد یا اپراتور مجاز می‌تواند سفارش را ثبت کند"});}
   const items=await client.query("select ci.*,p.title,p.seller_id,p.store_id,p.price as current_price,p.status as product_status from cart_items ci join products p on p.id=ci.product_id where ci.cart_id=$1 for update",[req.params.id]);
   if(!items.rowCount){await client.query("rollback");return res.status(400).json({error:"سبد خالی است"});}
   const sellers=[...new Set(items.rows.map(x=>x.seller_id))];if(sellers.length!==1){await client.query("rollback");return res.status(400).json({error:"هر سفارش فعلاً باید متعلق به یک فروشنده باشد"});}
@@ -80,10 +93,11 @@ checkoutRouter.post("/api/checkout/carts/:id/checkout",requireAuth,requirePermis
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
-checkoutRouter.get("/api/marketplace/orders/:id",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
+checkoutRouter.get("/api/marketplace/orders/:id",requireAuth,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const o=await query("select * from marketplace_orders where id=$1 and tenant_id=$2",[req.params.id,t.id]);
  if(!o.rowCount)return res.status(404).json({error:"سفارش پیدا نشد"});
+ if(!(await canAccessCustomer(req,o.rows[0].customer_ref,"order:manage")))return res.status(403).json({error:"دسترسی به این سفارش مجاز نیست"});
  const [items,payment,refund]=await Promise.all([
   query("select oi.*,p.sku,p.title from marketplace_order_items oi join products p on p.id=oi.product_id where oi.order_id=$1 order by oi.created_at",[req.params.id]),
   query("select id,payment_no,amount,method,status,provider_code,paid_at,created_at from marketplace_payments where order_id=$1 and tenant_id=$2 order by created_at desc",[req.params.id,t.id]),
@@ -92,13 +106,14 @@ checkoutRouter.get("/api/marketplace/orders/:id",requireAuth,requirePermission("
  res.json({order:o.rows[0],items:items.rows,payments:payment.rows,refunds:refund.rows});
 }));
 
-checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,requirePermission("payment:manage"),asyncHandler(async(req,res)=>{
+checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const client=await pool.connect();
  try{
   await client.query("begin");
   const o=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
   if(!o.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}
+  if(!(await canAccessCustomer(req,o.rows[0].customer_ref,"payment:manage"))){await client.query("rollback");return res.status(403).json({error:"فقط مالک سفارش یا اپراتور مجاز می‌تواند پرداخت را آغاز کند"});}
   if(!["pending","confirmed"].includes(o.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"وضعیت سفارش برای پرداخت مجاز نیست"});}
   const paymentNo=s(req.body?.paymentNo,100)||("PAY-"+Date.now()+"-"+Math.random().toString(36).slice(2,7));
   const idempotencyKey=s(req.body?.idempotencyKey,160)||null;
@@ -199,22 +214,25 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
-checkoutRouter.post("/api/marketplace/orders/:id/cancel",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
+checkoutRouter.post("/api/marketplace/orders/:id/cancel",requireAuth,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const client=await pool.connect();
  try{
   await client.query("begin");
   const o=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
   if(!o.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}
+  if(!(await canAccessCustomer(req,o.rows[0].customer_ref,"order:manage"))){await client.query("rollback");return res.status(403).json({error:"فقط مالک سفارش یا اپراتور مجاز می‌تواند آن را لغو کند"});}
+  const cancellationReason=s(req.body?.reason,500);
+  if(!cancellationReason){await client.query("rollback");return res.status(400).json({error:"علت لغو سفارش الزامی است"});}
   if(["paid","processing","shipped","delivered","returned","cancelled","refunded"].includes(o.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"این سفارش باید از مسیر بازگشت وجه یا چرخه مجاز مدیریت شود"});}
   if(["pending","confirmed"].includes(o.rows[0].status)){
    const items=await client.query("select * from marketplace_order_items where order_id=$1",[o.rows[0].id]);
    for(const item of items.rows)await client.query("update product_inventory set reserved_quantity=greatest(0,reserved_quantity-$1),updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[item.quantity,t.id,item.product_id,o.rows[0].store_id]);
   }
-  await client.query("update marketplace_orders set status='cancelled',cancelled_at=now(),updated_at=now(),cancellation_reason=$2 where id=$1 and tenant_id=$3",[o.rows[0].id,s(req.body?.reason,500)||null,t.id]);
-  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id) values($1,$2,'order.cancelled','marketplace_order',$3)",[t.id,(req as any).user.id,o.rows[0].id]);
+  await client.query("update marketplace_orders set status='cancelled',cancelled_at=now(),updated_at=now(),cancellation_reason=$2 where id=$1 and tenant_id=$3",[o.rows[0].id,cancellationReason,t.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'order.cancelled','marketplace_order',$3,$4)",[t.id,(req as any).user.id,o.rows[0].id,JSON.stringify({reason:cancellationReason})]);
   await client.query("commit");
-  await emitBusinessEvent({tenantId:t.id,eventKey:"order.cancelled",subjectType:"marketplace_order",subjectId:o.rows[0].id,userId:(req as any).user.id,input:{orderId:o.rows[0].id}});
+  await emitBusinessEvent({tenantId:t.id,eventKey:"order.cancelled",subjectType:"marketplace_order",subjectId:o.rows[0].id,userId:(req as any).user.id,input:{orderId:o.rows[0].id,reason:cancellationReason}});
   res.json({id:o.rows[0].id,status:"cancelled"});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
