@@ -41,7 +41,7 @@ for(const route of ["/api/public/marketplace","/api/marketplace/products","/api/
 if(!orderPage.includes('import "./orders-workspace.css"'))throw new Error("Order workspace must use isolated styles");
 if(!orderPage.includes('pending:[{status:"confirmed"'))throw new Error("Pending orders must expose the confirmation transition");
 if(orderPage.includes('confirmed:[{status:"paid"')||orderPage.includes('returned:[{status:"refunded"'))throw new Error("Payment and refund statuses must not be manually written from the order workspace");
-for(const marker of ["مدیریت ارسال و رهگیری","ثبت تحویل","ثبت مرجوعی","بازپرداخت باید از چرخه مالی تأیید شود"]){
+for(const marker of ["مدیریت ارسال و رهگیری","ثبت تحویل","درخواست مرجوعی","بازپرداخت باید از چرخه مالی تأیید شود"]){
   if(!orderPage.includes(marker))throw new Error("Order lifecycle workspace is missing safe operation guidance: "+marker);
 }
 for(const marker of [".platform-order-summary",".platform-order-row",".platform-order-danger"]){
