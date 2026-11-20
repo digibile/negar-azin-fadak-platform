@@ -547,7 +547,9 @@ const processMarketplaceReturnRefund=asyncHandler(async(req,res)=>{
   if(!rr.rowCount){await client.query("rollback");return res.status(404).json({error:"درخواست مرجوعی پیدا نشد"});}
   if(rr.rows[0].status==="closed"){
    const prior=await client.query("select * from marketplace_refunds where tenant_id=$1 and return_request_id=$2",[t.id,requestId]);
-   await client.query("commit");return res.json({refund:prior.rows[0]||null,alreadyRefunded:true});
+   await client.query("commit");
+   if(prior.rowCount&&prior.rows[0].status==="refunded")return res.status(200).json({refund:prior.rows[0],alreadyRefunded:true,pending:false});
+   return res.status(409).json({error:"پرونده مرجوعی بسته شده اما بازپرداخت قطعی ثبت نشده است؛ بررسی دستی لازم است",refund:prior.rows[0]||null,manualReconciliationRequired:true});
   }
   if(rr.rows[0].status!=="inspected"){await client.query("rollback");return res.status(409).json({error:"بازپرداخت فقط پس از دریافت و تأیید بازرسی مجاز است"});}
   const existing=await client.query("select * from marketplace_refunds where tenant_id=$1 and return_request_id=$2 for update",[t.id,requestId]);
