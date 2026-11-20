@@ -30,3 +30,10 @@
 .account-order-footer small{font-size:11px;color:var(--store-muted,#718096);overflow-wrap:anywhere}
 .account-order-footer a{padding:8px 12px;font-size:12px}
 @media(max-width:640px){.account-orders-heading{align-items:stretch;flex-direction:column}.account-orders-shop{align-self:flex-start}.account-order-details{grid-template-columns:1fr 1fr}.account-order-details>div:last-child{grid-column:1/-1}.account-order-top,.account-order-footer{align-items:flex-start;flex-direction:column}.account-order-status{align-self:flex-start}.account-order-footer a{align-self:stretch}}
+
+.account-order-shipping{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:10px 12px;margin-top:10px;border:1px solid var(--border,#e5eaf0);border-radius:9px;background:var(--surface-subtle,#f8fafc);font-size:12px}
+.account-order-shipping>span{color:var(--muted,#64748b)}
+.account-order-shipping>b{color:var(--foreground,#202938)}
+.account-order-shipping>small{color:var(--muted,#64748b)}
+.account-order-shipping>a{margin-right:auto;color:var(--primary,#2457a7);text-decoration:none;font-weight:700}
+@media(max-width:520px){.account-order-shipping{align-items:flex-start;flex-direction:column}.account-order-shipping>a{margin-right:0}}
