@@ -271,6 +271,8 @@ checkoutRouter.patch("/api/storefront/addresses/:id",requireAuth,asyncHandler(as
 }));
 checkoutRouter.delete("/api/storefront/addresses/:id",requireAuth,asyncHandler(async(req,res)=>{
  const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const owned=await query("select id from marketplace_customer_addresses where id=$1 and tenant_id=$2 and user_id=$3",[req.params.id,t.id,(req as any).user.id]);
+ if(!owned.rowCount)return res.status(404).json({error:"نشانی پیدا نشد"});
  const used=await query("select 1 from marketplace_orders where delivery_address_id=$1 and tenant_id=$2 limit 1",[req.params.id,t.id]);
  if(used.rowCount)return res.status(409).json({error:"این نشانی به سفارش ثبت‌شده متصل است و قابل حذف نیست"});
  const r=await query("delete from marketplace_customer_addresses where id=$1 and tenant_id=$2 and user_id=$3 returning id",[req.params.id,t.id,(req as any).user.id]);
