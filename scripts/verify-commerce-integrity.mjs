@@ -87,5 +87,13 @@ if(!checkoutApi.includes('returnUrl:')||!checkoutApi.includes('paymentNo='+encod
 if(!paymentMigration.includes("add column if not exists redirect_url text")||!paymentMigration.includes("failure_reason text"))throw new Error("Pending payment migration must persist redirect and failure metadata");
 if(!checkoutPage.includes('window.location.assign(pb.redirectUrl)')||!checkoutPage.includes('/api/marketplace/payments/'))throw new Error("Store checkout must redirect to the gateway and verify the returned payment");
 if(!checkoutPage.includes("بررسی مجدد وضعیت پرداخت")||!checkoutPage.includes("pendingPaymentId"))throw new Error("Store checkout must expose a retryable status check for pending gateway attempts");
+const customerOrders=read("apps/web/app/account/orders/page.tsx");
+const customerOrdersCss=read("apps/web/app/account/orders/orders-workspace.css");
+if(!api.includes('permission="order:view"')&&!api.includes("permission='order:view'"))throw new Error("Marketplace order list must preserve operator order:view authorization");
+if(!api.includes('where+=" and o.customer_ref=$2"')||!api.includes('user.id')||!api.includes('latest_payment_status'))throw new Error("Customer order history must be restricted to the authenticated customer and include payment status");
+if(!customerOrders.includes('"/api/marketplace/orders"')||!customerOrders.includes("latest_payment_status")||!customerOrders.includes('"/store/checkout?order="'))throw new Error("Customer account must show real order history and order tracking links");
+if(!customerOrders.includes('import "./orders-workspace.css"')||!customerOrdersCss.includes(".account-order-card"))throw new Error("Customer order history must use isolated responsive styles");
+const checkoutPage=read("apps/web/app/store/checkout/page.tsx");
+if(!checkoutPage.includes('cartId==="history"')||!checkoutPage.includes('order?.payments'))throw new Error("Order tracking must work without an active cart session");
 console.log("COMMERCE_STOREFRONT_INTEGRITY_OK");
 
