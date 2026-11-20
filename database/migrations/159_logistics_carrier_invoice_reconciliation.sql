@@ -27,6 +27,9 @@ create table if not exists logistics_carrier_invoices (
  check(variance_amount = invoice_amount - quoted_cost)
 );
 
+create unique index if not exists uq_logistics_carrier_invoice_active_shipment
+ on logistics_carrier_invoices(tenant_id,shipment_id) where status <> 'void';
+
 create index if not exists idx_logistics_carrier_invoices_tenant_status
  on logistics_carrier_invoices(tenant_id,status,created_at desc);
 create index if not exists idx_logistics_carrier_invoices_order
