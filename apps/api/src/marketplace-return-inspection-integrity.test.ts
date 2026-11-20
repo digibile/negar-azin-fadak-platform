@@ -294,6 +294,9 @@ test("only the inspected sellable quantity returns to storefront stock; quaranti
  assert.ok(route.includes("if(returnItem.restockQuantity>0)"));
  assert.ok(route.includes("quantity=quantity+$1"));
  assert.ok(route.includes("returnItem.restockQuantity,t.id,returnItem.product_id"));
+ assert.ok(route.includes("insert into product_inventory(tenant_id,product_id,store_id,quantity,reserved_quantity)"));
+ assert.ok(route.includes("on conflict(product_id,store_id) do update"));
+ assert.ok(route.includes("product_inventory.tenant_id=excluded.tenant_id"));
  assert.ok(route.includes("returnItem.restockQuantity,refund.id"));
  assert.ok(route.includes("quarantineQuantity:returnItem.quarantineQuantity"));
  assert.ok(!route.includes("returnItem.quantity,t.id,returnItem.product_id"));
