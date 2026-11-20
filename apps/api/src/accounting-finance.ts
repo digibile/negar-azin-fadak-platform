@@ -103,7 +103,7 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
    if(sums.rows[0].line_count<2||Math.abs(Number(sums.rows[0].debit)-Number(sums.rows[0].credit))>0.005){await c.query("rollback");return deny(res,409,"سند دارای حداقل دو ردیف متوازن نیست");}
    if(old.rows[0].period_id){
     const period=await c.query("select status,starts_on,ends_on from accounting_fiscal_periods where id=$1 and tenant_id=$2 for share",[old.rows[0].period_id,t.id]);
-    if(!period.rowCount||period.rows[0].status!=="open"||old.rows[0].document_date<period.rows[0].starts_on.toISOString?.().slice(0,10)&&false){await c.query("rollback");return deny(res,409,"دوره مالی برای ثبت قطعی باز نیست");}
+    if(!period.rowCount||period.rows[0].status!=="open"){await c.query("rollback");return deny(res,409,"دوره مالی برای ثبت قطعی باز نیست");}
     const docDate=String(old.rows[0].document_date).slice(0,10),from=String(period.rows[0].starts_on).slice(0,10),to=String(period.rows[0].ends_on).slice(0,10);
     if(docDate<from||docDate>to){await c.query("rollback");return deny(res,409,"تاریخ سند خارج از بازه دوره مالی است");}
    }
