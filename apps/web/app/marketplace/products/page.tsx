@@ -79,7 +79,8 @@ export default function ProductsPage() {
         api<{items:Product[]}>("/api/marketplace/products"),
         api<{items:Seller[]}>("/api/marketplace/sellers"),
         api<{items:Category[]}>("/api/marketplace/categories"),
-        api<SourceSyncResult>("/api/marketplace/products/source-sync")
+        api<SourceSyncResult>("/api/marketplace/products/source-sync"),
+        api<InventoryProduct[]>("/api/inventory/products")
       ]);
       setItems(productResult.items || []);
       setInventoryProducts((inventoryResult || []).filter(item => item.status === "active"));
