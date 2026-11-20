@@ -33,6 +33,20 @@ router.post("/api/purchasing/suppliers",requireAuth,requirePermission("modules:2
  const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");if(!b.code||!b.name)return deny(res,400,"کد و نام تأمین‌کننده الزامی است");
  const r=await query("insert into purchase_suppliers(tenant_id,code,name,national_id,phone,email,payment_terms_days) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,b.code,b.name,b.nationalId||null,b.phone||null,b.email||null,n(b.paymentTermsDays)]);res.status(201).json(r.rows[0]);
 });
+router.patch("/api/purchasing/suppliers/:id",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{
+ const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const old=(await query("select * from purchase_suppliers where id=$1 and tenant_id=$2",[req.params.id,t.id])).rows[0];
+ if(!old)return deny(res,404,"تأمین‌کننده پیدا نشد");
+ const code=b.code===undefined?old.code:String(b.code).trim(),name=b.name===undefined?old.name:String(b.name).trim();
+ if(!code||!name)return deny(res,400,"کد و نام تأمین‌کننده الزامی است");
+ const status=b.status===undefined?old.status:String(b.status);
+ if(!["active","blocked","inactive"].includes(status))return deny(res,400,"وضعیت تأمین‌کننده نامعتبر است");
+ const terms=b.paymentTermsDays===undefined?Number(old.payment_terms_days):Number(b.paymentTermsDays);
+ if(!Number.isInteger(terms)||terms<0||terms>3650)return deny(res,400,"مهلت پرداخت باید عدد صحیح بین صفر تا ۳۶۵۰ روز باشد");
+ const r=await query("update purchase_suppliers set code=$1,name=$2,national_id=$3,phone=$4,email=$5,payment_terms_days=$6,status=$7,updated_at=now() where id=$8 and tenant_id=$9 returning *",[code,name,b.nationalId===undefined?old.national_id:(String(b.nationalId).trim()||null),b.phone===undefined?old.phone:(String(b.phone).trim()||null),b.email===undefined?old.email:(String(b.email).trim()||null),terms,status,old.id,t.id]);
+ await event(t.id,"supplier",old.id,old.status,r.rows[0].status,"updated",(req as any).user.id);
+ res.json(r.rows[0]);
+});
 router.post("/api/purchasing/requests",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{
  const t=await tenantOf(req),b=req.body||{},items=Array.isArray(b.items)?b.items:[];if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");if(!items.length)return deny(res,400,"حداقل یک قلم خرید الزامی است");
  const no=b.requestNo||"PR-"+Date.now(),c=await pool.connect();try{await c.query("begin");const r=await c.query("insert into purchase_requests(tenant_id,request_no,requester_user_id,required_date,department,notes) values($1,$2,$3,$4,$5,$6) returning *",[t.id,no,(req as any).user.id,b.requiredDate||null,b.department||null,b.notes||null]);for(const x of items)await c.query("insert into purchase_request_items(request_id,product_name,sku,quantity,unit,estimated_unit_price) values($1,$2,$3,$4,$5,$6)",[r.rows[0].id,x.productName,x.sku||null,n(x.quantity),x.unit||"عدد",n(x.estimatedUnitPrice)]);await c.query("commit");res.status(201).json(r.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
