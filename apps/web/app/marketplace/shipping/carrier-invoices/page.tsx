@@ -5,7 +5,7 @@ import {api} from "../../../../lib/api";
 import "./carrier-invoices.css";
 
 type Candidate={shipment_id:string;shipment_no:string;delivered_at?:string|null;order_id:string;order_no:string;currency:string;quote_id:string;carrier_name?:string|null;service_name?:string|null;carrier_cost:string|number;quote_currency:string};
-type Invoice={id:string;shipment_id:string;shipment_no:string;order_id:string;order_no:string;invoice_no:string;carrier_name:string;currency:string;quoted_cost:string|number;invoice_amount:string|number;variance_amount:string|number;status:string;notes?:string|null;resolution_note?:string|null;created_at:string;reviewed_at?:string|null};
+type Invoice={id:string;shipment_id:string;shipment_no:string;order_id:string;order_no:string;invoice_no:string;carrier_name:string;currency:string;quoted_cost:string|number;invoice_amount:string|number;variance_amount:string|number;status:string;notes?:string|null;resolution_note?:string|null;created_at:string;reviewed_at?:string|null;supplier_name?:string|null;payable_status?:string|null;};
 type Supplier={id:string;party_code:string;title:string};
 type Data={items:Invoice[];candidates:Candidate[];suppliers:Supplier[]};
 const labels:Record<string,string>={matched:"منطبق با پیش‌فاکتور",disputed:"دارای اختلاف",approved:"تأیید عملیاتی",void:"باطل‌شده"};
