@@ -20,6 +20,37 @@ inventoryRouter.get("/api/inventory/categories",requireAuth,asyncHandler(async(r
 inventoryRouter.get("/api/inventory/units",requireAuth,asyncHandler(async(req,res)=>{const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");res.json((await query("select * from inventory_units where tenant_id=$1 order by name",[t.id])).rows)}));
 inventoryRouter.get("/api/inventory/products",requireAuth,asyncHandler(async(req,res)=>{const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");res.json((await query("select p.*,c.name category_name,u.name unit_name from inventory_products p left join inventory_categories c on c.id=p.category_id left join inventory_units u on u.id=p.unit_id where p.tenant_id=$1 order by p.name",[t.id])).rows)}));
 inventoryRouter.post("/api/inventory/products",requireAuth,requirePermission("modules:23-inventory-warehouse:write"),asyncHandler(async(req,res)=>{const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};if(!b.sku||!b.name)return deny(res,400,"کد کالا و نام کالا الزامی است");const r=await query("insert into inventory_products(tenant_id,sku,name,barcode,min_stock,max_stock,reorder_point) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,String(b.sku).trim(),String(b.name).trim(),b.barcode||null,n(b.minStock),n(b.maxStock),n(b.reorderPoint)]);res.status(201).json(r.rows[0])}));
+inventoryRouter.post("/api/inventory/products/import",requireAuth,requirePermission("modules:23-inventory-warehouse:write"),asyncHandler(async(req,res)=>{
+ const t=await tenantOf(req),rows=Array.isArray(req.body?.rows)?req.body.rows:[];
+ if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ if(!rows.length||rows.length>1000)return deny(res,400,"تعداد ردیف‌های ورود باید بین ۱ تا ۱۰۰۰ باشد");
+ const normalized=rows.map((raw:any,index:number)=>({row:index+2,sku:String(raw.sku??raw.SKU??"").trim(),name:String(raw.name??raw.title??"").trim(),barcode:String(raw.barcode??"").trim()||null,minStock:Number(raw.minStock??raw.min_stock??0),maxStock:Number(raw.maxStock??raw.max_stock??0),reorderPoint:Number(raw.reorderPoint??raw.reorder_point??0)}));
+ const seen=new Set<string>();
+ for(const row of normalized){
+  if(!row.sku||!row.name)return deny(res,400,"کد کالا و نام کالا در ردیف "+row.row+" الزامی است");
+  if(row.sku.length>120||row.name.length>250||(row.barcode&&row.barcode.length>100))return deny(res,400,"طول یکی از فیلدهای ردیف "+row.row+" بیش از حد مجاز است");
+  if(seen.has(row.sku))return deny(res,400,"کد کالای تکراری در فایل: "+row.sku);
+  seen.add(row.sku);
+  if(![row.minStock,row.maxStock,row.reorderPoint].every(Number.isFinite)||row.minStock<0||row.maxStock<0||row.reorderPoint<0)return deny(res,400,"مقادیر موجودی ردیف "+row.row+" باید عدد معتبر و غیرمنفی باشند");
+  if(row.maxStock>0&&row.maxStock<row.minStock)return deny(res,400,"حداکثر موجودی ردیف "+row.row+" نمی‌تواند از حداقل کمتر باشد");
+ }
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const created=[];
+  for(const row of normalized){
+   const inserted=await client.query("insert into inventory_products(tenant_id,sku,name,barcode,min_stock,max_stock,reorder_point) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,row.sku,row.name,row.barcode,row.minStock,row.maxStock,row.reorderPoint]);
+   created.push(inserted.rows[0]);
+   await client.query("insert into inventory_events(tenant_id,entity_type,entity_id,event_type,actor_user_id,reason) values($1,'product',$2,'created',$3,'CSV import')",[t.id,inserted.rows[0].id,(req as any).user.id]);
+  }
+  await client.query("commit");
+  res.status(201).json({created:created.length,items:created});
+ }catch(error:any){
+  await client.query("rollback");
+  if(error?.code==="23505")return deny(res,409,"کد یکی از کالاها از قبل در سازمان ثبت شده است؛ هیچ ردیفی وارد نشد");
+  throw error;
+ }finally{client.release();}
+}));
 inventoryRouter.patch("/api/inventory/products/:id",requireAuth,requirePermission("modules:23-inventory-warehouse:write"),asyncHandler(async(req,res)=>{const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};if(!b.sku||!b.name)return deny(res,400,"کد کالا و نام کالا الزامی است");const min=n(b.minStock),max=n(b.maxStock),reorder=n(b.reorderPoint);if(![min,max,reorder].every(Number.isFinite)||min<0||max<0||reorder<0)return deny(res,400,"مقادیر موجودی باید عدد معتبر و غیرمنفی باشند");for(const [field,label] of [["categoryId","دسته‌بندی"],["unitId","واحد"]])if(b[field]){const table=field==="categoryId"?"inventory_categories":"inventory_units";const found=await query("select 1 from "+table+" where id=$1 and tenant_id=$2",[b[field],t.id]);if(!found.rowCount)return deny(res,400,label+" انتخاب‌شده متعلق به سازمان نیست");}const r=await query("update inventory_products set sku=$1,name=$2,barcode=$3,min_stock=$4,max_stock=$5,reorder_point=$6,category_id=coalesce($7,category_id),unit_id=coalesce($8,unit_id),updated_at=now() where id=$9 and tenant_id=$10 returning *",[String(b.sku).trim(),String(b.name).trim(),b.barcode||null,n(b.minStock),n(b.maxStock),n(b.reorderPoint),b.categoryId||null,b.unitId||null,req.params.id,t.id]);if(!r.rowCount)return deny(res,404,"کالا پیدا نشد");res.json(r.rows[0])}));
 inventoryRouter.get("/api/inventory/stock",requireAuth,asyncHandler(async(req,res)=>{const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");res.json((await query("select s.*,w.name warehouse_name,p.sku,p.name product_name,p.min_stock,p.reorder_point from inventory_stock s join inventory_warehouses w on w.id=s.warehouse_id join inventory_products p on p.id=s.product_id where s.tenant_id=$1 order by w.name,p.name",[t.id])).rows)}));
 inventoryRouter.get("/api/inventory/documents",requireAuth,asyncHandler(async(req,res)=>{const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");res.json((await query("select d.*,sw.name source_warehouse_name,tw.name target_warehouse_name from inventory_documents d left join inventory_warehouses sw on sw.id=d.source_warehouse_id left join inventory_warehouses tw on tw.id=d.target_warehouse_id where d.tenant_id=$1 order by d.created_at desc",[t.id])).rows)}));
