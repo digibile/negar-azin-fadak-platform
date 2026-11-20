@@ -43,7 +43,7 @@ export default function Login(){
   setMessage("");
   setLoading(true);
   try{
-   const normalized=identifier.trim();
+   const normalized=identifier.normalize("NFKC").replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/g,"").trim();
    if(authMode==="otp"){
     if(method!=="mobile")setMethod("mobile");
     if(!/^\+?[0-9۰-۹٠-٩\s()-]{8,20}$/.test(normalized)){setError("شماره موبایل را به‌درستی وارد کنید");setLoading(false);return;}
