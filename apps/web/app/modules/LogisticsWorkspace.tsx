@@ -101,7 +101,7 @@ export default function LogisticsWorkspace(){
       <button onClick={load} disabled={loading}>{loading?"در حال دریافت...":"بازخوانی داده‌ها"}</button>
     </header>
     {error&&<div className={styles.error}>{error}</div>}
-    <ManagementToolbar rows={exportRows} filename={"logistics-"+tab} onCreate={["plans","orders","shipments","vehicles","drivers","routes"].includes(tab)?()=>setCreateOpen(true):undefined} createLabel={tab==="plans"?"ایجاد برنامه تأمین":tab==="orders"?"ایجاد سفارش تأمین":tab==="shipments"?"ثبت حمل":tab==="vehicles"?"افزودن خودرو":tab==="drivers"?"افزودن راننده":"افزودن مسیر"}/>/>
+    <ManagementToolbar rows={exportRows} filename={"logistics-"+tab} onCreate={["plans","orders","shipments","vehicles","drivers","routes"].includes(tab)?()=>setCreateOpen(true):undefined} createLabel={tab==="plans"?"ایجاد برنامه تأمین":tab==="orders"?"ایجاد سفارش تأمین":tab==="shipments"?"ثبت حمل":tab==="vehicles"?"افزودن خودرو":tab==="drivers"?"افزودن راننده":"افزودن مسیر"}/>
     <nav>{tabs.map(([k,t])=><button className={tab===k?styles.active:""} key={k} onClick={()=>setTab(k)}>{t}</button>)}</nav>
 
     {tab==="dashboard"&&<section className={styles.cards}>
