@@ -12,7 +12,7 @@ const labels:Record<string,string>={
   requested_date:"تاریخ درخواست",shipment_no:"شماره مرسوله",tracking_code:"کد رهگیری",
   route_name:"مسیر",plate_no:"پلاک",driver_name:"راننده",title:"عنوان",vehicle_type:"نوع خودرو",
   capacity:"ظرفیت",name:"نام",mobile:"موبایل",license_no:"گواهینامه",license_expiry:"اعتبار گواهینامه",
-  code:"کد",distance_km:"مسافت",description:"شرح",location:"موقعیت",occurred_at:"زمان"
+  code:"کد",distance_km:"مسافت",description:"شرح",location:"موقعیت",occurred_at:"زمان",recipient_name:"تحویل‌گیرنده",province:"استان",city:"شهر",address_line:"نشانی",total_amount:"مبلغ سفارش",currency:"ارز",supply_status:"وضعیت تأمین"
 };
 const statusLabels:Record<string,string>={
   draft:"پیش‌نویس",approved:"تأییدشده",released:"آزادشده",closed:"بسته",cancelled:"لغوشده",
@@ -37,7 +37,7 @@ const fmt=(v:any)=>v===null||v===undefined||v===""?"":statusLabels[String(v)]||S
 export default function LogisticsWorkspace(){
   const [createOpen,setCreateOpen]=useState(false),[editing,setEditing]=useState<{kind:string;id:string}|null>(null),[tab,setTab]=useState("dashboard"),[o,setO]=useState<R>({}),[plans,setPlans]=useState<R[]>([]),[orders,setOrders]=useState<R[]>([]),
     [vehicles,setVehicles]=useState<R[]>([]),[drivers,setDrivers]=useState<R[]>([]),[routes,setRoutes]=useState<R[]>([]),
-    [ships,setShips]=useState<R[]>([]),[reports,setReports]=useState<R>({}),[track,setTrack]=useState<R|null>(null),[error,setError]=useState("");
+    [ships,setShips]=useState<R[]>([]),[marketOrders,setMarketOrders]=useState<R[]>([]),[fulfillment,setFulfillment]=useState<{id:string;orderNo:string;origin:string}|null>(null),[reports,setReports]=useState<R>({}),[track,setTrack]=useState<R|null>(null),[error,setError]=useState("");
   const [plan,setPlan]=useState({planNo:"",plannedDate:"",notes:""});
   const [order,setOrder]=useState({orderNo:"",planId:"",origin:"",destination:"",cargoDescription:"",quantity:"",requestedDate:"",notes:""});
   const [vehicle,setVehicle]=useState({plateNo:"",title:"",vehicleType:"",capacity:""});
@@ -50,12 +50,12 @@ export default function LogisticsWorkspace(){
   const load=async()=>{
     setError("");setLoading(true);
     try{
-      const [a,b,c,d,e,f,g,h]=await Promise.all([
+      const [a,b,c,d,e,f,g,h,i]=await Promise.all([
         api("/api/logistics/overview"),api("/api/logistics/plans"),api("/api/logistics/orders"),
         api("/api/logistics/vehicles"),api("/api/logistics/drivers"),api("/api/logistics/routes"),
-        api("/api/logistics/shipments"),api("/api/logistics/reports")
+        api("/api/logistics/shipments"),api("/api/logistics/reports"),api("/api/logistics/marketplace-orders/eligible")
       ]);
-      setO(a);setPlans(b);setOrders(c);setVehicles(d);setDrivers(e);setRoutes(f);setShips(g);setReports(h);
+      setO(a);setPlans(b);setOrders(c);setVehicles(d);setDrivers(e);setRoutes(f);setShips(g);setReports(h);setMarketOrders(i);
     }catch(e:any){setError(e.message)}finally{setLoading(false)}
   };
   useEffect(()=>{load()},[]);
@@ -64,7 +64,7 @@ export default function LogisticsWorkspace(){
     try{await api(path,{method,body:JSON.stringify(body)});setCreateOpen(false);setEditing(null);await load()}
     catch(e:any){setError(e.message)}
   };
-  const patch=async(path:string,body:any)=>{
+  const linkMarketplaceOrder=async()=>{\n    if(!fulfillment)return;\n    try{await api("/api/logistics/orders/from-marketplace/"+encodeURIComponent(fulfillment.id),{method:"POST",body:JSON.stringify({origin:fulfillment.origin})});setFulfillment(null);await load()}\n    catch(e:any){setError(e.message)}\n  };\n  const patch=async(path:string,body:any)=>{
     try{await api(path,{method:"PATCH",body:JSON.stringify(body)});await load()}
     catch(e:any){setError(e.message)}
   };
@@ -72,10 +72,10 @@ export default function LogisticsWorkspace(){
   const availableVehicles=useMemo(()=>vehicles.filter(x=>x.status==="available"),[vehicles]);
   const activeDrivers=useMemo(()=>drivers.filter(x=>x.status==="active"&&(!x.license_expiry||new Date(x.license_expiry)>=new Date())),[drivers]);
   const tabs=[
-    ["dashboard","داشبورد"],["plans","برنامه تأمین"],["orders","سفارش تأمین"],["shipments","حمل"],
+    ["dashboard","داشبورد"],["plans","برنامه تأمین"],["orders","سفارش تأمین"],["storefront","سفارش‌های فروشگاه"],["shipments","حمل"],
     ["dispatch","ارسال و تحویل"],["vehicles","ناوگان"],["drivers","رانندگان"],["routes","مسیرها"],["tracking","رهگیری"],["reports","گزارش لجستیک"]
   ];
-  const exportRows:R[]=tab==="plans"?plans:tab==="orders"?orders:tab==="vehicles"?vehicles:tab==="drivers"?drivers:tab==="routes"?routes:tab==="shipments"||tab==="dispatch"||tab==="tracking"?ships:tab==="reports"?[...(reports.byShipment||[]),...(reports.byVehicle||[]),...(reports.byRoute||[])]:[...plans,...orders,...ships];
+  const exportRows:R[]=tab==="storefront"?marketOrders:tab==="plans"?plans:tab==="orders"?orders:tab==="vehicles"?vehicles:tab==="drivers"?drivers:tab==="routes"?routes:tab==="shipments"||tab==="dispatch"||tab==="tracking"?ships:tab==="reports"?[...(reports.byShipment||[]),...(reports.byVehicle||[]),...(reports.byRoute||[])]:[...plans,...orders,...ships];
 
   const planAction=(x:R)=>{
     const next:xstatus[]=[];
@@ -136,6 +136,26 @@ export default function LogisticsWorkspace(){
         <button onClick={()=>post(editing?.kind==="orders"?"/api/logistics/orders/"+editing.id:"/api/logistics/orders",order,editing?.kind==="orders"?"PATCH":"POST")}>{editing?.kind==="orders"?"ذخیره تغییرات":"ثبت سفارش"}</button>
       </div></ManagementDialog>}
       <Table rows={orders} cols={["order_no","plan_no","status","origin","destination","quantity","requested_date"]} action={(x:R)=><>{orderAction(x)}{x.status==="draft"&&<button onClick={()=>{setEditing({kind:"orders",id:x.id});setOrder({orderNo:x.order_no,planId:x.plan_id||"",origin:x.origin,destination:x.destination,cargoDescription:x.cargo_description||"",quantity:String(x.quantity??""),requestedDate:String(x.requested_date||"").slice(0,10),notes:x.notes||""});setCreateOpen(true)}}>ویرایش</button>}</>}/>
+    </section>}
+
+    {tab==="storefront"&&<section className={styles.panel}>
+      <h2>سفارش‌های پرداخت‌شده فروشگاه</h2>
+      <p>فقط سفارش‌های پرداخت‌شده همین سازمان نمایش داده می‌شوند. ایجاد درخواست تأمین تکراری برای یک سفارش امکان‌پذیر نیست.</p>
+      {fulfillment&&<ManagementDialog title={"ارجاع سفارش "+fulfillment.orderNo+" به لجستیک"} dirty={Boolean(fulfillment.origin)} onClose={()=>setFulfillment(null)}>
+        <div className={styles.form}>
+          <input placeholder="مبدأ ارسال / انبار" value={fulfillment.origin} onChange={e=>setFulfillment({...fulfillment,origin:e.target.value})}/>
+          <button disabled={!fulfillment.origin.trim()} onClick={linkMarketplaceOrder}>ایجاد درخواست تأمین</button>
+        </div>
+      </ManagementDialog>}
+      <div className={styles.table}>{marketOrders.map(x=><div className={styles.row} key={x.id}>
+        <span><b>شماره سفارش</b>{x.order_no}</span>
+        <span><b>تحویل‌گیرنده</b>{x.recipient_name||"—"}</span>
+        <span><b>مقصد</b>{[x.province,x.city,x.address_line].filter(Boolean).join("، ")||"نشانی ثبت نشده"}</span>
+        <span><b>مبلغ</b>{x.total_amount??"—"} {x.currency||""}</span>
+        <span><b>اقلام</b>{(x.items||[]).map((it:R)=>String(it.title)+" × "+String(it.quantity)).join("، ")||"—"}</span>
+        <span><b>وضعیت تأمین</b>{x.supply_order_id?fmt(x.supply_status):"ارجاع نشده"}</span>
+        <span>{x.supply_order_id?<span>درخواست تأمین ثبت شده</span>:<button onClick={()=>setFulfillment({id:x.id,orderNo:x.order_no,origin:""})}>ارجاع به لجستیک</button>}</span>
+      </div>)}{!marketOrders.length&&<div className={styles.empty}>سفارش پرداخت‌شده‌ای برای ارجاع وجود ندارد.</div>}</div>
     </section>}
 
     {tab==="shipments"&&<section className={styles.panel}>
