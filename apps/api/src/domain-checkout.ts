@@ -94,7 +94,7 @@ checkoutRouter.get("/api/marketplace/orders/:id",requireAuth,requirePermission("
 }));
 
 checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandler(async(req,res)=>{
- const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const t=await storefrontContext(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const client=await pool.connect();
  try{
   await client.query("begin");
