@@ -100,7 +100,7 @@ test("quarantine migration has tenant-safe return and warehouse references",()=>
  const q=fs.readFileSync(new URL("../../../database/migrations/zz_marketplace_return_quarantine.sql",import.meta.url),"utf8");
  assert.ok(q.includes("unique(tenant_id,return_request_id)"));
  assert.ok(q.includes("foreign key(tenant_id,return_request_id)"));
- assert.ok(q.includes("foreign key(tenant_id,warehouse_id)"));
+ assert.ok(q.includes("foreign key(tenant_id,warehouse_id)"));\n assert.ok(q.includes("inventory_warehouses_tenant_id_uq"));
  assert.ok(q.includes("quarantine_quantity numeric(20,3)"));
  assert.ok(q.includes("supplier_handover"));
  assert.ok(q.includes("disposed"));
@@ -111,4 +111,14 @@ test("returns workspace exposes quarantine quantities and disposition actions",(
  assert.ok(page.includes("ثبت تحویل به تأمین‌کننده"));
  assert.ok(page.includes("ثبت امحا / ضایعات"));
  assert.ok(page.includes("/disposition"));
+});
+
+test("returns list exposes quarantine status and custody data from the same tenant",()=>{
+ const start=checkout.indexOf('checkoutRouter.get("/api/marketplace/returns"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/returns/:id/inspect"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes("left join marketplace_return_quarantine rq"));
+ assert.ok(route.includes("rq.tenant_id=rr.tenant_id"));
+ assert.ok(route.includes("rq.quarantine_quantity"));
+ assert.ok(route.includes("rq.supplier_name quarantine_supplier_name"));
 });
