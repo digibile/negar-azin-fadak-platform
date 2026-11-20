@@ -1,7 +1,7 @@
 "use client";
 
 import {useCallback,useEffect,useState} from "react";
-import {api} from "../../../../../lib/api";
+import {api} from "../../../../lib/api";
 import "./carrier-invoices.css";
 
 type Candidate={shipment_id:string;shipment_no:string;delivered_at?:string|null;order_id:string;order_no:string;currency:string;quote_id:string;carrier_name?:string|null;service_name?:string|null;carrier_cost:string|number;quote_currency:string};
