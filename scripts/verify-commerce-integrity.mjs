@@ -178,3 +178,6 @@ if(!logisticsWorkspace.includes("/api/logistics/marketplace-orders/")||!logistic
 if(!customerTracking.includes("/api/marketplace/orders/")||!customerTracking.includes("تاریخچه جابه‌جایی"))throw new Error("Customer order tracking must display shipment event history");
 if(!customerOrdersPage.includes("latest_shipment_id")||!customerOrdersPage.includes("/tracking"))throw new Error("Customer order history must link to shipment tracking when a shipment exists");
 if(orderLifecycle.includes('processing:["shipped"]')&&!orderLifecycle.includes("ثبت ارسال سفارش فقط پس از شروع حرکت مرسوله"))throw new Error("Marketplace order shipping must be controlled by logistics events");
+
+const logisticsPermissions=read("database/migrations/154_marketplace_logistics_permissions.sql");
+if(!logisticsPermissions.includes("'manager','modules:12-logistics-supply:dispatch'")||!logisticsPermissions.includes("'viewer','modules:12-logistics-supply:track'"))throw new Error("Logistics workflow permissions must be granted to operational roles");
