@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {useRouter} from "next/navigation";
+import "./cart-workspace.css";
 import { useEffect, useState } from "react";
 
 export type StoreCartProduct = {
@@ -135,6 +136,10 @@ export function CartView() {
       return;
     }
     const storeIds = [...new Set(items.map(item => item.store_id).filter((value): value is string => Boolean(value)))];
+    if (new Set(items.map(item => item.currency || "IRR")).size !== 1) {
+      setCartNotice("برای ادامه خرید، کالاهای دارای واحد پول متفاوت را در سبدهای جداگانه ثبت کنید.");
+      return;
+    }
     if (storeIds.length !== 1 || items.some(item => !item.store_id)) {
       setCartNotice("برای ثبت سفارش عملیاتی، همه کالاها باید متعلق به یک فروشگاه فعال باشند. سبد چندفروشگاهی فعلاً باید جدا شود.");
       return;
