@@ -79,7 +79,7 @@ export default function MarketplaceCategoriesPage() {
         <label>ترتیب نمایش<input type="number" value={sortOrder} onChange={e=>setSortOrder(e.target.value)} min="0"/></label>
         <button type="button" onClick={createCategory} disabled={saving||!name.trim()||!code.trim()}>{saving?"در حال ذخیره…":"ثبت دسته‌بندی"}</button>
       </div>
-    </section></ManagementDialog}>
+    </section></ManagementDialog>}
     <section className="sk-cat-list">
       <div className="sk-cat-list-head"><div><h2>فهرست دسته‌بندی‌ها</h2><p>{items.length.toLocaleString("fa-IR")} دسته ثبت‌شده</p></div><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="جستجوی نام یا کد…"/></div>
       {loading?<div className="sk-cat-empty">در حال دریافت اطلاعات…</div>:visible.length?<div className="sk-cat-table">
