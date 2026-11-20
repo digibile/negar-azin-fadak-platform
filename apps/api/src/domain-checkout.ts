@@ -120,7 +120,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandl
   const o=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
   if(!o.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}
   if(!(await canAccessCustomer(req,o.rows[0].customer_ref,"payment:manage"))){await client.query("rollback");return res.status(403).json({error:"فقط مالک سفارش یا اپراتور مجاز می‌تواند پرداخت را آغاز کند"});}
-  if(!["pending","confirmed"].includes(o.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"وضعیت سفارش برای پرداخت مجاز نیست"});}
+  if(!["pending","confirmed"].includes(o.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"وضعیت سفارش برای پرداخت مجاز نیست"});}\n  if(o.rows[0].reservation_expires_at&&new Date(o.rows[0].reservation_expires_at).getTime()<=Date.now()){await client.query("rollback");return res.status(409).json({error:"مهلت رزرو موجودی این سفارش پایان یافته است"});}
   const paymentNo=s(req.body?.paymentNo,100)||("PAY-"+Date.now()+"-"+Math.random().toString(36).slice(2,7));
   const idempotencyKey=s(req.body?.idempotencyKey,160)||null;
   if(idempotencyKey){const existing=await client.query("select * from marketplace_payments where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey]);if(existing.rowCount){await client.query("rollback");return res.status(200).json({payment:existing.rows[0],order:{id:o.rows[0].id,status:o.rows[0].status}});}}
@@ -191,10 +191,10 @@ checkoutRouter.post("/api/marketplace/payments/:paymentId/verify",requireAuth,as
   await client.query("begin");
   const orderLock=await client.query("select id from marketplace_orders where id=(select order_id from marketplace_payments where id=$1 and tenant_id=$2) and tenant_id=$2 for update",[req.params.paymentId,t.id]);
   if(!orderLock.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پرداخت پیدا نشد"});}
-  const p=await client.query("select p.*,o.customer_ref,o.order_no,o.store_id,o.status as order_status,o.total_amount,o.seller_payable,o.commission_amount from marketplace_payments p join marketplace_orders o on o.id=p.order_id and o.tenant_id=p.tenant_id where p.id=$1 and p.tenant_id=$2 for update of p",[req.params.paymentId,t.id]);
+  const p=await client.query("select p.*,o.customer_ref,o.order_no,o.store_id,o.status as order_status,o.total_amount,o.seller_payable,o.commission_amount,o.reservation_expires_at,(o.reservation_expires_at is not null and o.reservation_expires_at<=now()) as reservation_expired from marketplace_payments p join marketplace_orders o on o.id=p.order_id and o.tenant_id=p.tenant_id where p.id=$1 and p.tenant_id=$2 for update of p",[req.params.paymentId,t.id]);
   if(!p.rowCount){await client.query("rollback");return res.status(404).json({error:"تلاش پرداخت پیدا نشد"});}
   const payment=p.rows[0];paymentId=payment.id;eventOrderId=payment.order_id;
-  if(["cancelled","refunded"].includes(payment.order_status)){await client.query("rollback");return res.status(409).json({error:"مهلت رزرو سفارش پایان یافته یا سفارش بسته شده است"});}
+  if(["cancelled","refunded"].includes(payment.order_status)||payment.reservation_expired){await client.query("rollback");return res.status(409).json({error:"مهلت رزرو سفارش پایان یافته یا سفارش بسته شده است"});}
   if(!(await canAccessCustomer(req,payment.customer_ref,"payment:manage"))){await client.query("rollback");return res.status(403).json({error:"دسترسی به این پرداخت مجاز نیست"});}
   if(payment.status==="paid"){await client.query("commit");return res.json({status:"paid",paymentId:payment.id,order:{id:payment.order_id,status:payment.order_status}});}
   if(!["pending","authorized"].includes(payment.status)){await client.query("rollback");return res.status(409).json({error:"این پرداخت در وضعیت قابل تأیید نیست",status:payment.status});}
