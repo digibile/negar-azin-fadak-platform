@@ -11,6 +11,7 @@ export default function SettlementsPage(){
  const [error,setError]=useState("");
  const [busy,setBusy]=useState("");
  const [selected,setSelected]=useState<Settlement|null>(null);
+ const [generateOpen,setGenerateOpen]=useState(false);
  const [periodStart,setPeriodStart]=useState(()=>{const d=new Date();d.setDate(d.getDate()-30);return d.toISOString().slice(0,10)});
  const [periodEnd,setPeriodEnd]=useState(()=>new Date().toISOString().slice(0,10));
 
@@ -23,7 +24,7 @@ export default function SettlementsPage(){
 
  async function generate(){
   setBusy("generate");setError("");
-  try{await api("/api/marketplace/settlements/generate",{method:"POST",body:JSON.stringify({periodStart,periodEnd})});await load();}
+  try{await api("/api/marketplace/settlements/generate",{method:"POST",body:JSON.stringify({periodStart,periodEnd})});setGenerateOpen(false);await load();}
   catch(e){setError(e instanceof Error?e.message:"تولید تسویه ناموفق بود.");}
   finally{setBusy("");}
  }
@@ -45,12 +46,13 @@ export default function SettlementsPage(){
  return <main className="enterprise-main" dir="rtl">
   <header className="platform-header"><div><span className="section-kicker">تسویه</span><h1>تسویه فروشندگان</h1><p>تولید دوره‌ای، تأیید، ثبت پرداخت و اتصال به دفترکل مالی</p></div><a href="/platform">مرکز عملیات</a></header>
   {error&&<p className="enterprise-loading error" role="alert">{error}</p>}
-  <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-settlements" onCreate={()=>document.getElementById("settlement-generate")?.scrollIntoView({behavior:"smooth",block:"center"})}/>
-  <section id="settlement-generate" className="platform-panel">
+  <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-settlements" onCreate={()=>setGenerateOpen(true)}/>
+  {generateOpen&&<ManagementDialog title="تولید تسویه فروشندگان" onClose={()=>setGenerateOpen(false)}>  <section className="platform-panel">
    <h2>تولید تسویه از سفارش‌های پرداخت‌شده</h2>
    <p>سامانه فقط سفارش‌های پرداخت‌شده و تسویه‌نشده در بازه انتخابی را پردازش می‌کند. ثبت سند مالی هنگام پرداخت نهایی در سرویس دفترکل انجام می‌شود.</p>
    <div className="platform-form"><label>از تاریخ<input type="date" value={periodStart} onChange={e=>setPeriodStart(e.target.value)}/></label><label>تا تاریخ<input type="date" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)}/></label><button type="button" disabled={busy!==""||!periodStart||!periodEnd||periodEnd<=periodStart} onClick={()=>void generate()}>{busy==="generate"?"در حال تولید…":"تولید تسویه"}</button></div>
-  </section>
+  </section></ManagementDialog>}
+
   <section className="platform-panel">
    <div className="panel-title"><div><h2>فهرست تسویه‌ها</h2><span>{items.length.toLocaleString("fa-IR")} رکورد</span></div><button type="button" onClick={()=>void load()}>بازخوانی</button></div>
    {items.map(x=><article className="platform-row" key={x.id}>
