@@ -148,3 +148,10 @@ const notificationWorker=read("apps/api/src/notification-worker.ts");
 if(!providerAdapter.includes('"idempotency-key"')||!providerAdapter.includes("idempotencyKey?:string"))throw new Error("HTTP payment refunds must transmit a stable provider idempotency key");
 if(!checkoutApi.includes('idempotencyKey:"marketplace-refund-"+payment.rows[0].id'))throw new Error("Marketplace refund retries must reuse a payment-scoped idempotency key");
 if(!notificationWorker.includes('idempotencyKey:"merchant-review-reversal-"+row.payment_intent_id'))throw new Error("Merchant review reversal retries must reuse a payment-intent idempotency key");
+
+const returnMigration=read("database/migrations/152_marketplace_order_returns.sql");
+if(!returnMigration.includes("marketplace_order_returns")||!returnMigration.includes("unique(tenant_id,order_id)"))throw new Error("Marketplace return case schema is incomplete");
+if(!api.includes("/api/marketplace/orders/:id/returns")||!api.includes("/api/marketplace/returns/:id/status"))throw new Error("Order return request and inspection APIs are required");
+if(!api.includes('next==="accepted"')||!api.includes("marketplace_order_return")||!api.includes("movement_type,quantity,reference_type,reference_id,note,created_by"))throw new Error("Accepted returns must restore inventory once after inspection");
+if(api.includes('processing:["shipped","returned"]')||api.includes('shipped:["delivered","returned"]'))throw new Error("Direct order return status transitions must be disabled");
+if(refundRoute.includes('if(order.status==="returned"){')&&refundRoute.includes("quantity=quantity+"))throw new Error("Refund endpoint must not restore inventory a second time");
