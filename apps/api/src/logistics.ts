@@ -103,7 +103,7 @@ logisticsRouter.patch("/api/logistics/vehicles/:id",requireAuth,requirePermissio
   const plateNo=String(b.plateNo??old.plate_no).trim(),title=String(b.title??old.title).trim(),capacity=Number(b.capacity??old.capacity),status=b.status??old.status;
   if(!plateNo||!title||!Number.isFinite(capacity)||capacity<0||!["available","assigned","maintenance","inactive"].includes(status))return fail(res,400,"اطلاعات خودرو معتبر نیست");
   if(old.status==="assigned"&&status!=="assigned")return fail(res,409,"خودروی تخصیص‌یافته تا پایان مأموریت قابل تغییر وضعیت نیست");
-  const r=await query("update logistics_vehicles set plate_no=$1,title=$2,vehicle_type=$3,capacity=$4,status=$5 where id=$6 and tenant_id=$7 returning *",[plateNo,title,b.vehicleType??old.vehicle_type,capacity,status,old.id,t.id]);res.json(r.rows[0]);
+  const r=await query("update logistics_vehicles set plate_no=$1,title=$2,vehicle_type=$3,capacity=$4,status=$5 where id=$6 and tenant_id=$7 returning *",[plateNo,title,b.vehicleType??old.vehicle_type,capacity,status,old.id,t.id]);await audit(t.id,"vehicle",old.id,"updated",old.status,r.rows[0].status,(req as any).user.id);res.json(r.rows[0]);
 }));
 
 logisticsRouter.get("/api/logistics/drivers",requireAuth,asyncHandler(async(req,res)=>{
@@ -160,14 +160,14 @@ logisticsRouter.patch("/api/logistics/drivers/:id",requireAuth,requirePermission
   const name=String(b.name??old.name).trim(),status=b.status??old.status,expiry=b.licenseExpiry===undefined?old.license_expiry:(b.licenseExpiry||null);
   if(!name||!["active","inactive","suspended"].includes(status))return fail(res,400,"اطلاعات راننده معتبر نیست");
   if(expiry!==null&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(expiry)))return fail(res,400,"تاریخ اعتبار گواهینامه معتبر نیست");
-  const r=await query("update logistics_drivers set name=$1,mobile=$2,license_no=$3,license_expiry=$4,status=$5 where id=$6 and tenant_id=$7 returning *",[name,b.mobile??old.mobile,b.licenseNo??old.license_no,expiry,status,old.id,t.id]);res.json(r.rows[0]);
+  const r=await query("update logistics_drivers set name=$1,mobile=$2,license_no=$3,license_expiry=$4,status=$5 where id=$6 and tenant_id=$7 returning *",[name,b.mobile??old.mobile,b.licenseNo??old.license_no,expiry,status,old.id,t.id]);await audit(t.id,"driver",old.id,"updated",old.status,r.rows[0].status,(req as any).user.id);res.json(r.rows[0]);
 }));
 logisticsRouter.patch("/api/logistics/routes/:id",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   const old=(await query("select * from logistics_routes where id=$1 and tenant_id=$2",[req.params.id,t.id])).rows[0];if(!old)return fail(res,404,"مسیر پیدا نشد");
   const code=String(b.code??old.code).trim(),name=String(b.name??old.name).trim(),origin=String(b.origin??old.origin??"").trim(),destination=String(b.destination??old.destination??"").trim(),distance=Number(b.distanceKm??old.distance_km),status=b.status??old.status;
   if(!code||!name||!origin||!destination||!Number.isFinite(distance)||distance<0||!["active","inactive"].includes(status))return fail(res,400,"اطلاعات مسیر معتبر نیست");
-  const r=await query("update logistics_routes set code=$1,name=$2,origin=$3,destination=$4,distance_km=$5,status=$6 where id=$7 and tenant_id=$8 returning *",[code,name,origin,destination,distance,status,old.id,t.id]);res.json(r.rows[0]);
+  const r=await query("update logistics_routes set code=$1,name=$2,origin=$3,destination=$4,distance_km=$5,status=$6 where id=$7 and tenant_id=$8 returning *",[code,name,origin,destination,distance,status,old.id,t.id]);await audit(t.id,"route",old.id,"updated",old.status,r.rows[0].status,(req as any).user.id);res.json(r.rows[0]);
 }));
 
 logisticsRouter.get("/api/logistics/shipments",requireAuth,asyncHandler(async(req,res)=>{
