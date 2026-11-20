@@ -375,6 +375,7 @@ logisticsRouter.post("/api/logistics/marketplace-orders/:orderId/delivery-quotes
     const order=(await c.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.orderId,t.id])).rows[0];
     if(!order){await c.query("rollback");return fail(res,404,"سفارش فروشگاه پیدا نشد");}
     if(!["pending","confirmed"].includes(order.status)){await c.query("rollback");return fail(res,409,"برای سفارش پرداخت‌شده یا در حال پردازش نمی‌توان پیش‌فاکتور حمل صادر کرد");}
+    if(!order.delivery_quote_required){await c.query("rollback");return fail(res,409,"این سفارش از چرخه پیش‌فاکتور حمل استفاده نمی‌کند");}
     if(!order.delivery_method_id){await c.query("rollback");return fail(res,409,"روش ارسال سفارش ثبت نشده است");}
     if(String(order.currency||"IRR").toUpperCase()!==currency){await c.query("rollback");return fail(res,409,"واحد پول پیش‌فاکتور با سفارش یکسان نیست");}
     const priorPayment=(await c.query("select id from marketplace_payments where tenant_id=$1 and order_id=$2 limit 1 for update",[t.id,order.id])).rowCount;
