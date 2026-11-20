@@ -21,6 +21,7 @@ function CheckoutContent(){
  const [orderId,setOrderId]=useState(search.get("order")||"");
  const [order,setOrder]=useState<any>(null),[pendingPaymentId,setPendingPaymentId]=useState("");
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[message,setMessage]=useState(""),[error,setError]=useState("");
+ const [paymentAttemptKey,setPaymentAttemptKey]=useState("");
  const csrf=()=>typeof document==="undefined"?"":document.cookie.split("; ").find(x=>x.startsWith("naf_csrf="))?.split("=")[1]||"";
  const headers=()=>({"content-type":"application/json","x-csrf-token":csrf()});
  const total=useMemo(()=>items.reduce((s,i)=>s+Number(i.unit_price)*Number(i.quantity),0),[items]);
@@ -51,7 +52,7 @@ function CheckoutContent(){
        const vr=await fetch("/api/marketplace/payments/"+encodeURIComponent(pending.id)+"/verify",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({})});
        const vb=await vr.json();
        if(!vr.ok)throw new Error(vb.error||"تأیید پرداخت از درگاه انجام نشد");
-       if(["paid","failed"].includes(vb.status))setPendingPaymentId("");
+       if(["paid","failed"].includes(vb.status)){setPendingPaymentId("");setPaymentAttemptKey("");}
        setMessage(vb.status==="paid"?"پرداخت با تأیید مستقیم درگاه نهایی شد.":vb.status==="failed"?"درگاه این تلاش را ناموفق اعلام کرد؛ می‌توانید پرداخت را دوباره آغاز کنید.":"درگاه هنوز پرداخت را نهایی نکرده است؛ وضعیت سفارش در انتظار تأیید باقی می‌ماند.");
        const refreshed=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});
        const rb=await refreshed.json();if(refreshed.ok)setOrder({...rb.order,items:rb.items||[],payments:rb.payments||[],refunds:rb.refunds||[]});
@@ -68,7 +69,7 @@ function CheckoutContent(){
   try{
    const r=await fetch("/api/marketplace/payments/"+encodeURIComponent(pendingPaymentId)+"/verify",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({})});
    const b=await r.json();if(!r.ok)throw new Error(b.error||"بررسی وضعیت پرداخت ناموفق بود");
-   if(["paid","failed"].includes(b.status))setPendingPaymentId("");
+   if(["paid","failed"].includes(b.status)){setPendingPaymentId("");setPaymentAttemptKey("");}
    setMessage(b.status==="paid"?"پرداخت با تأیید درگاه نهایی شد.":b.status==="failed"?"درگاه پرداخت را ناموفق اعلام کرد؛ برای تلاش تازه دوباره پرداخت را آغاز کنید.":"درگاه هنوز پرداخت را تأیید نکرده است.");
    if(orderId){const or=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});const ob=await or.json();if(or.ok)setOrder({...ob.order,items:ob.items||[],payments:ob.payments||[],refunds:ob.refunds||[]});}
   }catch(e){setError(e instanceof Error?e.message:"خطا در بررسی پرداخت");}
@@ -85,16 +86,19 @@ function CheckoutContent(){
     const cb=await cr.json();if(!cr.ok)throw new Error(cb.error||"ثبت سفارش ناموفق بود");
     oid=cb.order.id;setOrderId(oid);
    }else{const ar=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/shipping-address",{method:"PATCH",credentials:"include",headers:headers(),body:JSON.stringify({shippingAddress})});const ab=await ar.json();if(!ar.ok)throw new Error(ab.error||"ثبت نشانی تحویل ناموفق بود");}
+   const attemptKey=paymentAttemptKey||("WEB-"+oid+"-"+Date.now()+"-"+Math.random().toString(36).slice(2,10));
+   if(!paymentAttemptKey)setPaymentAttemptKey(attemptKey);
    const pr=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/payment",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({
-    method,creditFacilityId:method==="credit"?facilityId:undefined,idempotencyKey:"WEB-"+oid+"-"+Date.now(),cartId
+    method,creditFacilityId:method==="credit"?facilityId:undefined,idempotencyKey:attemptKey,cartId
    })});
    const pb=await pr.json();if(!pr.ok)throw new Error(pb.error||"پرداخت ناموفق بود");
-   const resolvedOrder=pb.order||{id:oid,status:pb.status||"pending"};
+   const paymentStatus=pb.status||pb.payment?.status||"pending";
+   const resolvedOrder=pb.order||{id:oid,status:paymentStatus==="paid"?"paid":"pending"};
    setOrder(resolvedOrder);
    if(pb.payment?.id&&["pending","authorized"].includes(pb.payment.status))setPendingPaymentId(pb.payment.id);
-   if(pb.status==="paid")setPendingPaymentId("");
+   if(["paid","failed"].includes(paymentStatus)){setPendingPaymentId("");setPaymentAttemptKey("");}
    if(pb.redirectUrl){window.location.assign(pb.redirectUrl);return;}
-   setMessage(resolvedOrder.status==="paid"||pb.status==="paid"?"پرداخت توسط سرویس پرداخت تأیید شد.":pb.status==="failed"?"درگاه این تلاش پرداخت را ناموفق اعلام کرد؛ با ثبت درخواست تازه می‌توانید دوباره پرداخت کنید.":"سفارش ثبت شد؛ وضعیت پرداخت هنوز نهایی نیست و باید از سرویس پرداخت پیگیری شود.");
+   setMessage(resolvedOrder.status==="paid"||paymentStatus==="paid"?"پرداخت توسط سرویس پرداخت تأیید شد.":paymentStatus==="failed"?"درگاه این تلاش پرداخت را ناموفق اعلام کرد؛ با ثبت درخواست تازه می‌توانید دوباره پرداخت کنید.":"سفارش ثبت شد؛ وضعیت پرداخت هنوز نهایی نیست و باید از سرویس پرداخت پیگیری شود.");
   }catch(e){setError(e instanceof Error?e.message:"خطا در ثبت سفارش");}
   finally{setBusy(false);}
  }
@@ -113,7 +117,7 @@ function CheckoutContent(){
      <label className="sk-checkout-choice"><input type="radio" checked={method==="online"} onChange={()=>setMethod("online")}/> پرداخت آنلاین از درگاه متصل</label>
      <label className="sk-checkout-choice"><input type="radio" checked={method==="credit"} onChange={()=>setMethod("credit")}/> استفاده از اعتبار خرید فعال</label>
      {method==="online"&&<p className="sk-checkout-disclaimer">پرداخت فقط پس از تأیید درگاه واقعی نهایی می‌شود. واردکردن شماره مرجع به‌تنهایی پرداخت محسوب نمی‌شود.</p>}{method==="credit"&&<div><label>تسهیلات اعتباری فعال<select value={facilityId} onChange={e=>setFacilityId(e.target.value)}><option value="">انتخاب کنید</option>{facilities.map(f=><option key={f.id} value={f.id}>{f.facility_no} · مانده {Number(f.available_amount).toLocaleString("fa-IR")} {f.currency}</option>)}</select></label>{facilities.length===0&&<p>تسهیلات فعال قابل مصرف برای این حساب پیدا نشد.</p>}</div>}
-     <button className="sk-checkout-primary" disabled={busy||!items.length||(method==="credit"&&!facilityId)} onClick={checkoutAndPay}>{busy?"در حال ثبت درخواست…":method==="credit"?"ادامه با اعتبار خرید":"ثبت درخواست پرداخت"}</button>
+     <button className="sk-checkout-primary" disabled={busy||!!pendingPaymentId||!items.length||(method==="credit"&&!facilityId)} onClick={checkoutAndPay}>{busy?"در حال ثبت درخواست…":method==="credit"?"ادامه با اعتبار خرید":"ثبت درخواست پرداخت"}</button>
      {pendingPaymentId&&<button type="button" className="sk-checkout-secondary" disabled={busy} onClick={verifyPendingPayment}>{busy?"در حال بررسی…":"بررسی مجدد وضعیت پرداخت"}</button>}
      {orderId&&<div><p>شماره سفارش داخلی: {orderId}</p><Link href={"/store/checkout?cart="+encodeURIComponent(cartId)+"&order="+encodeURIComponent(orderId)}>مشاهده وضعیت ←</Link></div>}
     </article>
