@@ -29,7 +29,14 @@ export default function SettlementsPage(){
    .finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;};
  },[]);
- const collect=async(id:string)=>{\n  const paymentRef=(paymentRefs[id]||"").trim();if(!paymentRef){setClaimError("شماره مرجع دریافت وجه را وارد کنید");return;}\n  setCollecting(id);setClaimError("");\n  try{await api<any>(`/api/marketplace/seller-recoveries/${id}/collect`,{method:"POST",body:JSON.stringify({paymentRef})});const r=await api<any>("/api/marketplace/seller-recoveries");setClaims(Array.isArray(r?.items)?r.items:[]);}\n  catch(e:any){setClaimError(e.message||"ثبت وصول مطالبه ناموفق بود");}\n  finally{setCollecting("");}\n };\n return <main className="enterprise-main commerce-settlements" dir="rtl">
+ const collect=async(id:string)=>{
+  const paymentRef=(paymentRefs[id]||"").trim();if(!paymentRef){setClaimError("شماره مرجع دریافت وجه را وارد کنید");return;}
+  setCollecting(id);setClaimError("");
+  try{await api<any>(`/api/marketplace/seller-recoveries/${id}/collect`,{method:"POST",body:JSON.stringify({paymentRef})});const r=await api<any>("/api/marketplace/seller-recoveries");setClaims(Array.isArray(r?.items)?r.items:[]);}
+  catch(e:any){setClaimError(e.message||"ثبت وصول مطالبه ناموفق بود");}
+  finally{setCollecting("");}
+ };
+ return <main className="enterprise-main commerce-settlements" dir="rtl">
   <header className="platform-header settlements-intro">
    <div><span className="section-kicker">تجارت و تسویه</span><h1>تسویه فروشندگان</h1><p>مبالغ ناخالص، کارمزد و خالص قابل پرداخت هر دوره</p></div>
    <div className="settlements-count"><strong>{items.length.toLocaleString("fa-IR")}</strong><span>پرونده تسویه</span></div>
