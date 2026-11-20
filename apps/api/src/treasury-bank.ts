@@ -7,7 +7,7 @@ const deny=(r:Response,n:number,e:string)=>r.status(n).json({error:e});
 const date=(v:unknown)=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v);
 const audit=(t:string,u:string,e:string,id:string,a:string,b:any,x:any)=>query("insert into treasury_audit(tenant_id,entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,$2,$3,$4,$5,$6,$7)",[t,e,id,a,u,b||null,x||null]);
 
-router.get("/api/treasury-bank/overview",requireAuth,async(req,res)=>{
+router.get("/api/treasury-bank/overview",requireAuth,requirePermission("treasury-bank.read"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const [banks,receipts,payments,transactions,cashboxes,movements]=await Promise.all([
   query("select * from treasury_bank_accounts where tenant_id=$1 order by bank_name,account_title",[t.id]),
