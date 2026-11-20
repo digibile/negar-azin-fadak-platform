@@ -154,3 +154,29 @@ test("returns workspace uses supplier and purchase selectors instead of free-tex
  assert.ok(page.includes("فاکتور خرید مرجع"));
  assert.ok(page.includes("ثبت تحویل کالای قرنطینه به تأمین‌کننده"));
 });
+
+test("financial inventory mapping migration enforces tenant-safe one-to-one links",()=>{
+ const q=fs.readFileSync(new URL("../../../database/migrations/zzz_marketplace_finance_inventory_mapping.sql",import.meta.url),"utf8");
+ assert.ok(q.includes("marketplace_finance_product_links"));
+ assert.ok(q.includes("marketplace_finance_warehouse_links"));
+ assert.ok(q.includes("foreign key(tenant_id,inventory_product_id)"));
+ assert.ok(q.includes("foreign key(tenant_id,finance_product_id)"));
+ assert.ok(q.includes("foreign key(tenant_id,inventory_warehouse_id)"));
+ assert.ok(q.includes("foreign key(tenant_id,finance_warehouse_id)"));
+ assert.ok(q.includes("unique(tenant_id,inventory_product_id)"));
+ assert.ok(q.includes("unique(tenant_id,inventory_warehouse_id)"));
+ assert.ok(q.includes("unique(tenant_id,finance_warehouse_id)"));
+});
+
+test("finance mapping APIs validate active records in the same tenant and audit changes",()=>{
+ const start=checkout.indexOf('checkoutRouter.get("/api/marketplace/returns/finance-mappings"');
+ const end=checkout.indexOf('checkoutRouter.get("/api/marketplace/returns/suppliers"',start);
+ const routes=checkout.slice(start,end);
+ assert.ok(routes.includes('requirePermission("accounting-finance.read")'));
+ assert.ok(routes.includes('requirePermission("accounting-finance.write")'));
+ assert.ok(routes.includes('requirePermission("modules:23-inventory-warehouse:write")'));
+ assert.ok(routes.includes("ip.tenant_id=$3 and ip.status='active' and fp.is_active=true"));
+ assert.ok(routes.includes("iw.tenant_id=$3 and iw.status='active' and fw.status='active'"));
+ assert.ok(routes.includes("platform_audit_events"));
+ assert.ok(routes.includes("quantityFactor"));
+});
