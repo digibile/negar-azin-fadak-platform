@@ -364,3 +364,11 @@ test("refund retry is disabled unless the provider explicitly guarantees idempot
  assert.ok(route.includes("manualReconciliationRequired:true"));
  assert.ok(route.includes("idempotencyKey:refund.provider_idempotency_key"));
 });
+
+test("explicit retry endpoint cannot create a first refund when no prior refund exists",()=>{
+ const start=checkout.indexOf("const processMarketplaceReturnRefund=");
+ const end=checkout.indexOf('checkoutRouter.post("/api/storefront/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes('String(req.path||"").endsWith("/refund/retry")&&!existing.rowCount'));
+ assert.ok(route.includes("جهت تلاش مجدد وجود ندارد"));
+});
