@@ -986,7 +986,8 @@ domainMarketplaceRouter.patch("/api/marketplace/products/:id",requireAuth,requir
 domainMarketplaceRouter.put("/api/marketplace/products/:id/inventory-link",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
  const ctx=await tenantContext(req,(req as any).user);
  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const inventoryProductId=bodyString(req.body?.inventoryProductId,100),quantityFactor=bodyNumber(req.body?.quantityFactor??1);\n if(inventoryProductId&& (quantityFactor===null||quantityFactor<=0||quantityFactor>1000000))return res.status(400).json({error:"ضریب تبدیل باید عددی مثبت و حداکثر ۱٬۰۰۰٬۰۰۰ باشد"});
+ const inventoryProductId=bodyString(req.body?.inventoryProductId,100),quantityFactor=bodyNumber(req.body?.quantityFactor??1);
+ if(inventoryProductId&& (quantityFactor===null||quantityFactor<=0||quantityFactor>1000000))return res.status(400).json({error:"ضریب تبدیل باید عددی مثبت و حداکثر ۱٬۰۰۰٬۰۰۰ باشد"});
  const product=await query("select id from products where id=$1 and tenant_id=$2",[req.params.id,ctx.id]);
  if(!product.rowCount)return res.status(404).json({error:"محصول فروشگاه پیدا نشد"});
  if(!inventoryProductId){
