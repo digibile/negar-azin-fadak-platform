@@ -369,6 +369,14 @@ domainMarketplaceRouter.patch("/api/marketplace/orders/:id/status",requireAuth,r
  const next=bodyString(req.body?.status,30);
  const reason=bodyString(req.body?.reason,500)||null;
  if(next==="returned")return res.status(409).json({error:"ثبت مرجوعی باید از مسیر درخواست، دریافت و بازرسی کالا انجام شود"});
+ if(next==="shipped"){
+  const shipment=await query("select 1 from logistics_shipments where tenant_id=$1 and marketplace_order_id=$2 and status='in_transit'",[ctx.id,req.params.id]);
+  if(!shipment.rowCount)return res.status(409).json({error:"ثبت ارسال سفارش فقط پس از شروع حرکت مرسوله در بخش لجستیک مجاز است"});
+ }
+ if(next==="delivered"){
+  const shipment=await query("select 1 from logistics_shipments where tenant_id=$1 and marketplace_order_id=$2 and status='delivered'",[ctx.id,req.params.id]);
+  if(!shipment.rowCount)return res.status(409).json({error:"ثبت تحویل سفارش باید از رویداد تحویل مرسوله در بخش لجستیک انجام شود"});
+ }
  // This endpoint is only for fulfillment lifecycle changes.
  // Payment/refund status is owned by domain-checkout payment/refund transactions.
  // Cancellation must use /cancel so reserved inventory is released atomically.
