@@ -4,7 +4,6 @@ import Link from "next/link";
 import {useEffect,useMemo,useState} from "react";
 import {usePathname} from "next/navigation";
 import {api} from "../../lib/api";
-import {MASTER_MENU} from "./master-menu";
 import styles from "./AdminSidebar.module.css";
 
 type MenuNode={
@@ -30,8 +29,6 @@ function normalize(nodes:MenuNode[]):MenuNode[]{return [...nodes].sort((a,b)=>a.
 function flattenTitles(nodes:MenuNode[]):string[]{return nodes.flatMap(node=>[node.title,...flattenTitles(node.child_items||[])])}
 function menuHref(node:MenuNode){
  if(node.path&&node.path!=="#")return node.path;
- const canonicalChild=MASTER_MENU.flatMap(item=>item.children).find(child=>child.legacyCode===node.menu_key&&child.title===node.title);
- if(canonicalChild){const child=canonicalChild;const childRoute=child.route;if(childRoute)return childRoute;}
  if(node.menu_key)return "/modules/?code="+encodeURIComponent(node.menu_key);
  return "/admin";
 }
