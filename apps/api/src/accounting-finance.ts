@@ -28,8 +28,11 @@ router.post("/api/accounting-finance/accounts",requireAuth,requirePermission("ac
  if(typeof code!=="string"||typeof name!=="string"||!["official","internal","hybrid"].includes(accountMode))return deny(res,400,"اطلاعات حساب نامعتبر است");
  if(bookId){const b=await query("select id from accounting_books where id=$1 and tenant_id=$2",[bookId,t.id]);if(!b.rowCount)return deny(res,404,"دفتر حسابداری پیدا نشد")}
  if(parentId){const p=await query("select id from ledger_accounts where id=$1 and tenant_id=$2",[parentId,t.id]);if(!p.rowCount)return deny(res,404,"حساب والد پیدا نشد")}
- const r=await query("insert into ledger_accounts(tenant_id,code,name,account_type,account_mode,book_id,external_code,parent_id) values($1,$2,$3,$4,$5,$6,$7,$8) returning id,code,name,account_type,account_mode,book_id,external_code,parent_id",[t.id,code.trim(),name.trim(),accountType,accountMode,bookId,externalCode,parentId]);
- await audit(t.id,(req as any).user.id,"ledger_account",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
+ const c=await pool.connect();try{await c.query("begin");
+  const r=await c.query("insert into ledger_accounts(tenant_id,code,name,account_type,account_mode,book_id,external_code,parent_id) values($1,$2,$3,$4,$5,$6,$7,$8) returning id,code,name,account_type,account_mode,book_id,external_code,parent_id",[t.id,code.trim(),name.trim(),accountType,accountMode,bookId,externalCode,parentId]);
+  await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,after_data) values($1,'ledger_account',$2,'create',$3,$4)",[t.id,r.rows[0].id,(req as any).user.id,r.rows[0]]);
+  await c.query("commit");res.status(201).json(r.rows[0]);
+ }catch(e:any){await c.query("rollback").catch(()=>{});if(e?.code==="23505")return deny(res,409,"کد حساب تکراری است");throw e}finally{c.release()}
 });
 router.patch("/api/accounting-finance/accounts/:id",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
