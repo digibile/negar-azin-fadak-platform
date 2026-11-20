@@ -96,6 +96,16 @@ logisticsRouter.post("/api/logistics/vehicles",requireAuth,requirePermission("mo
   if(!b.plateNo||!b.title)return fail(res,400,"پلاک و عنوان الزامی است");
   res.status(201).json((await query("insert into logistics_vehicles(tenant_id,plate_no,title,vehicle_type,capacity) values($1,$2,$3,$4,$5) returning *",[t.id,b.plateNo,b.title,b.vehicleType||null,Number(b.capacity||0)])).rows[0]);
 }));
+
+logisticsRouter.patch("/api/logistics/vehicles/:id",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const old=(await query("select * from logistics_vehicles where id=$1 and tenant_id=$2",[req.params.id,t.id])).rows[0];if(!old)return fail(res,404,"خودرو پیدا نشد");
+  const plateNo=String(b.plateNo??old.plate_no).trim(),title=String(b.title??old.title).trim(),capacity=Number(b.capacity??old.capacity),status=b.status??old.status;
+  if(!plateNo||!title||!Number.isFinite(capacity)||capacity<0||!["available","assigned","maintenance","inactive"].includes(status))return fail(res,400,"اطلاعات خودرو معتبر نیست");
+  if(old.status==="assigned"&&status!=="assigned")return fail(res,409,"خودروی تخصیص‌یافته تا پایان مأموریت قابل تغییر وضعیت نیست");
+  const r=await query("update logistics_vehicles set plate_no=$1,title=$2,vehicle_type=$3,capacity=$4,status=$5 where id=$6 and tenant_id=$7 returning *",[plateNo,title,b.vehicleType??old.vehicle_type,capacity,status,old.id,t.id]);res.json(r.rows[0]);
+}));
+
 logisticsRouter.get("/api/logistics/drivers",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   res.json((await query("select * from logistics_drivers where tenant_id=$1 order by name",[t.id])).rows);
@@ -113,6 +123,51 @@ logisticsRouter.post("/api/logistics/routes",requireAuth,requirePermission("modu
   const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   if(!b.code||!b.name||!b.origin||!b.destination)return fail(res,400,"اطلاعات مسیر کامل نیست");
   res.status(201).json((await query("insert into logistics_routes(tenant_id,code,name,origin,destination,distance_km) values($1,$2,$3,$4,$5,$6) returning *",[t.id,b.code,b.name,b.origin,b.destination,Number(b.distanceKm||0)])).rows[0]);
+}));
+
+
+logisticsRouter.patch("/api/logistics/plans/:id",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const old=(await query("select * from logistics_supply_plans where id=$1 and tenant_id=$2",[req.params.id,t.id])).rows[0];
+  if(!old)return fail(res,404,"برنامه پیدا نشد");
+  if(old.status!=="draft")return fail(res,409,"فقط برنامه پیش‌نویس قابل ویرایش است");
+  const planNo=String(b.planNo??old.plan_no).trim(),plannedDate=b.plannedDate??old.planned_date,notes=b.notes??old.notes;
+  if(!planNo||planNo.length>120)return fail(res,400,"شماره برنامه معتبر نیست");
+  const r=await query("update logistics_supply_plans set plan_no=$1,planned_date=$2,notes=$3 where id=$4 and tenant_id=$5 and status='draft' returning *",[planNo,plannedDate,notes,old.id,t.id]);
+  if(!r.rowCount)return fail(res,409,"برنامه در این فاصله تغییر کرده است");
+  await audit(t.id,"supply_plan",old.id,"updated",old.status,old.status,(req as any).user.id);
+  res.json(r.rows[0]);
+}));
+logisticsRouter.patch("/api/logistics/orders/:id",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const old=(await query("select * from logistics_supply_orders where id=$1 and tenant_id=$2",[req.params.id,t.id])).rows[0];
+  if(!old)return fail(res,404,"سفارش تأمین پیدا نشد");
+  if(old.status!=="draft")return fail(res,409,"فقط سفارش پیش‌نویس قابل ویرایش است");
+  const planId=b.planId===undefined?old.plan_id:(b.planId||null);
+  if(planId){const p=(await query("select id,status from logistics_supply_plans where id=$1 and tenant_id=$2",[planId,t.id])).rows[0];if(!p)return fail(res,400,"برنامه متعلق به سازمان نیست");if(!["approved","released"].includes(p.status))return fail(res,409,"برنامه انتخاب‌شده تأیید نشده است");}
+  const orderNo=String(b.orderNo??old.order_no).trim(),origin=String(b.origin??old.origin).trim(),destination=String(b.destination??old.destination).trim(),quantity=Number(b.quantity??old.quantity);
+  if(!orderNo||!origin||!destination||!Number.isFinite(quantity)||quantity<0)return fail(res,400,"اطلاعات سفارش معتبر نیست");
+  const r=await query("update logistics_supply_orders set order_no=$1,plan_id=$2,origin=$3,destination=$4,cargo_description=$5,quantity=$6,requested_date=$7,notes=$8,updated_at=now() where id=$9 and tenant_id=$10 and status='draft' returning *",[orderNo,planId,origin,destination,b.cargoDescription??old.cargo_description,quantity,b.requestedDate??old.requested_date,b.notes??old.notes,old.id,t.id]);
+  if(!r.rowCount)return fail(res,409,"سفارش در این فاصله تغییر کرده است");
+  await audit(t.id,"supply_order",old.id,"updated",old.status,old.status,(req as any).user.id);
+  res.json(r.rows[0]);
+}));
+
+
+logisticsRouter.patch("/api/logistics/drivers/:id",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const old=(await query("select * from logistics_drivers where id=$1 and tenant_id=$2",[req.params.id,t.id])).rows[0];if(!old)return fail(res,404,"راننده پیدا نشد");
+  const name=String(b.name??old.name).trim(),status=b.status??old.status,expiry=b.licenseExpiry===undefined?old.license_expiry:(b.licenseExpiry||null);
+  if(!name||!["active","inactive","suspended"].includes(status))return fail(res,400,"اطلاعات راننده معتبر نیست");
+  if(expiry!==null&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(expiry)))return fail(res,400,"تاریخ اعتبار گواهینامه معتبر نیست");
+  const r=await query("update logistics_drivers set name=$1,mobile=$2,license_no=$3,license_expiry=$4,status=$5 where id=$6 and tenant_id=$7 returning *",[name,b.mobile??old.mobile,b.licenseNo??old.license_no,expiry,status,old.id,t.id]);res.json(r.rows[0]);
+}));
+logisticsRouter.patch("/api/logistics/routes/:id",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const old=(await query("select * from logistics_routes where id=$1 and tenant_id=$2",[req.params.id,t.id])).rows[0];if(!old)return fail(res,404,"مسیر پیدا نشد");
+  const code=String(b.code??old.code).trim(),name=String(b.name??old.name).trim(),origin=String(b.origin??old.origin??"").trim(),destination=String(b.destination??old.destination??"").trim(),distance=Number(b.distanceKm??old.distance_km),status=b.status??old.status;
+  if(!code||!name||!origin||!destination||!Number.isFinite(distance)||distance<0||!["active","inactive"].includes(status))return fail(res,400,"اطلاعات مسیر معتبر نیست");
+  const r=await query("update logistics_routes set code=$1,name=$2,origin=$3,destination=$4,distance_km=$5,status=$6 where id=$7 and tenant_id=$8 returning *",[code,name,origin,destination,distance,status,old.id,t.id]);res.json(r.rows[0]);
 }));
 
 logisticsRouter.get("/api/logistics/shipments",requireAuth,asyncHandler(async(req,res)=>{
@@ -147,6 +202,7 @@ logisticsRouter.post("/api/logistics/shipments",requireAuth,requirePermission("m
       if(!d||d.status!=="active")throw new Error("راننده فعال پیدا نشد");
       if(d.license_expiry&&new Date(d.license_expiry)<new Date())throw new Error("گواهینامه راننده منقضی شده است");
     }
+    if(b.routeId){const route=(await c.query("select id from logistics_routes where id=$1 and tenant_id=$2 and status='active'",[b.routeId,t.id])).rows[0];if(!route)throw new Error("مسیر انتخاب‌شده متعلق به سازمان نیست یا غیرفعال است");}
     const r=(await c.query(
       "insert into logistics_shipments(tenant_id,shipment_no,supply_order_id,route_id,vehicle_id,driver_id,origin,destination,tracking_code,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",
       [t.id,b.shipmentNo,b.supplyOrderId||null,b.routeId||null,b.vehicleId||null,b.driverId||null,b.origin,b.destination,b.trackingCode||null,(req as any).user.id]
