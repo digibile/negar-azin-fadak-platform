@@ -74,7 +74,13 @@ walletLedgerRouter.post("/api/wallet-ledger/entries",requireAuth,requirePermissi
  try{
   await client.query("begin");
   const existing=await client.query("select * from wallet_ledger_entries where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey.trim()]);
-  if(existing.rowCount){await client.query("rollback");return res.status(200).json(existing.rows[0]);}
+  if(existing.rowCount){
+   const prior=existing.rows[0];
+   const same=prior.wallet_id===walletId&&prior.entry_no===entryNo.trim()&&prior.direction===direction&&num(prior.amount)===num(amount);
+   await client.query("rollback");
+   if(!same)return deny(res,409,"کلید تکرارپذیری قبلاً برای اطلاعات دیگری استفاده شده است");
+   return res.status(200).json(prior);
+  }
   const w=await client.query("select * from wallet_accounts where id=$1 and tenant_id=$2 for update",[walletId,t.id]);
   if(!w.rowCount){await client.query("rollback");return deny(res,404,"کیف پول پیدا نشد");}
   if(w.rows[0].status!=="active"){await client.query("rollback");return deny(res,409,"کیف پول فعال نیست");}
@@ -84,7 +90,12 @@ walletLedgerRouter.post("/api/wallet-ledger/entries",requireAuth,requirePermissi
   if(!e.rowCount){
    const replay=await client.query("select * from wallet_ledger_entries where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey.trim()]);
    await client.query("rollback");
-   if(replay.rowCount)return res.status(200).json(replay.rows[0]);
+   if(replay.rowCount){
+    const prior=replay.rows[0];
+    const same=prior.wallet_id===walletId&&prior.entry_no===entryNo.trim()&&prior.direction===direction&&num(prior.amount)===num(amount);
+    if(!same)return deny(res,409,"کلید تکرارپذیری قبلاً برای اطلاعات دیگری استفاده شده است");
+    return res.status(200).json(prior);
+   }
    return deny(res,409,"شماره ثبت تکراری است");
   }
   await client.query("update wallet_accounts set current_balance=$1,updated_at=now() where id=$2 and tenant_id=$3",[after,walletId,t.id]);
