@@ -33,6 +33,41 @@ router.post("/api/purchasing/suppliers",requireAuth,requirePermission("modules:2
  const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");if(!b.code||!b.name)return deny(res,400,"کد و نام تأمین‌کننده الزامی است");
  const r=await query("insert into purchase_suppliers(tenant_id,code,name,national_id,phone,email,payment_terms_days) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,b.code,b.name,b.nationalId||null,b.phone||null,b.email||null,n(b.paymentTermsDays)]);res.status(201).json(r.rows[0]);
 });
+router.post("/api/purchasing/suppliers/import",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{
+ const t=await tenantOf(req),rows=Array.isArray(req.body?.rows)?req.body.rows:[];
+ if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ if(!rows.length||rows.length>1000)return deny(res,400,"تعداد ردیف‌های ورود باید بین ۱ تا ۱۰۰۰ باشد");
+ const normalized=rows.map((raw:any,index:number)=>({
+  row:index+2,code:String(raw.code??"").trim(),name:String(raw.name??"").trim(),
+  nationalId:String(raw.nationalId??raw.national_id??"").trim()||null,
+  phone:String(raw.phone??"").trim()||null,email:String(raw.email??"").trim()||null,
+  paymentTermsDays:Number(raw.paymentTermsDays??raw.payment_terms_days??0)
+ }));
+ const seen=new Set<string>();
+ for(const row of normalized){
+  if(!row.code||!row.name)return deny(res,400,"کد و نام تأمین‌کننده در ردیف "+row.row+" الزامی است");
+  if(seen.has(row.code))return deny(res,400,"کد تکراری در فایل: "+row.code);
+  seen.add(row.code);
+  if(!Number.isInteger(row.paymentTermsDays)||row.paymentTermsDays<0||row.paymentTermsDays>3650)return deny(res,400,"مهلت پرداخت در ردیف "+row.row+" باید عدد صحیح بین صفر تا ۳۶۵۰ باشد");
+  if(row.email&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(row.email))return deny(res,400,"ایمیل ردیف "+row.row+" معتبر نیست");
+ }
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const created=[];
+  for(const row of normalized){
+   const inserted=await client.query("insert into purchase_suppliers(tenant_id,code,name,national_id,phone,email,payment_terms_days) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,row.code,row.name,row.nationalId,row.phone,row.email,row.paymentTermsDays]);
+   created.push(inserted.rows[0]);
+   await client.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id) values($1,'supplier',$2,null,$3,'created',$4)",[t.id,inserted.rows[0].id,inserted.rows[0].status,(req as any).user.id]);
+  }
+  await client.query("commit");
+  res.status(201).json({created:created.length,items:created});
+ }catch(error:any){
+  await client.query("rollback");
+  if(error?.code==="23505")return deny(res,409,"کد یکی از تأمین‌کنندگان از قبل در سازمان ثبت شده است؛ هیچ ردیفی وارد نشد");
+  throw error;
+ }finally{client.release();}
+});
 router.patch("/api/purchasing/suppliers/:id",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{
  const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const old=(await query("select * from purchase_suppliers where id=$1 and tenant_id=$2",[req.params.id,t.id])).rows[0];
