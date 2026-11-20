@@ -265,7 +265,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
    refundProviderPayload={creditFacilityId:order.credit_facility_ref,restoredAmount:Number(payment.rows[0].amount)};
   }else{
    const provider=getPaymentProvider(payment.rows[0].provider_code);
-   const providerResult=await provider.refundPayment({providerTransactionId:payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref||"",amount:Number(payment.rows[0].amount),metadata:{orderId:order.id,paymentId:payment.rows[0].id}});
+   const providerResult=await provider.refundPayment({providerTransactionId:payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref||"",amount:Number(payment.rows[0].amount),idempotencyKey:"marketplace-refund-"+payment.rows[0].id,metadata:{orderId:order.id,paymentId:payment.rows[0].id,idempotencyKey:"marketplace-refund-"+payment.rows[0].id}});
    if(providerResult.status!=="refunded"){await client.query("rollback");return res.status(409).json({error:"درگاه بازگشت وجه را تأیید نکرد",status:providerResult.status});}
    refundProviderCode=provider.code;
    refundProviderTransactionId=providerResult.providerTransactionId;
