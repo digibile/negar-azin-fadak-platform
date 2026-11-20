@@ -72,3 +72,22 @@ CREATE INDEX IF NOT EXISTS marketplace_shipping_rates_lookup_idx
 
 ALTER TABLE marketplace_orders
   ADD COLUMN IF NOT EXISTS shipping_rate_id uuid REFERENCES marketplace_shipping_rates(id) ON DELETE SET NULL;
+
+ALTER TABLE marketplace_orders
+  ADD COLUMN IF NOT EXISTS delivery_method_id uuid,
+  ADD COLUMN IF NOT EXISTS delivery_method_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname='marketplace_orders_delivery_method_fk'
+      AND conrelid='marketplace_orders'::regclass
+  ) THEN
+    ALTER TABLE marketplace_orders
+      ADD CONSTRAINT marketplace_orders_delivery_method_fk
+      FOREIGN KEY (delivery_method_id)
+      REFERENCES commerce_delivery_methods(id)
+      ON DELETE RESTRICT;
+  END IF;
+END $$;
