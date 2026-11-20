@@ -90,7 +90,7 @@ export default function MarketplaceShippingPage(){
  return <main className="enterprise-main shipping-workspace" dir="rtl">
   <header className="platform-header shipping-header">
    <div><span className="section-kicker">تجارت · زنجیره تأمین و لجستیک</span><h1>ارسال و رهگیری سفارش‌ها</h1><p>اتصال مستقیم سفارش فروشگاه به ناوگان، راننده و رویدادهای تحویل</p></div>
-   <div className="shipping-header-actions"><a href="/marketplace/shipping/resources">مدیریت ناوگان و رانندگان</a><a href="/marketplace/shipping/delivery-methods">روش‌ها و تعرفه‌های ارسال</a><a href="/marketplace/shipping/routes">مدیریت مسیرها</a><button type="button" onClick={()=>void load()} disabled={loading}>بازخوانی اطلاعات</button></div>
+   <div className="shipping-header-actions"><a href="/marketplace/shipping/resources">مدیریت ناوگان و رانندگان</a><a href="/marketplace/shipping/delivery-methods">روش‌ها و تعرفه‌های ارسال</a><a href="/marketplace/shipping/delivery-quotes">استعلام هزینه ارسال</a><a href="/marketplace/shipping/routes">مدیریت مسیرها</a><button type="button" onClick={()=>void load()} disabled={loading}>بازخوانی اطلاعات</button></div>
   </header>
   {error&&<p className="shipping-message error" role="alert">{error}</p>}
   {notice&&<p className="shipping-message success" role="status">{notice}</p>}
