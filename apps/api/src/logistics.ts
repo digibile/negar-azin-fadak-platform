@@ -6,7 +6,7 @@ import {resolveTenant} from "./tenant-context.js";
 
 export const logisticsRouter=Router();
 const tenantOf=(req:any)=>resolveTenant(req,req.user);
-const fail=(res:any,status:number,error:string)=>res.status(status).json({error});
+const fail=(res:any,status:number,error:string,details?:any)=>res.status(status).json({error,...(details||{})});
 
 async function can(req:any,permission:string){
   if(req.user?.role==="admin") return true;
