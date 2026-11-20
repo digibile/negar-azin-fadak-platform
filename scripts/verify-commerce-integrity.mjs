@@ -87,6 +87,9 @@ if(!checkoutApi.includes('returnUrl:')||!checkoutApi.includes('paymentNo='+encod
 if(!paymentMigration.includes("add column if not exists redirect_url text")||!paymentMigration.includes("failure_reason text"))throw new Error("Pending payment migration must persist redirect and failure metadata");
 if(!checkoutPage.includes('window.location.assign(pb.redirectUrl)')||!checkoutPage.includes('/api/marketplace/payments/'))throw new Error("Store checkout must redirect to the gateway and verify the returned payment");
 if(!checkoutPage.includes("بررسی مجدد وضعیت پرداخت")||!checkoutPage.includes("pendingPaymentId"))throw new Error("Store checkout must expose a retryable status check for pending gateway attempts");
+if(!checkoutApi.includes('providerResult.status==="failed"?"failed":"pending"')||!checkoutApi.includes("failure_reason"))throw new Error("Gateway-declared failures must remain failed instead of being misreported as pending");
+if(!checkoutApi.includes('pendingStatus==="failed"?200:202'))throw new Error("Failed gateway attempts must not be exposed as pending payment redirects");
+
 const customerOrders=read("apps/web/app/account/orders/page.tsx");
 const customerOrdersCss=read("apps/web/app/account/orders/orders-workspace.css");
 if(!api.includes('permission="order:view"')&&!api.includes("permission='order:view'"))throw new Error("Marketplace order list must preserve operator order:view authorization");
