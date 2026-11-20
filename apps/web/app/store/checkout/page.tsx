@@ -44,7 +44,7 @@ function CheckoutContent(){
        const vr=await fetch("/api/marketplace/payments/"+encodeURIComponent(pending.id)+"/verify",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({})});
        const vb=await vr.json();
        if(!vr.ok)throw new Error(vb.error||"تأیید پرداخت از درگاه انجام نشد");
-       if(vb.status==="paid")setPendingPaymentId("");
+       if(["paid","failed"].includes(vb.status))setPendingPaymentId("");
        setMessage(vb.status==="paid"?"پرداخت با تأیید مستقیم درگاه نهایی شد.":"درگاه هنوز پرداخت را نهایی نکرده است؛ وضعیت سفارش در انتظار تأیید باقی می‌ماند.");
        const refreshed=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});
        const rb=await refreshed.json();if(refreshed.ok)setOrder(rb.order);
@@ -61,7 +61,7 @@ function CheckoutContent(){
   try{
    const r=await fetch("/api/marketplace/payments/"+encodeURIComponent(pendingPaymentId)+"/verify",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({})});
    const b=await r.json();if(!r.ok)throw new Error(b.error||"بررسی وضعیت پرداخت ناموفق بود");
-   if(b.status==="paid")setPendingPaymentId("");
+   if(["paid","failed"].includes(b.status))setPendingPaymentId("");
    setMessage(b.status==="paid"?"پرداخت با تأیید درگاه نهایی شد.":"درگاه هنوز پرداخت را تأیید نکرده است.");
    if(orderId){const or=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});const ob=await or.json();if(or.ok)setOrder(ob.order);}
   }catch(e){setError(e instanceof Error?e.message:"خطا در بررسی پرداخت");}
