@@ -115,6 +115,18 @@ const shippingWorkspaceWithTariffLink=read("apps/web/app/marketplace/shipping/pa
 if(!shippingWorkspaceWithTariffLink.includes('/marketplace/shipping/delivery-methods'))throw new Error("Shipping workspace must link to delivery method management");
 console.log("DELIVERY_METHODS_INTEGRITY_OK");
 
+const productRulesApi=read("apps/api/src/logistics.ts");
+const productRulesPage=read("apps/web/app/marketplace/shipping/delivery-methods/page.tsx");
+const productRulesCss=read("apps/web/app/marketplace/shipping/delivery-methods/delivery-methods.css");
+for(const route of ['/api/logistics/delivery-methods/:id/products'])if(!productRulesApi.includes(route))throw new Error("Product delivery rule API is missing");
+if(!productRulesApi.includes("left join product_delivery_rules")||!productRulesApi.includes("where p.tenant_id=$2"))throw new Error("Product delivery rules listing must be tenant-scoped");
+if(!productRulesApi.includes('requirePermission("modules:12-logistics-supply:write")')||!productRulesApi.includes("delete from product_delivery_rules where tenant_id=$1 and delivery_method_id=$2")||!productRulesApi.includes("p.id=any($3::uuid[])"))throw new Error("Product delivery rule writes must be authorized and tenant-scoped");
+if(!productRulesApi.includes("valid.rowCount!==uniqueIds.length")||!productRulesApi.includes('insert into product_delivery_rules(tenant_id,product_id,delivery_method_id,enabled)'))throw new Error("Product delivery rules must validate ownership before assignment");
+if(!productRulesPage.includes('تخصیص کالاها')||!productRulesPage.includes('productIds:products.filter(p=>p.enabled).map(p=>p.id)')||!productRulesPage.includes('delivery-methods/"+encodeURIComponent(selectedMethod.id)+"/products'))throw new Error("Delivery method UI must manage product assignments through the API");
+if(!productRulesCss.includes(".delivery-product-grid")||!productRulesCss.includes("@media(max-width:520px)"))throw new Error("Product delivery rule UI must be responsive");
+console.log("PRODUCT_DELIVERY_RULES_INTEGRITY_OK");
+
+
 
 
 const reservationMigration=read("database/migrations/149_marketplace_reservation_expiry.sql");
