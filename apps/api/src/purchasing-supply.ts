@@ -2,6 +2,7 @@ import {Router,type Request,type Response} from "express";
 import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {resolveTenant} from "./tenant-context.js";
+import {purchaseOrderTransitions,isAllowedLifecycleTransition} from "./commerce-lifecycle.js";
 const router=Router();
 const tenantOf=async(req:Request)=>resolveTenant(req,(req as any).user);
 const deny=(res:Response,s:number,e:string)=>res.status(s).json({error:e});
@@ -10,7 +11,6 @@ async function event(t:string,type:string,id:string,from:string|null,to:string,e
  await query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id,reason) values($1,$2,$3,$4,$5,$6,$7,$8)",[t,type,id,from,to,ev,user,reason]);
 }
 const transitions:Record<string,string[]>={draft:["submitted","cancelled"],submitted:["approved","rejected","cancelled"],approved:["rfq","cancelled"],rfq:["ordered","closed"],ordered:["closed"],closed:[],cancelled:[],rejected:[]};
-const orderTransitions:Record<string,string[]>={draft:["approved","cancelled"],approved:["sent","cancelled"],sent:["partially_received","received","cancelled"],partially_received:["received","cancelled"],received:["invoiced"],invoiced:["paid"],paid:[],cancelled:[]};
 router.get("/api/purchasing/overview",requireAuth,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const [suppliers,requests,rfqs,quotes,orders,receipts,invoices,payments,returns,evaluations,contracts,events]=await Promise.all([
@@ -104,7 +104,25 @@ router.post("/api/purchasing/orders",requireAuth,requirePermission("modules:21-p
  const t=await tenantOf(req),b=req.body||{},items=Array.isArray(b.items)?b.items:[];if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");if(!b.supplierId||!items.length)return deny(res,400,"تأمین‌کننده و اقلام سفارش الزامی است");const s=await query("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active'",[b.supplierId,t.id]);if(!s.rowCount)return deny(res,400,"تأمین‌کننده فعال نیست");const sub=items.reduce((a:any,x:any)=>a+n(x.quantity)*n(x.unitPrice),0),tax=items.reduce((a:any,x:any)=>a+n(x.quantity)*n(x.unitPrice)*n(x.taxRate)/100,0),total=sub+tax,c=await pool.connect();try{await c.query("begin");const o=await c.query("insert into purchase_orders(tenant_id,order_no,supplier_id,request_id,quote_id,expected_date,subtotal,tax_total,total,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,b.orderNo||"PO-"+Date.now(),b.supplierId,b.requestId||null,b.quoteId||null,b.expectedDate||null,sub,tax,total,b.notes||null,(req as any).user.id]);for(const x of items)await c.query("insert into purchase_order_items(order_id,product_name,sku,quantity,unit,unit_price,tax_rate,line_total) values($1,$2,$3,$4,$5,$6,$7,$8)",[o.rows[0].id,x.productName,x.sku||null,n(x.quantity),x.unit||"عدد",n(x.unitPrice),n(x.taxRate),n(x.quantity)*n(x.unitPrice)*(1+n(x.taxRate)/100)]);await c.query("commit");res.status(201).json(o.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
 router.patch("/api/purchasing/orders/:id/status",requireAuth,requirePermission("modules:21-purchasing-supply:approve"),async(req,res)=>{
- const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const r=await query("select * from purchase_orders where id=$1 and tenant_id=$2",[req.params.id,t.id]);if(!r.rowCount)return deny(res,404,"سفارش خرید پیدا نشد");const old=r.rows[0],to=String(req.body?.status||"");if(!orderTransitions[old.status]?.includes(to))return deny(res,409,"تغییر وضعیت سفارش خرید مجاز نیست");await query("update purchase_orders set status=$1,updated_at=now() where id=$2",[to,old.id]);await event(t.id,"order",old.id,old.status,to,"status_change",(req as any).user.id);res.json({...old,status:to});
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const to=String(req.body?.status||""),reason=String(req.body?.reason||"").trim().slice(0,500)||null;
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const locked=await c.query("select * from purchase_orders where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+  if(!locked.rowCount){await c.query("rollback");return deny(res,404,"سفارش خرید پیدا نشد");}
+  const old=locked.rows[0];
+  if(!isAllowedLifecycleTransition(purchaseOrderTransitions,old.status,to)){await c.query("rollback");return deny(res,409,"تغییر وضعیت سفارش خرید مجاز نیست");}
+  if(to==="approved"){
+   const supplier=await c.query("select id,status from purchase_suppliers where id=$1 and tenant_id=$2 for update",[old.supplier_id,t.id]);
+   if(!supplier.rowCount||supplier.rows[0].status!=="active"){await c.query("rollback");return deny(res,409,"تأمین‌کننده سفارش فعال یا متعلق به سازمان نیست");}
+  }
+  const updated=await c.query("update purchase_orders set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[to,old.id,t.id]);
+  if(!updated.rowCount){await c.query("rollback");return deny(res,409,"سفارش خرید در این فاصله تغییر کرده است");}
+  await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id,reason) values($1,'order',$2,$3,$4,'status_change',$5,$6)",[t.id,old.id,old.status,to,(req as any).user.id,reason]);
+  await c.query("commit");
+  res.json(updated.rows[0]);
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/purchasing/receipts",requireAuth,requirePermission("modules:21-purchasing-supply:receive"),async(req,res)=>{
  const t=await tenantOf(req),b=req.body||{},items=Array.isArray(b.items)?b.items:[];if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");if(!b.orderId||!items.length)return deny(res,400,"سفارش و اقلام دریافت الزامی است");const c=await pool.connect();try{await c.query("begin");const o=await c.query("select * from purchase_orders where id=$1 and tenant_id=$2 for update",[b.orderId,t.id]);if(!o.rowCount||!["sent","partially_received"].includes(o.rows[0].status))return deny(res,409,"سفارش آماده دریافت نیست");for(const x of items){const it=await c.query("select * from purchase_order_items where id=$1 and order_id=$2 for update",[x.orderItemId,b.orderId]);if(!it.rowCount)return deny(res,400,"قلم سفارش نامعتبر است");const row=it.rows[0],qty=n(x.quantity),open=n(row.quantity)-n(row.received_qty);if(qty<=0||qty>open)return deny(res,409,"مقدار دریافت بیش از مانده سفارش است");await c.query("update purchase_order_items set received_qty=received_qty+$1 where id=$2",[qty,row.id]);}const no=b.receiptNo||"GRN-"+Date.now();const g=await c.query("insert into purchase_receipts(tenant_id,receipt_no,order_id,status,inspector_user_id,notes,created_by) values($1,$2,$3,'received',$4,$5,$4) returning *",[t.id,no,b.orderId,(req as any).user.id,b.notes||null]);for(const x of items)await c.query("insert into purchase_receipt_items(receipt_id,order_item_id,quantity,accepted_qty,rejected_qty) values($1,$2,$3,$4,$5)",[g.rows[0].id,x.orderItemId,n(x.quantity),n(x.acceptedQty||x.quantity),n(x.rejectedQty)]);const rem=await c.query("select count(*) filter(where received_qty<quantity) remaining from purchase_order_items where order_id=$1",[b.orderId]);await c.query("update purchase_orders set status=$1,updated_at=now() where id=$2",[(Number(rem.rows[0].remaining)>0)?"partially_received":"received",b.orderId]);await c.query("commit");res.status(201).json(g.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
