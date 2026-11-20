@@ -313,3 +313,16 @@ console.log("MARKETPLACE_DELIVERY_QUOTE_TRACKING_AND_LOGISTICS_VISIBILITY_OK");
 
 
 
+
+const carrierInvoiceMigration=read("database/migrations/159_logistics_carrier_invoice_reconciliation.sql");
+const carrierInvoiceApi=read("apps/api/src/logistics.ts");
+const carrierInvoicePage=read("apps/web/app/marketplace/shipping/carrier-invoices/page.tsx");
+const carrierInvoiceCss=read("apps/web/app/marketplace/shipping/carrier-invoices/carrier-invoices.css");
+if(!carrierInvoiceMigration.includes("logistics_carrier_invoices")||!carrierInvoiceMigration.includes("unique index if not exists uq_logistics_carrier_invoice_active_shipment")||!carrierInvoiceMigration.includes("variance_amount numeric(20,2)"))throw new Error("Carrier invoice reconciliation migration must persist one active invoice per shipment and its amount variance");
+if(!carrierInvoiceApi.includes("/api/logistics/carrier-invoices")||!carrierInvoiceApi.includes("shipment_status!==\"delivered\"||source.order_status!==\"delivered\"")||!carrierInvoiceApi.includes("source.quote_status!==\"accepted\""))throw new Error("Carrier invoice capture must require a delivered marketplace order and an accepted delivery quote");
+if(!carrierInvoiceApi.includes("Math.abs(variance)<=0.005?\"matched\":\"disputed\"")||!carrierInvoiceApi.includes("برای تأیید اختلاف مبلغ، توضیح تصمیم الزامی است"))throw new Error("Carrier invoice reconciliation must flag variances and require an approval explanation");
+if(!carrierInvoiceApi.includes("logistics.carrier_invoice_recorded")||!carrierInvoiceApi.includes("logistics.carrier_invoice_approved"))throw new Error("Carrier invoice creation and approval must be audited");
+if(!carrierInvoiceApi.includes("logistics_carrier_invoices")||carrierInvoiceApi.includes("postLedgerEntry")&&carrierInvoiceApi.includes("carrier-invoices/:id/approve"))throw new Error("Carrier invoice operational approval must not create an unconfigured carrier payment ledger entry");
+if(!carrierInvoicePage.includes("صورتحساب شرکت‌های حمل")||!carrierInvoicePage.includes("تأیید عملیاتی صورتحساب")||!carrierInvoicePage.includes("ثبت سند بدهی و پرداخت"))throw new Error("Carrier invoice workspace must expose invoice entry, variance review and operational approval without claiming payment");
+if(!carrierInvoiceCss.includes(".carrier-invoice-row")||!read("apps/web/app/marketplace/shipping/page.tsx").includes("/marketplace/shipping/carrier-invoices"))throw new Error("Carrier invoice workspace must be styled and linked from shipping operations");
+console.log("MARKETPLACE_CARRIER_INVOICE_RECONCILIATION_INTEGRITY_OK");
