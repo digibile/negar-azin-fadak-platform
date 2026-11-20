@@ -565,8 +565,10 @@ const processMarketplaceReturnRefund=asyncHandler(async(req,res)=>{
    const item=await client.query("select oi.id,oi.product_id,oi.quantity,oi.unit_price,oi.line_total,oi.quantity order_quantity,p.title from marketplace_order_items oi join products p on p.id=oi.product_id where oi.id=$1 and oi.order_id=$2 for update of oi",[rr.rows[0].order_item_id,rr.rows[0].order_id]);
    if(!ord.rowCount||!pay.rowCount||!item.rowCount){await client.query("rollback");return res.status(409).json({error:"اطلاعات سفارش، پرداخت یا قلم مرجوعی برای تلاش مجدد پیدا نشد"});}
    const snapshot=claim.rows[0].provider_payload||{};
-   const receivedQuantity=Number(snapshot.receivedQuantity??snapshot.quantity),restockQuantity=Number(snapshot.restockQuantity),quarantineQuantity=Number(snapshot.quarantineQuantity);
-   if(!Number.isFinite(receivedQuantity)||receivedQuantity<=0||!Number.isFinite(restockQuantity)||restockQuantity<0||restockQuantity>receivedQuantity){await client.query("rollback");return res.status(409).json({error:"snapshot مقادیر مرجوعی برای تلاش مجدد معتبر نیست"});}
+   const receivedQuantity=Number(snapshot.receivedQuantity??snapshot.quantity??rr.rows[0].received_quantity),restockQuantity=Number(snapshot.restockQuantity??rr.rows[0].restock_quantity),quarantineQuantity=Number(snapshot.quarantineQuantity??(receivedQuantity-restockQuantity));
+   if(!Number.isFinite(receivedQuantity)||receivedQuantity<=0||receivedQuantity>Number(rr.rows[0].requested_quantity)||!Number.isFinite(restockQuantity)||restockQuantity<0||restockQuantity>receivedQuantity){await client.query("rollback");return res.status(409).json({error:"snapshot مقادیر مرجوعی برای تلاش مجدد معتبر نیست"});}
+   const returnSnapshot={receivedQuantity,restockQuantity,quarantineQuantity};
+   await client.query("update marketplace_refunds set provider_payload=coalesce(provider_payload,'{}'::jsonb)||$1::jsonb where id=$2 and tenant_id=$3 and provider_claim_token=$4",[JSON.stringify(returnSnapshot),claim.rows[0].id,t.id,claim.rows[0].provider_claim_token]);
    refund=claim.rows[0];order=ord.rows[0];payment=pay.rows[0];returnItem={...item.rows[0],quantity:receivedQuantity,receivedQuantity,restockQuantity,quarantineQuantity};
   }else{
   const ord=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[rr.rows[0].order_id,t.id]);
@@ -612,7 +614,7 @@ const processMarketplaceReturnRefund=asyncHandler(async(req,res)=>{
   }
   if(providerResult.status!=="refunded"){
    const terminalFailure=providerResult.status==="failed";
-   await query("update marketplace_refunds set status=$1,provider_last_status=$2,provider_last_error=null,provider_payload=$3,provider_claim_token=null,provider_claimed_at=null,updated_at=now() where id=$4 and tenant_id=$5 and provider_claim_token=$6",[terminalFailure?"failed":"pending",providerResult.status,JSON.stringify(providerResult.providerPayload),refund.id,t.id,refund.provider_claim_token]);
+   await query("update marketplace_refunds set status=$1,provider_last_status=$2,provider_last_error=null,provider_payload=coalesce(provider_payload,'{}'::jsonb)||jsonb_build_object('lastProviderResponse',$3::jsonb),provider_claim_token=null,provider_claimed_at=null,updated_at=now() where id=$4 and tenant_id=$5 and provider_claim_token=$6",[terminalFailure?"failed":"pending",providerResult.status,JSON.stringify(providerResult.providerPayload),refund.id,t.id,refund.provider_claim_token]);
    return res.status(terminalFailure?409:202).json({error:terminalFailure?"درگاه بازپرداخت را ناموفق اعلام کرد؛ تلاش مجدد با همان شناسه امن در دسترس است":"درخواست بازپرداخت هنوز در درگاه تعیین تکلیف نشده است",providerStatus:providerResult.status,pending:!terminalFailure,retryable:true});
   }
   providerCode=provider.code;providerRefundId=providerResult.providerTransactionId;providerPayload=providerResult.providerPayload;
