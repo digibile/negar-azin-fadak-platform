@@ -104,8 +104,8 @@ export default function OperationalModuleWorkspace({code}:{code:string}){
   if(!visible.length){setError("رکوردی برای خروجی وجود ندارد.");return;}
   const keys=Array.from(new Set(["id","title","record_type","status","created_at","updated_at",...visible.flatMap(x=>Object.keys(x.data||{}))]));
   const quote=(value:unknown)=>'"'+String(value??"").replace(/"/g,'""')+'"';
-  const csv=[keys.map(quote).join(","),...visible.map(row=>keys.map(key=>quote((row as any)[key]??row.data?.[key])).join(","))].join("\\n");
-  const blob=new Blob(["\\uFEFF",csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="naf-"+code+"-"+new Date().toISOString().slice(0,10)+".csv";a.click();URL.revokeObjectURL(url);
+  const csv=[keys.map(quote).join(","),...visible.map(row=>keys.map(key=>quote((row as any)[key]??row.data?.[key])).join(","))].join("\n");
+  const blob=new Blob(["\uFEFF",csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="naf-"+code+"-"+new Date().toISOString().slice(0,10)+".csv";a.click();URL.revokeObjectURL(url);
  };
  const visible=useMemo(()=>items,[items]);
  return <main className="module-runtime canonical-module" dir="rtl">
