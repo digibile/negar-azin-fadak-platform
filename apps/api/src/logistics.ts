@@ -403,6 +403,8 @@ logisticsRouter.get("/api/logistics/carrier-invoices",requireAuth,requirePermiss
 
 logisticsRouter.post("/api/logistics/carrier-invoices",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const shipmentId=String(b.shipmentId||"").trim();
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(shipmentId))return fail(res,400,"شناسه مرسوله معتبر نیست");
   const invoiceNo=String(b.invoiceNo||"").trim().slice(0,120);
   const invoiceAmount=Number(b.invoiceAmount);
   const notes=String(b.notes||"").trim().slice(0,1000);
@@ -411,7 +413,7 @@ logisticsRouter.post("/api/logistics/carrier-invoices",requireAuth,requirePermis
   const c=await pool.connect();
   try{
     await c.query("begin");
-    const source=(await c.query("select s.id shipment_id,s.shipment_no,s.status shipment_status,o.id order_id,o.order_no,o.status order_status,o.currency order_currency,o.delivery_quote_id,q.status quote_status,q.currency quote_currency,q.carrier_cost,q.carrier_name from logistics_shipments s join marketplace_orders o on o.id=s.marketplace_order_id and o.tenant_id=s.tenant_id join marketplace_delivery_quotes q on q.id=o.delivery_quote_id and q.tenant_id=o.tenant_id where s.id=$1 and s.tenant_id=$2 for update of s,o,q",[String(b.shipmentId||""),t.id])).rows[0];
+    const source=(await c.query("select s.id shipment_id,s.shipment_no,s.status shipment_status,o.id order_id,o.order_no,o.status order_status,o.currency order_currency,o.delivery_quote_id,q.status quote_status,q.currency quote_currency,q.carrier_cost,q.carrier_name from logistics_shipments s join marketplace_orders o on o.id=s.marketplace_order_id and o.tenant_id=s.tenant_id join marketplace_delivery_quotes q on q.id=o.delivery_quote_id and q.tenant_id=o.tenant_id where s.id=$1 and s.tenant_id=$2 for update of s,o,q",[shipmentId,t.id])).rows[0];
     if(!source){await c.query("rollback");return fail(res,404,"مرسوله یا پیش‌فاکتور تأییدشده آن پیدا نشد");}
     if(source.shipment_status!=="delivered"||source.order_status!=="delivered"){await c.query("rollback");return fail(res,409,"ثبت صورتحساب فقط برای مرسوله‌ای که تحویل آن نهایی شده مجاز است");}
     if(source.quote_status!=="accepted"||!source.delivery_quote_id){await c.query("rollback");return fail(res,409,"پیش‌فاکتور تأییدشده‌ای برای این مرسوله وجود ندارد");}
