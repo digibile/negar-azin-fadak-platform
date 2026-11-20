@@ -314,7 +314,7 @@ test("return refund retries reuse a persisted provider idempotency key and are p
  assert.ok(route.includes("metadata:{orderId:order.id,paymentId:payment.id,returnRequestId:requestId,refundId:refund.id,idempotencyKey:refund.provider_idempotency_key}'));
  assert.ok(route.includes("provider_claim_token=gen_random_uuid()"));
  assert.ok(route.includes("provider_claimed_at<now()-interval '2 minutes'"));
- assert.ok(route.includes("provider_attempt_count=provider_attempt_count+1"));
+ assert.ok(route.includes("provider_attempt_count=greatest(provider_attempt_count+1,2)"));
  assert.ok(migration.includes("provider_idempotency_key text"));
  assert.ok(migration.includes("uq_marketplace_refund_provider_idempotency"));
  assert.ok(migration.includes("idx_marketplace_refunds_retry_queue"));
