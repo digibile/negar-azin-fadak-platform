@@ -113,3 +113,7 @@ const paymentLockPosition=checkoutApi.indexOf("for update of p",orderLockPositio
 if(orderLockPosition<0||paymentLockPosition<orderLockPosition)throw new Error("Payment verification must lock the order before the payment to serialize with reservation expiry");
 if(!checkoutApi.includes('(["pending","confirmed"].includes(payment.order_status)&&payment.reservation_expired)'))throw new Error("Idempotent verification of already-paid orders must remain available after the reservation deadline");
 if(!reservationMigration.includes("created_at+interval"))throw new Error("Existing unpaid orders must receive a reservation expiry during migration");
+
+const refundRoute=checkoutApi.slice(checkoutApi.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"'),checkoutApi.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"'));
+if(!refundRoute.includes('if(order.status==="refunded")')||!refundRoute.includes("idempotent:true"))throw new Error("Repeated full refunds must return the existing refund idempotently");
+if(!refundRoute.includes('if(order.status==="returned")'))throw new Error("Refunds must not restore sellable stock unless the order was physically returned");
