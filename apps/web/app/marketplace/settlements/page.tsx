@@ -6,7 +6,7 @@ import "./settlements-workspace.css";
 type RecoveryClaim={id:string;seller_name?:string;settlement_no:string;order_no:string;refund_no:string;amount:string|number;currency?:string;status:string;created_at?:string;payment_ref?:string};
 type Settlement={
  id:string;settlement_no:string;seller_name?:string;currency?:string;gross_amount:string|number;
- commission_amount?:string|number;net_amount:string|number;status:string;
+ commission_amount?:string|number;shipping_amount_total?:string|number;net_amount:string|number;status:string;
  order_count?:number;created_at?:string;
 };
 const statusLabels:Record<string,string>={pending:"در انتظار تأیید",approved:"تأییدشده",paid:"پرداخت‌شده",reversed:"برگشت‌خورده"};
@@ -20,7 +20,7 @@ export default function SettlementsPage(){
  const [claimError,setClaimError]=useState("");
  const [collecting,setCollecting]=useState("");
  const [paymentRefs,setPaymentRefs]=useState<Record<string,string>>({});
- const [loading,setLoading]=useState(true);
+ const [loading,setLoading]=useState(true);\n const [expanded,setExpanded]=useState("");\n const [detail,setDetail]=useState<any>(null);\n const [detailLoading,setDetailLoading]=useState(false);\n const [detailError,setDetailError]=useState("");
  useEffect(()=>{
   let active=true;
   api<any>("/api/marketplace/settlements")
@@ -29,7 +29,7 @@ export default function SettlementsPage(){
    .finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;};
  },[]);
- const collect=async(id:string)=>{
+ const toggleDetail=async(id:string)=>{\n  if(expanded===id){setExpanded("");setDetail(null);return;}\n  setExpanded(id);setDetail(null);setDetailError("");setDetailLoading(true);\n  try{setDetail(await api<any>(`/api/marketplace/settlements/${id}`));}\n  catch(e:any){setDetailError(e.message||"دریافت جزئیات تسویه ناموفق بود");}\n  finally{setDetailLoading(false);}\n };\n const collect=async(id:string)=>{
   const paymentRef=(paymentRefs[id]||"").trim();if(!paymentRef){setClaimError("شماره مرجع دریافت وجه را وارد کنید");return;}
   setCollecting(id);setClaimError("");
   try{await api<any>(`/api/marketplace/seller-recoveries/${id}/collect`,{method:"POST",body:JSON.stringify({paymentRef})});const r=await api<any>("/api/marketplace/seller-recoveries");setClaims(Array.isArray(r?.items)?r.items:[]);}
@@ -49,7 +49,7 @@ export default function SettlementsPage(){
     <div className="settlement-number"><b>{x.settlement_no}</b><small>{x.seller_name||"فروشنده"} · {date(x.created_at)}</small></div>
     <div className="settlement-metric"><small>مبلغ ناخالص</small><strong>{amount(x.gross_amount)} {x.currency||"IRR"}</strong></div>
     <div className="settlement-metric"><small>کارمزد</small><strong>{amount(x.commission_amount)} {x.currency||"IRR"}</strong></div>
-    <div className="settlement-metric"><small>خالص فروشنده</small><strong>{amount(x.net_amount)} {x.currency||"IRR"}</strong></div>
+    <div className="settlement-metric"><small>هزینه ارسال ثبت‌شده</small><strong>{amount(x.shipping_amount_total)} {x.currency||"IRR"}</strong></div>\n    <div className="settlement-metric"><small>خالص فروشنده</small><strong>{amount(x.net_amount)} {x.currency||"IRR"}</strong></div>
     <span className="settlement-status" data-status={x.status}>{statusLabels[x.status]||x.status}</span>
     <small>{Number(x.order_count||0).toLocaleString("fa-IR")} سفارش</small>
    </article>)}
