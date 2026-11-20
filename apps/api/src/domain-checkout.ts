@@ -422,6 +422,10 @@ checkoutRouter.patch("/api/marketplace/returns/:id/status",requireAuth,requirePe
   if(!current.rowCount){await client.query("rollback");return res.status(404).json({error:"درخواست مرجوعی پیدا نشد"});}
   const transitions:Record<string,string[]>={submitted:["approved","rejected"],approved:["received","cancelled"],inspected:["closed"]};
   if(!(transitions[current.rows[0].status]||[]).includes(target)){await client.query("rollback");return res.status(409).json({error:"تغییر وضعیت درخواست مرجوعی مجاز نیست"});}
+  if(target==="closed"){
+   const pendingQuarantine=await client.query("select 1 from marketplace_return_quarantine where tenant_id=$1 and return_request_id=$2 and status='quarantined' for update",[t.id,requestId]);
+   if(pendingQuarantine.rowCount){await client.query("rollback");return res.status(409).json({error:"ابتدا کالای غیرقابل فروش را از قرنطینه تعیین تکلیف کنید"});}
+  }
   if(target==="rejected"&&!reason){await client.query("rollback");return res.status(400).json({error:"دلیل رد درخواست الزامی است"});}
   const updated=await client.query("update marketplace_return_requests set status=$1,decision_reason=$2,reviewed_by=$3,received_at=case when $1='received' then now() else received_at end,inspected_at=case when $1='inspected' then now() else inspected_at end,updated_at=now() where id=$4 and tenant_id=$5 returning *",[target,reason||null,(req as any).user.id,requestId,t.id]);
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'marketplace.return.status.changed','marketplace_return_request',$3,$4,$5)",[t.id,(req as any).user.id,requestId,JSON.stringify({status:current.rows[0].status}),JSON.stringify({status:target,reason})]);
