@@ -64,7 +64,8 @@ async function callHttp(cfg:HttpProviderConfig,action:HttpAction,body:Record<str
    headers:{
     "content-type":"application/json",
     "x-payment-timestamp":timestamp,
-    "x-payment-signature":"sha256="+signature
+    "x-payment-signature":"sha256="+signature,
+    ...(action==="refund"&&typeof body.idempotencyKey==="string"&&body.idempotencyKey.trim()?{"idempotency-key":body.idempotencyKey.trim()}: {})
    },
    body:event,
    signal:controller.signal
