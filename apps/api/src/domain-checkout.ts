@@ -335,6 +335,7 @@ checkoutRouter.post("/api/storefront/orders/:id/verify-payment",requireAuth,asyn
   await client.query("begin");
   const order=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 and customer_ref=$3 for update",[req.params.id,t.id,(req as any).user.id]);
   if(!order.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش متعلق به این حساب پیدا نشد"});}
+  if(!["pending","confirmed"].includes(order.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"وضعیت سفارش برای تأیید پرداخت مجاز نیست"});}
   const payment=await client.query("select * from marketplace_payments where tenant_id=$1 and order_id=$2 order by created_at desc limit 1 for update",[t.id,order.rows[0].id]);
   if(!payment.rowCount){await client.query("rollback");return res.status(404).json({error:"تراکنش پرداخت پیدا نشد"});}
   if(payment.rows[0].status==="paid"){await client.query("rollback");return res.json({status:"paid",orderId:order.rows[0].id});}
