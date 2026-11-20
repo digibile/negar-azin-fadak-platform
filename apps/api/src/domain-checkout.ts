@@ -599,6 +599,10 @@ const processMarketplaceReturnRefund=asyncHandler(async(req,res)=>{
   let provider:any,providerResult:any;
   try{
    provider=getPaymentProvider(providerCode);
+   if(Number(refund.provider_attempt_count)>1&&provider.supportsIdempotentRefunds!==true){
+    await query("update marketplace_refunds set provider_last_error=$1,provider_claim_token=null,provider_claimed_at=null,updated_at=now() where id=$2 and tenant_id=$3 and provider_claim_token=$4",["قابلیت idempotency بازپرداخت برای این درگاه تأیید نشده است؛ ابتدا وضعیت تراکنش در پنل پذیرنده تطبیق داده شود",refund.id,t.id,refund.provider_claim_token]);
+    return res.status(409).json({error:"تلاش مجدد خودکار مسدود است؛ پشتیبانی درگاه از کلید یکتای بازپرداخت تأیید نشده است",manualReconciliationRequired:true,retryable:false});
+   }
    providerResult=await provider.refundPayment({providerTransactionId:payment.provider_transaction_id||payment.provider_ref||"",amount:Number(refund.amount),metadata:{orderId:order.id,paymentId:payment.id,returnRequestId:requestId,refundId:refund.id,idempotencyKey:refund.provider_idempotency_key}});
   }catch(providerError:any){
    const message=String(providerError?.message||"خطای نامشخص در ارتباط با درگاه").slice(0,500);
