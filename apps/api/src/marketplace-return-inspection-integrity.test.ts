@@ -180,3 +180,26 @@ test("finance mapping APIs validate active records in the same tenant and audit 
  assert.ok(routes.includes("platform_audit_events"));
  assert.ok(routes.includes("quantityFactor"));
 });
+
+test("financial inventory mapping API and workspace expose explicit product and warehouse mapping",()=>{
+ const start=checkout.indexOf('checkoutRouter.get("/api/marketplace/returns/finance-mappings"');
+ const end=checkout.indexOf('checkoutRouter.get("/api/marketplace/returns/suppliers"',start);
+ const routes=checkout.slice(start,end);
+ assert.ok(routes.includes("inventoryProducts:inventoryProducts.rows"));
+ assert.ok(routes.includes("financeProducts:financeProducts.rows"));
+ assert.ok(routes.includes("inventoryWarehouses:inventoryWarehouses.rows"));
+ assert.ok(routes.includes("financeWarehouses:financeWarehouses.rows"));
+ assert.ok(page.includes("تنظیم اتصال کالا و انبار به دفتر موجودی مالی"));
+ assert.ok(page.includes("/api/marketplace/returns/finance-mappings/products"));
+ assert.ok(page.includes("/api/marketplace/returns/finance-mappings/warehouses"));
+ assert.ok(page.includes("ضریب تبدیل مقدار"));
+});
+
+test("finance mapping endpoints never post stock or create accounting documents",()=>{
+ const start=checkout.indexOf('checkoutRouter.get("/api/marketplace/returns/finance-mappings"');
+ const end=checkout.indexOf('checkoutRouter.get("/api/marketplace/returns/suppliers"',start);
+ const routes=checkout.slice(start,end);
+ assert.ok(!routes.includes("finance_inventory_documents"));
+ assert.ok(!routes.includes("finance_inventory_balances"));
+ assert.ok(!routes.includes("inventory_stock"));
+});
