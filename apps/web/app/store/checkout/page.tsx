@@ -49,7 +49,7 @@ function CheckoutContent(){
        const vb=await vr.json();
        if(!vr.ok)throw new Error(vb.error||"تأیید پرداخت از درگاه انجام نشد");
        if(["paid","failed"].includes(vb.status))setPendingPaymentId("");
-       setMessage(vb.status==="paid"?"پرداخت با تأیید مستقیم درگاه نهایی شد.":"درگاه هنوز پرداخت را نهایی نکرده است؛ وضعیت سفارش در انتظار تأیید باقی می‌ماند.");
+       setMessage(vb.status==="paid"?"پرداخت با تأیید مستقیم درگاه نهایی شد.":vb.status==="failed"?"درگاه این تلاش را ناموفق اعلام کرد؛ می‌توانید پرداخت را دوباره آغاز کنید.":"درگاه هنوز پرداخت را نهایی نکرده است؛ وضعیت سفارش در انتظار تأیید باقی می‌ماند.");
        const refreshed=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});
        const rb=await refreshed.json();if(refreshed.ok)setOrder({...rb.order,items:rb.items||[],payments:rb.payments||[],refunds:rb.refunds||[]});
       }else if(pending?.status==="paid")setMessage("پرداخت این سفارش قبلاً تأیید شده است.");
@@ -66,7 +66,7 @@ function CheckoutContent(){
    const r=await fetch("/api/marketplace/payments/"+encodeURIComponent(pendingPaymentId)+"/verify",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({})});
    const b=await r.json();if(!r.ok)throw new Error(b.error||"بررسی وضعیت پرداخت ناموفق بود");
    if(["paid","failed"].includes(b.status))setPendingPaymentId("");
-   setMessage(b.status==="paid"?"پرداخت با تأیید درگاه نهایی شد.":"درگاه هنوز پرداخت را تأیید نکرده است.");
+   setMessage(b.status==="paid"?"پرداخت با تأیید درگاه نهایی شد.":b.status==="failed"?"درگاه پرداخت را ناموفق اعلام کرد؛ برای تلاش تازه دوباره پرداخت را آغاز کنید.":"درگاه هنوز پرداخت را تأیید نکرده است.");
    if(orderId){const or=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});const ob=await or.json();if(or.ok)setOrder({...ob.order,items:ob.items||[],payments:ob.payments||[],refunds:ob.refunds||[]});}
   }catch(e){setError(e instanceof Error?e.message:"خطا در بررسی پرداخت");}
   finally{setBusy(false);}
@@ -90,7 +90,7 @@ function CheckoutContent(){
    if(pb.payment?.id&&["pending","authorized"].includes(pb.payment.status))setPendingPaymentId(pb.payment.id);
    if(pb.status==="paid")setPendingPaymentId("");
    if(pb.redirectUrl){window.location.assign(pb.redirectUrl);return;}
-   setMessage(resolvedOrder.status==="paid"||pb.status==="paid"?"پرداخت توسط سرویس پرداخت تأیید شد.":"سفارش ثبت شد؛ وضعیت پرداخت هنوز نهایی نیست و باید از سرویس پرداخت پیگیری شود.");
+   setMessage(resolvedOrder.status==="paid"||pb.status==="paid"?"پرداخت توسط سرویس پرداخت تأیید شد.":pb.status==="failed"?"درگاه این تلاش پرداخت را ناموفق اعلام کرد؛ با ثبت درخواست تازه می‌توانید دوباره پرداخت کنید.":"سفارش ثبت شد؛ وضعیت پرداخت هنوز نهایی نیست و باید از سرویس پرداخت پیگیری شود.");
   }catch(e){setError(e instanceof Error?e.message:"خطا در ثبت سفارش");}
   finally{setBusy(false);}
  }
