@@ -11,6 +11,7 @@ type Supplier={id:string;party_code:string;title:string;phone?:string|null};
 type Purchase={id:string;invoice_no?:string|null;invoice_date?:string|null;status:string;total:number|string};
 type FinanceMappingData={products:any[];warehouses:any[];inventoryProducts:{id:string;sku:string;name:string}[];financeProducts:{id:string;code:string;title:string}[];inventoryWarehouses:{id:string;code:string;name:string}[];financeWarehouses:{id:string;code:string;title:string}[]};
 type FinanceReadinessData={items:any[];summary:{total:number;structurallyReady:number;blocked:number};postingPolicy:{ready:boolean;blockers:string[];note:string}};
+type RefundReconciliationItem={id:string;refund_no:string;request_no:string;order_no:string;amount:number|string;status:string;provider_code:string;provider_transaction_id?:string|null;provider_refund_transaction_id?:string|null;provider_idempotency_key?:string|null;provider_attempt_count:number|string;provider_last_attempt_at?:string|null;provider_last_status?:string|null;provider_last_error?:string|null;payment_provider_transaction_id?:string|null;payment_provider_ref?:string|null;age_minutes:number;claim_active:boolean;reconciliation_state:string};
 const labels:Record<string,string>={submitted:"در انتظار بررسی",approved:"تأییدشده",rejected:"ردشده",received:"دریافت‌شده",inspected:"بازرسی‌شده",cancelled:"لغوشده",closed:"بسته‌شده"};
 const reasons:Record<string,string>={damaged:"آسیب‌دیده",defective:"ایراد فنی",wrong_item:"کالای اشتباه",not_as_described:"مغایرت توضیحات",missing_parts:"اقلام ناقص",changed_mind:"انصراف از خرید",other:"سایر"};
 export default function MarketplaceReturnsPage(){
@@ -18,8 +19,10 @@ export default function MarketplaceReturnsPage(){
  const [dispositionItem,setDispositionItem]=useState<ReturnItem|null>(null),[suppliers,setSuppliers]=useState<Supplier[]>([]),[purchases,setPurchases]=useState<Purchase[]>([]),[dispositionForm,setDispositionForm]=useState({supplierPartyId:"",purchaseId:"",supplierReference:"",notes:""});
  const [financeMappings,setFinanceMappings]=useState<FinanceMappingData|null>(null),[mappingBusy,setMappingBusy]=useState(false),[productMapping,setProductMapping]=useState({inventoryProductId:"",financeProductId:"",quantityFactor:"1"}),[warehouseMapping,setWarehouseMapping]=useState({inventoryWarehouseId:"",financeWarehouseId:""});
   const [financeReadiness,setFinanceReadiness]=useState<FinanceReadinessData|null>(null),[readinessBusy,setReadinessBusy]=useState(false);
+  const [refundQueue,setRefundQueue]=useState<RefundReconciliationItem[]|null>(null),[refundQueueBusy,setRefundQueueBusy]=useState(false);
  async function loadFinanceMappings(){setMappingBusy(true);setError("");try{const d=await api<FinanceMappingData>("/api/marketplace/returns/finance-mappings");setFinanceMappings(d);setProductMapping(v=>({...v,inventoryProductId:v.inventoryProductId||d.inventoryProducts[0]?.id||"",financeProductId:v.financeProductId||d.financeProducts[0]?.id||""}));setWarehouseMapping(v=>({...v,inventoryWarehouseId:v.inventoryWarehouseId||d.inventoryWarehouses[0]?.id||"",financeWarehouseId:v.financeWarehouseId||d.financeWarehouses[0]?.id||""}));}catch(e){setError(e instanceof Error?e.message:"دریافت نگاشت‌های مالی ناموفق بود");}finally{setMappingBusy(false);}}
  async function loadFinanceReadiness(){setReadinessBusy(true);setError("");try{const d=await api<FinanceReadinessData>("/api/marketplace/returns/finance-handover-readiness");setFinanceReadiness(d);}catch(e){setError(e instanceof Error?e.message:"دریافت گزارش آمادگی مالی ناموفق بود");}finally{setReadinessBusy(false);}}
+  async function loadRefundReconciliation(){setRefundQueueBusy(true);setError("");try{const d=await api<{items:RefundReconciliationItem[];total:number;capabilities:{automaticProviderRefundLookup:boolean;manualComparisonRequired:boolean}}>("/api/marketplace/returns/refund-reconciliation");setRefundQueue(d.items||[]);}catch(e){setError(e instanceof Error?e.message:"دریافت صف تطبیق بازپرداخت ناموفق بود");}finally{setRefundQueueBusy(false);}}
  async function saveProductMapping(){if(!productMapping.inventoryProductId||!productMapping.financeProductId)return;setMappingBusy(true);setError("");try{await api("/api/marketplace/returns/finance-mappings/products",{method:"PUT",body:JSON.stringify(productMapping)});await loadFinanceMappings();}catch(e){setError(e instanceof Error?e.message:"ثبت نگاشت کالا ناموفق بود");}finally{setMappingBusy(false);}}
  async function saveWarehouseMapping(){if(!warehouseMapping.inventoryWarehouseId||!warehouseMapping.financeWarehouseId)return;setMappingBusy(true);setError("");try{await api("/api/marketplace/returns/finance-mappings/warehouses",{method:"PUT",body:JSON.stringify(warehouseMapping)});await loadFinanceMappings();}catch(e){setError(e instanceof Error?e.message:"ثبت نگاشت انبار ناموفق بود");}finally{setMappingBusy(false);}}
  async function load(){setLoading(true);try{const d=await api<{items:ReturnItem[]}>("/api/marketplace/returns");setItems(d.items||[]);setError("");}catch(e){setError(e instanceof Error?e.message:"دریافت درخواست‌های مرجوعی ناموفق بود");}finally{setLoading(false);}}
@@ -35,6 +38,24 @@ export default function MarketplaceReturnsPage(){
  return <main className="enterprise-main mp-returns-admin" dir="rtl">
   <header className="platform-header"><div><span className="section-kicker">مدیریت سفارش و خدمات پس از فروش</span><h1>درخواست‌های مرجوعی</h1><p>بررسی درخواست مشتری، دریافت و بازرسی کالا و بازپرداخت مبلغ تأییدشده از همان پرداخت و دفترکل مرکزی.</p></div><a href="/marketplace/orders">مدیریت سفارش‌ها</a></header>
   <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-return-requests"/>
+  <details className="mp-finance-mapping-panel">
+   <summary>صف تطبیق بازپرداخت‌های نامشخص و ناموفق</summary>
+   <p>این فهرست فقط‌خواندنی است. چون درگاه‌های فعلی API مستقل استعلام وضعیت بازپرداخت ندارند، هیچ وضعیت مالی از روی timeout حدس زده نمی‌شود؛ نتیجه باید با شناسه تراکنش و مبلغ در پنل پذیرنده تطبیق داده شود.</p>
+   <button type="button" disabled={refundQueueBusy} onClick={()=>loadRefundReconciliation()}>{refundQueueBusy?"در حال دریافت…":"بارگذاری صف تطبیق بازپرداخت"}</button>
+   {refundQueue&&<>
+    <p>پرونده‌های نیازمند بررسی: {refundQueue.length.toLocaleString("fa-IR")}</p>
+    {refundQueue.map(item=><article className="mp-return-quarantine" key={item.id}>
+     <b>{item.refund_no} · سفارش {item.order_no} · درخواست {item.request_no}</b>
+     <p>وضعیت محلی: {item.reconciliation_state==="processing"?"در حال پردازش":item.reconciliation_state==="unknown"?"پاسخ نامشخص":item.reconciliation_state==="failed"?"ناموفق":"در انتظار"} · مبلغ: {Number(item.amount).toLocaleString("fa-IR")} · درگاه: {item.provider_code||"نامشخص"}</p>
+     <p>شناسه پرداخت درگاه: {item.payment_provider_transaction_id||item.payment_provider_ref||"ثبت نشده"} · شناسه بازپرداخت درگاه: {item.provider_refund_transaction_id||"هنوز دریافت نشده"}</p>
+     <p>تعداد تلاش: {Number(item.provider_attempt_count||0).toLocaleString("fa-IR")} · آخرین وضعیت درگاه: {item.provider_last_status||"ثبت نشده"} · عمر درخواست: {Math.max(0,Math.floor(item.age_minutes)).toLocaleString("fa-IR")} دقیقه</p>
+     {item.provider_idempotency_key&&<p>کلید یکتای پیگیری: <code>{item.provider_idempotency_key}</code></p>}
+     {item.provider_last_error&&<p className="mp-return-inspection-note">آخرین خطا: {item.provider_last_error}</p>}
+     {item.claim_active&&<p className="mp-return-inspection-note">یک تلاش در بازه قفل فعال است؛ پیش از پایان مهلت دوباره اجرا نکنید.</p>}
+    </article>)}
+    {!refundQueue.length&&<p>در حال حاضر بازپرداخت نامشخص یا ناموفقی در صف نیست.</p>}
+   </>}
+  </details>
   <details className="mp-finance-mapping-panel">
    <summary>تنظیم اتصال کالا و انبار به دفتر موجودی مالی</summary>
    <p>این نگاشت فقط ارتباط شناسه‌ها را مشخص می‌کند و به‌تنهایی موجودی یا سند مالی را تغییر نمی‌دهد.</p>
