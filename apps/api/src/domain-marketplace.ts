@@ -145,7 +145,7 @@ domainMarketplaceRouter.get("/api/marketplace/products",requireAuth,requirePermi
   let where="p.tenant_id=$1";
   if(q){params.push("%"+q+"%");where+=" and (p.title ilike $2 or p.sku ilike $2)";}
   const r=await query(
-    "select p.id,p.sku,p.title,p.description,p.category,p.category_id,p.brand_id,p.discount_price,p.price,p.currency,p.status,p.seller_id,p.store_id,p.attributes,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name,mc.name as category_name,mc.slug as category_slug,b.name as brand_name,b.logo_url as brand_logo_url,coalesce((select json_agg(json_build_object('id',pi.id,'url',pi.url,'altText',pi.alt_text,'isMain',pi.is_main,'sortOrder',pi.sort_order) order by pi.is_main desc,pi.sort_order,pi.created_at) from product_images pi where pi.tenant_id=p.tenant_id and pi.product_id=p.id),'[]'::json) as images from products p join sellers sl on sl.id=p.seller_id left join marketplace_categories mc on mc.id=p.category_id and mc.tenant_id=p.tenant_id left join brands b on b.id=p.brand_id and b.tenant_id=p.tenant_id where "+where+" order by p.updated_at desc",params
+    "select p.id,p.sku,p.title,p.description,p.category,p.category_id,p.brand_id,p.discount_price,p.price,p.currency,p.status,p.seller_id,p.store_id,p.attributes,mil.inventory_product_id,ip.sku as inventory_sku,ip.name as inventory_product_name,COALESCE(p.attributes->>'imageUrl',p.attributes->>'image_url',p.attributes->>'primaryImage',p.attributes->>'primary_image') as image_url,sl.display_name as seller_name,mc.name as category_name,mc.slug as category_slug,b.name as brand_name,b.logo_url as brand_logo_url,coalesce((select json_agg(json_build_object('id',pi.id,'url',pi.url,'altText',pi.alt_text,'isMain',pi.is_main,'sortOrder',pi.sort_order) order by pi.is_main desc,pi.sort_order,pi.created_at) from product_images pi where pi.tenant_id=p.tenant_id and pi.product_id=p.id),'[]'::json) as images from products p join sellers sl on sl.id=p.seller_id left join marketplace_inventory_product_links mil on mil.tenant_id=p.tenant_id and mil.product_id=p.id left join inventory_products ip on ip.tenant_id=mil.tenant_id and ip.id=mil.inventory_product_id left join marketplace_categories mc on mc.id=p.category_id and mc.tenant_id=p.tenant_id left join brands b on b.id=p.brand_id and b.tenant_id=p.tenant_id where "+where+" order by p.updated_at desc",params
   );
   res.json({tenant:ctx,items:r.rows,total:r.rowCount});
 }));
@@ -979,6 +979,25 @@ domainMarketplaceRouter.patch("/api/marketplace/products/:id",requireAuth,requir
  );
  if(!result.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});
  res.json({item:result.rows[0],message:"قیمت فروش و مشخصات در کاتالوگ داخلی ذخیره شد"});
+}));
+
+
+
+domainMarketplaceRouter.put("/api/marketplace/products/:id/inventory-link",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);
+ if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const inventoryProductId=bodyString(req.body?.inventoryProductId,100);
+ const product=await query("select id from products where id=$1 and tenant_id=$2",[req.params.id,ctx.id]);
+ if(!product.rowCount)return res.status(404).json({error:"محصول فروشگاه پیدا نشد"});
+ if(!inventoryProductId){
+  await query("delete from marketplace_inventory_product_links where tenant_id=$1 and product_id=$2",[ctx.id,req.params.id]);
+  return res.json({linked:false,message:"اتصال محصول به انبار برداشته شد؛ موجودی‌های قبلی تغییر نکردند"});
+ }
+ const inventoryProduct=await query("select id,sku,name,status from inventory_products where id=$1 and tenant_id=$2",[inventoryProductId,ctx.id]);
+ if(!inventoryProduct.rowCount)return res.status(400).json({error:"کالای انبار در همین سازمان پیدا نشد"});
+ if(inventoryProduct.rows[0].status!=="active")return res.status(409).json({error:"اتصال به کالای غیرفعال انبار مجاز نیست"});
+ const saved=await query("insert into marketplace_inventory_product_links(tenant_id,product_id,inventory_product_id,created_by) values($1,$2,$3,$4) on conflict(tenant_id,product_id) do update set inventory_product_id=excluded.inventory_product_id,updated_at=now() returning tenant_id,product_id,inventory_product_id,updated_at",[ctx.id,req.params.id,inventoryProductId,(req as any).user.id||null]);
+ res.json({linked:true,item:saved.rows[0],inventoryProduct:inventoryProduct.rows[0],message:"اتصال کالا ذخیره شد؛ این عملیات موجودی را رزرو یا کسر نمی‌کند"});
 }));
 
 domainMarketplaceRouter.patch("/api/marketplace/products/:id/inventory",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
