@@ -559,17 +559,20 @@ checkoutRouter.post("/api/marketplace/returns/:id/refund",requireAuth,requirePer
   if(!ord.rowCount||!["paid","processing","delivered","returned"].includes(ord.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"سفارش در وضعیت قابل بازپرداخت نیست"});}
   const item=await client.query("select oi.id,oi.product_id,oi.quantity,oi.unit_price,oi.line_total,p.title from marketplace_order_items oi join products p on p.id=oi.product_id where oi.id=$1 and oi.order_id=$2 for update of oi",[rr.rows[0].order_item_id,ord.rows[0].id]);
   if(!item.rowCount){await client.query("rollback");return res.status(404).json({error:"قلم سفارش برای این درخواست پیدا نشد"});}
-  const qty=Number(rr.rows[0].requested_quantity),unit=Number(item.rows[0].unit_price),amount=Number((qty*unit).toFixed(2));
-  if(!Number.isFinite(qty)||qty<=0||!Number.isFinite(unit)||unit<=0||!Number.isFinite(amount)||amount<=0){await client.query("rollback");return res.status(409).json({error:"مبلغ قابل بازپرداخت این قلم معتبر نیست"});}
+  const qty=Number(rr.rows[0].received_quantity),restockQuantity=Number(rr.rows[0].restock_quantity),orderedQuantity=Number(item.rows[0].order_quantity),lineTotal=Number(item.rows[0].line_total);
+  const amount=Number((lineTotal*qty/orderedQuantity).toFixed(2));
+  if(!Number.isFinite(qty)||qty<=0||qty>Number(rr.rows[0].requested_quantity)||!Number.isFinite(restockQuantity)||restockQuantity<0||restockQuantity>qty||!Number.isFinite(orderedQuantity)||orderedQuantity<=0||!Number.isFinite(lineTotal)||lineTotal<0||!Number.isFinite(amount)||amount<=0){await client.query("rollback");return res.status(409).json({error:"مقدار دریافت‌شده یا مبلغ متناسب با ردیف سفارش معتبر نیست"});}
+  const priorItemRefunds=await client.query("select coalesce(sum(mr.amount),0) amount from marketplace_refunds mr join marketplace_return_requests prior_rr on prior_rr.id=mr.return_request_id and prior_rr.tenant_id=mr.tenant_id where mr.tenant_id=$1 and prior_rr.order_item_id=$2 and prior_rr.id<>$3 and mr.status in ('pending','refunded')",[t.id,item.rows[0].id,requestId]);
+  if(Number(priorItemRefunds.rows[0].amount)+amount>lineTotal+0.005){await client.query("rollback");return res.status(409).json({error:"مجموع بازپرداخت‌های این قلم از مبلغ خالص ردیف سفارش بیشتر می‌شود",remainingAmount:Math.max(0,lineTotal-Number(priorItemRefunds.rows[0].amount))});}
   const pay=await client.query("select * from marketplace_payments where tenant_id=$1 and order_id=$2 and status='paid' order by paid_at desc nulls last,created_at desc limit 1 for update",[t.id,ord.rows[0].id]);
   if(!pay.rowCount){await client.query("rollback");return res.status(409).json({error:"پرداخت موفق سفارش برای بازپرداخت پیدا نشد"});}
   const paymentRefunded=await client.query("select coalesce(sum(amount),0) amount from marketplace_refunds where tenant_id=$1 and payment_id=$2 and status in ('pending','refunded')",[t.id,pay.rows[0].id]);
   if(Number(paymentRefunded.rows[0].amount)+amount>Number(pay.rows[0].amount)+0.005){await client.query("rollback");return res.status(409).json({error:"مبلغ این مرجوعی از مانده قابل بازپرداخت پرداخت بیشتر است",remainingAmount:Math.max(0,Number(pay.rows[0].amount)-Number(paymentRefunded.rows[0].amount))});}
   const requestNo=String(rr.rows[0].request_no);
   const refundNo="RET-"+requestId.replace(/-/g,"").slice(0,24);
-  const inserted=await client.query("insert into marketplace_refunds(tenant_id,order_id,payment_id,return_request_id,refund_no,amount,reason,status,provider_code,provider_transaction_id,provider_payload,created_by) values($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,$11) returning *",[t.id,ord.rows[0].id,pay.rows[0].id,requestId,refundNo,amount,"مرجوعی "+requestNo,pay.rows[0].provider_code,pay.rows[0].provider_transaction_id||pay.rows[0].provider_ref||"",JSON.stringify({returnRequestId:requestId,requestNo,quantity:qty}), (req as any).user.id]);
+  const inserted=await client.query("insert into marketplace_refunds(tenant_id,order_id,payment_id,return_request_id,refund_no,amount,reason,status,provider_code,provider_transaction_id,provider_payload,created_by) values($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,$11) returning *",[t.id,ord.rows[0].id,pay.rows[0].id,requestId,refundNo,amount,"مرجوعی "+requestNo,pay.rows[0].provider_code,pay.rows[0].provider_transaction_id||pay.rows[0].provider_ref||"",JSON.stringify({returnRequestId:requestId,requestNo,quantity:qty,receivedQuantity:qty,restockQuantity,quarantineQuantity:Number((qty-restockQuantity).toFixed(3)),orderLineTotal:lineTotal}), (req as any).user.id]);
   await client.query("commit");
-  refund=inserted.rows[0];order=ord.rows[0];payment=pay.rows[0];returnItem={...item.rows[0],quantity:qty};
+  refund=inserted.rows[0];order=ord.rows[0];payment=pay.rows[0];returnItem={...item.rows[0],quantity:qty,receivedQuantity:qty,restockQuantity,quarantineQuantity:Number((qty-restockQuantity).toFixed(3))};
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
  if(!refund)return;
  let providerCode=payment.provider_code,providerRefundId="",providerPayload:any={};
@@ -595,7 +598,7 @@ checkoutRouter.post("/api/marketplace/returns/:id/refund",requireAuth,requirePer
   const currentOrder=await finalize.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[order.id,t.id]);
   const currentPayment=await finalize.query("select * from marketplace_payments where id=$1 and tenant_id=$2 for update",[payment.id,t.id]);
   const currentReturn=await finalize.query("select * from marketplace_return_requests where id=$1 and tenant_id=$2 for update",[requestId,t.id]);
-  if(!currentOrder.rowCount||!currentPayment.rowCount||!currentReturn.rowCount||currentReturn.rows[0].status!=="inspected"){await finalize.query("rollback");return res.status(409).json({error:"اطلاعات سفارش یا پرونده مرجوعی هنگام نهایی‌سازی تغییر کرده است"});}
+  if(!currentOrder.rowCount||!currentPayment.rowCount||!currentReturn.rowCount||currentReturn.rows[0].status!=="inspected"||Number(currentReturn.rows[0].received_quantity)!==returnItem.receivedQuantity||Number(currentReturn.rows[0].restock_quantity)!==returnItem.restockQuantity){await finalize.query("rollback");return res.status(409).json({error:"اطلاعات سفارش یا مقادیر دریافت و بازرسی هنگام نهایی‌سازی تغییر کرده است"});}
   if(providerCode==="credit_facility"){
    const facility=await finalize.query("select id from lendtech_facilities where id=$1 and tenant_ref=$2 for update",[currentOrder.rows[0].credit_facility_ref,t.id]);
    if(!facility.rowCount){await finalize.query("rollback");return res.status(409).json({error:"تسهیلات اعتباری سفارش برای برگشت اعتبار پیدا نشد"});}
@@ -612,10 +615,13 @@ checkoutRouter.post("/api/marketplace/returns/:id/refund",requireAuth,requirePer
   await finalize.query("update marketplace_refunds set status='refunded',provider_code=$1,provider_refund_transaction_id=$2,provider_payload=$3,updated_at=now() where id=$4 and tenant_id=$5",[providerCode,providerRefundId,JSON.stringify(providerPayload),refund.id,t.id]);
   const totals=await finalize.query("select coalesce(sum(amount),0) amount from marketplace_refunds where tenant_id=$1 and payment_id=$2 and status='refunded'",[t.id,payment.id]);
   if(Number(totals.rows[0].amount)+0.005>=Number(currentPayment.rows[0].amount))await finalize.query("update marketplace_payments set status='refunded',updated_at=now() where id=$1 and tenant_id=$2",[payment.id,t.id]);
-  await finalize.query("update product_inventory set quantity=quantity+$1,updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[returnItem.quantity,t.id,returnItem.product_id,currentOrder.rows[0].store_id]);
-  await finalize.query("insert into inventory_movements(tenant_id,product_id,store_id,movement_type,quantity,reference_type,reference_id,created_by) values($1,$2,$3,'refund',$4,'marketplace_refund',$5,$6)",[t.id,returnItem.product_id,currentOrder.rows[0].store_id,returnItem.quantity,refund.id,(req as any).user.id]);
+  if(returnItem.restockQuantity>0){
+   const stock=await finalize.query("update product_inventory set quantity=quantity+$1,updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4 returning id",[returnItem.restockQuantity,t.id,returnItem.product_id,currentOrder.rows[0].store_id]);
+   if(!stock.rowCount)throw new Error("ردیف موجودی فروشگاه برای بازگشت کالای سالم پیدا نشد");
+   await finalize.query("insert into inventory_movements(tenant_id,product_id,store_id,movement_type,quantity,reference_type,reference_id,created_by) values($1,$2,$3,'refund',$4,'marketplace_refund',$5,$6)",[t.id,returnItem.product_id,currentOrder.rows[0].store_id,returnItem.restockQuantity,refund.id,(req as any).user.id]);
+  }
   await finalize.query("update marketplace_return_requests set status='closed',updated_at=now() where id=$1 and tenant_id=$2 and status='inspected'",[requestId,t.id]);
-  await finalize.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'marketplace.return.refunded',$3,$4,$5,$6)",[t.id,(req as any).user.id,requestId,refund.id,JSON.stringify({status:"inspected"}),JSON.stringify({status:"closed",refundId:refund.id,amount:gross,quantity:returnItem.quantity,ledgerEntry:true})]);
+  await finalize.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'marketplace.return.refunded',$3,$4,$5,$6)",[t.id,(req as any).user.id,requestId,refund.id,JSON.stringify({status:"inspected"}),JSON.stringify({status:"closed",refundId:refund.id,amount:gross,receivedQuantity:returnItem.receivedQuantity,restockQuantity:returnItem.restockQuantity,quarantineQuantity:returnItem.quarantineQuantity,ledgerEntry:true})]);
   await finalize.query("commit");
  }catch(e){await finalize.query("rollback");throw e;}finally{finalize.release();}
  await emitBusinessEvent({tenantId:t.id,eventKey:"return.refunded",subjectType:"marketplace_return_request",subjectId:requestId,userId:(req as any).user.id,input:{refundId:refund.id,orderId:order.id,amount:Number(refund.amount)}});
