@@ -64,5 +64,17 @@ if(!settlementPage.includes("Array.isArray(x)?x:Array.isArray(x?.items)?x.items:
 for(const marker of [".settlement-card",".settlement-metric",".settlements-state"]){
   if(!settlementCss.includes(marker))throw new Error("Settlement workspace isolated styles are missing: "+marker);
 }
+if(!checkoutApi.includes("async function canAccessCustomer")||!checkoutApi.includes("customerRef===user.id"))throw new Error("Customer checkout must authorize access by authenticated cart/order ownership");
+for(const route of [
+  'checkoutRouter.post("/api/checkout/carts",requireAuth,asyncHandler',
+  'checkoutRouter.post("/api/checkout/carts/:id/items",requireAuth,asyncHandler',
+  'checkoutRouter.get("/api/checkout/carts/:id",requireAuth,asyncHandler',
+  'checkoutRouter.post("/api/checkout/carts/:id/checkout",requireAuth,asyncHandler',
+  'checkoutRouter.get("/api/marketplace/orders/:id",requireAuth,asyncHandler',
+  'checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandler'
+]){
+  if(!checkoutApi.includes(route))throw new Error("Customer-owned commerce route must not require an operator-only permission: "+route);
+}
+if(!checkoutApi.includes('const cancellationReason=s(req.body?.reason,500)')||!checkoutApi.includes('JSON.stringify({reason:cancellationReason})'))throw new Error("Order cancellation must require and audit the customer's reason");
 console.log("COMMERCE_STOREFRONT_INTEGRITY_OK");
 
