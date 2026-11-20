@@ -93,21 +93,27 @@ checkoutRouter.get("/api/marketplace/orders/:id",requireAuth,requirePermission("
  res.json({order:o.rows[0],items:items.rows,payments:payment.rows,refunds:refund.rows});
 }));
 
-checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,requirePermission("payment:manage"),asyncHandler(async(req,res)=>{
+checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const client=await pool.connect();
  try{
   await client.query("begin");
   const o=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
   if(!o.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}
+  const paymentOwner=(req as any).user;
+  if(o.rows[0].customer_ref!==paymentOwner.id&&paymentOwner.role!=="admin"){
+   const allowed=await client.query("select 1 from role_permissions where role=$1 and permission='payment:manage'",[paymentOwner.role]);
+   if(!allowed.rowCount){await client.query("rollback");return res.status(403).json({error:"دسترسی به پرداخت این سفارش مجاز نیست"});}
+  }
   if(!["pending","confirmed"].includes(o.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"وضعیت سفارش برای پرداخت مجاز نیست"});}
   const paymentNo=s(req.body?.paymentNo,100)||("PAY-"+Date.now()+"-"+Math.random().toString(36).slice(2,7));
   const idempotencyKey=s(req.body?.idempotencyKey,160)||null;
-  if(idempotencyKey){const existing=await client.query("select * from marketplace_payments where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey]);if(existing.rowCount){await client.query("rollback");return res.status(200).json({payment:existing.rows[0],order:{id:o.rows[0].id,status:o.rows[0].status}});}}
+  if(idempotencyKey){const existing=await client.query("select * from marketplace_payments where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey]);if(existing.rowCount){await client.query("rollback");return res.status(200).json({payment:existing.rows[0],redirectUrl:existing.rows[0].provider_payload?.redirectUrl||null,order:{id:o.rows[0].id,status:o.rows[0].status}});}}
   const requestedMethod=s(req.body?.method,50)||"online";
   let providerCode=s(req.body?.providerCode,40)||"";
   let providerTransactionId=s(req.body?.providerRef,200)||"";
   let providerPayload:any={};
+  let providerStatus="paid";
   if(requestedMethod==="credit"){
    const facilityId=s(req.body?.creditFacilityId,100);
    if(!facilityId){await client.query("rollback");return res.status(400).json({error:"برای پرداخت اعتباری شناسه تسهیلات الزامی است"});}
@@ -126,9 +132,14 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,requirePer
    providerCode=provider.code;
    providerTransactionId=providerResult.providerTransactionId||"";
    providerPayload=providerResult.providerPayload;
-   if(providerResult.status!=="paid"){await client.query("rollback");return res.status(202).json({status:providerResult.status,providerCode,providerTransactionId});}
+   providerStatus=providerResult.status;
+   if(providerResult.status!=="paid")providerPayload={...providerResult.providerPayload,redirectUrl:providerResult.redirectUrl||null};
   }
-  const p=await client.query("insert into marketplace_payments(tenant_id,order_id,payment_no,amount,method,status,provider_ref,provider_code,idempotency_key,provider_transaction_id,provider_payload,paid_at) values($1,$2,$3,$4,$5,'paid',$6,$7,$8,$9,$10,now()) returning *",[t.id,o.rows[0].id,paymentNo,Number(o.rows[0].total_amount),requestedMethod,providerTransactionId,providerCode,idempotencyKey,providerTransactionId,JSON.stringify(providerPayload)]);
+  const p=await client.query("insert into marketplace_payments(tenant_id,order_id,payment_no,amount,method,status,provider_ref,provider_code,idempotency_key,provider_transaction_id,provider_payload,paid_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,case when $6='paid' then now() else null end) returning *",[t.id,o.rows[0].id,paymentNo,Number(o.rows[0].total_amount),requestedMethod,providerStatus,providerTransactionId,providerCode,idempotencyKey,providerTransactionId,JSON.stringify(providerPayload)]);
+  if(providerStatus!=="paid"){
+   await client.query("commit");
+   return res.status(202).json({status:providerStatus,payment:p.rows[0],redirectUrl:providerPayload.redirectUrl||null,providerCode,providerTransactionId});
+  }
   await client.query("update marketplace_orders set status='paid',paid_at=coalesce(paid_at,now()),updated_at=now() where id=$1 and tenant_id=$2",[o.rows[0].id,t.id]);
   await postLedgerEntry(client,{tenantId:t.id,entryNo:"PAY-"+p.rows[0].payment_no,sourceType:"marketplace_payment",sourceId:p.rows[0].id,description:"ثبت پرداخت سفارش "+o.rows[0].order_no,createdBy:(req as any).user.id,lines:[
    requestedMethod==="credit"
