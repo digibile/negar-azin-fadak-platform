@@ -377,8 +377,10 @@ logisticsRouter.post("/api/logistics/marketplace-orders/:orderId/delivery-quotes
     if(!["pending","confirmed"].includes(order.status)){await c.query("rollback");return fail(res,409,"برای سفارش پرداخت‌شده یا در حال پردازش نمی‌توان پیش‌فاکتور حمل صادر کرد");}
     if(!order.delivery_method_id){await c.query("rollback");return fail(res,409,"روش ارسال سفارش ثبت نشده است");}
     if(String(order.currency||"IRR").toUpperCase()!==currency){await c.query("rollback");return fail(res,409,"واحد پول پیش‌فاکتور با سفارش یکسان نیست");}
-    const paid=(await c.query("select id from marketplace_payments where tenant_id=$1 and order_id=$2 and status in ('paid','pending','authorized') limit 1 for update",[t.id,order.id])).rowCount;
-    if(paid){await c.query("rollback");return fail(res,409,"برای سفارش دارای پرداخت موفق یا در انتظار، پیش‌فاکتور جدید صادر نمی‌شود");}
+    const priorPayment=(await c.query("select id from marketplace_payments where tenant_id=$1 and order_id=$2 limit 1 for update",[t.id,order.id])).rowCount;
+    if(priorPayment){await c.query("rollback");return fail(res,409,"پس از ایجاد تلاش پرداخت، صدور یا تغییر پیش‌فاکتور حمل مجاز نیست");}
+    const acceptedQuote=(await c.query("select id from marketplace_delivery_quotes where tenant_id=$1 and order_id=$2 and status='accepted' limit 1 for update",[t.id,order.id])).rowCount;
+    if(acceptedQuote){await c.query("rollback");return fail(res,409,"پیش‌فاکتور قبلاً توسط مشتری تأیید شده و قابل جایگزینی نیست");}
     await c.query("update marketplace_delivery_quotes set status='superseded',updated_at=now() where tenant_id=$1 and order_id=$2 and status='offered'",[t.id,order.id]);
     const versionRow=(await c.query("select coalesce(max(version),0)+1 as version from marketplace_delivery_quotes where tenant_id=$1 and order_id=$2",[t.id,order.id])).rows[0];
     const quote=(await c.query("insert into marketplace_delivery_quotes(tenant_id,order_id,version,currency,carrier_cost,customer_charge,carrier_name,service_name,estimated_business_days_min,estimated_business_days_max,notes,expires_at,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning *",[t.id,order.id,versionRow.version,currency,carrierCost,customerCharge,carrierName||null,serviceName||null,minDays,maxDays,notes||null,expiresAt?.toISOString()||null,(req as any).user.id])).rows[0];
