@@ -173,7 +173,7 @@ logisticsRouter.patch("/api/logistics/orders/:id/status",requireAuth,requirePerm
       }
     }
     const r=(await c.query("update logistics_supply_orders set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[b.status,(req as any).user.id,o.id,t.id])).rows[0];
-    await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,actor_user_id,reason) values($1,'supply_order','status_change',$2,$3,$4,$5,$6)",[t.id,o.id,b.status,beforeStatus,b.status,(req as any).user.id,b.reason||null]);
+    await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,actor_user_id,reason) values($1,'supply_order',$2,'status_change',$3,$4,$5,$6)",[t.id,o.id,beforeStatus,b.status,(req as any).user.id,b.reason||null]);
     await c.query("commit");
     await audit(t.id,"supply_order",o.id,"status_change",beforeStatus,b.status,(req as any).user.id,b.reason);
     res.json(r);
