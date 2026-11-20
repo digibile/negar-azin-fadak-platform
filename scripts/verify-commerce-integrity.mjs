@@ -196,7 +196,7 @@ if(!logisticsApi.includes("if(b.routeId)")||!logisticsApi.includes("route_id,veh
 if(!logisticsRoutesWorkspace.includes('"/api/logistics/routes"')||!logisticsRoutesWorkspace.includes("ثبت مسیر جدید")||!logisticsRoutesWorkspace.includes("/marketplace/shipping/resources"))throw new Error("Logistics must provide a route registry linked to fleet resources");
 
 const settlementShippingApi=read("apps/api/src/domain-settlement.ts");
-const settlementPage=read("apps/web/app/marketplace/settlements/page.tsx");
+const settlementShippingPage=read("apps/web/app/marketplace/settlements/page.tsx");
 const settlementShippingMigration=read("database/migrations/155_marketplace_settlement_shipping_snapshot.sql");
 if(!settlementShippingMigration.includes("shipping_amount numeric(20,2)")||!settlementShippingApi.includes("shipping_amount_total")||!settlementShippingApi.includes("Math.max(0,Number(o.shipping_amount||0))"))throw new Error("Seller settlements must snapshot customer shipping charges per order without inventing carrier costs");
-if(!settlementShippingApi.includes("/api/marketplace/settlements/:id")||!settlementShippingApi.includes("'shippingAmount',si.shipping_amount")||!settlementPage.includes("هزینه ارسال ثبت‌شده")||!settlementPage.includes("جزئیات سفارش‌ها"))throw new Error("Seller settlement detail must expose the persisted shipping breakdown");
+if(!settlementShippingApi.includes("/api/marketplace/settlements/:id")||!settlementShippingApi.includes("'shippingAmount',si.shipping_amount")||!settlementShippingPage.includes("هزینه ارسال ثبت‌شده")||!settlementShippingPage.includes("جزئیات سفارش‌ها"))throw new Error("Seller settlement detail must expose the persisted shipping breakdown");
