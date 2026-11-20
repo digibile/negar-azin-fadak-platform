@@ -195,8 +195,8 @@ const logisticsRoutesWorkspace=read("apps/web/app/marketplace/shipping/routes/pa
 if(!logisticsApi.includes("if(b.routeId)")||!logisticsApi.includes("route_id,vehicle_id,driver_id")||!logisticsWorkspace.includes("/api/logistics/routes")||!logisticsWorkspace.includes("routeId:routeByOrder"))throw new Error("Marketplace shipments must support tenant-scoped active route selection");
 if(!logisticsRoutesWorkspace.includes('"/api/logistics/routes"')||!logisticsRoutesWorkspace.includes("ثبت مسیر جدید")||!logisticsRoutesWorkspace.includes("/marketplace/shipping/resources"))throw new Error("Logistics must provide a route registry linked to fleet resources");
 
-const settlementApi=read("apps/api/src/domain-settlement.ts");
+const settlementShippingApi=read("apps/api/src/domain-settlement.ts");
 const settlementPage=read("apps/web/app/marketplace/settlements/page.tsx");
 const settlementShippingMigration=read("database/migrations/155_marketplace_settlement_shipping_snapshot.sql");
-if(!settlementShippingMigration.includes("shipping_amount numeric(20,2)")||!settlementApi.includes("shipping_amount_total")||!settlementApi.includes("Math.max(0,Number(o.shipping_amount||0))"))throw new Error("Seller settlements must snapshot customer shipping charges per order without inventing carrier costs");
-if(!settlementApi.includes("/api/marketplace/settlements/:id")||!settlementApi.includes("'shippingAmount',si.shipping_amount")||!settlementPage.includes("هزینه ارسال ثبت‌شده")||!settlementPage.includes("جزئیات سفارش‌ها"))throw new Error("Seller settlement detail must expose the persisted shipping breakdown");
+if(!settlementShippingMigration.includes("shipping_amount numeric(20,2)")||!settlementShippingApi.includes("shipping_amount_total")||!settlementShippingApi.includes("Math.max(0,Number(o.shipping_amount||0))"))throw new Error("Seller settlements must snapshot customer shipping charges per order without inventing carrier costs");
+if(!settlementShippingApi.includes("/api/marketplace/settlements/:id")||!settlementShippingApi.includes("'shippingAmount',si.shipping_amount")||!settlementPage.includes("هزینه ارسال ثبت‌شده")||!settlementPage.includes("جزئیات سفارش‌ها"))throw new Error("Seller settlement detail must expose the persisted shipping breakdown");
