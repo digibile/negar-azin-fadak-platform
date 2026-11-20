@@ -24,19 +24,23 @@ function CheckoutContent(){
  const total=useMemo(()=>items.reduce((s,i)=>s+Number(i.unit_price)*Number(i.quantity),0),[items]);
 
  async function load(){
-  if(!cartId){setLoading(false);return;}
+  if(!cartId&&!orderId){setLoading(false);return;}
   setLoading(true);setError("");
   try{
-   const r=await fetch("/api/checkout/carts/"+encodeURIComponent(cartId),{credentials:"include"});
-   const b=await r.json();if(!r.ok)throw new Error(b.error||"دریافت سبد ناموفق بود");
-   setCart(b.cart);setItems(b.items||[]);
-   const f=await fetch("/api/lendtech/my-facilities",{credentials:"include"});
-   const fb=await f.json();if(f.ok){setFacilities(fb.items||[]);if((fb.items||[]).length)setFacilityId(fb.items[0].id);}
+   if(cartId!=="history"){
+    const r=await fetch("/api/checkout/carts/"+encodeURIComponent(cartId),{credentials:"include"});
+    const b=await r.json();if(!r.ok)throw new Error(b.error||"دریافت سبد ناموفق بود");
+    setCart(b.cart);setItems(b.items||[]);
+    const f=await fetch("/api/lendtech/my-facilities",{credentials:"include"});
+    const fb=await f.json();if(f.ok){setFacilities(fb.items||[]);if((fb.items||[]).length)setFacilityId(fb.items[0].id);}
+   }
    if(orderId){
     const or=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});
     const ob=await or.json();
     if(or.ok){
-     setOrder(ob.order);
+     setOrder({...ob.order,items:ob.items||[],payments:ob.payments||[],refunds:ob.refunds||[]});
+     const latestPending=(ob.payments||[]).find((p:any)=>["pending","authorized"].includes(p.status));
+     if(latestPending)setPendingPaymentId(latestPending.id);
      if(paymentNo){
       const pending=(ob.payments||[]).find((p:any)=>p.payment_no===paymentNo);
       if(pending&&["pending","authorized"].includes(pending.status)){
@@ -91,14 +95,14 @@ function CheckoutContent(){
   finally{setBusy(false);}
  }
  useEffect(()=>{load();},[cartId,orderId]);
- if(!cartId)return <main className="sookar-store" dir="rtl"><section className="store-section"><div className="product-card sk-checkout-empty"><span>تکمیل خرید</span><h1>سبد سفارش مشخص نیست</h1><p>برای ادامه خرید واقعی باید پس از ورود، سبد معتبر سامانه را انتخاب کنید. سبد آزمایشی مرورگر در این مسیر پذیرفته نمی‌شود.</p><Link className="sk-checkout-primary" href="/store/cart">بازگشت به سبد خرید</Link></div></section></main>;
+ if(!cartId&&!orderId)return <main className="sookar-store" dir="rtl"><section className="store-section"><div className="product-card sk-checkout-empty"><span>تکمیل خرید</span><h1>سبد یا سفارش مشخص نیست</h1><p>برای مشاهده سفارش، از بخش سفارش‌های حساب کاربری وارد شوید.</p><Link className="sk-checkout-primary" href="/account/orders">سفارش‌های من</Link></div></section></main>;
  return <main className="sookar-store" dir="rtl">
   <header className="store-header"><Link href="/store" className="store-logo"><b>سوکار</b><span>تکمیل خرید</span></Link><nav><Link href="/store">فروشگاه</Link><Link href="/marketplace">بازارگاه</Link><Link href="/pay">مرکز اعتبار</Link></nav></header>
   <section className="store-section sk-checkout-workspace">
    <div className="sk-checkout-progress" aria-label="مراحل خرید"><span className="is-current"><b>۱</b><small>بررسی سفارش</small></span><i /><span className="is-current"><b>۲</b><small>پرداخت</small></span><i /><span className={order?.status==="paid"?"is-complete":""}><b>۳</b><small>تأیید نهایی</small></span></div>
    <header className="sk-checkout-heading"><div><span>تسویه سفارش</span><h1>تکمیل خرید</h1><p>مبلغ و اقلام سفارش را بررسی کنید و سپس روش پرداخت را انتخاب کنید. وضعیت نهایی فقط بر اساس پاسخ سرویس پرداخت نمایش داده می‌شود.</p></div><Link href="/store/cart">بازگشت به سبد</Link></header>
    {error&&<div className="pay-notice" role="alert">{error}</div>}{message&&<div className="sk-checkout-message" role="status">{message}</div>}
-   {loading?<div className="product-card sk-checkout-loading" role="status"><span className="sk-checkout-spinner" aria-hidden="true" />در حال دریافت سبد و بررسی وضعیت سفارش…</div>:items.length===0?<div className="product-card sk-checkout-empty"><h2>سبد قابل تسویه نیست</h2><p>این سبد خالی است یا قبلاً تسویه شده. برای ثبت سفارش جدید، به فروشگاه برگردید.</p><Link className="sk-checkout-primary" href="/store/shop">مرور کالاها</Link></div>:<div className="plan-grid sk-checkout-grid">
+   {loading?<div className="product-card sk-checkout-loading" role="status"><span className="sk-checkout-spinner" aria-hidden="true" />در حال دریافت سبد و بررسی وضعیت سفارش…</div>:cartId==="history"&&order?<article className="product-card sk-checkout-order-status"><span>پیگیری سفارش</span><h2>{order.order_no||order.id}</h2><p>وضعیت سفارش: {order.status}</p><p>وضعیت پرداخت: {order.payments?.[0]?.status||"ثبت نشده"}</p><p>مبلغ: {Number(order.total_amount||0).toLocaleString("fa-IR")} {order.currency||"IRR"}</p>{(order.items||[]).map((item:any)=><div className="module-row" key={item.id}><strong>{item.title}</strong><span>{Number(item.quantity).toLocaleString("fa-IR")} عدد</span></div>)}{pendingPaymentId&&<button type="button" className="sk-checkout-secondary" disabled={busy} onClick={verifyPendingPayment}>بررسی مجدد وضعیت پرداخت</button>}<Link href="/account/orders">بازگشت به سفارش‌های من</Link></article>:items.length===0?<div className="product-card sk-checkout-empty"><h2>سبد قابل تسویه نیست</h2><p>این سبد خالی است یا قبلاً تسویه شده. برای ثبت سفارش جدید، به فروشگاه برگردید.</p><Link className="sk-checkout-primary" href="/store/shop">مرور کالاها</Link></div>:<div className="plan-grid sk-checkout-grid">
     <article className="product-card sk-checkout-card"><span>خلاصه سفارش</span><h3>{items.length.toLocaleString("fa-IR")} قلم</h3>{items.map(i=><div key={i.id} className="module-row"><div><strong>{i.title}</strong><small>{i.sku} · تعداد {Number(i.quantity).toLocaleString("fa-IR")}</small></div><span>{(Number(i.unit_price)*Number(i.quantity)).toLocaleString("fa-IR")} {cart?.currency||"IRR"}</span></div>)}<hr/><strong>جمع کل: {total.toLocaleString("fa-IR")} {cart?.currency||"IRR"}</strong></article>
     <article className="product-card sk-checkout-card"><span>مرحله پرداخت</span><h3>انتخاب روش پرداخت</h3>
      <label className="sk-checkout-choice"><input type="radio" checked={method==="online"} onChange={()=>setMethod("online")}/> پرداخت آنلاین از درگاه متصل</label>
