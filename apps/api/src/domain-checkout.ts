@@ -355,6 +355,13 @@ checkoutRouter.get("/api/marketplace/returns",requireAuth,requirePermission("ord
  res.json({items:r.rows,total:r.rowCount});
 }));
 
+checkoutRouter.get("/api/marketplace/returns/refund-reconciliation",requireAuth,requirePermission("order:manage"),requirePermission("payment:refund"),asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query("select mr.id,mr.refund_no,mr.return_request_id,mr.order_id,mr.payment_id,mr.amount,mr.status,mr.provider_code,mr.provider_transaction_id,mr.provider_refund_transaction_id,mr.provider_idempotency_key,mr.provider_attempt_count,mr.provider_last_attempt_at,mr.provider_last_status,mr.provider_last_error,mr.provider_claimed_at,mr.created_at,rr.request_no,o.order_no,p.provider_transaction_id payment_provider_transaction_id,p.provider_ref payment_provider_ref,extract(epoch from (now()-coalesce(mr.provider_last_attempt_at,mr.created_at)))/60 age_minutes,(mr.provider_claimed_at is not null and mr.provider_claimed_at>=now()-interval '2 minutes') claim_active from marketplace_refunds mr join marketplace_return_requests rr on rr.id=mr.return_request_id and rr.tenant_id=mr.tenant_id join marketplace_orders o on o.id=mr.order_id and o.tenant_id=mr.tenant_id left join marketplace_payments p on p.id=mr.payment_id and p.tenant_id=mr.tenant_id where mr.tenant_id=$1 and mr.status in ('pending','failed') order by coalesce(mr.provider_last_attempt_at,mr.created_at) asc limit 250",[t.id]);
+ const items=r.rows.map((x:any)=>({...x,age_minutes:Number(x.age_minutes||0),claim_active:Boolean(x.claim_active),reconciliation_state:x.claim_active?"processing":x.provider_last_status==="unknown"?"unknown":x.status==="failed"?"failed":"pending"}));
+ res.json({items,total:items.length,generatedAt:new Date().toISOString(),capabilities:{automaticProviderRefundLookup:false,manualComparisonRequired:true}});
+}));
+
 checkoutRouter.post("/api/marketplace/returns/:id/inspect",requireAuth,requirePermission("order:manage"),requirePermission("modules:23-inventory-warehouse:post"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const requestId=s(req.params.id,100),warehouseId=s(req.body?.warehouseId,100);
