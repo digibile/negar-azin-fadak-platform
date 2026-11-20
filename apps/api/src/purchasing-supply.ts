@@ -178,12 +178,18 @@ router.post("/api/purchasing/invoices",requireAuth,requirePermission("modules:21
   if(old.status!=="received"){await c.query("rollback");return deny(res,409,"فقط سفارش کاملاً دریافت‌شده قابل فاکتور است");}
   const existing=await c.query("select id from purchase_invoices where tenant_id=$1 and order_id=$2 limit 1",[t.id,old.id]);
   if(existing.rowCount){await c.query("rollback");return deny(res,409,"برای این سفارش قبلاً فاکتور ثبت شده است");}
+  const acceptedTotals=await c.query(
+   "select coalesce(sum(oi.unit_price*ri.accepted_qty),0)::numeric subtotal,coalesce(sum(oi.unit_price*ri.accepted_qty*oi.tax_rate/100),0)::numeric tax_total,coalesce(sum(ri.accepted_qty),0)::numeric accepted_quantity from purchase_order_items oi join purchase_receipt_items ri on ri.order_item_id=oi.id join purchase_receipts pr on pr.id=ri.receipt_id and pr.tenant_id=$2 where oi.order_id=$1",
+   [old.id,t.id]
+  );
+  const subtotal=Number(acceptedTotals.rows[0].subtotal),taxTotal=Number(acceptedTotals.rows[0].tax_total),acceptedQuantity=Number(acceptedTotals.rows[0].accepted_quantity),invoiceTotal=subtotal+taxTotal;
+  if(!Number.isFinite(invoiceTotal)||!Number.isFinite(acceptedQuantity)||acceptedQuantity<=0||invoiceTotal<=0){await c.query("rollback");return deny(res,409,"برای صدور فاکتور، کالای پذیرفته‌شده با ارزش معتبر لازم است");}
   const invoiceNo=String(b.invoiceNo||"PINV-"+Date.now()).trim();
   if(!invoiceNo||invoiceNo.length>100){await c.query("rollback");return deny(res,400,"شماره فاکتور خرید معتبر نیست");}
-  const invoice=await c.query("insert into purchase_invoices(tenant_id,invoice_no,supplier_id,order_id,status,subtotal,tax_total,total,due_date,notes,created_by) values($1,$2,$3,$4,'issued',$5,$6,$7,$8,$9,$10) returning *",[t.id,invoiceNo,old.supplier_id,old.id,old.subtotal,old.tax_total,old.total,b.dueDate||null,b.notes||null,(req as any).user.id]);
+  const invoice=await c.query("insert into purchase_invoices(tenant_id,invoice_no,supplier_id,order_id,status,subtotal,tax_total,total,due_date,notes,created_by) values($1,$2,$3,$4,'issued',$5,$6,$7,$8,$9,$10) returning *",[t.id,invoiceNo,old.supplier_id,old.id,subtotal,taxTotal,invoiceTotal,b.dueDate||null,b.notes||null,(req as any).user.id]);
   const updated=await c.query("update purchase_orders set status='invoiced',updated_at=now() where id=$1 and tenant_id=$2 and status='received' returning id",[old.id,t.id]);
   if(!updated.rowCount)throw new Error("وضعیت سفارش هنگام صدور فاکتور تغییر کرده است");
-  await c.query("insert into purchase_financial_events(tenant_id,source_type,source_id,event_type,amount,state,reference_no) values($1,'purchase_invoice',$2,'invoice_received',$3,'pending_accounting',$4)",[t.id,invoice.rows[0].id,old.total,invoiceNo]);
+  await c.query("insert into purchase_financial_events(tenant_id,source_type,source_id,event_type,amount,state,reference_no) values($1,'purchase_invoice',$2,'invoice_received',$3,'pending_accounting',$4)",[t.id,invoice.rows[0].id,invoiceTotal,invoiceNo]);
   await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id,reason) values($1,'order',$2,'received','invoiced','invoice',$3,$4)",[t.id,old.id,(req as any).user.id,"فاکتور "+invoiceNo]);
   await c.query("commit");
   res.status(201).json(invoice.rows[0]);
