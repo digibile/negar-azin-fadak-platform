@@ -436,7 +436,7 @@ logisticsRouter.post("/api/logistics/carrier-invoices",requireAuth,requirePermis
   }finally{c.release();}
 }));
 
-logisticsRouter.post("/api/logistics/carrier-invoices/:id/approve",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+logisticsRouter.post("/api/logistics/carrier-invoices/:id/approve",requireAuth,requirePermission("modules:12-logistics-supply:write"),requirePermission("accounting-finance.write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   const partyId=String(b.partyId||"").trim();
   const resolutionNote=String(b.resolutionNote||"").trim().slice(0,1000);
@@ -459,7 +459,7 @@ logisticsRouter.post("/api/logistics/carrier-invoices/:id/approve",requireAuth,r
       const lines=variance>0
         ? [{accountCode:"5201",accountName:"هزینه مازاد حمل سفارش",accountType:"expense",debit:amount},{accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",credit:amount}]
         : [{accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",debit:amount},{accountCode:"5201",accountName:"هزینه مازاد حمل سفارش",accountType:"expense",credit:amount}];
-      ledgerAdjustmentEntryId=await postLedgerEntry(c,{tenantId:t.id,entryNo:"CINV-ADJ-"+invoice.invoice_no,sourceType:"logistics_carrier_invoice_adjustment",sourceId:invoice.id,description:"تعدیل اختلاف صورتحساب حمل "+invoice.invoice_no,createdBy:(req as any).user.id,currency:invoice.currency,lines});
+      ledgerAdjustmentEntryId=await postLedgerEntry(c,{tenantId:t.id,entryNo:"CINV-ADJ-"+String(invoice.id).slice(0,12),sourceType:"logistics_carrier_invoice_adjustment",sourceId:invoice.id,description:"تعدیل اختلاف صورتحساب حمل "+invoice.invoice_no,createdBy:(req as any).user.id,currency:invoice.currency,lines});
     }
     const updated=(await c.query("update logistics_carrier_invoices set status='approved',party_id=$2,payable_id=$3,ledger_adjustment_entry_id=$4,resolution_note=$5,reviewed_by=$6,reviewed_at=now(),updated_at=now() where id=$1 and tenant_id=$7 returning *",[invoice.id,partyId,payable.id,ledgerAdjustmentEntryId,resolutionNote||null,(req as any).user.id,t.id])).rows[0];
     await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'logistics.carrier_invoice_approved','logistics_carrier_invoice',$3,$4)",[t.id,(req as any).user.id,invoice.id,JSON.stringify({status:updated.status,partyId,partyTitle:party.title,payableId:payable.id,ledgerAdjustmentEntryId,varianceAmount:variance,resolutionNote:updated.resolution_note})]);
