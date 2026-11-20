@@ -1,0 +1,3 @@
+.sk-store .sk-cart-checkout{border:0;cursor:pointer;font:inherit;text-decoration:none}
+.sk-store .sk-cart-checkout:disabled{cursor:not-allowed;opacity:.5}
+.sk-store .sk-cart-notice[role="status"]{margin:0 0 12px;border:1px solid #f0d7a6;background:#fff9ec;color:#76531b}
