@@ -66,6 +66,7 @@ export default function ProductsPage() {
   const [importingDemo, setImportingDemo] = useState(false);
   const [importingFullCatalog, setImportingFullCatalog] = useState(false);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   async function load() {
     setError("");
@@ -229,6 +230,7 @@ export default function ProductsPage() {
       });
       setSku(""); setTitle(""); setDescription(""); setPrice(""); setCategory(""); setImageUrl("");
       setNotice("محصول در کاتالوگ داخلی به‌صورت پیش‌نویس ثبت شد.");
+      setCreateOpen(false);
       await load();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "ثبت محصول ناموفق بود.");
@@ -480,7 +482,7 @@ export default function ProductsPage() {
       <a className="mp-back-link" href="/platform">بازگشت به مرکز عملیات <span>←</span></a>
     </header>
 
-    <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-products" onCreate={() => { setTab("manual"); document.querySelector(".mp-workspace")?.scrollIntoView({behavior:"smooth",block:"start"}); }} createLabel="ثبت محصول جدید"/>
+    <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-products" onCreate={() => { setTab("manual"); setCreateOpen(true); }} createLabel="ثبت محصول جدید"/>
     <section className="mp-metrics" aria-label="خلاصه کاتالوگ">
       <article><span>کل محصولات</span><strong>{items.length.toLocaleString("fa-IR")}</strong><small>رکوردهای کاتالوگ داخلی</small></article>
       <article><span>منتشرشده</span><strong>{items.filter(item => item.status === "active").length.toLocaleString("fa-IR")}</strong><small>قابل نمایش در ویترین</small></article>
@@ -488,7 +490,7 @@ export default function ProductsPage() {
       <article><span>فروشندگان فعال</span><strong>{sellers.filter(item => item.status === "active").length.toLocaleString("fa-IR")}</strong><small>مجاز به انتشار محصول</small></article>
     </section>
 
-    <section className="mp-workspace">
+    {createOpen && <ManagementDialog title="افزودن و ورود کالا به کاتالوگ" onClose={() => setCreateOpen(false)}><section className="mp-workspace">
       <div className="mp-workspace-head"><div><h2>افزودن به کاتالوگ</h2><p>محصول را ثبت کنید یا دادهٔ مرجع را به رکورد داخلی قابل بررسی تبدیل کنید.</p></div>
         <div className="mp-tabs" role="tablist" aria-label="روش افزودن محصول">
           <button type="button" role="tab" aria-selected={tab === "manual"} className={tab === "manual" ? "is-active" : ""} onClick={() => setTab("manual")}>ثبت محصول</button>
@@ -541,7 +543,7 @@ export default function ProductsPage() {
 
       {error && <div className="mp-feedback is-error" role="alert">{error}</div>}
       {notice && <div className="mp-feedback is-success" role="status">{notice}</div>}
-    </section>
+    </section></ManagementDialog>}
 
     <section className="mp-inventory">
       <div className="mp-inventory-head"><div><h2>محصولات ثبت‌شده</h2><p>هر کالا صفحهٔ داخلی دارد؛ انتشار فقط پس از بررسی اطلاعات و فعال بودن فروشنده انجام می‌شود.</p></div><div className="mp-filters">
