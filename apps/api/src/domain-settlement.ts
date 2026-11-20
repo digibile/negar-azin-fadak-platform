@@ -89,6 +89,36 @@ settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,require
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
+settlementRouter.get("/api/marketplace/seller-recoveries",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query("select c.*,s.display_name as seller_name,ss.settlement_no,o.order_no,r.refund_no from marketplace_seller_recovery_claims c join sellers s on s.id=c.seller_id join seller_settlements ss on ss.id=c.settlement_id join marketplace_orders o on o.id=c.order_id join marketplace_refunds r on r.id=c.refund_id where c.tenant_id=$1 order by c.created_at desc",[t.id]);
+ res.json({items:r.rows,total:r.rowCount||0});
+}));
+
+settlementRouter.post("/api/marketplace/seller-recoveries/:id/collect",requireAuth,requirePermission("settlement:manage"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const r=await client.query("select * from marketplace_seller_recovery_claims where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+  if(!r.rowCount){await client.query("rollback");return res.status(404).json({error:"مطالبه فروشنده پیدا نشد"});}
+  const claim=r.rows[0];
+  if(claim.status==="recovered"){await client.query("commit");return res.json({claim,idempotent:true});}
+  if(claim.status!=="open"){await client.query("rollback");return res.status(409).json({error:"وضعیت مطالبه برای وصول مجاز نیست"});}
+  const paymentRef=s(req.body?.paymentRef,160);
+  if(!paymentRef){await client.query("rollback");return res.status(400).json({error:"شماره مرجع دریافت وجه الزامی است"});}
+  const entryId=await postLedgerEntry(client,{tenantId:t.id,entryNo:"SRC-COLLECT-"+claim.id,sourceType:"marketplace_seller_recovery_collection",sourceId:claim.id,description:"وصول مطالبه از فروشنده",createdBy:(req as any).user.id,currency:claim.currency||"IRR",lines:[
+   {accountCode:"1101",accountName:"حساب دریافت‌های پلتفرم",accountType:"asset",debit:Number(claim.amount)},
+   {accountCode:"1202",accountName:"مطالبات از فروشندگان",accountType:"asset",credit:Number(claim.amount)}
+  ]});
+  const u=await client.query("update marketplace_seller_recovery_claims set status='recovered',payment_ref=$2,collection_ledger_entry_id=$3,recovered_at=now(),updated_at=now() where id=$1 and tenant_id=$4 and status='open' returning *",[claim.id,paymentRef,entryId,t.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller_recovery.claim_collected','seller_recovery_claim',$3,$4)",[t.id,(req as any).user.id,claim.id,JSON.stringify({amount:claim.amount,currency:claim.currency,paymentRef,ledgerEntryId:entryId})]);
+  await client.query("commit");
+  await emitBusinessEvent({tenantId:t.id,eventKey:"seller_recovery.collected",subjectType:"seller_recovery_claim",subjectId:claim.id,userId:(req as any).user.id,input:{claimId:claim.id,amount:Number(claim.amount),currency:claim.currency||"IRR",paymentRef,ledgerEntryId:entryId}});
+  res.json({claim:u.rows[0],ledgerEntryId:entryId});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
 settlementRouter.get("/api/ledger/accounts",requireAuth,requirePermission("ledger:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const r=await query("select * from ledger_accounts where tenant_id=$1 order by code",[t.id]);res.json(r.rows);
