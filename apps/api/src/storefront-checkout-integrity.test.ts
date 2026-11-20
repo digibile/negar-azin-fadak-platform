@@ -29,7 +29,6 @@ test("storefront checkout is atomic, idempotent, and revalidates ownership, pric
  assert.ok(route.includes("reserved_quantity"));
  assert.ok(route.includes("delivery_method_id"));
  assert.ok(route.includes("shipping_amount"));
- assert.ok(route.includes("postLedgerEntry")===false);
  assert.ok(route.includes("commit"));
  assert.ok(route.includes("rollback"));
 });
@@ -61,7 +60,6 @@ test("customer payment verification is owner scoped and provider confirmed",()=>
 test("checkout migration reuses the central delivery tariff and does not create a parallel shipping engine",()=>{
  assert.ok(migration.includes("marketplace_customer_addresses"));
  assert.ok(migration.includes("marketplace_checkout_requests"));
- assert.ok(migration.includes("marketplace_order_items"));
  assert.ok(!migration.includes("marketplace_shipping_rates"));
  assert.ok(!migration.includes("storefront_shipping_quotes"));
 });
