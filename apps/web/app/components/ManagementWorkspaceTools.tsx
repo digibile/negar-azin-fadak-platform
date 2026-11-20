@@ -39,7 +39,7 @@ export function ManagementToolbar({rows=[],filename="گزارش",onCreate,onImpo
   async function readFile(file?:File){if(!file)return;setImportError("");try{
     const matrix=parseCsv((await file.text()).replace(/^\uFEFF/,""));if(matrix.length<2)throw new Error("فایل باید حداقل یک ردیف عنوان و یک ردیف داده داشته باشد.");
     const headers=matrix[0].map(x=>x.trim());if(headers.some(x=>!x)||new Set(headers).size!==headers.length)throw new Error("عنوان ستون‌ها خالی یا تکراری است.");
-    if(matrix.length>10001)throw new Error("حداکثر ۱۰٬۰۰۰ ردیف در هر بار ورود مجاز است.");
+    if(matrix.length>1001)throw new Error("حداکثر ۱٬۰۰۰ ردیف در هر بار ورود مجاز است.");
     const dataRows=matrix.slice(1);const invalid=dataRows.findIndex(values=>values.length!==headers.length);if(invalid>=0)throw new Error("تعداد ستون‌های ردیف "+(invalid+2)+" با عنوان‌ها یکسان نیست.");
     setPreview(dataRows.map(values=>Object.fromEntries(headers.map((h,i)=>[h,values[i]??""]))));}
     catch(e){setImportError(e instanceof Error?e.message:"خواندن فایل ناموفق بود.");}}
