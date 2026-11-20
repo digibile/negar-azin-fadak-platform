@@ -256,3 +256,14 @@ if(!deliveryCheckoutApi.includes("deliveryMethodId=s(req.body?.deliveryMethodId"
 if(!deliveryCheckoutPage.includes("deliveryMethodId")||!deliveryCheckoutPage.includes("/delivery-methods")||!deliveryCheckoutPage.includes("انتخاب روش تحویل"))throw new Error("Storefront checkout must display and submit an eligible delivery method");
 if(!deliveryOrderMigration.includes("delivery_method_id")||!deliveryOrderMigration.includes("delivery_method_snapshot"))throw new Error("Marketplace orders must persist delivery method identity and snapshot");
 console.log("CHECKOUT_DELIVERY_METHOD_INTEGRITY_OK");
+
+
+const deliverySnapshotMarketplaceApi=read("apps/api/src/domain-marketplace.ts");
+const deliverySnapshotLogisticsApi=read("apps/api/src/logistics.ts");
+const deliverySnapshotLogisticsPage=read("apps/web/app/marketplace/shipping/page.tsx");
+const deliverySnapshotTrackingPage=read("apps/web/app/account/orders/[id]/tracking/page.tsx");
+if(!deliverySnapshotMarketplaceApi.includes("o.delivery_method_id,o.delivery_method_snapshot"))throw new Error("Marketplace order history must return the persisted delivery method snapshot");
+if(!deliverySnapshotLogisticsApi.includes("delivery_method_snapshot from marketplace_orders")||!deliverySnapshotLogisticsApi.includes("mo.delivery_method_snapshot,r.name route_name"))throw new Error("Logistics and customer tracking APIs must expose the order delivery method snapshot");
+if(!deliverySnapshotLogisticsPage.includes("روش ارسال: {order.delivery_method_snapshot.title}")||!deliverySnapshotLogisticsPage.includes("روش انتخاب‌شده مشتری: {s.delivery_method_snapshot.title}"))throw new Error("Logistics workspace must show the selected delivery method for orders and shipments");
+if(!deliverySnapshotTrackingPage.includes("روش ارسال انتخاب‌شده")||!deliverySnapshotTrackingPage.includes("data.order.delivery_method_snapshot?.title"))throw new Error("Customer tracking must show the delivery method selected at checkout");
+console.log("DELIVERY_METHOD_ORDER_VISIBILITY_INTEGRITY_OK");
