@@ -86,5 +86,6 @@ if(!checkoutApi.includes('redirectUrl:redirectUrl||null')||!checkoutApi.includes
 if(!checkoutApi.includes('returnUrl:')||!checkoutApi.includes('paymentNo='+encodeURIComponent(paymentNo)))throw new Error("Gateway create request must include the exact order and payment return reference");
 if(!paymentMigration.includes("add column if not exists redirect_url text")||!paymentMigration.includes("failure_reason text"))throw new Error("Pending payment migration must persist redirect and failure metadata");
 if(!checkoutPage.includes('window.location.assign(pb.redirectUrl)')||!checkoutPage.includes('/api/marketplace/payments/'))throw new Error("Store checkout must redirect to the gateway and verify the returned payment");
+if(!checkoutPage.includes("بررسی مجدد وضعیت پرداخت")||!checkoutPage.includes("pendingPaymentId"))throw new Error("Store checkout must expose a retryable status check for pending gateway attempts");
 console.log("COMMERCE_STOREFRONT_INTEGRITY_OK");
 
