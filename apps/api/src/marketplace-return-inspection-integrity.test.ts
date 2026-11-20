@@ -231,7 +231,8 @@ test("supplier handover persists financial quantity snapshot for stable cumulati
  const start=checkout.indexOf('checkoutRouter.patch("/api/marketplace/returns/:id/disposition"');
  const end=checkout.indexOf('checkoutRouter.patch("/api/marketplace/returns/:id/status"',start);
  const route=checkout.slice(start,end);
- assert.ok(route.includes("finance_product_id=$3 and pq.status='supplier_handover'"));
+ assert.ok(route.includes("pq.finance_product_id=$3"));
+ assert.ok(route.includes("pq.status='supplier_handover'"));
  assert.ok(route.includes("sum(pq.finance_quantity)"));
  assert.ok(route.includes("legacy_count"));
  assert.ok(route.includes("pq.finance_product_id is null or pq.finance_quantity is null"));
