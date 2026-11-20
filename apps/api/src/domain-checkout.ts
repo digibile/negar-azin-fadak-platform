@@ -243,7 +243,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
    if(existingRefund.rowCount){await client.query("commit");return res.status(200).json({refund:existingRefund.rows[0],order:{id:order.id,status:"refunded"},idempotent:true});}
   }
   if(!["paid","processing","delivered","returned"].includes(order.status)){await client.query("rollback");return res.status(409).json({error:"فقط سفارش پرداخت‌شده قابل بازگشت وجه است"});}
-  const settlementLink=await client.query("select ss.id,ss.status,ss.adjustment_amount from seller_settlement_items si join seller_settlements ss on ss.id=si.settlement_id and ss.tenant_id=si.tenant_id where si.tenant_id=$1 and si.order_id=$2 for update of ss",[t.id,order.id]);
+  const settlementLink=await client.query("select ss.id,ss.seller_id,ss.status,ss.adjustment_amount from seller_settlement_items si join seller_settlements ss on ss.id=si.settlement_id and ss.tenant_id=si.tenant_id where si.tenant_id=$1 and si.order_id=$2 for update of ss",[t.id,order.id]);
   for(const linked of settlementLink.rows){
    if(!["pending","approved"].includes(linked.status))continue;
    await client.query("delete from seller_settlement_items where tenant_id=$1 and settlement_id=$2 and order_id=$3",[t.id,linked.id,order.id]);
