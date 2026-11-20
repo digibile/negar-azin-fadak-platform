@@ -372,3 +372,14 @@ test("explicit retry endpoint cannot create a first refund when no prior refund 
  assert.ok(route.includes('String(req.path||"").endsWith("/refund/retry")&&!existing.rowCount'));
  assert.ok(route.includes("جهت تلاش مجدد وجود ندارد"));
 });
+
+test("gateway pending responses are stored separately and cannot overwrite the immutable return quantity snapshot",()=>{
+ const start=checkout.indexOf("const processMarketplaceReturnRefund=");
+ const end=checkout.indexOf('checkoutRouter.post("/api/storefront/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes("snapshot.receivedQuantity??snapshot.quantity??rr.rows[0].received_quantity"));
+ assert.ok(route.includes("snapshot.restockQuantity??rr.rows[0].restock_quantity"));
+ assert.ok(route.includes("provider_payload=coalesce(provider_payload,'{}'::jsonb)||jsonb_build_object('lastProviderResponse',$3::jsonb)"));
+ assert.ok(route.includes("const returnSnapshot={receivedQuantity,restockQuantity,quarantineQuantity}"));
+ assert.ok(route.includes("provider_payload=coalesce(provider_payload,'{}'::jsonb)||$1::jsonb"));
+});
