@@ -14,3 +14,6 @@
 .mp-return-inspection-dialog label{display:grid;gap:6px;color:#334155;font-size:12px;font-weight:600}
 .mp-return-inspection-dialog input,.mp-return-inspection-dialog select,.mp-return-inspection-dialog textarea{width:100%;min-height:40px;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#172033;font:inherit;font-size:13px}
 .mp-return-inspection-note{padding:10px;border-radius:8px;background:#f0f7ff;color:#28527a!important}
+
+.mp-return-quarantine{display:grid;gap:7px;margin-top:12px;padding:12px;border:1px solid #f0d6a5;border-radius:9px;background:#fffbeb;color:#854d0e;font-size:11px}
+.mp-return-quarantine>span{color:#713f12}.mp-return-quarantine p{margin:0;color:#713f12}
