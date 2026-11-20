@@ -369,7 +369,7 @@ checkoutRouter.post("/api/marketplace/returns/:id/inspect",requireAuth,requirePe
   if(received>Number(rr.requested_quantity)+0.000001){await client.query("rollback");return res.status(409).json({error:"تعداد دریافت‌شده از تعداد تأییدشده مرجوعی بیشتر است"});}
   const warehouse=(await client.query("select id,name from inventory_warehouses where id=$1 and tenant_id=$2 and status='active' for share",[warehouseId,t.id])).rows[0];
   if(!warehouse){await client.query("rollback");return res.status(400).json({error:"انبار دریافت باید فعال و متعلق به همین سازمان باشد"});}
-  const mapping=(await client.query("select mil.inventory_product_id,mil.quantity_factor,ip.name from marketplace_inventory_product_links mil join inventory_products ip on ip.id=mil.inventory_product_id and ip.tenant_id=mil.tenant_id and ip.status='active' where mil.tenant_id=$1 and mil.product_id=$2",[t.id,rr.product_id])).rows[0];
+  const mapping=(await client.query("select mil.inventory_product_id,mil.quantity_factor,ip.name from marketplace_inventory_product_links mil join inventory_products ip on ip.id=mil.inventory_product_id and ip.tenant_id=mil.tenant_id and ip.status='active' where mil.tenant_id=$1 and mil.product_id=$2 for share of mil,ip",[t.id,rr.product_id])).rows[0];
   if(restock>0&&!mapping){await client.query("rollback");return res.status(409).json({error:"برای بازگشت کالای سالم به موجودی، نگاشت فعال کالای فروشگاه به کالای انبار الزامی است"});}
   const warehouseQuantity=restock>0?Number((restock*Number(mapping.quantity_factor)).toFixed(4)):0;
   if(restock>0&&(!Number.isFinite(warehouseQuantity)||warehouseQuantity<=0)){await client.query("rollback");return res.status(409).json({error:"ضریب تبدیل کالای انبار معتبر نیست"});}
