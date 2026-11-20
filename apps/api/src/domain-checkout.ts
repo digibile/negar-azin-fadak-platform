@@ -88,7 +88,8 @@ checkoutRouter.post("/api/checkout/carts/:id/checkout",requireAuth,asyncHandler(
   if(!sr.rowCount){await client.query("rollback");return res.status(404).json({error:"فروشنده پیدا نشد"});}
   const commission=Number((subtotal*Number(sr.rows[0].commission_rate)/100).toFixed(2)),payable=subtotal-commission;
   const orderNo=s(req.body?.orderNo,100)||("ORD-"+Date.now()+"-"+Math.random().toString(36).slice(2,7));
-  const reservationTtlMinutes=Math.min(240,Math.max(5,Number(process.env.MARKETPLACE_RESERVATION_TTL_MINUTES||30)));
+  const configuredReservationTtl=Number(process.env.MARKETPLACE_RESERVATION_TTL_MINUTES||30);
+  const reservationTtlMinutes=Number.isFinite(configuredReservationTtl)?Math.min(240,Math.max(5,configuredReservationTtl)):30;
   const o=await client.query("insert into marketplace_orders(tenant_id,store_id,seller_id,order_no,customer_ref,currency,subtotal,total_amount,commission_amount,seller_payable,payment_method,delivery_due_at,reservation_expires_at) values($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$11,now()+($12::text||' minutes')::interval) returning *",[t.id,c.rows[0].store_id,sellers[0],orderNo,c.rows[0].customer_ref,c.rows[0].currency||"IRR",subtotal,commission,payable,s(req.body?.paymentMethod,50)||"online",req.body?.deliveryDueAt||null,reservationTtlMinutes]);
   for(const item of items.rows)await client.query("insert into marketplace_order_items(order_id,product_id,quantity,unit_price,line_total) values($1,$2,$3,$4,$5)",[o.rows[0].id,item.product_id,item.quantity,item.unit_price,Number(item.quantity)*Number(item.unit_price)]);
   await client.query("update cart_sessions set status='checked_out',updated_at=now() where id=$1",[req.params.id]);
@@ -195,7 +196,7 @@ checkoutRouter.post("/api/marketplace/payments/:paymentId/verify",requireAuth,as
   const p=await client.query("select p.*,o.customer_ref,o.order_no,o.store_id,o.status as order_status,o.total_amount,o.seller_payable,o.commission_amount,o.reservation_expires_at,(o.reservation_expires_at is not null and o.reservation_expires_at<=now()) as reservation_expired from marketplace_payments p join marketplace_orders o on o.id=p.order_id and o.tenant_id=p.tenant_id where p.id=$1 and p.tenant_id=$2 for update of p",[req.params.paymentId,t.id]);
   if(!p.rowCount){await client.query("rollback");return res.status(404).json({error:"تلاش پرداخت پیدا نشد"});}
   const payment=p.rows[0];paymentId=payment.id;eventOrderId=payment.order_id;
-  if(["cancelled","refunded"].includes(payment.order_status)||payment.reservation_expired){await client.query("rollback");return res.status(409).json({error:"مهلت رزرو سفارش پایان یافته یا سفارش بسته شده است"});}
+  if(["cancelled","refunded"].includes(payment.order_status)||(["pending","confirmed"].includes(payment.order_status)&&payment.reservation_expired)){await client.query("rollback");return res.status(409).json({error:"مهلت رزرو سفارش پایان یافته یا سفارش بسته شده است"});}
   if(!(await canAccessCustomer(req,payment.customer_ref,"payment:manage"))){await client.query("rollback");return res.status(403).json({error:"دسترسی به این پرداخت مجاز نیست"});}
   if(payment.status==="paid"){await client.query("commit");return res.json({status:"paid",paymentId:payment.id,order:{id:payment.order_id,status:payment.order_status}});}
   if(!["pending","authorized"].includes(payment.status)){await client.query("rollback");return res.status(409).json({error:"این پرداخت در وضعیت قابل تأیید نیست",status:payment.status});}
