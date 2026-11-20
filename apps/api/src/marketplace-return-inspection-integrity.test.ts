@@ -221,3 +221,19 @@ test("supplier handover validates purchase product mapping and cumulative quanti
  assert.ok(route.includes("mfl.quantity_factor"));
  assert.ok(route.includes("مقدار کالای قرنطینه از مقدار باقیمانده ردیف کالای فاکتور خرید بیشتر است"));
 });
+
+test("supplier handover persists financial quantity snapshot for stable cumulative limits",()=>{
+ const migration=fs.readFileSync(new URL("../../../database/migrations/zzzz_marketplace_return_finance_handover_trace.sql",import.meta.url),"utf8");
+ assert.ok(migration.includes("finance_product_id uuid"));
+ assert.ok(migration.includes("finance_quantity numeric(20,4)"));
+ assert.ok(migration.includes("foreign key(tenant_id,finance_product_id)"));
+ assert.ok(migration.includes("references finance_products(tenant_id,id)"));
+ const start=checkout.indexOf('checkoutRouter.patch("/api/marketplace/returns/:id/disposition"');
+ const end=checkout.indexOf('checkoutRouter.patch("/api/marketplace/returns/:id/status"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes("finance_product_id=$3 and pq.status='supplier_handover'"));
+ assert.ok(route.includes("sum(pq.finance_quantity)"));
+ assert.ok(route.includes("finance_product_id=$4,finance_quantity=$5"));
+ assert.ok(route.includes("handoverFinanceProductId"));
+ assert.ok(route.includes("handoverFinanceQuantity"));
+});
