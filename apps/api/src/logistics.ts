@@ -63,7 +63,9 @@ logisticsRouter.get("/api/logistics/orders",requireAuth,asyncHandler(async(req,r
 }));
 logisticsRouter.post("/api/logistics/orders",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
-  if(!b.orderNo||!b.origin||!b.destination)return fail(res,400,"شماره سفارش، مبدأ و مقصد الزامی است");
+  const quantity=Number(b.quantity??0);
+  if(!b.orderNo||!String(b.origin).trim()||!String(b.destination).trim())return fail(res,400,"شماره سفارش، مبدأ و مقصد الزامی است");
+  if(!Number.isFinite(quantity)||quantity<0)return fail(res,400,"مقدار سفارش باید عدد معتبر و غیرمنفی باشد");
   if(b.planId){
     const p=(await query("select id,status from logistics_supply_plans where id=$1 and tenant_id=$2",[b.planId,t.id])).rows[0];
     if(!p)return fail(res,404,"برنامه تأمین پیدا نشد");
@@ -71,7 +73,7 @@ logisticsRouter.post("/api/logistics/orders",requireAuth,requirePermission("modu
   }
   const r=await query(
     "insert into logistics_supply_orders(tenant_id,order_no,plan_id,origin,destination,cargo_description,quantity,requested_date,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",
-    [t.id,b.orderNo,b.planId||null,b.origin,b.destination,b.cargoDescription||null,Number(b.quantity||0),b.requestedDate||null,b.notes||null,(req as any).user.id]
+    [t.id,b.orderNo,b.planId||null,b.origin,b.destination,b.cargoDescription||null,quantity,b.requestedDate||null,b.notes||null,(req as any).user.id]
   );
   await audit(t.id,"supply_order",r.rows[0].id,"created",null,r.rows[0].status,(req as any).user.id);
   res.status(201).json(r.rows[0]);
@@ -198,9 +200,15 @@ logisticsRouter.post("/api/logistics/shipments",requireAuth,requirePermission("m
       if(vehicle.status!=="available")throw new Error("ناوگان انتخاب‌شده در دسترس نیست");
     }
     if(b.driverId){
-      const d=(await c.query("select status,license_expiry from logistics_drivers where id=$1 and tenant_id=$2",[b.driverId,t.id])).rows[0];
+      // Lock the driver row so concurrent dispatch requests cannot assign the same driver twice.
+      const d=(await c.query("select id,status,license_expiry from logistics_drivers where id=$1 and tenant_id=$2 for update",[b.driverId,t.id])).rows[0];
       if(!d||d.status!=="active")throw new Error("راننده فعال پیدا نشد");
       if(d.license_expiry&&new Date(d.license_expiry)<new Date())throw new Error("گواهینامه راننده منقضی شده است");
+      const activeAssignment=await c.query(
+        "select 1 from logistics_shipments where tenant_id=$1 and driver_id=$2 and status in ('planned','assigned','picked_up','in_transit') limit 1",
+        [t.id,b.driverId]
+      );
+      if(activeAssignment.rowCount)throw new Error("این راننده در یک مأموریت فعال دیگر تخصیص داده شده است");
     }
     if(b.routeId){const route=(await c.query("select id from logistics_routes where id=$1 and tenant_id=$2 and status='active'",[b.routeId,t.id])).rows[0];if(!route)throw new Error("مسیر انتخاب‌شده متعلق به سازمان نیست یا غیرفعال است");}
     const r=(await c.query(
