@@ -286,6 +286,7 @@ checkoutRouter.get("/api/storefront/orders",requireAuth,asyncHandler(async(req,r
 }));
 checkoutRouter.post("/api/storefront/checkout",requireAuth,asyncHandler(async(req,res)=>{
  const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ return res.status(503).json({code:"SHIPPING_QUOTE_UNAVAILABLE",error:"ثبت سفارش تا اتصال سرویس معتبر نرخ‌گذاری و تأیید هزینه ارسال فعال نیست"});
  const b=req.body||{},storeId=s(b.storeId,100),addressId=s(b.addressId,100),key=s(b.idempotencyKey,160);
  const requested=Array.isArray(b.items)?b.items:[];
  if(!storeId||!addressId||!key||requested.length<1||requested.length>50)return res.status(400).json({error:"فروشگاه، نشانی، شناسه یکتای درخواست و اقلام سبد الزامی هستند"});
