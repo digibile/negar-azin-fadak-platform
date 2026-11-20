@@ -9,6 +9,7 @@ const customerOrders=fs.readFileSync(new URL("../../web/app/account/orders/page.
 const commerceIntelligence=fs.readFileSync(new URL("./commerce-intelligence.ts",import.meta.url),"utf8");
 const deliveryAdmin=fs.readFileSync(new URL("../../web/app/marketplace/delivery-methods/page.tsx",import.meta.url),"utf8");
 const returnsMigration=fs.readFileSync(new URL("../../../database/migrations/999_storefront_customer_returns.sql",import.meta.url),"utf8");
+const refundMigration=fs.readFileSync(new URL("../../../database/migrations/1000_storefront_return_refunds.sql",import.meta.url),"utf8");
 const customerReturns=fs.readFileSync(new URL("../../web/app/account/returns/page.tsx",import.meta.url),"utf8");
 const adminReturns=fs.readFileSync(new URL("../../web/app/marketplace/returns/page.tsx",import.meta.url),"utf8");
 const returnGuide=fs.readFileSync(new URL("../../web/app/store/returns/page.tsx",import.meta.url),"utf8");
@@ -195,9 +196,9 @@ test("inspected customer returns use one idempotent partial refund, the configur
 });
 
 test("partial return refunds are unique per return and full-order refund cannot double-refund",()=>{
- assert.ok(returnsMigration.includes("return_request_id"));
- assert.ok(returnsMigration.includes("uq_marketplace_refund_return_request"));
- assert.ok(returnsMigration.includes("DROP INDEX IF EXISTS uq_marketplace_refund_payment"));
+ assert.ok(refundMigration.includes("return_request_id"));
+ assert.ok(refundMigration.includes("uq_marketplace_refund_return_request"));
+ assert.ok(refundMigration.includes("DROP INDEX IF EXISTS uq_marketplace_refund_payment"));
  const fullStart=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"');
  const fullEnd=checkout.indexOf('checkoutRouter.post("/api/marketplace/returns/:id/refund"',fullStart);
  const fullRoute=checkout.slice(fullStart,fullEnd);
