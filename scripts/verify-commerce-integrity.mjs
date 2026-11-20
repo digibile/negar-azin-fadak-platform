@@ -97,7 +97,7 @@ if(!api.includes('permission="order:view"')&&!api.includes("permission='order:vi
 if(!api.includes('where+=" and o.customer_ref=$2"')||!api.includes('user.id')||!api.includes('latest_payment_status'))throw new Error("Customer order history must be restricted to the authenticated customer and include payment status");
 if(!customerOrders.includes('"/api/marketplace/orders"')||!customerOrders.includes("latest_payment_status")||!customerOrders.includes('"/store/checkout?order="'))throw new Error("Customer account must show real order history and order tracking links");
 if(!customerOrders.includes('import "./orders-workspace.css"')||!customerOrdersCss.includes(".account-order-card"))throw new Error("Customer order history must use isolated responsive styles");
-if(!checkoutPage.includes('cartId==="history"')||!checkoutPage.includes('order?.payments'))throw new Error("Order tracking must work without an active cart session");
+if(!checkoutPage.includes('cartId==="history"')||!checkoutPage.includes('order.payments?.[0]?.status'))throw new Error("Order tracking must work without an active cart session");
 console.log("COMMERCE_STOREFRONT_INTEGRITY_OK");
 
 
