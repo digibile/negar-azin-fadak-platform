@@ -158,3 +158,5 @@ if(refundRoute.includes('if(order.status==="returned"){')&&refundRoute.includes(
 
 if(!api.includes("latest_return_id")||!api.includes("latest_return_status"))throw new Error("Order list must expose its return case status and identifier");
 if(!orderPage.includes('next==="return_request"')||!orderPage.includes('return_accept:"accepted"')||!orderPage.includes("تأیید بازرسی و ورود موجودی"))throw new Error("Order workspace must use the inspected return lifecycle instead of direct status changes");
+
+if(!orderPage.includes('paid:[{status:"processing",label:"شروع آماده‌سازی"},{status:"return_request"'))throw new Error("Paid orders must allow a formal return request");
