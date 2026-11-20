@@ -318,7 +318,7 @@ checkoutRouter.post("/api/storefront/orders/:id/returns",requireAuth,requireCsrf
 }));
 
 checkoutRouter.post("/api/storefront/returns/:id/cancel",requireAuth,requireCsrf,asyncHandler(async(req,res)=>{
- const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});const requestId=s(requestId,100);
+ const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});const requestId=s(req.params.id,100);
  const client=await pool.connect();
  try{
   await client.query("begin");
@@ -340,7 +340,7 @@ checkoutRouter.get("/api/marketplace/returns",requireAuth,requirePermission("ord
 }));
 
 checkoutRouter.patch("/api/marketplace/returns/:id/status",requireAuth,requirePermission("order:manage"),requireCsrf,asyncHandler(async(req,res)=>{
- const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const requestId=s(requestId,100);
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const requestId=s(req.params.id,100);
  const target=s(req.body?.status,24),reason=s(req.body?.decisionReason,1000);
  const client=await pool.connect();
  try{
