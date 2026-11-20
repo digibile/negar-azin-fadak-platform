@@ -591,7 +591,9 @@ export default function ProductsPage() {
       })}</div> : <div className="mp-inventory-empty">{items.length ? "محصولی با این فیلتر پیدا نشد." : "هنوز محصولی در کاتالوگ داخلی ثبت نشده است."}</div>}
     </section>
 
-    {viewingProduct && <ManagementDialog title={"جزئیات محصول "+viewingProduct.title} onClose={() => setViewingProduct(null)}><dl className="management-detail-grid">{Object.entries(viewingProduct).filter(([key])=>key!=="id").map(([key,value])=><div key={key}><dt>{key}</dt><dd>{value===null||value===undefined?"—":typeof value==="object"?JSON.stringify(value):String(value)}</dd></div>)}</dl></ManagementDialog>}\n\n    <section className="mp-inventory mp-source-sync">
+    {viewingProduct && <ManagementDialog title={"جزئیات محصول "+viewingProduct.title} onClose={() => setViewingProduct(null)}><dl className="management-detail-grid">{Object.entries(viewingProduct).filter(([key])=>key!=="id").map(([key,value])=><div key={key}><dt>{key}</dt><dd>{value===null||value===undefined?"—":typeof value==="object"?JSON.stringify(value):String(value)}</dd></div>)}</dl></ManagementDialog>}
+
+    <section className="mp-inventory mp-source-sync">
       <div className="mp-inventory-head">
         <div><h2>تأمین و همگام‌سازی مرجع</h2><p>قیمت مرجع و وضعیت اعلام‌شدهٔ تأمین‌کننده جدا از قیمت فروش و موجودی انبار خودت ذخیره می‌شود.</p></div>
         <button type="button" className="mp-refresh" onClick={syncReferenceProducts} disabled={syncingSources || !sourceLinks.length}>{syncingSources ? "در حال همگام‌سازی…" : `به‌روزرسانی ${Math.min(50,sourceLinks.length).toLocaleString("fa-IR")} مورد اول`}</button>
