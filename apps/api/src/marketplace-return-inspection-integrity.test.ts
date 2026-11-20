@@ -61,3 +61,53 @@ test("returns workspace requires warehouse and separates received from restockab
  assert.ok(!page.includes('transition(item,"inspected")'));
  assert.ok(!page.includes("\\n type Warehouse="));
 });
+
+test("non-restockable returned quantity is registered in tenant quarantine without saleable stock",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/returns/:id/inspect"');
+ const end=checkout.indexOf('checkoutRouter.patch("/api/marketplace/returns/:id/disposition"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes("if(received-restock>0)"));
+ assert.ok(route.includes("marketplace_return_quarantine"));
+ assert.ok(route.includes("Number((received-restock).toFixed(3))"));
+ assert.ok(!route.includes("inventory_stock")||route.indexOf("marketplace_return_quarantine")<route.indexOf("inventory_stock"));
+});
+
+test("quarantine disposition is tenant-scoped, one-way, permission checked and audited",()=>{
+ const start=checkout.indexOf('checkoutRouter.patch("/api/marketplace/returns/:id/disposition"');
+ const end=checkout.indexOf('checkoutRouter.patch("/api/marketplace/returns/:id/status"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes('requirePermission("order:manage")'));
+ assert.ok(route.includes('requirePermission("modules:23-inventory-warehouse:write")'));
+ assert.ok(route.includes("q.tenant_id=$1 and q.return_request_id=$2"));
+ assert.ok(route.includes('q.status!=="quarantined"'));
+ assert.ok(route.includes('["supplier_handover","disposed"]'));
+ assert.ok(route.includes("platform_audit_events"));
+ assert.ok(route.includes("inventory_events"));
+ assert.ok(!route.includes("inventory_stock"));
+});
+
+test("return case cannot close while quarantine disposition remains pending",()=>{
+ const start=checkout.indexOf('checkoutRouter.patch("/api/marketplace/returns/:id/status"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/returns/:id/refund"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes('if(target==="closed")'));
+ assert.ok(route.includes("status='quarantined'"));
+ assert.ok(route.includes("ابتدا کالای غیرقابل فروش را از قرنطینه تعیین تکلیف کنید"));
+});
+
+test("quarantine migration has tenant-safe return and warehouse references",()=>{
+ const q=fs.readFileSync(new URL("../../../database/migrations/1000_marketplace_return_quarantine.sql",import.meta.url),"utf8");
+ assert.ok(q.includes("unique(tenant_id,return_request_id)"));
+ assert.ok(q.includes("foreign key(tenant_id,return_request_id)"));
+ assert.ok(q.includes("foreign key(tenant_id,warehouse_id)"));
+ assert.ok(q.includes("quarantine_quantity numeric(20,3)"));
+ assert.ok(q.includes("supplier_handover"));
+ assert.ok(q.includes("disposed"));
+});
+
+test("returns workspace exposes quarantine quantities and disposition actions",()=>{
+ assert.ok(page.includes("quarantine_quantity"));
+ assert.ok(page.includes("ثبت تحویل به تأمین‌کننده"));
+ assert.ok(page.includes("ثبت امحا / ضایعات"));
+ assert.ok(page.includes("/disposition"));
+});
