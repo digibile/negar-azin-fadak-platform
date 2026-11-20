@@ -53,6 +53,22 @@ export default function AccountingFinanceWorkspace(){
  const tabs=[["accounts","دفتر حساب‌ها"],["documents","اسناد حسابداری"],["periods","دوره‌های مالی"],["centers","مرکز هزینه"],["products","محصول و انبار"],["operations","خزانه و عملیات مالی"],["vault","زونکن هوشمند"],["reports","گزارش مالی"]];
  return <main className={styles.workspace} dir="rtl">
   <header className={styles.header}><div><span>هسته مالی</span><h1>حسابداری و مالی</h1><p>دفتر حساب‌ها، اسناد متوازن، دوره‌های کنترل‌شده، مراکز هزینه و گزارش‌های مبتنی بر داده واقعی.</p></div><div className={styles.metric}>{books.length} دفتر · {docs.length} سند</div></header>
+  <section className={styles.actionToolbar} aria-label="عملیات صفحه">
+   <div className={styles.actionGroup}>
+    <button type="button" className={styles.actionSave} onClick={()=>{if(tab==="accounts")saveAccount();else if(tab==="documents")saveDoc();else if(tab==="periods")savePeriod();else if(tab==="centers")saveCenter();else if(tab==="vault")createVault();}}>▣ <span>ذخیره</span></button>
+    <button type="button" className={styles.actionPublish} onClick={()=>{if(tab==="documents"){const draft=docs.find(x=>x.status==="draft");if(draft)status(draft.id,"submitted");else setError("سند پیش‌نویس برای ارسال وجود ندارد");}else setError("عملیات انتشار برای این بخش تعریف نشده است");}}>⇧ <span>ارسال</span></button>
+    <button type="button" className={styles.actionEdit} onClick={()=>{if(tab==="accounts")document.getElementById("account-editor")?.scrollIntoView({behavior:"smooth",block:"center"});else if(tab==="documents"&&selectedDocument)document.getElementById("document-preview")?.scrollIntoView({behavior:"smooth"});else setError("ابتدا یک رکورد قابل ویرایش انتخاب کنید");}}>✎ <span>ویرایش</span></button>
+    <button type="button" className={styles.actionNew} onClick={()=>{setError("");if(tab==="accounts"){setEditingAccount(null);setAccount({code:"",name:"",accountType:"general",accountMode:"hybrid",bookId:books[0]?.id||""});}else if(tab==="documents"){setDoc(x=>({...x,documentNo:"",description:""}));setLines([{accountId:"",debit:"",credit:"",description:""},{accountId:"",debit:"",credit:"",description:""}]);}else if(tab==="periods")setPeriod(x=>({...x,code:"",title:"",startsOn:"",endsOn:""}));else if(tab==="centers")setCenter({code:"",title:"",centerType:"cost"});else setError("فرم ایجاد برای این بخش در این صفحه موجود نیست");}}>＋ <span>جدید</span></button>
+    <button type="button" className={styles.actionDelete} onClick={()=>setError("حذف مستقیم از نوار عمومی غیرفعال است؛ حذف باید از جزئیات رکورد و پس از تأیید مجاز شود")}>▤ <span>حذف</span></button>
+    <button type="button" className={styles.actionCancel} onClick={()=>{setSelectedDocument(null);setSelectedVault(null);setEditingAccount(null);setError("");}}>× <span>لغو</span></button>
+   </div>
+   <div className={styles.actionGroup}>
+    <button type="button" className={styles.actionUtility} onClick={()=>window.print()}>▣ <span>چاپ</span></button>
+    <button type="button" className={styles.actionUtility} onClick={()=>{const rows:any=tab==="accounts"?accounts:tab==="documents"?docs:tab==="periods"?periods:tab==="centers"?centers:tab==="reports"?(reports?.trialBalance||[]):tab==="operations"?(operations.parties||[]):tab==="vault"?vaults:products;if(!rows.length){setError("داده‌ای برای خروجی این بخش وجود ندارد");return;}const keys=Object.keys(rows[0]);const csv=[keys.join(","),...rows.map((row:any)=>keys.map(k=>JSON.stringify(row[k]??"")).join(","))].join("\\n");const blob=new Blob(["\\uFEFF",csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="naf-"+tab+"-"+new Date().toISOString().slice(0,10)+".csv";a.click();URL.revokeObjectURL(url);}}>⇩ <span>خروجی</span></button>
+    <button type="button" className={styles.actionUtility} onClick={()=>setError("ورود گروهی تا آماده‌شدن مسیرهای اعتبارسنجی و ثبت اتمی هر نوع داده فعال نمی‌شود")}>⇧ <span>ورود</span></button>
+    <button type="button" className={styles.actionUtility} onClick={()=>setError("تنظیمات این بخش از مسیر تنظیمات مرکزی مدیریت می‌شود")}>⚙ <span>تنظیمات</span></button>
+   </div>
+  </section>
   {error&&<div className={styles.error}>{error}</div>}
   <nav className={styles.tabs}>{tabs.map(([k,t])=><button key={k} className={tab===k?styles.active:""} onClick={()=>{setTab(k);if(k==="reports")runReports()}}>{t}</button>)}</nav>
 
