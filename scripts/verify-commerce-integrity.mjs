@@ -21,6 +21,7 @@ const commerceCss=read("apps/web/app/modules/commerce-panel.css");
 const orderPage=read("apps/web/app/marketplace/orders/page.tsx");
 const orderCss=read("apps/web/app/marketplace/orders/orders-workspace.css");
 const api=read("apps/api/src/domain-marketplace.ts");
+const checkoutApi=read("apps/api/src/domain-checkout.ts");
 
 if(!canonical.includes('import StorePage from "../store/page"')||!canonical.includes('<StorePage variant="marketplace-pro"/>'))throw new Error("Canonical storefront must reuse the operational StorePage marketplace variant");
 if(!home.includes('import MarketplacePage from "./marketplace/MarketplacePage"')||!home.includes("<MarketplacePage />"))throw new Error("Homepage must render the canonical marketplace page");
@@ -44,5 +45,10 @@ for(const marker of ["ثبت ارسال","ثبت تحویل","ثبت مرجوع�
 for(const marker of [".platform-order-summary",".platform-order-row",".platform-order-danger"]){
   if(!orderCss.includes(marker))throw new Error("Order workspace isolated styles are missing: "+marker);
 }
+
+if(!api.includes('pending:["confirmed"]')||!api.includes('paid:["processing"]'))throw new Error("Generic order lifecycle must not confirm payments or refunds");
+if(api.includes('confirmed:["paid"')||api.includes('paid:["processing","refunded"')||api.includes('delivered:["returned","refunded"'))throw new Error("Generic order lifecycle exposes payment/refund transitions");
+if(!checkoutApi.includes('"/api/marketplace/orders/:id/cancel"')||!checkoutApi.includes("reserved_quantity=greatest(0,reserved_quantity-$1)"))throw new Error("Order cancellation must release reserved inventory through its dedicated endpoint");
+if(!orderPage.includes('"/api/marketplace/orders/"+encodeURIComponent(order.id)+"/cancel"'))throw new Error("Order UI must call the dedicated inventory-safe cancellation endpoint");
 console.log("COMMERCE_STOREFRONT_INTEGRITY_OK");
 
