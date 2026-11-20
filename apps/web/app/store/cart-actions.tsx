@@ -73,8 +73,8 @@ export function AddToCartButton({ product, compact = false, quantity = 1 }: { pr
       window.setTimeout(() => setNotice(""), 2400);
       return;
     }
-    if (existing) existing.quantity += 1;
-    else cart.push({ ...product, quantity: 1 });
+    if (existing) existing.quantity += requestedQuantity;
+    else cart.push({ ...product, quantity: requestedQuantity });
     writeCart(cart);
     setAdded(true);
     setNotice("");
