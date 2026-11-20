@@ -551,6 +551,7 @@ const processMarketplaceReturnRefund=asyncHandler(async(req,res)=>{
   }
   if(rr.rows[0].status!=="inspected"){await client.query("rollback");return res.status(409).json({error:"بازپرداخت فقط پس از دریافت و تأیید بازرسی مجاز است"});}
   const existing=await client.query("select * from marketplace_refunds where tenant_id=$1 and return_request_id=$2 for update",[t.id,requestId]);
+  if(String(req.path||"").endsWith("/refund/retry")&&!existing.rowCount){await client.query("rollback");return res.status(404).json({error:"برای این مرجوعی درخواست بازپرداخت قبلی جهت تلاش مجدد وجود ندارد"});}
   if(existing.rowCount&&existing.rows[0].status==="refunded"){
    await client.query("commit");return res.status(200).json({refund:existing.rows[0],alreadyRefunded:true,pending:false});
   }
