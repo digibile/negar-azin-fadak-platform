@@ -155,3 +155,6 @@ if(!api.includes("/api/marketplace/orders/:id/returns")||!api.includes("/api/mar
 if(!api.includes('next==="accepted"')||!api.includes("marketplace_order_return")||!api.includes("movement_type,quantity,reference_type,reference_id,note,created_by"))throw new Error("Accepted returns must restore inventory once after inspection");
 if(api.includes('processing:["shipped","returned"]')||api.includes('shipped:["delivered","returned"]'))throw new Error("Direct order return status transitions must be disabled");
 if(refundRoute.includes('if(order.status==="returned"){')&&refundRoute.includes("quantity=quantity+"))throw new Error("Refund endpoint must not restore inventory a second time");
+
+if(!api.includes("latest_return_id")||!api.includes("latest_return_status"))throw new Error("Order list must expose its return case status and identifier");
+if(!orderPage.includes('next==="return_request"')||!orderPage.includes('return_accept:"accepted"')||!orderPage.includes("تأیید بازرسی و ورود موجودی"))throw new Error("Order workspace must use the inspected return lifecycle instead of direct status changes");
