@@ -479,7 +479,7 @@ export default function ProductsPage() {
   return <main className="enterprise-main mp-products" dir="rtl">
     <header className="mp-page-head">
       <div><span className="mp-kicker">مدیریت کاتالوگ و ویترین</span><h1>محصولات بازارگاه</h1><p>محصولات در پایگاه دادهٔ سازمان ثبت می‌شوند. ورود گروهی، تصویر را در رسانهٔ داخلی ذخیره می‌کند و محصول را فقط به‌صورت پیش‌نویس می‌سازد.</p></div>
-      <a className="mp-back-link" href="/platform">بازگشت به مرکز عملیات <span>←</span></a>
+      <div className="mp-page-head-actions"><a className="mp-back-link" href="/marketplace/delivery-methods">مدیریت ارسال و تعرفه‌ها <span>←</span></a><a className="mp-back-link" href="/platform">بازگشت به مرکز عملیات <span>←</span></a></div>
     </header>
 
     <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-products" onCreate={() => { setTab("manual"); setCreateOpen(true); }} createLabel="ثبت محصول جدید"/>
