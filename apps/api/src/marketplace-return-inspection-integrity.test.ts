@@ -70,7 +70,6 @@ test("non-restockable returned quantity is registered in tenant quarantine witho
  assert.ok(route.includes("marketplace_return_quarantine"));
  assert.ok(route.includes("Number((received-restock).toFixed(3))"));
  assert.ok(route.includes("warehouseQuantity"));
- assert.ok(route.includes("Number((received-restock).toFixed(3))"));
 });
 
 test("quarantine disposition is tenant-scoped, one-way, permission checked and audited",()=>{
