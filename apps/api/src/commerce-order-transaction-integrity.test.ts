@@ -60,6 +60,7 @@ test("sales quote status and conversion are locked, tenant-scoped and atomic",()
  assert.ok(sales.includes("update sales_quotes set status='converted',updated_at=now() where id=$1 and tenant_id=$2 and status='approved' returning id"));
  assert.ok(sales.includes('await cx.query("rollback")'));
  assert.ok(sales.includes("from sales_products where id=$1 and tenant_id=$2 for update"));
+ assert.ok(sales.includes("approved:[\"cancelled\"]"));
 });
 
 test("purchase order creation validates each line and locks tenant-owned supplier, request and selected quote",()=>{
