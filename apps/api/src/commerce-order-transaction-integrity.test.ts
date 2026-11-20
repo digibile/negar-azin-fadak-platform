@@ -36,6 +36,8 @@ test("goods receipts validate remaining quantity and atomically update order lif
 test("purchase invoice and final payment are single-order operations with tenant scope",()=>{
  assert.ok(purchasing.includes("select * from purchase_orders where id=$1 and tenant_id=$2 for update"));
  assert.ok(purchasing.includes("select id from purchase_invoices where tenant_id=$1 and order_id=$2 limit 1"));
+ assert.ok(purchasing.includes("sum(oi.unit_price*ri.accepted_qty)"));
+ assert.ok(purchasing.includes("sum(oi.unit_price*ri.accepted_qty*oi.tax_rate/100)"));
  assert.ok(purchasing.includes("select * from purchase_invoices where id=$1 and tenant_id=$2 for update"));
  assert.ok(purchasing.includes("where id=$1 and tenant_id=$2 and status='invoiced' returning id"));
 });
