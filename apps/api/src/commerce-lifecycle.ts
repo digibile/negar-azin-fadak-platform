@@ -16,7 +16,7 @@ export const purchaseOrderTransitions:LifecycleMap={
  draft:["approved","cancelled"],
  approved:["sent","cancelled"],
  sent:["cancelled"],
- partially_received:["cancelled"],
+ partially_received:[],
  received:[],
  invoiced:[],
  paid:[],
