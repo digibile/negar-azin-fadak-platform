@@ -181,3 +181,9 @@ if(orderLifecycle.includes('processing:["shipped"]')&&!orderLifecycle.includes("
 
 const logisticsPermissions=read("database/migrations/154_marketplace_logistics_permissions.sql");
 if(!logisticsPermissions.includes("'manager','modules:12-logistics-supply:dispatch'")||!logisticsPermissions.includes("'viewer','modules:12-logistics-supply:track'"))throw new Error("Logistics workflow permissions must be granted to operational roles");
+
+const logisticsResources=read("apps/web/app/marketplace/shipping/resources/page.tsx");
+const logisticsResourcesCss=read("apps/web/app/marketplace/shipping/resources/resources-workspace.css");
+if(!logisticsResources.includes("/api/logistics/vehicles")||!logisticsResources.includes("/api/logistics/drivers")||!logisticsResources.includes("ثبت خودروی جدید")||!logisticsResources.includes("ثبت راننده جدید"))throw new Error("Logistics workspace must provide API-backed vehicle and driver registration");
+if(!logisticsResources.includes("licenseExpiry")||!logisticsResources.includes("گواهینامه منقضی شده است")&&!logisticsApi.includes("گواهینامه راننده منقضی شده است"))throw new Error("Driver license validity must be captured and enforced before dispatch");
+if(!logisticsWorkspace.includes("/marketplace/shipping/resources")||!logisticsResourcesCss.includes(".resource-forms"))throw new Error("Shipping workspace must link to the responsive fleet and driver management page");
