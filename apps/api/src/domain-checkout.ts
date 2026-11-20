@@ -2,7 +2,7 @@ import {Router} from "express";
 import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
-import {resolveTenant} from "./tenant-context.js";
+import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
 import {postLedgerEntry} from "./ledger.js";
 import {emitBusinessEvent} from "./business-events.js";
 import {getPaymentProvider} from "./payment-provider.js";
@@ -22,12 +22,15 @@ async function canAccessCustomer(req:any,customerRef:string,permissions:string|s
 }
 
 checkoutRouter.post("/api/checkout/carts",requireAuth,asyncHandler(async(req,res)=>{
- const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ let t=await ctx(req);
+ if(!t)t=await resolvePublicTenant(req);
+ if(!t)return res.status(403).json({error:"فروشگاه عمومی معتبری برای این دامنه پیدا نشد"});
  const customer=s(req.body?.customerRef),store=s(req.body?.storeId);
  if(!customer||!store)return res.status(400).json({error:"شناسه مشتری و فروشگاه الزامی است"});
  if(!(await canAccessCustomer(req,customer,"cart:manage")))return res.status(403).json({error:"فقط مالک حساب یا اپراتور مجاز می‌تواند برای این مشتری سبد بسازد"});
  const ok=await query("select id from stores where id=$1 and tenant_id=$2 and status='active'",[store,t.id]);
  if(!ok.rowCount)return res.status(404).json({error:"فروشگاه معتبر نیست"});
+ if(customer===(req as any).user.id)await query("insert into user_tenants(user_id,tenant_id,is_default) values($1,$2,true) on conflict(user_id,tenant_id) do nothing",[(req as any).user.id,t.id]);
  const r=await query("insert into cart_sessions(tenant_id,customer_ref,store_id,currency) values($1,$2,$3,$4) returning *",[t.id,customer,store,s(req.body?.currency,10)||"IRR"]);
  res.status(201).json(r.rows[0]);
 }));
