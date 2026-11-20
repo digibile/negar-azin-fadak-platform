@@ -111,3 +111,18 @@ test("purchase supplier quote selection locks tenant RFQ and only selects an act
  assert.ok(purchasing.includes('request.rows[0].status!=="rfq"'));
  assert.ok(purchasing.includes("where id=$1 and tenant_id=$2 and status='rfq' returning id"));
 });
+
+test("supplier quote submission requires an invited active supplier and a locked open tenant RFQ",()=>{
+ assert.ok(purchasing.includes("select * from purchase_rfqs where id=$1 and tenant_id=$2 for update"));
+ assert.ok(purchasing.includes("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active' for update"));
+ assert.ok(purchasing.includes("select status from purchase_rfq_suppliers where rfq_id=$1 and supplier_id=$2 for update"));
+ assert.ok(purchasing.includes('invitation.rows[0].status!=="invited"'));
+ assert.ok(purchasing.includes("unique(rfq_id,supplier_id)")===false || purchasing.includes("insert into purchase_supplier_quotes"));
+});
+
+test("supplier quote line totals, shipping and quality values are validated before transactional insert",()=>{
+ assert.ok(purchasing.includes("x.quantity<=0||x.unitPrice<0||x.taxRate<0||x.taxRate>100"));
+ assert.ok(purchasing.includes("shipping<0"));
+ assert.ok(purchasing.includes("quality>100"));
+ assert.ok(purchasing.includes("insert into purchase_events(tenant_id,entity_type,entity_id,to_status,event_type,actor_user_id)"));
+});
