@@ -174,8 +174,8 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
   if(!["paid","processing","delivered","returned"].includes(order.status)){await client.query("rollback");return res.status(409).json({error:"فقط سفارش پرداخت‌شده قابل بازگشت وجه است"});}
   const payment=await client.query("select * from marketplace_payments where tenant_id=$1 and order_id=$2 and status='paid' order by paid_at desc nulls last,created_at desc limit 1 for update",[t.id,order.id]);
   if(!payment.rowCount){await client.query("rollback");return res.status(409).json({error:"پرداخت موفق سفارش پیدا نشد"});}
-  const existing=await client.query("select * from marketplace_refunds where tenant_id=$1 and payment_id=$2 and status='refunded'",[t.id,payment.rows[0].id]);
-  if(existing.rowCount){await client.query("rollback");return res.status(200).json({refund:existing.rows[0],order:{id:order.id,status:"refunded"}});}
+  const existing=await client.query("select coalesce(sum(amount),0) amount from marketplace_refunds where tenant_id=$1 and payment_id=$2 and status='refunded'",[t.id,payment.rows[0].id]);
+  if(Number(existing.rows[0].amount)>0){await client.query("rollback");return res.status(409).json({error:"برای این پرداخت قبلاً بازپرداخت جزئی ثبت شده است؛ بازپرداخت کامل از این مسیر مجاز نیست"});}
   let refundProviderCode=payment.rows[0].provider_code,refundProviderTransactionId=payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref||"",refundProviderPayload:any={};
   if(payment.rows[0].provider_code==="credit_facility"){
    if(!order.credit_facility_ref){await client.query("rollback");return res.status(409).json({error:"مرجع تسهیلات اعتبار خرید روی سفارش ثبت نشده است"});}
@@ -356,6 +356,92 @@ checkoutRouter.patch("/api/marketplace/returns/:id/status",requireAuth,requirePe
   await emitBusinessEvent({tenantId:t.id,eventKey:"return.status.changed",subjectType:"marketplace_return_request",subjectId:requestId,userId:(req as any).user.id,input:{requestNo:updated.rows[0].request_no,status:target}});
   res.json({item:updated.rows[0]});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
+checkoutRouter.post("/api/marketplace/returns/:id/refund",requireAuth,requirePermission("payment:refund"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const requestId=s(req.params.id,100),client=await pool.connect();
+ let refund:any=null,order:any=null,payment:any=null,returnItem:any=null;
+ try{
+  await client.query("begin");
+  const rr=await client.query("select * from marketplace_return_requests where id=$1 and tenant_id=$2 for update",[requestId,t.id]);
+  if(!rr.rowCount){await client.query("rollback");return res.status(404).json({error:"درخواست مرجوعی پیدا نشد"});}
+  if(rr.rows[0].status==="closed"){
+   const prior=await client.query("select * from marketplace_refunds where tenant_id=$1 and return_request_id=$2",[t.id,requestId]);
+   await client.query("commit");return res.json({refund:prior.rows[0]||null,alreadyRefunded:true});
+  }
+  if(rr.rows[0].status!=="inspected"){await client.query("rollback");return res.status(409).json({error:"بازپرداخت فقط پس از دریافت و تأیید بازرسی مجاز است"});}
+  const existing=await client.query("select * from marketplace_refunds where tenant_id=$1 and return_request_id=$2",[t.id,requestId]);
+  if(existing.rowCount){
+   await client.query("commit");
+   return res.status(existing.rows[0].status==="refunded"?200:202).json({refund:existing.rows[0],pending:existing.rows[0].status==="pending"});
+  }
+  const ord=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[rr.rows[0].order_id,t.id]);
+  if(!ord.rowCount||!["paid","processing","delivered","returned"].includes(ord.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"سفارش در وضعیت قابل بازپرداخت نیست"});}
+  const item=await client.query("select oi.id,oi.product_id,oi.quantity,oi.unit_price,oi.line_total,p.title from marketplace_order_items oi join products p on p.id=oi.product_id where oi.id=$1 and oi.order_id=$2 for update of oi",[rr.rows[0].order_item_id,ord.rows[0].id]);
+  if(!item.rowCount){await client.query("rollback");return res.status(404).json({error:"قلم سفارش برای این درخواست پیدا نشد"});}
+  const qty=Number(rr.rows[0].requested_quantity),unit=Number(item.rows[0].unit_price),amount=Number((qty*unit).toFixed(2));
+  if(!Number.isFinite(qty)||qty<=0||!Number.isFinite(unit)||unit<=0||!Number.isFinite(amount)||amount<=0){await client.query("rollback");return res.status(409).json({error:"مبلغ قابل بازپرداخت این قلم معتبر نیست"});}
+  const already=await client.query("select coalesce(sum(amount),0) amount from marketplace_refunds where tenant_id=$1 and payment_id in (select id from marketplace_payments where tenant_id=$1 and order_id=$2) and status in ('pending','refunded')",[t.id,ord.rows[0].id]);
+  const pay=await client.query("select * from marketplace_payments where tenant_id=$1 and order_id=$2 and status='paid' order by paid_at desc nulls last,created_at desc limit 1 for update",[t.id,ord.rows[0].id]);
+  if(!pay.rowCount){await client.query("rollback");return res.status(409).json({error:"پرداخت موفق سفارش برای بازپرداخت پیدا نشد"});}
+  const paymentRefunded=await client.query("select coalesce(sum(amount),0) amount from marketplace_refunds where tenant_id=$1 and payment_id=$2 and status in ('pending','refunded')",[t.id,pay.rows[0].id]);
+  if(Number(paymentRefunded.rows[0].amount)+amount>Number(pay.rows[0].amount)+0.005){await client.query("rollback");return res.status(409).json({error:"مبلغ این مرجوعی از مانده قابل بازپرداخت پرداخت بیشتر است",remainingAmount:Math.max(0,Number(pay.rows[0].amount)-Number(paymentRefunded.rows[0].amount))});}
+  const requestNo=String(rr.rows[0].request_no);
+  const refundNo="RET-"+requestId.replace(/-/g,"").slice(0,24);
+  const inserted=await client.query("insert into marketplace_refunds(tenant_id,order_id,payment_id,return_request_id,refund_no,amount,reason,status,provider_code,provider_transaction_id,provider_payload,created_by) values($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,$11) returning *",[t.id,ord.rows[0].id,pay.rows[0].id,requestId,refundNo,amount,"مرجوعی "+requestNo,pay.rows[0].provider_code,pay.rows[0].provider_transaction_id||pay.rows[0].provider_ref||"",JSON.stringify({returnRequestId:requestId,requestNo,quantity:qty}), (req as any).user.id]);
+  await client.query("commit");
+  refund=inserted.rows[0];order=ord.rows[0];payment=pay.rows[0];returnItem={...item.rows[0],quantity:qty};
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+ if(!refund)return;
+ let providerCode=payment.provider_code,providerRefundId="",providerPayload:any={};
+ if(providerCode==="credit_facility"){
+  if(!order.credit_facility_ref)throw new Error("مرجع تسهیلات اعتبار خرید روی سفارش ثبت نشده است");
+  const providerResult={status:"refunded",providerTransactionId:"credit-"+refund.id,providerPayload:{creditFacilityId:order.credit_facility_ref,restoredAmount:Number(refund.amount)}};
+  providerRefundId=providerResult.providerTransactionId;providerPayload=providerResult.providerPayload;
+ }else{
+  const provider=getPaymentProvider(providerCode);
+  const providerResult=await provider.refundPayment({providerTransactionId:payment.provider_transaction_id||payment.provider_ref||"",amount:Number(refund.amount),metadata:{orderId:order.id,paymentId:payment.id,returnRequestId:requestId,refundId:refund.id,idempotencyKey:"return-refund-"+refund.id}});
+  if(providerResult.status!=="refunded"){
+   await query("update marketplace_refunds set status='failed',provider_payload=$1,updated_at=now() where id=$2 and tenant_id=$3 and status='pending'",[JSON.stringify(providerResult.providerPayload),refund.id,t.id]);
+   return res.status(409).json({error:"درگاه بازپرداخت این درخواست را تأیید نکرد؛ پرونده برای تطبیق مالی باز می‌ماند",providerStatus:providerResult.status});
+  }
+  providerCode=provider.code;providerRefundId=providerResult.providerTransactionId;providerPayload=providerResult.providerPayload;
+ }
+ const finalize=await pool.connect();
+ try{
+  await finalize.query("begin");
+  const locked=await finalize.query("select * from marketplace_refunds where id=$1 and tenant_id=$2 for update",[refund.id,t.id]);
+  if(!locked.rowCount||locked.rows[0].status!=="pending"){await finalize.query("rollback");return res.status(409).json({error:"وضعیت رکورد بازپرداخت برای نهایی‌سازی معتبر نیست"});}
+  const currentOrder=await finalize.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[order.id,t.id]);
+  const currentPayment=await finalize.query("select * from marketplace_payments where id=$1 and tenant_id=$2 for update",[payment.id,t.id]);
+  const currentReturn=await finalize.query("select * from marketplace_return_requests where id=$1 and tenant_id=$2 for update",[requestId,t.id]);
+  if(!currentOrder.rowCount||!currentPayment.rowCount||!currentReturn.rowCount||currentReturn.rows[0].status!=="inspected"){await finalize.query("rollback");return res.status(409).json({error:"اطلاعات سفارش یا پرونده مرجوعی هنگام نهایی‌سازی تغییر کرده است"});}
+  if(providerCode==="credit_facility"){
+   const facility=await finalize.query("select id from lendtech_facilities where id=$1 and tenant_ref=$2 for update",[currentOrder.rows[0].credit_facility_ref,t.id]);
+   if(!facility.rowCount){await finalize.query("rollback");return res.status(409).json({error:"تسهیلات اعتباری سفارش برای برگشت اعتبار پیدا نشد"});}
+   await finalize.query("update lendtech_facilities set available_amount=available_amount+$1,updated_at=now() where id=$2",[Number(refund.amount),currentOrder.rows[0].credit_facility_ref]);
+  }
+  const gross=Number(refund.amount),subtotal=Math.max(0.01,Number(currentOrder.rows[0].subtotal));
+  const commission=Number((gross*Number(currentOrder.rows[0].commission_amount)/subtotal).toFixed(2));
+  const sellerShare=Number((gross-commission).toFixed(2));
+  await postLedgerEntry(finalize,{tenantId:t.id,entryNo:"RET-"+refund.refund_no,sourceType:"marketplace_refund",sourceId:refund.id,description:"بازپرداخت مرجوعی سفارش "+currentOrder.rows[0].order_no,createdBy:(req as any).user.id,lines:[
+   {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",debit:sellerShare},
+   {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",debit:commission},
+   providerCode==="credit_facility"?{accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",credit:gross}:{accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:gross}
+  ]});
+  await finalize.query("update marketplace_refunds set status='refunded',provider_code=$1,provider_refund_transaction_id=$2,provider_payload=$3,updated_at=now() where id=$4 and tenant_id=$5",[providerCode,providerRefundId,JSON.stringify(providerPayload),refund.id,t.id]);
+  const totals=await finalize.query("select coalesce(sum(amount),0) amount from marketplace_refunds where tenant_id=$1 and payment_id=$2 and status='refunded'",[t.id,payment.id]);
+  if(Number(totals.rows[0].amount)+0.005>=Number(currentPayment.rows[0].amount))await finalize.query("update marketplace_payments set status='refunded',updated_at=now() where id=$1 and tenant_id=$2",[payment.id,t.id]);
+  await finalize.query("update product_inventory set quantity=quantity+$1,updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[returnItem.quantity,t.id,returnItem.product_id,currentOrder.rows[0].store_id]);
+  await finalize.query("insert into inventory_movements(tenant_id,product_id,store_id,movement_type,quantity,reference_type,reference_id,created_by) values($1,$2,$3,'refund',$4,'marketplace_refund',$5,$6)",[t.id,returnItem.product_id,currentOrder.rows[0].store_id,returnItem.quantity,refund.id,(req as any).user.id]);
+  await finalize.query("update marketplace_return_requests set status='closed',updated_at=now() where id=$1 and tenant_id=$2 and status='inspected'",[requestId,t.id]);
+  await finalize.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'marketplace.return.refunded',$3,$4,$5,$6)",[t.id,(req as any).user.id,requestId,refund.id,JSON.stringify({status:"inspected"}),JSON.stringify({status:"closed",refundId:refund.id,amount:gross,quantity:returnItem.quantity,ledgerEntry:true})]);
+  await finalize.query("commit");
+ }catch(e){await finalize.query("rollback");throw e;}finally{finalize.release();}
+ await emitBusinessEvent({tenantId:t.id,eventKey:"return.refunded",subjectType:"marketplace_return_request",subjectId:requestId,userId:(req as any).user.id,input:{refundId:refund.id,orderId:order.id,amount:Number(refund.amount)}});
+ const done=await query("select * from marketplace_refunds where id=$1 and tenant_id=$2",[refund.id,t.id]);
+ return res.status(201).json({refund:done.rows[0],returnStatus:"closed"});
 }));
 
 checkoutRouter.post("/api/storefront/orders/:id/cancel",requireAuth,asyncHandler(async(req,res)=>{
