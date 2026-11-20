@@ -3,6 +3,7 @@ import {query,pool} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
+import {postLedgerEntry} from "./ledger.js";
 
 export const logisticsRouter=Router();
 const tenantOf=(req:any)=>resolveTenant(req,req.user);
@@ -395,11 +396,12 @@ logisticsRouter.post("/api/logistics/marketplace-orders/:orderId/delivery-quotes
 
 logisticsRouter.get("/api/logistics/carrier-invoices",requireAuth,requirePermission("modules:12-logistics-supply:read"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
-  const [invoices,candidates]=await Promise.all([
-    query("select i.*,s.shipment_no,o.order_no from logistics_carrier_invoices i join logistics_shipments s on s.id=i.shipment_id and s.tenant_id=i.tenant_id join marketplace_orders o on o.id=i.order_id and o.tenant_id=i.tenant_id where i.tenant_id=$1 order by i.created_at desc limit 300",[t.id]),
-    query("select s.id shipment_id,s.shipment_no,s.delivered_at,o.id order_id,o.order_no,o.currency,q.id quote_id,q.carrier_name,q.service_name,q.carrier_cost,q.currency quote_currency from logistics_shipments s join marketplace_orders o on o.id=s.marketplace_order_id and o.tenant_id=s.tenant_id join marketplace_delivery_quotes q on q.id=o.delivery_quote_id and q.tenant_id=o.tenant_id where s.tenant_id=$1 and s.status='delivered' and o.status='delivered' and q.status='accepted' and not exists(select 1 from logistics_carrier_invoices i where i.tenant_id=s.tenant_id and i.shipment_id=s.id and i.status<>'void') order by s.delivered_at desc nulls last",[t.id])
+  const [invoices,candidates,suppliers]=await Promise.all([
+    query("select i.*,s.shipment_no,o.order_no,p.title supplier_name,r.status payable_status from logistics_carrier_invoices i join logistics_shipments s on s.id=i.shipment_id and s.tenant_id=i.tenant_id join marketplace_orders o on o.id=i.order_id and o.tenant_id=i.tenant_id left join accounting_parties p on p.id=i.party_id and p.tenant_id=i.tenant_id left join accounting_receivable_payables r on r.id=i.payable_id and r.tenant_id=i.tenant_id where i.tenant_id=$1 order by i.created_at desc limit 300",[t.id]),
+    query("select s.id shipment_id,s.shipment_no,s.delivered_at,o.id order_id,o.order_no,o.currency,q.id quote_id,q.carrier_name,q.service_name,q.carrier_cost,q.currency quote_currency from logistics_shipments s join marketplace_orders o on o.id=s.marketplace_order_id and o.tenant_id=s.tenant_id join marketplace_delivery_quotes q on q.id=o.delivery_quote_id and q.tenant_id=o.tenant_id where s.tenant_id=$1 and s.status='delivered' and o.status='delivered' and q.status='accepted' and not exists(select 1 from logistics_carrier_invoices i where i.tenant_id=s.tenant_id and i.shipment_id=s.id and i.status<>'void') order by s.delivered_at desc nulls last",[t.id]),
+    query("select id,party_code,title from accounting_parties where tenant_id=$1 and party_type='supplier' and status='active' order by title",[t.id])
   ]);
-  res.json({items:invoices.rows,candidates:candidates.rows});
+  res.json({items:invoices.rows,candidates:candidates.rows,suppliers:suppliers.rows});
 }));
 
 logisticsRouter.post("/api/logistics/carrier-invoices",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
@@ -436,7 +438,9 @@ logisticsRouter.post("/api/logistics/carrier-invoices",requireAuth,requirePermis
 
 logisticsRouter.post("/api/logistics/carrier-invoices/:id/approve",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const partyId=String(b.partyId||"").trim();
   const resolutionNote=String(b.resolutionNote||"").trim().slice(0,1000);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(partyId))return fail(res,400,"انتخاب طرف حساب تأمین‌کننده الزامی است");
   const c=await pool.connect();
   try{
     await c.query("begin");
@@ -445,10 +449,22 @@ logisticsRouter.post("/api/logistics/carrier-invoices/:id/approve",requireAuth,r
     if(invoice.status==="approved"){await c.query("commit");return res.json({invoice,idempotent:true});}
     if(!["matched","disputed"].includes(invoice.status)){await c.query("rollback");return fail(res,409,"وضعیت صورتحساب برای تأیید مجاز نیست");}
     if(invoice.status==="disputed"&&!resolutionNote){await c.query("rollback");return fail(res,400,"برای تأیید اختلاف مبلغ، توضیح تصمیم الزامی است");}
-    const updated=(await c.query("update logistics_carrier_invoices set status='approved',resolution_note=$2,reviewed_by=$3,reviewed_at=now(),updated_at=now() where id=$1 and tenant_id=$4 returning *",[invoice.id,resolutionNote||null,(req as any).user.id,t.id])).rows[0];
-    await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'logistics.carrier_invoice_approved','logistics_carrier_invoice',$3,$4)",[t.id,(req as any).user.id,invoice.id,JSON.stringify({status:updated.status,varianceAmount:updated.variance_amount,resolutionNote:updated.resolution_note})]);
+    const party=(await c.query("select id,title from accounting_parties where id=$1 and tenant_id=$2 and party_type='supplier' and status='active' for share",[partyId,t.id])).rows[0];
+    if(!party){await c.query("rollback");return fail(res,400,"طرف حساب انتخاب‌شده، تأمین‌کننده فعال این سازمان نیست");}
+    const payable=(await c.query("insert into accounting_receivable_payables(tenant_id,party_id,direction,reference_no,issue_date,original_amount,currency,description,created_by,metadata) values($1,$2,'payable',$3,current_date,$4,$5,$6,$7,$8) returning *",[t.id,partyId,invoice.invoice_no,Number(invoice.invoice_amount),invoice.currency,"صورتحساب حمل "+invoice.invoice_no+" · مرسوله "+invoice.shipment_id,(req as any).user.id,JSON.stringify({sourceModule:"logistics",sourceType:"carrier_invoice",sourceId:invoice.id,shipmentId:invoice.shipment_id,orderId:invoice.order_id,quotedCost:Number(invoice.quoted_cost),invoiceAmount:Number(invoice.invoice_amount)})])).rows[0];
+    const variance=Number(invoice.variance_amount);
+    let ledgerAdjustmentEntryId:string|null=null;
+    if(Math.abs(variance)>0.005){
+      const amount=Math.abs(variance);
+      const lines=variance>0
+        ? [{accountCode:"5201",accountName:"هزینه مازاد حمل سفارش",accountType:"expense",debit:amount},{accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",credit:amount}]
+        : [{accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",debit:amount},{accountCode:"5201",accountName:"هزینه مازاد حمل سفارش",accountType:"expense",credit:amount}];
+      ledgerAdjustmentEntryId=await postLedgerEntry(c,{tenantId:t.id,entryNo:"CINV-ADJ-"+invoice.invoice_no,sourceType:"logistics_carrier_invoice_adjustment",sourceId:invoice.id,description:"تعدیل اختلاف صورتحساب حمل "+invoice.invoice_no,createdBy:(req as any).user.id,currency:invoice.currency,lines});
+    }
+    const updated=(await c.query("update logistics_carrier_invoices set status='approved',party_id=$2,payable_id=$3,ledger_adjustment_entry_id=$4,resolution_note=$5,reviewed_by=$6,reviewed_at=now(),updated_at=now() where id=$1 and tenant_id=$7 returning *",[invoice.id,partyId,payable.id,ledgerAdjustmentEntryId,resolutionNote||null,(req as any).user.id,t.id])).rows[0];
+    await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'logistics.carrier_invoice_approved','logistics_carrier_invoice',$3,$4)",[t.id,(req as any).user.id,invoice.id,JSON.stringify({status:updated.status,partyId,partyTitle:party.title,payableId:payable.id,ledgerAdjustmentEntryId,varianceAmount:variance,resolutionNote:updated.resolution_note})]);
     await c.query("commit");
-    res.json({invoice:updated});
+    res.json({invoice:updated,payable,ledgerAdjustmentEntryId});
   }catch(e){await c.query("rollback");throw e;}finally{c.release();}
 }));
 
