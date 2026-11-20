@@ -6,6 +6,8 @@ const checkout=fs.readFileSync(new URL("./domain-checkout.ts",import.meta.url),"
 const migration=fs.readFileSync(new URL("../../../database/migrations/999_storefront_customer_checkout.sql",import.meta.url),"utf8");
 const webCheckout=fs.readFileSync(new URL("../../web/app/store/checkout/page.tsx",import.meta.url),"utf8");
 const customerOrders=fs.readFileSync(new URL("../../web/app/account/orders/page.tsx",import.meta.url),"utf8");
+const commerceIntelligence=fs.readFileSync(new URL("./commerce-intelligence.ts",import.meta.url),"utf8");
+const deliveryAdmin=fs.readFileSync(new URL("../../web/app/marketplace/delivery-methods/page.tsx",import.meta.url),"utf8");
 const productPage=fs.readFileSync(new URL("../../web/app/store/product/[slug]/page.tsx",import.meta.url),"utf8");
 const productControls=fs.readFileSync(new URL("../../web/app/store/product/[slug]/ProductPurchaseControls.tsx",import.meta.url),"utf8");
 const productCss=fs.readFileSync(new URL("../../web/app/store/product/[slug]/digikala-product.css",import.meta.url),"utf8");
@@ -96,4 +98,24 @@ test("canonical product detail supports selected quantity before adding to the s
  assert.ok(productControls.includes("Math.min(maximum,value+1)"));
  assert.ok(productControls.includes("Math.max(1,value-1)"));
  assert.ok(productCss.includes(".sk-product-quantity-control"));
+});
+
+
+test("delivery tariff administration is tenant scoped, permission protected and validates tariffs",()=>{
+ assert.ok(commerceIntelligence.includes('commerceIntelligenceRouter.get("/api/commerce/delivery-methods",requireAuth,requirePermission("supplier:manage")'));
+ assert.ok(commerceIntelligence.includes('commerceIntelligenceRouter.post("/api/commerce/delivery-methods",requireAuth,requirePermission("supplier:manage"),requireCsrf'));
+ assert.ok(commerceIntelligence.includes('commerceIntelligenceRouter.patch("/api/commerce/delivery-methods/:id",requireAuth,requirePermission("supplier:manage"),requireCsrf'));
+ assert.ok(commerceIntelligence.includes("where tenant_id=$1 order by enabled desc,cost,title"));
+ assert.ok(commerceIntelligence.includes("where id=$1 and tenant_id=$2"));
+ assert.ok(commerceIntelligence.includes('["courier","post","pickup","freight","digital"]'));
+ assert.ok(commerceIntelligence.includes("max<min"));
+ assert.ok(commerceIntelligence.includes("cost<0"));
+});
+
+test("delivery tariff management page supports create, edit, enable and disable using real APIs",()=>{
+ assert.ok(deliveryAdmin.includes('"/api/commerce/delivery-methods"'));
+ assert.ok(deliveryAdmin.includes('method:"PATCH"'));
+ assert.ok(deliveryAdmin.includes("ویرایش تعرفه"));
+ assert.ok(deliveryAdmin.includes("فعال‌سازی"));
+ assert.ok(deliveryAdmin.includes("غیرفعال‌سازی"));
 });
