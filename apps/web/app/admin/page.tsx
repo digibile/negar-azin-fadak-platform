@@ -93,6 +93,15 @@ export default function Admin(){
    </div>
   </section>
 
+  <section className="naf-action-toolbar no-print" aria-label="عملیات داشبورد">
+   <div className="naf-action-group">
+    <button type="button" data-action="view" onClick={()=>window.location.reload()}><span className="action-icon">↻</span>به‌روزرسانی</button>
+    <button type="button" data-action="print" onClick={()=>window.print()}><span className="action-icon">▣</span>چاپ</button>
+    <button type="button" data-action="export" onClick={()=>{const payload={generatedAt:new Date().toISOString(),modules,menu,health};const blob=new Blob(["\\uFEFF",JSON.stringify(payload,null,2)],{type:"application/json;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="naf-dashboard-"+new Date().toISOString().slice(0,10)+".json";a.click();URL.revokeObjectURL(url);}}><span className="action-icon">⇩</span>خروجی اطلاعات</button>
+   </div>
+   <div className="naf-action-group"><span className="muted">اطلاعات از سرویس مرکزی دریافت می‌شود</span></div>
+  </section>
+
   {error&&<div className={styles.notice} role="alert">{error}</div>}
   <section className={styles.metrics} aria-label="شاخص‌های سامانه">
    <article className={styles.metricCard}><span className={styles.metricIcon}><Icon name="org"/></span><div><small>ماژول‌های ثبت‌شده</small><b>{loading?"—":number(modules.length)}</b><em>کاتالوگ مرکزی</em></div><span className={styles.metricIndex}>01</span></article>
