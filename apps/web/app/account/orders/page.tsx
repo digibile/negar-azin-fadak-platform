@@ -3,7 +3,8 @@ import Link from "next/link";
 import {useEffect,useState} from "react";
 import "./orders.css";
 type Order={id:string;order_no:string;status:string;subtotal:string|number;total_amount:string|number;created_at:string;paid_at:string|null;items?:Array<{sku:string;title:string;quantity:number;unitPrice:string;lineTotal:string}>;payments?:Array<{paymentNo:string;status:string;amount:string}>;recipient_name?:string;mobile?:string;province?:string;city?:string;address_line?:string;postal_code?:string};
-const money=(v:number|string)=>Number(v).toLocaleString("fa-IR")+" ریال";\nconst csrf=()=>typeof document==="undefined"?"":document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
+const money=(v:number|string)=>Number(v).toLocaleString("fa-IR")+" ریال";
+const csrf=()=>typeof document==="undefined"?"":document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
 const statusLabel:Record<string,string>={pending:"در انتظار پرداخت",confirmed:"تأییدشده",paid:"پرداخت‌شده",processing:"در حال آماده‌سازی",shipped:"ارسال‌شده",delivered:"تحویل‌شده",cancelled:"لغوشده",refunded:"بازپرداخت‌شده",returned:"مرجوع‌شده"};
 export default function OrdersPage(){
  const [items,setItems]=useState<Order[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(""),[authenticated,setAuthenticated]=useState(true),[cancelling,setCancelling]=useState("");
