@@ -57,5 +57,12 @@ if(!cartActions.includes('"/api/auth/me"')||!cartActions.includes('"/api/checkou
 if(!cartActions.includes('new Set(items.map(item => item.store_id'))||!cartActions.includes('new Set(items.map(item => item.currency'))throw new Error("Browser cart must prevent unsupported multi-store or mixed-currency checkout");
 if(!cartActions.includes('"/store/checkout?cart="'))throw new Error("Operational cart handoff must open the checkout route");
 if(!cartActions.includes('import "./cart-workspace.css"')||!cartCss.includes(".sk-store .sk-cart-checkout"))throw new Error("Cart checkout controls must use isolated styles");
+const settlementPage=read("apps/web/app/marketplace/settlements/page.tsx");
+const settlementCss=read("apps/web/app/marketplace/settlements/settlements-workspace.css");
+if(!settlementPage.includes('import "./settlements-workspace.css"'))throw new Error("Settlement workspace must use isolated styles");
+if(!settlementPage.includes("Array.isArray(x)?x:Array.isArray(x?.items)?x.items:[]"))throw new Error("Settlement workspace must support the API's raw-array response and wrapped item response");
+for(const marker of [".settlement-card",".settlement-metric",".settlements-state"]){
+  if(!settlementCss.includes(marker))throw new Error("Settlement workspace isolated styles are missing: "+marker);
+}
 console.log("COMMERCE_STOREFRONT_INTEGRITY_OK");
 
