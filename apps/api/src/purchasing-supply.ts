@@ -190,7 +190,30 @@ router.post("/api/purchasing/invoices",requireAuth,requirePermission("modules:21
  }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/purchasing/invoices/:id/payments",requireAuth,requirePermission("modules:21-purchasing-supply:payment"),async(req,res)=>{
- const t=await tenantOf(req),amount=n(req.body?.amount);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const c=await pool.connect();try{await c.query("begin");const i=await c.query("select * from purchase_invoices where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);if(!i.rowCount)return deny(res,404,"فاکتور خرید پیدا نشد");const inv=i.rows[0];if(amount<=0||n(inv.paid_total)+amount>n(inv.total))return deny(res,400,"مبلغ پرداخت نامعتبر است");const p=await c.query("insert into purchase_payments(tenant_id,invoice_id,amount,method,reference_no,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,inv.id,amount,req.body?.method||"bank",req.body?.referenceNo||null,(req as any).user.id]);const paid=n(inv.paid_total)+amount;await c.query("update purchase_invoices set paid_total=$1,status=$2 where id=$3",[paid,paid>=n(inv.total)?"paid":"partially_paid",inv.id]);await c.query("update purchase_orders set status='paid',updated_at=now() where id=$1 and $2=true",[inv.order_id,paid>=n(inv.total)]);await c.query("insert into purchase_financial_events(tenant_id,source_type,source_id,event_type,amount,state,reference_no) values($1,'purchase_payment',$2,'supplier_payment',$3,'pending_accounting',$4)",[t.id,p.rows[0].id,amount,req.body?.referenceNo||null]);await c.query("commit");res.status(201).json(p.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
+ const t=await tenantOf(req),amount=n(req.body?.amount);
+ if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ if(!Number.isFinite(amount)||amount<=0)return deny(res,400,"مبلغ پرداخت باید عدد مثبت و معتبر باشد");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const invoice=await c.query("select * from purchase_invoices where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+  if(!invoice.rowCount){await c.query("rollback");return deny(res,404,"فاکتور خرید پیدا نشد");}
+  const inv=invoice.rows[0],paidBefore=n(inv.paid_total),total=n(inv.total);
+  if(!Number.isFinite(paidBefore)||!Number.isFinite(total)||paidBefore+amount>total+0.000001){await c.query("rollback");return deny(res,400,"مبلغ پرداخت از مانده فاکتور بیشتر است یا اطلاعات فاکتور معتبر نیست");}
+  const payment=await c.query("insert into purchase_payments(tenant_id,invoice_id,amount,method,reference_no,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,inv.id,amount,req.body?.method||"bank",req.body?.referenceNo||null,(req as any).user.id]);
+  const paid=paidBefore+amount,nextInvoice=paid+0.000001>=total?"paid":"partially_paid";
+  await c.query("update purchase_invoices set paid_total=$1,status=$2 where id=$3 and tenant_id=$4",[paid,nextInvoice,inv.id,t.id]);
+  await c.query("insert into purchase_financial_events(tenant_id,source_type,source_id,event_type,amount,state,reference_no) values($1,'purchase_payment',$2,'supplier_payment',$3,'pending_accounting',$4)",[t.id,payment.rows[0].id,amount,req.body?.referenceNo||null]);
+  if(nextInvoice==="paid"&&inv.order_id){
+   const order=await c.query("select id,status from purchase_orders where id=$1 and tenant_id=$2 for update",[inv.order_id,t.id]);
+   if(order.rowCount&&order.rows[0].status==="invoiced"){
+    await c.query("update purchase_orders set status='paid',updated_at=now() where id=$1 and tenant_id=$2 and status='invoiced'",[inv.order_id,t.id]);
+    await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id,reason) values($1,'order',$2,'invoiced','paid','payment',$3,$4)",[t.id,inv.order_id,(req as any).user.id,"تسویه فاکتور "+inv.invoice_no]);
+   }
+  }
+  await c.query("commit");
+  res.status(201).json({payment:payment.rows[0],invoiceStatus:nextInvoice,paidTotal:paid});
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/purchasing/returns",requireAuth,requirePermission("modules:21-purchasing-supply:return"),async(req,res)=>{
  const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");if(!b.orderId||n(b.amount)<=0)return deny(res,400,"سفارش و مبلغ برگشت الزامی است");const r=await query("insert into purchase_returns(tenant_id,return_no,order_id,amount,reason,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,b.returnNo||"PRET-"+Date.now(),b.orderId,n(b.amount),b.reason||null,(req as any).user.id]);res.status(201).json(r.rows[0]);
