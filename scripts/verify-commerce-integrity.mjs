@@ -289,5 +289,12 @@ if(!deliveryQuoteCheckoutApi.includes("deliveryQuote:deliveryQuote.rows[0]||null
 if(!deliveryQuoteCheckoutApi.includes("total_amount=subtotal-discount_amount+$1")||!deliveryQuoteCheckoutApi.includes("هزینه بازپرداخت وجه حمل به مشتری"))throw new Error("Accepted shipping charges and customer refunds must retain a balanced ledger calculation");
 if(!deliveryQuoteCheckoutPage.includes("/delivery-quote/accept")||!deliveryQuoteCheckoutPage.includes("تأیید هزینه ارسال")||!deliveryQuoteCheckoutPage.includes("ثبت سفارش و درخواست استعلام ارسال")||!deliveryQuoteCheckoutPage.includes("پیش‌فاکتور هزینه ارسال"))throw new Error("Checkout must create an unpaid order, show the offered delivery quote and collect customer approval before payment");
 console.log("MARKETPLACE_DELIVERY_QUOTE_ACCEPTANCE_AND_PAYMENT_INTEGRITY_OK");
+const deliveryQuoteMarketplaceApi=read("apps/api/src/domain-marketplace.ts");
+if(!deliveryQuoteCheckoutApi.includes("status in ('offered','accepted')")||!deliveryQuoteCheckoutApi.includes("delivery_quote_snapshot=null")||!deliveryQuoteCheckoutApi.includes("پس از آغاز تلاش پرداخت، نشانی سفارش قابل تغییر نیست"))throw new Error("Changing a delivery destination must invalidate an outstanding quote and be blocked after payment begins");
+if(!deliveryQuoteCheckoutPage.includes("addressChanged")||!deliveryQuoteCheckoutPage.includes("پیش‌فاکتور قبلی باطل شد"))throw new Error("Checkout must request a new delivery quote when the customer changes the destination");
+if(!deliveryQuoteMarketplaceApi.includes("o.delivery_quote_required"))throw new Error("Marketplace order listing must expose whether a delivery quote is required");
+if(!deliveryQuoteCheckoutApi.includes("هزینه بازپرداخت وجه حمل به مشتری")||!deliveryQuoteCheckoutApi.includes("refundLedgerLines"))throw new Error("Refund accounting must return the customer's shipping charge without silently extinguishing the carrier payable");
+console.log("MARKETPLACE_DELIVERY_QUOTE_ADDRESS_AND_REFUND_INTEGRITY_OK");
+
 
 
