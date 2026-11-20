@@ -94,6 +94,7 @@ function CheckoutContent(){
  }
  async function checkoutAndPay(){
   if(!cartId||!items.length)return;
+  if(orderId&&!order){setError("اطلاعات سفارش در حال دریافت است؛ کمی بعد دوباره تلاش کنید.");return;}
   if(!orderId&&!deliveryMethodId){setError("برای ادامه خرید، یک روش ارسال مجاز انتخاب کنید.");return;}
    if(!shippingAddress.recipientName.trim()||!shippingAddress.recipientPhone.trim()||!shippingAddress.province.trim()||!shippingAddress.city.trim()||!shippingAddress.addressLine.trim()||!shippingAddress.postalCode.trim()){setError("برای ادامه خرید، اطلاعات کامل نشانی تحویل را وارد کنید.");return;}
   setBusy(true);setError("");setMessage("");
@@ -156,7 +157,7 @@ const ar=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/shippi
      <label className="sk-checkout-choice"><input type="radio" checked={method==="online"} onChange={()=>setMethod("online")}/> پرداخت آنلاین از درگاه متصل</label>
      <label className="sk-checkout-choice"><input type="radio" checked={method==="credit"} onChange={()=>setMethod("credit")}/> استفاده از اعتبار خرید فعال</label>
      {method==="online"&&<p className="sk-checkout-disclaimer">پرداخت فقط پس از تأیید درگاه واقعی نهایی می‌شود. واردکردن شماره مرجع به‌تنهایی پرداخت محسوب نمی‌شود.</p>}{method==="credit"&&<div><label>تسهیلات اعتباری فعال<select value={facilityId} onChange={e=>setFacilityId(e.target.value)}><option value="">انتخاب کنید</option>{facilities.map(f=><option key={f.id} value={f.id}>{f.facility_no} · مانده {Number(f.available_amount).toLocaleString("fa-IR")} {f.currency}</option>)}</select></label>{facilities.length===0&&<p>تسهیلات فعال قابل مصرف برای این حساب پیدا نشد.</p>}</div>}
-     <button className="sk-checkout-primary" disabled={busy||!!pendingPaymentId||!items.length||(!orderId&&!deliveryMethodId)||(orderId&&order?.delivery_quote_required&&order?.delivery_quote_snapshot?.status!=="accepted")||(method==="credit"&&!facilityId)} onClick={checkoutAndPay}>{busy?"در حال ثبت درخواست…":!orderId?"ثبت سفارش و درخواست استعلام ارسال":method==="credit"?"پرداخت مبلغ نهایی با اعتبار خرید":"پرداخت مبلغ نهایی"}</button>
+     <button className="sk-checkout-primary" disabled={busy||!!pendingPaymentId||!items.length||(!orderId&&!deliveryMethodId)||(orderId&&(!order||(order.delivery_quote_required&&order?.delivery_quote_snapshot?.status!=="accepted")))||(method==="credit"&&!facilityId)} onClick={checkoutAndPay}>{busy?"در حال ثبت درخواست…":!orderId?"ثبت سفارش و درخواست استعلام ارسال":method==="credit"?"پرداخت مبلغ نهایی با اعتبار خرید":"پرداخت مبلغ نهایی"}</button>
      {pendingPaymentId&&<button type="button" className="sk-checkout-secondary" disabled={busy} onClick={verifyPendingPayment}>{busy?"در حال بررسی…":"بررسی مجدد وضعیت پرداخت"}</button>}
      {orderId&&<div><p>شماره سفارش داخلی: {orderId}</p><Link href={"/store/checkout?cart="+encodeURIComponent(cartId)+"&order="+encodeURIComponent(orderId)}>مشاهده وضعیت ←</Link></div>}
     </article>
