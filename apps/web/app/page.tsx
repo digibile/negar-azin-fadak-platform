@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import StorePage from "./store/page";
+import MarketplacePage from "./marketplace/MarketplacePage";
 
 export const metadata: Metadata = {
   title: "سوکار | بازارگاه اینترنتی خرید و فروش",
@@ -21,5 +21,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <StorePage variant="marketplace-pro" />;
+  return <MarketplacePage />;
 }
