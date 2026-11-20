@@ -155,7 +155,7 @@ logisticsRouter.post("/api/logistics/marketplace-orders/:orderId/shipments",requ
 
 logisticsRouter.get("/api/marketplace/orders/:orderId/shipment",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
-  const order=(await query("select id,order_no,customer_ref,shipping_address,delivery_method_id,delivery_method_snapshot from marketplace_orders where id=$1 and tenant_id=$2",[req.params.orderId,t.id])).rows[0];
+  const order=(await query("select id,order_no,customer_ref,shipping_address,delivery_method_id,delivery_method_snapshot,delivery_quote_id,delivery_quote_snapshot,delivery_quote_required,shipping_amount,total_amount,currency from marketplace_orders where id=$1 and tenant_id=$2",[req.params.orderId,t.id])).rows[0];
   if(!order)return fail(res,404,"سفارش پیدا نشد");
   const user=(req as any).user;
   const allowed=user.role==="admin"||order.customer_ref===user.id||await can(req,"order:lifecycle")||await can(req,"modules:12-logistics-supply:track");
