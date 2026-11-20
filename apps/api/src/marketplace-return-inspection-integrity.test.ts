@@ -301,3 +301,54 @@ test("only the inspected sellable quantity returns to storefront stock; quaranti
  assert.ok(route.includes("quarantineQuantity:returnItem.quarantineQuantity"));
  assert.ok(!route.includes("returnItem.quantity,t.id,returnItem.product_id"));
 });
+
+test("return refund retries reuse a persisted provider idempotency key and are protected by a claim lease",()=>{
+ const start=checkout.indexOf('const processMarketplaceReturnRefund=');
+ const end=checkout.indexOf('checkoutRouter.post("/api/storefront/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ const migration=fs.readFileSync(new URL("../../../database/migrations/131_marketplace_refund_retry_lifecycle.sql",import.meta.url),"utf8");
+ assert.ok(route.includes('"/api/marketplace/returns/:id/refund/retry"'));
+ assert.ok(route.includes('requirePermission("payment:refund")'));
+ assert.ok(route.includes("provider_idempotency_key"));
+ assert.ok(route.includes('"return-refund-"+requestId'));
+ assert.ok(route.includes("metadata:{orderId:order.id,paymentId:payment.id,returnRequestId:requestId,refundId:refund.id,idempotencyKey:refund.provider_idempotency_key}'));
+ assert.ok(route.includes("provider_claim_token=gen_random_uuid()"));
+ assert.ok(route.includes("provider_claimed_at<now()-interval '2 minutes'"));
+ assert.ok(route.includes("provider_attempt_count=provider_attempt_count+1"));
+ assert.ok(migration.includes("provider_idempotency_key text"));
+ assert.ok(migration.includes("uq_marketplace_refund_provider_idempotency"));
+ assert.ok(migration.includes("idx_marketplace_refunds_retry_queue"));
+});
+
+test("uncertain provider errors remain pending and never create a second refund record",()=>{
+ const start=checkout.indexOf('const processMarketplaceReturnRefund=');
+ const end=checkout.indexOf('checkoutRouter.post("/api/storefront/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes("status='pending',provider_last_status='unknown'"));
+ assert.ok(route.includes("نتیجه درخواست درگاه قطعی نیست"));
+ assert.ok(route.includes("provider_claim_token=null,provider_claimed_at=null"));
+ assert.ok(route.includes("where id=$2 and tenant_id=$3 and provider_claim_token=$4"));
+ assert.ok(route.includes("status in ('pending','failed')"));
+ assert.ok(route.includes("return res.status(200).json({refund:existing.rows[0],alreadyRefunded:true,pending:false})"));
+});
+
+test("provider success can be finalized only by the active refund claim and records the final provider status",()=>{
+ const start=checkout.indexOf('const processMarketplaceReturnRefund=');
+ const end=checkout.indexOf('checkoutRouter.post("/api/storefront/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes('locked.rows[0].provider_claim_token!==refund.provider_claim_token'));
+ assert.ok(route.includes("provider_last_status='refunded'"));
+ assert.ok(route.includes("provider_claim_token=null,provider_claimed_at=null"));
+ assert.ok(route.includes("provider_claim_token=$6"));
+ assert.ok(route.includes("postLedgerEntry(finalize"));
+ assert.ok(route.includes("set status='closed'"));
+});
+
+test("returns workspace shows refund attempts and exposes manual retry for pending or failed gateway outcomes",()=>{
+ assert.ok(page.includes("refund_attempt_count"));
+ assert.ok(page.includes("refund_provider_status"));
+ assert.ok(page.includes("async function retryRefund"));
+ assert.ok(page.includes("/refund/retry"));
+ assert.ok(page.includes("پیگیری پاسخ درگاه"));
+ assert.ok(page.includes("تلاش مجدد امن بازپرداخت"));
+});
