@@ -121,3 +121,5 @@
 
 .mp-import-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-block:14px}
 @media(max-width:760px){.mp-import-actions{align-items:stretch;flex-direction:column}.mp-import-actions button{width:100%}}
+
+.mp-page-head-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;flex:0 0 auto}@media(max-width:720px){.mp-page-head-actions{width:100%;justify-content:flex-start}}
