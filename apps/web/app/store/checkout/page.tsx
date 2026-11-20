@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {Suspense,useEffect,useMemo,useState} from "react";
 import {useSearchParams} from "next/navigation";
+import "./checkout-address.css";
 
 type Cart={id:string;customer_ref:string;store_id:string;currency:string;status:string};
 type Item={id:string;product_id:string;quantity:number;unit_price:string;sku:string;title:string};
@@ -39,6 +40,7 @@ function CheckoutContent(){
     const ob=await or.json();
     if(or.ok){
      setOrder({...ob.order,items:ob.items||[],payments:ob.payments||[],refunds:ob.refunds||[]});
+     if(ob.order.shipping_address)setShippingAddress({...shippingAddress,...ob.order.shipping_address});
      const latestPending=(ob.payments||[]).find((p:any)=>["pending","authorized"].includes(p.status));
      if(latestPending)setPendingPaymentId(latestPending.id);
      if(paymentNo){
