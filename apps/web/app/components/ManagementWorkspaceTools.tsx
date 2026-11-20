@@ -82,7 +82,8 @@ export function ManagementDialog({title,children,onClose,dirty=false,initialFull
       const items=Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')??[]).filter(item=>item.getAttribute("aria-hidden")!=="true");
       if(!items.length){event.preventDefault();dialogRef.current?.focus();return;}
       const first=items[0],last=items[items.length-1],active=document.activeElement;
-      if(event.shiftKey&&(active===first||!dialogRef.current?.contains(active))){event.preventDefault();last.focus();}
+      if(!dialogRef.current?.contains(active)){event.preventDefault();(event.shiftKey?last:first).focus();}
+      else if(event.shiftKey&&active===first){event.preventDefault();last.focus();}
       else if(!event.shiftKey&&active===last){event.preventDefault();first.focus();}
     };
     document.addEventListener("keydown",key);
