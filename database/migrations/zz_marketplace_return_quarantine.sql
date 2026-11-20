@@ -30,3 +30,31 @@ create index if not exists marketplace_return_quarantine_tenant_status_idx
  on marketplace_return_quarantine(tenant_id,status,created_at desc);
 
 commit;
+
+create unique index if not exists accounting_parties_tenant_id_uq
+ on accounting_parties(tenant_id,id);
+create unique index if not exists finance_purchases_tenant_id_uq
+ on finance_purchases(tenant_id,id);
+
+alter table marketplace_return_quarantine
+ add column if not exists supplier_party_id uuid,
+ add column if not exists source_purchase_id uuid;
+
+do $$
+begin
+ if not exists(select 1 from pg_constraint where conname='marketplace_return_quarantine_supplier_fk') then
+  alter table marketplace_return_quarantine
+   add constraint marketplace_return_quarantine_supplier_fk
+   foreign key(tenant_id,supplier_party_id)
+   references accounting_parties(tenant_id,id) on delete restrict;
+ end if;
+ if not exists(select 1 from pg_constraint where conname='marketplace_return_quarantine_purchase_fk') then
+  alter table marketplace_return_quarantine
+   add constraint marketplace_return_quarantine_purchase_fk
+   foreign key(tenant_id,source_purchase_id)
+   references finance_purchases(tenant_id,id) on delete restrict;
+ end if;
+end $$;
+
+create index if not exists marketplace_return_quarantine_supplier_idx
+ on marketplace_return_quarantine(tenant_id,supplier_party_id,status);
