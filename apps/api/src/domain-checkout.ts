@@ -243,6 +243,16 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
    if(existingRefund.rowCount){await client.query("commit");return res.status(200).json({refund:existingRefund.rows[0],order:{id:order.id,status:"refunded"},idempotent:true});}
   }
   if(!["paid","processing","delivered","returned"].includes(order.status)){await client.query("rollback");return res.status(409).json({error:"فقط سفارش پرداخت‌شده قابل بازگشت وجه است"});}
+  const settlementLink=await client.query("select ss.id,ss.status,ss.adjustment_amount from seller_settlement_items si join seller_settlements ss on ss.id=si.settlement_id and ss.tenant_id=si.tenant_id where si.tenant_id=$1 and si.order_id=$2 for update of ss",[t.id,order.id]);
+  if(settlementLink.rows.some((x:any)=>x.status==="paid")){await client.query("rollback");return res.status(409).json({error:"این سفارش قبلاً در تسویه پرداخت‌شده فروشنده قرار گرفته است؛ ابتدا فرآیند مطالبه وجه از فروشنده باید ثبت شود"});}
+  for(const linked of settlementLink.rows){
+   if(!["pending","approved"].includes(linked.status))continue;
+   await client.query("delete from seller_settlement_items where tenant_id=$1 and settlement_id=$2 and order_id=$3",[t.id,linked.id,order.id]);
+   const totals=await client.query("select count(*)::int as item_count,coalesce(sum(gross_amount),0) as gross,coalesce(sum(commission_amount),0) as commission,coalesce(sum(net_amount),0) as net from seller_settlement_items where tenant_id=$1 and settlement_id=$2",[t.id,linked.id]);
+   const nextStatus=totals.rows[0].item_count===0&&Number(linked.adjustment_amount)===0?"reversed":linked.status;
+   await client.query("update seller_settlements set gross_amount=$3,commission_amount=$4,net_amount=$5+$6,status=$7,updated_at=now() where id=$1 and tenant_id=$2",[linked.id,t.id,totals.rows[0].gross,totals.rows[0].commission,totals.rows[0].net,linked.adjustment_amount,nextStatus]);
+   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.order_removed_for_refund','seller_settlement',$3,$4)",[t.id,(req as any).user.id,linked.id,JSON.stringify({orderId:order.id,reason:"refund_before_payout",remainingOrders:totals.rows[0].item_count})]);
+  }
   const payment=await client.query("select * from marketplace_payments where tenant_id=$1 and order_id=$2 and status='paid' order by paid_at desc nulls last,created_at desc limit 1 for update",[t.id,order.id]);
   if(!payment.rowCount){await client.query("rollback");return res.status(409).json({error:"پرداخت موفق سفارش پیدا نشد"});}
   const existing=await client.query("select * from marketplace_refunds where tenant_id=$1 and payment_id=$2 and status='refunded'",[t.id,payment.rows[0].id]);
