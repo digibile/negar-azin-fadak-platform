@@ -32,14 +32,17 @@ router.post("/api/marketplace/sellers/:sellerId/domains",requireAuth,requirePerm
  res.status(201).json(r.rows[0]);
 }));
 router.post("/api/marketplace/domains/:id/verify",requireAuth,requirePermission("seller:domain:manage"),asyncHandler(async(req,res)=>{
- const d=await query("select * from seller_domains where id=$1",[req.params.id]);if(!d.rowCount)return res.status(404).json({error:"دامنه پیدا نشد"});
- const ctx=await sellerAccess(req,(req as any).user,d.rows[0].seller_id);if(!ctx)return res.status(403).json({error:"دسترسی به دامنه مجاز نیست"});
+ const user=(req as any).user as User;
+ const ctx=await context(req,user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const d=await query("select * from seller_domains where id=$1 and tenant_id=$2",[req.params.id,ctx.id]);if(!d.rowCount)return res.status(404).json({error:"دامنه پیدا نشد"});
+ const access=await sellerAccess(req,user,d.rows[0].seller_id);if(!access)return res.status(404).json({error:"دامنه پیدا نشد"});
  const recordName="_naf-verification."+d.rows[0].hostname;
  let records:string[][]=[];
  try{records=await resolveTxt(recordName);}catch{return res.status(409).json({error:"رکورد TXT تأیید هنوز در DNS قابل مشاهده نیست",recordName,expectedValue:d.rows[0].verification_token});}
  const verified=records.some(parts=>parts.join("")===d.rows[0].verification_token);
  if(!verified)return res.status(409).json({error:"رکورد TXT پیدا شد اما مقدار آن با کد چالش مطابقت ندارد",recordName,expectedValue:d.rows[0].verification_token});
  const r=await query("update seller_domains set verification_status='verified',verified_at=now(),updated_at=now() where id=$1 and tenant_id=$2 returning *",[req.params.id,ctx.id]);
+ if(!r.rowCount)return res.status(404).json({error:"دامنه پیدا نشد"});
  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.domain.dns_verified','seller_domain',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({hostname:d.rows[0].hostname,recordName})]);
  res.json(r.rows[0]);
 }));
