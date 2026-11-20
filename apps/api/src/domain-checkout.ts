@@ -318,17 +318,17 @@ checkoutRouter.post("/api/storefront/orders/:id/returns",requireAuth,requireCsrf
 }));
 
 checkoutRouter.post("/api/storefront/returns/:id/cancel",requireAuth,requireCsrf,asyncHandler(async(req,res)=>{
- const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});const requestId=s(requestId,100);
  const client=await pool.connect();
  try{
   await client.query("begin");
-  const current=await client.query("select * from marketplace_return_requests where id=$1 and tenant_id=$2 and customer_ref=$3 for update",[req.params.id,t.id,(req as any).user.id]);
+  const current=await client.query("select * from marketplace_return_requests where id=$1 and tenant_id=$2 and customer_ref=$3 for update",[requestId,t.id,(req as any).user.id]);
   if(!current.rowCount){await client.query("rollback");return res.status(404).json({error:"درخواست مرجوعی متعلق به این حساب پیدا نشد"});}
   if(current.rows[0].status!=="submitted"){await client.query("rollback");return res.status(409).json({error:"فقط درخواست بررسی‌نشده قابل لغو است"});}
-  const updated=await client.query("update marketplace_return_requests set status='cancelled',updated_at=now() where id=$1 and tenant_id=$2 returning id,request_no,status",[req.params.id,t.id]);
-  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'storefront.return.cancelled','marketplace_return_request',$3,$4,$5)",[t.id,(req as any).user.id,req.params.id,JSON.stringify({status:"submitted"}),JSON.stringify({status:"cancelled"})]);
+  const updated=await client.query("update marketplace_return_requests set status='cancelled',updated_at=now() where id=$1 and tenant_id=$2 returning id,request_no,status",[requestId,t.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'storefront.return.cancelled','marketplace_return_request',$3,$4,$5)",[t.id,(req as any).user.id,requestId,JSON.stringify({status:"submitted"}),JSON.stringify({status:"cancelled"})]);
   await client.query("commit");
-  await emitBusinessEvent({tenantId:t.id,eventKey:"return.cancelled",subjectType:"marketplace_return_request",subjectId:req.params.id,userId:(req as any).user.id,input:{requestNo:updated.rows[0].request_no}});
+  await emitBusinessEvent({tenantId:t.id,eventKey:"return.cancelled",subjectType:"marketplace_return_request",subjectId:requestId,userId:(req as any).user.id,input:{requestNo:updated.rows[0].request_no}});
   res.json({item:updated.rows[0]});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
@@ -340,20 +340,20 @@ checkoutRouter.get("/api/marketplace/returns",requireAuth,requirePermission("ord
 }));
 
 checkoutRouter.patch("/api/marketplace/returns/:id/status",requireAuth,requirePermission("order:manage"),requireCsrf,asyncHandler(async(req,res)=>{
- const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const requestId=s(requestId,100);
  const target=s(req.body?.status,24),reason=s(req.body?.decisionReason,1000);
  const client=await pool.connect();
  try{
   await client.query("begin");
-  const current=await client.query("select * from marketplace_return_requests where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+  const current=await client.query("select * from marketplace_return_requests where id=$1 and tenant_id=$2 for update",[requestId,t.id]);
   if(!current.rowCount){await client.query("rollback");return res.status(404).json({error:"درخواست مرجوعی پیدا نشد"});}
   const transitions:Record<string,string[]>={submitted:["approved","rejected"],approved:["received","cancelled"],received:["inspected"],inspected:["closed"]};
   if(!(transitions[current.rows[0].status]||[]).includes(target)){await client.query("rollback");return res.status(409).json({error:"تغییر وضعیت درخواست مرجوعی مجاز نیست"});}
   if(target==="rejected"&&!reason){await client.query("rollback");return res.status(400).json({error:"دلیل رد درخواست الزامی است"});}
-  const updated=await client.query("update marketplace_return_requests set status=$1,decision_reason=$2,reviewed_by=$3,received_at=case when $1='received' then now() else received_at end,inspected_at=case when $1='inspected' then now() else inspected_at end,updated_at=now() where id=$4 and tenant_id=$5 returning *",[target,reason||null,(req as any).user.id,req.params.id,t.id]);
-  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'marketplace.return.status.changed','marketplace_return_request',$3,$4,$5)",[t.id,(req as any).user.id,req.params.id,JSON.stringify({status:current.rows[0].status}),JSON.stringify({status:target,reason})]);
+  const updated=await client.query("update marketplace_return_requests set status=$1,decision_reason=$2,reviewed_by=$3,received_at=case when $1='received' then now() else received_at end,inspected_at=case when $1='inspected' then now() else inspected_at end,updated_at=now() where id=$4 and tenant_id=$5 returning *",[target,reason||null,(req as any).user.id,requestId,t.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'marketplace.return.status.changed','marketplace_return_request',$3,$4,$5)",[t.id,(req as any).user.id,requestId,JSON.stringify({status:current.rows[0].status}),JSON.stringify({status:target,reason})]);
   await client.query("commit");
-  await emitBusinessEvent({tenantId:t.id,eventKey:"return.status.changed",subjectType:"marketplace_return_request",subjectId:req.params.id,userId:(req as any).user.id,input:{requestNo:updated.rows[0].request_no,status:target}});
+  await emitBusinessEvent({tenantId:t.id,eventKey:"return.status.changed",subjectType:"marketplace_return_request",subjectId:requestId,userId:(req as any).user.id,input:{requestNo:updated.rows[0].request_no,status:target}});
   res.json({item:updated.rows[0]});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
