@@ -60,9 +60,11 @@ test("legacy cancel endpoint rejects paid and fulfilled lifecycle states",()=>{
 
 test("paid and processing lifecycle require refund path",()=>{
  const source=fs.readFileSync(new URL("./domain-marketplace.ts",import.meta.url),"utf8");
- assert.match(source,/paid:\["processing","refunded"\]/);
- assert.match(source,/processing:\["shipped","returned"\]/);
- assert.match(source,/لغو سفارش پرداخت‌شده باید از مسیر بازپرداخت انجام شود/);
+ assert.match(source,/paid:\["processing"\]/);
+ assert.match(source,/processing:\["shipped"\]/);
+ assert.doesNotMatch(source,/paid:\[[^\]]*refunded/);
+ assert.doesNotMatch(source,/processing:\[[^\]]*returned/);
+ assert.match(source,/ثبت ارسال سفارش فقط پس از شروع حرکت مرسوله/);
 });
 
 test("marketplace lifecycle has the database pool required for transactional transitions",()=>{
