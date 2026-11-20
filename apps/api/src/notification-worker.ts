@@ -154,7 +154,36 @@ async function sweepPaymentReviews(){
  }finally{client.release();}
 }
 
+async function expireMarketplaceReservations(){
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const due=await client.query(`select id,tenant_id,store_id,order_no
+   from marketplace_orders
+   where status in ('pending','confirmed')
+    and reservation_expires_at is not null
+    and reservation_expires_at<=now()
+   order by reservation_expires_at,id
+   for update skip locked
+   limit $1`,[BATCH_SIZE]);
+  for(const order of due.rows){
+   const paid=await client.query("select 1 from marketplace_payments where tenant_id=$1 and order_id=$2 and status in ('paid','refunded') limit 1",[order.tenant_id,order.id]);
+   if(paid.rowCount)continue;
+   await client.query("update marketplace_payments set status='failed',failure_reason=coalesce(failure_reason,'مهلت پرداخت سفارش پایان یافت'),updated_at=now() where tenant_id=$1 and order_id=$2 and status in ('pending','authorized')",[order.tenant_id,order.id]);
+   const items=await client.query("select product_id,quantity from marketplace_order_items where order_id=$1",[order.id]);
+   for(const item of items.rows){
+    await client.query("update product_inventory set reserved_quantity=greatest(0,reserved_quantity-$1),updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[item.quantity,order.tenant_id,item.product_id,order.store_id]);
+   }
+   await client.query("update marketplace_orders set status='cancelled',cancelled_at=now(),cancellation_reason='مهلت پرداخت و رزرو موجودی پایان یافت',reservation_released_at=now(),updated_at=now() where id=$1 and tenant_id=$2",[order.id,order.tenant_id]);
+   await client.query("insert into platform_audit_events(tenant_id,action,entity_type,entity_id,after_data) values($1,'order.reservation_expired','marketplace_order',$2,$3)",[order.tenant_id,order.id,JSON.stringify({reason:"reservation_timeout",releasedItems:items.rows.length})]);
+  }
+  await client.query("commit");
+  return due.rowCount;
+ }catch(error){await client.query("rollback");throw error;}finally{client.release();}
+}
+
 async function sweep(){
+ await expireMarketplaceReservations();
  await sweepPaymentReviews();
  await scheduleCommerceReminders();
  const rows=await claimBatch();
