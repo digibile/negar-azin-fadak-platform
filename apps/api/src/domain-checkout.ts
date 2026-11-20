@@ -392,6 +392,39 @@ checkoutRouter.post("/api/marketplace/returns/:id/inspect",requireAuth,requirePe
  }catch(e:any){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
+checkoutRouter.get("/api/marketplace/returns/finance-mappings",requireAuth,requirePermission("accounting-finance.read"),asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const [products,warehouses]=await Promise.all([
+  query("select l.id,l.inventory_product_id,ip.sku inventory_sku,ip.name inventory_name,l.finance_product_id,fp.code finance_code,fp.title finance_title,l.quantity_factor,l.status from marketplace_finance_product_links l join inventory_products ip on ip.id=l.inventory_product_id and ip.tenant_id=l.tenant_id join finance_products fp on fp.id=l.finance_product_id and fp.tenant_id=l.tenant_id where l.tenant_id=$1 order by ip.name",[t.id]),
+  query("select l.id,l.inventory_warehouse_id,iw.code inventory_code,iw.name inventory_name,l.finance_warehouse_id,fw.code finance_code,fw.title finance_title,l.status from marketplace_finance_warehouse_links l join inventory_warehouses iw on iw.id=l.inventory_warehouse_id and iw.tenant_id=l.tenant_id join finance_warehouses fw on fw.id=l.finance_warehouse_id and fw.tenant_id=l.tenant_id where l.tenant_id=$1 order by iw.name",[t.id])
+ ]);
+ res.json({products:products.rows,warehouses:warehouses.rows});
+}));
+checkoutRouter.put("/api/marketplace/returns/finance-mappings/products",requireAuth,requirePermission("accounting-finance.write"),requirePermission("modules:23-inventory-warehouse:write"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const inventoryProductId=s(req.body?.inventoryProductId,100),financeProductId=s(req.body?.financeProductId,100),factor=Number(req.body?.quantityFactor??1);
+ if(!inventoryProductId||!financeProductId||!Number.isFinite(factor)||factor<=0)return res.status(400).json({error:"کالاهای متناظر و ضریب تبدیل مثبت الزامی است"});
+ const client=await pool.connect();try{await client.query("begin");
+  const pair=await client.query("select ip.id inventory_id,fp.id finance_id from inventory_products ip join finance_products fp on fp.id=$2 and fp.tenant_id=ip.tenant_id where ip.id=$1 and ip.tenant_id=$3 and ip.status='active' and fp.is_active=true for share of ip,fp",[inventoryProductId,financeProductId,t.id]);
+  if(!pair.rowCount){await client.query("rollback");return res.status(400).json({error:"هر دو کالا باید فعال و متعلق به همین سازمان باشند"});}
+  const saved=await client.query("insert into marketplace_finance_product_links(tenant_id,inventory_product_id,finance_product_id,quantity_factor,created_by,status) values($1,$2,$3,$4,$5,'active') on conflict(tenant_id,inventory_product_id) do update set finance_product_id=excluded.finance_product_id,quantity_factor=excluded.quantity_factor,status='active',updated_at=now() returning *",[t.id,inventoryProductId,financeProductId,factor,(req as any).user.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.finance.product_link.upsert','marketplace_finance_product_link',$3,$4)",[t.id,(req as any).user.id,saved.rows[0].id,JSON.stringify({inventoryProductId,financeProductId,quantityFactor:factor})]);
+  await client.query("commit");res.json({item:saved.rows[0]});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+checkoutRouter.put("/api/marketplace/returns/finance-mappings/warehouses",requireAuth,requirePermission("accounting-finance.write"),requirePermission("modules:23-inventory-warehouse:write"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const inventoryWarehouseId=s(req.body?.inventoryWarehouseId,100),financeWarehouseId=s(req.body?.financeWarehouseId,100);
+ if(!inventoryWarehouseId||!financeWarehouseId)return res.status(400).json({error:"انتخاب هر دو انبار الزامی است"});
+ const client=await pool.connect();try{await client.query("begin");
+  const pair=await client.query("select iw.id inventory_id,fw.id finance_id from inventory_warehouses iw join finance_warehouses fw on fw.id=$2 and fw.tenant_id=iw.tenant_id where iw.id=$1 and iw.tenant_id=$3 and iw.status='active' and fw.status='active' for share of iw,fw",[inventoryWarehouseId,financeWarehouseId,t.id]);
+  if(!pair.rowCount){await client.query("rollback");return res.status(400).json({error:"هر دو انبار باید فعال و متعلق به همین سازمان باشند"});}
+  const saved=await client.query("insert into marketplace_finance_warehouse_links(tenant_id,inventory_warehouse_id,finance_warehouse_id,created_by,status) values($1,$2,$3,$4,'active') on conflict(tenant_id,inventory_warehouse_id) do update set finance_warehouse_id=excluded.finance_warehouse_id,status='active',updated_at=now() returning *",[t.id,inventoryWarehouseId,financeWarehouseId,(req as any).user.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.finance.warehouse_link.upsert','marketplace_finance_warehouse_link',$3,$4)",[t.id,(req as any).user.id,saved.rows[0].id,JSON.stringify({inventoryWarehouseId,financeWarehouseId})]);
+  await client.query("commit");res.json({item:saved.rows[0]});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
 checkoutRouter.get("/api/marketplace/returns/suppliers",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const r=await query("select id,party_code,title,phone from accounting_parties where tenant_id=$1 and party_type='supplier' and status='active' order by title limit 500",[t.id]);
