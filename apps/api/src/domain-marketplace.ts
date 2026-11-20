@@ -341,6 +341,7 @@ domainMarketplaceRouter.patch("/api/marketplace/returns/:id/status",requireAuth,
   await client.query("begin");
   const r=(await client.query("select * from marketplace_order_returns where id=$1 and tenant_id=$2 for update",[req.params.id,ctx.id])).rows[0];
   if(!r){await client.query("rollback");return res.status(404).json({error:"درخواست مرجوعی پیدا نشد"});}
+  if(r.status===next){await client.query("commit");return res.json({return:r,idempotent:true});}
   const transitions:Record<string,string[]>={requested:["approved","rejected"],approved:["received","rejected"],received:["accepted","rejected"],accepted:[],rejected:[]};
   if(!transitions[r.status]?.includes(next)){await client.query("rollback");return res.status(409).json({error:"تغییر وضعیت مرجوعی مجاز نیست",from:r.status,to:next});}
   const order=(await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[r.order_id,ctx.id])).rows[0];
