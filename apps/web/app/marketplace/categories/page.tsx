@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "../../../lib/api";
+import { ManagementDialog, ManagementToolbar } from "../../components/ManagementWorkspaceTools";
 import "./categories-workspace.css";
 
 type Category = { id:string; code:string; name:string; status:"active"|"inactive"; sort_order:number };
@@ -17,6 +18,7 @@ export default function MarketplaceCategoriesPage() {
   const [error,setError]=useState("");
   const [notice,setNotice]=useState("");
   const [search,setSearch]=useState("");
+  const [selected,setSelected]=useState<Category|null>(null);
 
   async function load() {
     setError("");
@@ -66,6 +68,7 @@ export default function MarketplaceCategoriesPage() {
     </header>
     {error&&<div className="sk-cat-feedback is-error" role="alert">{error}</div>}
     {notice&&<div className="sk-cat-feedback is-success" role="status">{notice}</div>}
+    <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-categories" onCreate={()=>document.querySelector(".sk-cat-create")?.scrollIntoView({behavior:"smooth",block:"center"})}/>
     <section className="sk-cat-create">
       <div><h2>افزودن دسته‌بندی</h2><p>برای هر دسته یک کد پایدار انگلیسی تعریف کنید.</p></div>
       <div className="sk-cat-form">
@@ -79,13 +82,14 @@ export default function MarketplaceCategoriesPage() {
       <div className="sk-cat-list-head"><div><h2>فهرست دسته‌بندی‌ها</h2><p>{items.length.toLocaleString("fa-IR")} دسته ثبت‌شده</p></div><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="جستجوی نام یا کد…"/></div>
       {loading?<div className="sk-cat-empty">در حال دریافت اطلاعات…</div>:visible.length?<div className="sk-cat-table">
         <div className="sk-cat-row is-heading"><span>دسته‌بندی</span><span>کد</span><span>ترتیب</span><span>وضعیت</span><span>عملیات</span></div>
-        {visible.map(item=><CategoryRow key={item.id} item={item} saving={saving} onSave={updateCategory}/>)}
+        {visible.map(item=><CategoryRow key={item.id} item={item} saving={saving} onSave={updateCategory} onView={setSelected}/>)}
       </div>:<div className="sk-cat-empty">{items.length?"دسته‌ای با این جستجو پیدا نشد.":"هنوز دسته‌بندی‌ای ثبت نشده است."}</div>}
     </section>
+    {selected&&<ManagementDialog title={"جزئیات دسته‌بندی "+selected.name} onClose={()=>setSelected(null)}><dl className="management-detail-grid"><div><dt>نام دسته‌بندی</dt><dd>{selected.name}</dd></div><div><dt>کد</dt><dd>{selected.code}</dd></div><div><dt>ترتیب نمایش</dt><dd>{selected.sort_order}</dd></div><div><dt>وضعیت</dt><dd>{selected.status==="active"?"فعال":"غیرفعال"}</dd></div></dl></ManagementDialog>}
   </main>;
 }
 
-function CategoryRow({item,saving,onSave}:{item:Category;saving:boolean;onSave:(item:Category,patch:Partial<Pick<Category,"name"|"status"|"sort_order">>)=>Promise<void>}) {
+function CategoryRow({item,saving,onSave,onView}:{item:Category;saving:boolean;onSave:(item:Category,patch:Partial<Pick<Category,"name"|"status"|"sort_order">>)=>Promise<void>;onView:(item:Category)=>void}) {
   const [name,setName]=useState(item.name);
   const [sortOrder,setSortOrder]=useState(String(item.sort_order));
   useEffect(()=>{setName(item.name);setSortOrder(String(item.sort_order));},[item.name,item.sort_order]);
