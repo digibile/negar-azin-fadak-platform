@@ -465,7 +465,8 @@ checkoutRouter.patch("/api/marketplace/returns/:id/disposition",requireAuth,requ
     const purchaseLine=purchaseLines[0];
     if(!purchaseLine){await client.query("rollback");return res.status(400).json({error:"فاکتور خرید باید ردیف کالای متناظر با نگاشت فعال مالی داشته باشد"});}
     const purchaseQuantity=purchaseLines.reduce((sum:any,line:any)=>sum+Number(line.quantity),0);
-    const priorReturns=(await client.query("select coalesce(sum(pq.finance_quantity),0)::numeric returned_quantity from marketplace_return_quarantine pq where pq.tenant_id=$1 and pq.source_purchase_id=$2 and pq.finance_product_id=$3 and pq.status='supplier_handover'",[t.id,purchaseId,purchaseLine.product_id])).rows[0];
+    const priorReturns=(await client.query("select coalesce(sum(pq.finance_quantity),0)::numeric returned_quantity,(count(*) filter(where pq.finance_quantity is null))::int legacy_count from marketplace_return_quarantine pq where pq.tenant_id=$1 and pq.source_purchase_id=$2 and pq.finance_product_id=$3 and pq.status='supplier_handover'",[t.id,purchaseId,purchaseLine.product_id])).rows[0];
+    if(Number(priorReturns?.legacy_count||0)>0){await client.query("rollback");return res.status(409).json({error:"تحویل‌های قبلی این فاکتور فاقد snapshot مقدار مالی هستند؛ ابتدا باید سوابق آن‌ها بازبینی و تطبیق شوند"});}
     const financeQuantity=Number(q.quarantine_quantity)*Number(purchaseLine.inventory_factor)*Number(purchaseLine.finance_factor);
     if(!Number.isFinite(financeQuantity)||financeQuantity<=0||Number(priorReturns?.returned_quantity||0)+financeQuantity>purchaseQuantity+0.0001){await client.query("rollback");return res.status(409).json({error:"مقدار کالای قرنطینه از مقدار باقیمانده ردیف کالای فاکتور خرید بیشتر است"});}
     handoverFinanceProductId=purchaseLine.product_id;handoverFinanceQuantity=financeQuantity;
