@@ -35,7 +35,7 @@ const labels:Record<string,string>={
 const actions:Record<string,Array<{status:string;label:string;reason?:boolean;danger?:boolean}>>={
  pending:[{status:"confirmed",label:"تأیید سفارش"},{status:"cancelled",label:"لغو سفارش",reason:true,danger:true}],
  confirmed:[{status:"cancelled",label:"لغو سفارش",reason:true,danger:true}],
- paid:[{status:"processing",label:"شروع آماده‌سازی"}],
+ paid:[{status:"processing",label:"شروع آماده‌سازی"},{status:"return_request",label:"درخواست مرجوعی",reason:true,danger:true}],
  processing:[{status:"shipped",label:"ثبت ارسال"},{status:"return_request",label:"درخواست مرجوعی",reason:true,danger:true}],
  shipped:[{status:"delivered",label:"ثبت تحویل"},{status:"return_request",label:"درخواست مرجوعی",reason:true,danger:true}],
  delivered:[{status:"return_request",label:"درخواست مرجوعی",reason:true,danger:true}]
