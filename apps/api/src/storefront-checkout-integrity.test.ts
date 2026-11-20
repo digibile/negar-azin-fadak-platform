@@ -223,3 +223,9 @@ test("marketplace return workspace exposes refund status and only executes refun
  assert.ok(adminReturns.includes("ثبت و اجرای بازپرداخت"));
  assert.ok(adminReturns.includes("در انتظار پاسخ درگاه"));
 });
+
+
+test("customer shipment lookup prefers the stable marketplace order foreign key and keeps a legacy fallback",()=>{
+ assert.ok(checkout.includes("so.marketplace_order_id=o.id"));
+ assert.ok(checkout.includes("so.marketplace_order_id is null and so.order_no=o.order_no"));
+});
