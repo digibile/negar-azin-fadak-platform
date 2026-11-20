@@ -38,6 +38,14 @@ export default function ShippingResourcesPage(){
   }catch(e){setError(e instanceof Error?e.message:"ثبت خودرو ناموفق بود.");}
   finally{setBusy(false);}
  }
+ async function changeStatus(kind:"vehicles"|"drivers",id:string,status:string){
+  setBusy(id);setError("");setNotice("");
+  try{
+   await api("/api/logistics/"+kind+"/"+encodeURIComponent(id)+"/status",{method:"PATCH",body:JSON.stringify({status})});
+   setNotice(kind==="vehicles"?"وضعیت خودرو به‌روزرسانی شد.":"وضعیت راننده به‌روزرسانی شد.");await load();
+  }catch(e){setError(e instanceof Error?e.message:"تغییر وضعیت ناموفق بود.");}
+  finally{setBusy(false);}
+ }
  async function addDriver(e:React.FormEvent<HTMLFormElement>){
   e.preventDefault();setBusy(true);setError("");setNotice("");
   try{
@@ -74,11 +82,11 @@ export default function ShippingResourcesPage(){
   </section>
   <section className="resource-lists">
    <div className="platform-panel resource-list"><div className="resource-list-heading"><h2>ناوگان ثبت‌شده</h2><b>{vehicles.length.toLocaleString("fa-IR")}</b></div>
-    {loading?<p className="empty">در حال دریافت…</p>:vehicles.map(v=><article key={v.id}><div><b>{v.title}</b><small>{v.plate_no} · {v.vehicle_type||"نوع ثبت نشده"}</small></div><span className={"resource-status "+v.status}>{vehicleStatus[v.status]||v.status}</span></article>)}
+    {loading?<p className="empty">در حال دریافت…</p>:vehicles.map(v=><article key={v.id}><div><b>{v.title}</b><small>{v.plate_no} · {v.vehicle_type||"نوع ثبت نشده"}</small></div><div className="resource-row-actions"><span className={"resource-status "+v.status}>{vehicleStatus[v.status]||v.status}</span>{v.status==="available"&&<button type="button" disabled={Boolean(busy)} onClick={()=>void changeStatus("vehicles",v.id,"maintenance")}>ارسال به تعمیرگاه</button>}{v.status==="maintenance"&&<button type="button" disabled={Boolean(busy)} onClick={()=>void changeStatus("vehicles",v.id,"available")}>بازگشت به سرویس</button>}{v.status==="inactive"&&<button type="button" disabled={Boolean(busy)} onClick={()=>void changeStatus("vehicles",v.id,"available")}>فعال‌سازی</button>}{v.status==="available"&&<button type="button" disabled={Boolean(busy)} onClick={()=>void changeStatus("vehicles",v.id,"inactive")}>غیرفعال‌سازی</button>}</div></article>)}
     {!loading&&!vehicles.length&&<p className="empty">خودرویی ثبت نشده است.</p>}
    </div>
    <div className="platform-panel resource-list"><div className="resource-list-heading"><h2>رانندگان ثبت‌شده</h2><b>{drivers.length.toLocaleString("fa-IR")}</b></div>
-    {loading?<p className="empty">در حال دریافت…</p>:drivers.map(d=><article key={d.id}><div><b>{d.name}</b><small>{d.mobile||"همراه ثبت نشده"} · گواهینامه: {d.license_no||"ثبت نشده"}</small></div><span className={"resource-status "+d.status}>{driverStatus[d.status]||d.status}</span></article>)}
+    {loading?<p className="empty">در حال دریافت…</p>:drivers.map(d=><article key={d.id}><div><b>{d.name}</b><small>{d.mobile||"همراه ثبت نشده"} · گواهینامه: {d.license_no||"ثبت نشده"}</small></div><div className="resource-row-actions"><span className={"resource-status "+d.status}>{driverStatus[d.status]||d.status}</span>{d.status==="active"&&<button type="button" disabled={Boolean(busy)} onClick={()=>void changeStatus("drivers",d.id,"suspended")}>تعلیق</button>}{d.status==="active"&&<button type="button" disabled={Boolean(busy)} onClick={()=>void changeStatus("drivers",d.id,"inactive")}>غیرفعال‌سازی</button>}{d.status!=="active"&&<button type="button" disabled={Boolean(busy)} onClick={()=>void changeStatus("drivers",d.id,"active")}>فعال‌سازی</button>}</div></article>)}
     {!loading&&!drivers.length&&<p className="empty">راننده‌ای ثبت نشده است.</p>}
    </div>
   </section>
