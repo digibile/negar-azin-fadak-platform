@@ -89,7 +89,7 @@ if(!checkoutPage.includes('window.location.assign(pb.redirectUrl)')||!checkoutPa
 if(!checkoutPage.includes("بررسی مجدد وضعیت پرداخت")||!checkoutPage.includes("pendingPaymentId"))throw new Error("Store checkout must expose a retryable status check for pending gateway attempts");
 if(!checkoutApi.includes('providerResult.status==="failed"?"failed":"pending"')||!checkoutApi.includes("failure_reason"))throw new Error("Gateway-declared failures must remain failed instead of being misreported as pending");
 if(!checkoutApi.includes('pendingStatus==="failed"?200:202'))throw new Error("Failed gateway attempts must not be exposed as pending payment redirects");
-if(!checkoutPage.includes('pb.status==="failed"')||!checkoutPage.includes("درگاه این تلاش پرداخت را ناموفق اعلام کرد"))throw new Error("Checkout must explain a failed gateway attempt and allow a fresh payment attempt");
+if(!checkoutPage.includes('paymentStatus==="failed"')||!checkoutPage.includes("درگاه این تلاش پرداخت را ناموفق اعلام کرد"))throw new Error("Checkout must explain a failed gateway attempt and allow a fresh payment attempt");
 
 const customerOrders=read("apps/web/app/account/orders/page.tsx");
 const customerOrdersCss=read("apps/web/app/account/orders/orders-workspace.css");
