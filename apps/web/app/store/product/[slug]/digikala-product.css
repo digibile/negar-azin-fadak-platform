@@ -407,3 +407,11 @@
 .sk-product-site--digikala .sk-dk-insurance-option input:disabled{opacity:.45;cursor:not-allowed}
 .sk-product-site--digikala .sk-dk-insurance-total{display:flex;justify-content:space-between;gap:10px;padding:9px 10px;border-radius:4px;background:#fff8f9;color:#62666d;font-size:10px}
 .sk-product-site--digikala .sk-dk-insurance-total strong{color:#ef4056}
+
+
+.sk-product-purchase-controls{display:grid;gap:9px;min-width:0}
+.sk-product-quantity-control{display:inline-flex;align-items:center;justify-content:space-between;gap:16px;width:max-content;min-width:132px;min-height:40px;padding:4px 8px;border:1px solid var(--sk-dk-line,#e5e7eb);border-radius:8px;background:#fff}
+.sk-product-quantity-control button{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:6px;background:#f3f4f6;color:#242a32;font:inherit;font-size:18px;cursor:pointer}
+.sk-product-quantity-control button:disabled{opacity:.35;cursor:not-allowed}
+.sk-product-quantity-control output{min-width:24px;text-align:center;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.sk-product-purchase-controls .sk-add-cart{width:100%;max-width:none}
