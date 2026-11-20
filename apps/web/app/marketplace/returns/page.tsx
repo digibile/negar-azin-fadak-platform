@@ -10,12 +10,14 @@ type Warehouse={id:string;name:string;status:string};
 type Supplier={id:string;party_code:string;title:string;phone?:string|null};
 type Purchase={id:string;invoice_no?:string|null;invoice_date?:string|null;status:string;total:number|string};
 type FinanceMappingData={products:any[];warehouses:any[];inventoryProducts:{id:string;sku:string;name:string}[];financeProducts:{id:string;code:string;title:string}[];inventoryWarehouses:{id:string;code:string;name:string}[];financeWarehouses:{id:string;code:string;title:string}[]};
+type FinanceReadinessData={items:any[];summary:{total:number;structurallyReady:number;blocked:number};postingPolicy:{ready:boolean;blockers:string[];note:string}};
 const labels:Record<string,string>={submitted:"در انتظار بررسی",approved:"تأییدشده",rejected:"ردشده",received:"دریافت‌شده",inspected:"بازرسی‌شده",cancelled:"لغوشده",closed:"بسته‌شده"};
 const reasons:Record<string,string>={damaged:"آسیب‌دیده",defective:"ایراد فنی",wrong_item:"کالای اشتباه",not_as_described:"مغایرت توضیحات",missing_parts:"اقلام ناقص",changed_mind:"انصراف از خرید",other:"سایر"};
 export default function MarketplaceReturnsPage(){
  const [items,setItems]=useState<ReturnItem[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(""),[busy,setBusy]=useState(""),[inspection,setInspection]=useState<ReturnItem|null>(null),[warehouses,setWarehouses]=useState<Warehouse[]>([]),[inspectionForm,setInspectionForm]=useState({warehouseId:"",receivedQuantity:"1",restockQuantity:"1",inspectionNotes:""});
  const [dispositionItem,setDispositionItem]=useState<ReturnItem|null>(null),[suppliers,setSuppliers]=useState<Supplier[]>([]),[purchases,setPurchases]=useState<Purchase[]>([]),[dispositionForm,setDispositionForm]=useState({supplierPartyId:"",purchaseId:"",supplierReference:"",notes:""});
  const [financeMappings,setFinanceMappings]=useState<FinanceMappingData|null>(null),[mappingBusy,setMappingBusy]=useState(false),[productMapping,setProductMapping]=useState({inventoryProductId:"",financeProductId:"",quantityFactor:"1"}),[warehouseMapping,setWarehouseMapping]=useState({inventoryWarehouseId:"",financeWarehouseId:""});
+  const [financeReadiness,setFinanceReadiness]=useState<FinanceReadinessData|null>(null),[readinessBusy,setReadinessBusy]=useState(false);
  async function loadFinanceMappings(){setMappingBusy(true);setError("");try{const d=await api<FinanceMappingData>("/api/marketplace/returns/finance-mappings");setFinanceMappings(d);setProductMapping(v=>({...v,inventoryProductId:v.inventoryProductId||d.inventoryProducts[0]?.id||"",financeProductId:v.financeProductId||d.financeProducts[0]?.id||""}));setWarehouseMapping(v=>({...v,inventoryWarehouseId:v.inventoryWarehouseId||d.inventoryWarehouses[0]?.id||"",financeWarehouseId:v.financeWarehouseId||d.financeWarehouses[0]?.id||""}));}catch(e){setError(e instanceof Error?e.message:"دریافت نگاشت‌های مالی ناموفق بود");}finally{setMappingBusy(false);}}
  async function saveProductMapping(){if(!productMapping.inventoryProductId||!productMapping.financeProductId)return;setMappingBusy(true);setError("");try{await api("/api/marketplace/returns/finance-mappings/products",{method:"PUT",body:JSON.stringify(productMapping)});await loadFinanceMappings();}catch(e){setError(e instanceof Error?e.message:"ثبت نگاشت کالا ناموفق بود");}finally{setMappingBusy(false);}}
  async function saveWarehouseMapping(){if(!warehouseMapping.inventoryWarehouseId||!warehouseMapping.financeWarehouseId)return;setMappingBusy(true);setError("");try{await api("/api/marketplace/returns/finance-mappings/warehouses",{method:"PUT",body:JSON.stringify(warehouseMapping)});await loadFinanceMappings();}catch(e){setError(e instanceof Error?e.message:"ثبت نگاشت انبار ناموفق بود");}finally{setMappingBusy(false);}}
@@ -40,6 +42,21 @@ export default function MarketplaceReturnsPage(){
      <section><b>نگاشت انبار</b><label>انبار عملیاتی<select value={warehouseMapping.inventoryWarehouseId} onChange={e=>setWarehouseMapping(v=>({...v,inventoryWarehouseId:e.target.value}))}>{financeMappings.inventoryWarehouses.map(x=><option key={x.id} value={x.id}>{x.name} · {x.code}</option>)}</select></label><label>انبار دفتر مالی<select value={warehouseMapping.financeWarehouseId} onChange={e=>setWarehouseMapping(v=>({...v,financeWarehouseId:e.target.value}))}>{financeMappings.financeWarehouses.map(x=><option key={x.id} value={x.id}>{x.title} · {x.code}</option>)}</select></label><button type="button" disabled={mappingBusy||!financeMappings.inventoryWarehouses.length||!financeMappings.financeWarehouses.length} onClick={()=>saveWarehouseMapping()}>ثبت نگاشت انبار</button></section>
     </div>
     <div><b>نگاشت‌های ثبت‌شده</b><p>کالا: {financeMappings.products.length.toLocaleString("fa-IR")} · انبار: {financeMappings.warehouses.length.toLocaleString("fa-IR")}</p>{financeMappings.products.map(x=><small key={x.id}>{x.inventory_name} ← {x.finance_title} (ضریب {x.quantity_factor})</small>)}{financeMappings.warehouses.map(x=><small key={x.id}>{x.inventory_name} ← {x.finance_title}</small>)}</div>
+   </>}
+  </details>
+  <details className="mp-finance-mapping-panel">
+   <summary>گزارش آمادگی تحویل قرنطینه به گردش مالی</summary>
+   <p>این گزارش فقط پیش‌نیازها را کنترل می‌کند؛ تا ثبت رسید قرنطینه مالی و تصویب روش ارزش‌گذاری، صدور حواله مالی مسدود است.</p>
+   <button type="button" disabled={readinessBusy} onClick={()=>loadFinanceReadiness()}>{readinessBusy?"در حال بررسی…":"بررسی آمادگی پرونده‌ها"}</button>
+   {financeReadiness&&<>
+    <p>کل پرونده‌ها: {financeReadiness.summary.total.toLocaleString("fa-IR")} · آماده از نظر ساختاری: {financeReadiness.summary.structurallyReady.toLocaleString("fa-IR")} · دارای مانع: {financeReadiness.summary.blocked.toLocaleString("fa-IR")}</p>
+    {financeReadiness.items.map((item:any)=><article className="mp-return-quarantine" key={item.id}>
+     <b>{item.request_no} · {item.status==="supplier_handover"?"تحویل‌شده به تأمین‌کننده":"در قرنطینه"}</b>
+     <p>مقدار قرنطینه: {Number(item.quarantine_quantity||0).toLocaleString("fa-IR")} · تأمین‌کننده: {item.supplier_title||"ثبت نشده"} · فاکتور: {item.purchase_invoice_no||"ثبت نشده"}</p>
+     <p>{item.structuralReady?"پیش‌نیازهای ساختاری کامل است.":"موانع: "+item.blockers.join("، ")}</p>
+     <small>صدور سند مالی: هنوز مجاز نیست.</small>
+    </article>)}
+    <div className="mp-return-inspection-note"><b>موانع مشترک صدور سند</b>{financeReadiness.postingPolicy.blockers.map((x:string)=><p key={x}>{x}</p>)}<small>{financeReadiness.postingPolicy.note}</small></div>
    </>}
   </details>
   {error&&<p className="enterprise-loading error" role="alert">{error}</p>}
