@@ -43,10 +43,10 @@ export default function Login(){
   setMessage("");
   setLoading(true);
   try{
-   const normalized=identifier.trim();
+   const normalized=identifier.normalize("NFKC").replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/g,"").trim();
    if(authMode==="otp"){
     if(method!=="mobile")setMethod("mobile");
-    if(!/^\\+?[0-9۰-۹٠-٩\\s()-]{8,20}$/.test(normalized)){setError("شماره موبایل را به‌درستی وارد کنید");setLoading(false);return;}
+    if(!/^\+?[0-9۰-۹٠-٩\s()-]{8,20}$/.test(normalized)){setError("شماره موبایل را به‌درستی وارد کنید");setLoading(false);return;}
     if(!otpSent){
      if(!answer.trim()){setError("پاسخ تأیید انسانی را وارد کنید");setLoading(false);return;}
      const res=await fetch("/api/auth/otp/request",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({phone:normalized,humanCheck:check.challenge,humanAnswer:answer})});
@@ -59,7 +59,7 @@ export default function Login(){
      try{setCheck(await getHumanCheck());}catch{}
      return;
     }
-    if(!/^\\d{6}$/.test(otpCode.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))))){setError("کد ورود باید شش رقم باشد");setLoading(false);return;}
+    if(!/^\d{6}$/.test(otpCode.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))))){setError("کد ورود باید شش رقم باشد");setLoading(false);return;}
     const verify=await fetch("/api/auth/otp/verify",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({phone:normalized,code:otpCode})});
     const verified=await verify.json().catch(()=>({}));
     if(!verify.ok)throw new Error(verified.error||"تأیید کد انجام نشد");
@@ -67,10 +67,10 @@ export default function Login(){
     window.location.assign(role==="admin"||role==="manager"?"/admin":"/customer");
     return;
    }
-   if(method==="email"&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalized)){setError("آدرس ایمیل را به‌درستی وارد کنید");setLoading(false);return;}
-   if(method==="mobile"&&!/^\\+?[0-9۰-۹٠-٩\\s()-]{8,20}$/.test(normalized)){setError("شماره موبایل را به‌درستی وارد کنید");setLoading(false);return;}
+   if(method==="email"&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)){setError("آدرس ایمیل را به‌درستی وارد کنید");setLoading(false);return;}
+   if(method==="mobile"&&!/^\+?[0-9۰-۹٠-٩\s()-]{8,20}$/.test(normalized)){setError("شماره موبایل را به‌درستی وارد کنید");setLoading(false);return;}
    const normalizedDigits=normalized.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
-   if(method==="nationalId"&&!/^\\d{10}$/.test(normalizedDigits)){setError("کد ملی باید ۱۰ رقم باشد");setLoading(false);return;}
+   if(method==="nationalId"&&!/^\d{10}$/.test(normalizedDigits)){setError("کد ملی باید ۱۰ رقم باشد");setLoading(false);return;}
    const res=await fetch("/api/auth/login",{
     method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",
     body:JSON.stringify({method,identifier:method==="nationalId"?normalizedDigits:normalized,password,humanCheck:check.challenge,humanAnswer:answer})

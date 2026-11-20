@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import GlobalAIAssistant from "./admin/GlobalAIAssistant";
 
 const siteUrl = "https://sookar.ir";
 
@@ -50,7 +51,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
       </head>
-      <body>{children}</body>
+      <body>{children}<GlobalAIAssistant/></body>
     </html>
   );
 }

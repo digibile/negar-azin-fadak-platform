@@ -42,6 +42,7 @@ export default function OperationalModuleWorkspace({code}:{code:string}){
  const [loading,setLoading]=useState(true);
  const [saving,setSaving]=useState(false);
  const [error,setError]=useState("");
+ const [detail,setDetail]=useState<RecordItem|null>(null);
 
  const load=async()=>{
   setLoading(true);setError("");
@@ -99,9 +100,28 @@ export default function OperationalModuleWorkspace({code}:{code:string}){
   return <input value={String(v)} onChange={e=>setField(f.field_key,e.target.value)}/>;
  };
 
+ const exportRecords=()=>{
+  if(!visible.length){setError("رکوردی برای خروجی وجود ندارد.");return;}
+  const keys=Array.from(new Set(["id","title","record_type","status","created_at","updated_at",...visible.flatMap(x=>Object.keys(x.data||{}))]));
+  const quote=(value:unknown)=>'"'+String(value??"").replace(/"/g,'""')+'"';
+  const csv=[keys.map(quote).join(","),...visible.map(row=>keys.map(key=>quote((row as any)[key]??row.data?.[key])).join(","))].join("\n");
+  const blob=new Blob(["\uFEFF",csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="naf-"+code+"-"+new Date().toISOString().slice(0,10)+".csv";a.click();URL.revokeObjectURL(url);
+ };
  const visible=useMemo(()=>items,[items]);
  return <main className="module-runtime canonical-module" dir="rtl">
   <header className="page-head"><div><span className="eyebrow">منوی مرکزی سازمان · پنل ۰۲</span><h1>{TITLES[code]||code}{tab&&WORKSPACE_LABELS[tab]?" · "+WORKSPACE_LABELS[tab]:""}</h1><p className="muted">ثبت و مدیریت اطلاعات در پایگاه داده واقعی، با تفکیک فضای کاری</p></div><a className="back-link" href="/admin">مرکز مدیریت</a></header>
+  <section className="naf-action-toolbar no-print" aria-label="عملیات فضای کاری">
+   <div className="naf-action-group">
+    <button type="button" data-action="new" onClick={reset}><span className="action-icon">＋</span>جدید</button>
+    <button type="button" data-action="save" onClick={save} disabled={saving}><span className="action-icon">▣</span>{saving?"در حال ذخیره":"ذخیره"}</button>
+    <button type="button" data-action="cancel" onClick={reset}><span className="action-icon">×</span>لغو</button>
+   </div>
+   <div className="naf-action-group">
+    <button type="button" data-action="view" onClick={()=>load()} disabled={loading}><span className="action-icon">↻</span>به‌روزرسانی</button>
+    <button type="button" data-action="print" onClick={()=>window.print()}><span className="action-icon">▣</span>چاپ</button>
+    <button type="button" data-action="export" onClick={exportRecords}><span className="action-icon">⇩</span>خروجی CSV</button>
+   </div>
+  </section>
   {sectionLinks.length>1&&<nav className="module-subnav" aria-label="فضاهای کاری پنل سازمان">{sectionLinks.map(item=><a key={item.tab} className={tab===item.tab?"active":""} href={"/modules/?code="+encodeURIComponent(code)+"&tab="+encodeURIComponent(item.tab)}>{item.label}</a>)}</nav>}
   {error&&<div className="error runtime-error">{error}</div>}
   {loading?<div className="runtime-panel">در حال دریافت داده واقعی...</div>:<div className="runtime-layout">
@@ -113,8 +133,9 @@ export default function OperationalModuleWorkspace({code}:{code:string}){
    </section>
    <section className="runtime-panel"><div className="panel-title"><div><h2>رکوردهای ثبت‌شده</h2><span>{items.length}</span></div></div>
     <div className="runtime-search"><input placeholder="جستجو در عنوان و داده..." value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&load()}/><select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}><option value="">همه وضعیت‌ها</option><option value="active">فعال</option><option value="pending">در انتظار</option><option value="closed">بسته</option></select><button onClick={load}>جستجو</button></div>
-    <div className="record-list">{visible.map(r=><article className="record-row" key={r.id}><div><strong>{r.title}</strong><small>{r.record_type} · {r.status}</small><code>{JSON.stringify(r.data)}</code></div><div className="record-actions"><button onClick={()=>edit(r)}>ویرایش</button><button className="danger" onClick={()=>remove(r.id)}>حذف</button></div></article>)}{!visible.length&&<div className="empty">رکوردی ثبت نشده است.</div>}</div>
+    <div className="record-list">{visible.map(r=><article className="record-row" key={r.id}><div><strong>{r.title}</strong><small>{r.record_type} · {r.status}</small><code>{JSON.stringify(r.data)}</code></div><div className="record-actions"><button type="button" data-action="view" onClick={()=>setDetail(r)}>مشاهده</button><button type="button" data-action="edit" onClick={()=>edit(r)}>ویرایش</button><button type="button" data-action="delete" onClick={()=>remove(r.id)}>حذف</button></div></article>)}{!visible.length&&<div className="empty">رکوردی ثبت نشده است.</div>}</div>
    </section>
   </div>}
+  {detail&&<div className="naf-modal-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setDetail(null)}}><section className="naf-modal" role="dialog" aria-modal="true" aria-labelledby="record-detail-title"><header className="naf-modal-header"><div><small className="muted">جزئیات رکورد · {detail.record_type}</small><h2 id="record-detail-title">{detail.title}</h2></div><button type="button" data-action="close" onClick={()=>setDetail(null)}>× بستن</button></header><div className="runtime-fields"><label>شناسه<input readOnly value={detail.id}/></label><label>وضعیت<input readOnly value={detail.status}/></label><label>تاریخ ایجاد<input readOnly value={new Date(detail.created_at).toLocaleString("fa-IR")}/></label><label>آخرین تغییر<input readOnly value={new Date(detail.updated_at).toLocaleString("fa-IR")}/></label>{Object.entries(detail.data||{}).map(([key,value])=><label key={key}>{key}<textarea readOnly value={typeof value==="object"?JSON.stringify(value):String(value??"")}/></label>)}</div><footer className="naf-action-group no-print"><button type="button" data-action="edit" onClick={()=>{edit(detail);setDetail(null)}}>ویرایش رکورد</button><button type="button" data-action="print" onClick={()=>window.print()}>چاپ</button><button type="button" data-action="close" onClick={()=>setDetail(null)}>بستن</button></footer></section></div>}
  </main>;
 }

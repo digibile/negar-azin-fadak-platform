@@ -80,6 +80,17 @@ router.post("/api/finance-core/vaults/:id/files",requireAuth,requirePermission("
  res.status(201).json({file:r.rows[0],ocrJob:job.rows[0],next:"ocr-worker"});
 });
 
+router.get("/api/finance-core/vaults/:id/files/:fileId",requireAuth,async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const file=await query("select f.file_name,f.mime_type,f.file_data from finance_document_files f join finance_document_vaults v on v.id=f.vault_id where f.id=$1 and f.vault_id=$2 and f.tenant_id=$3 and v.tenant_id=$3",[paramOf(req,"fileId"),paramOf(req,"id"),t.id]);
+ if(!file.rowCount)return deny(res,404,"فایل زونکن پیدا نشد");
+ const safeInline=["application/pdf","image/jpeg","image/png","image/gif","image/webp"].includes(String(file.rows[0].mime_type||"").toLowerCase());
+ res.setHeader("Content-Type",safeInline?file.rows[0].mime_type:"application/octet-stream");
+ res.setHeader("Content-Disposition",(safeInline?"inline":"attachment")+"; filename*=UTF-8''"+encodeURIComponent(file.rows[0].file_name));
+ res.setHeader("X-Content-Type-Options","nosniff");
+ res.send(file.rows[0].file_data);
+});
+
 router.get("/api/finance-core/vaults/:id",requireAuth,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const v=await query("select * from finance_document_vaults where id=$1 and tenant_id=$2",[paramOf(req,"id"),t.id]);if(!v.rowCount)return deny(res,404,"زونکن پیدا نشد");

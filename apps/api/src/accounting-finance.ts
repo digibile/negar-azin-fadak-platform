@@ -28,15 +28,22 @@ router.post("/api/accounting-finance/accounts",requireAuth,requirePermission("ac
  if(typeof code!=="string"||typeof name!=="string"||!["official","internal","hybrid"].includes(accountMode))return deny(res,400,"اطلاعات حساب نامعتبر است");
  if(bookId){const b=await query("select id from accounting_books where id=$1 and tenant_id=$2",[bookId,t.id]);if(!b.rowCount)return deny(res,404,"دفتر حسابداری پیدا نشد")}
  if(parentId){const p=await query("select id from ledger_accounts where id=$1 and tenant_id=$2",[parentId,t.id]);if(!p.rowCount)return deny(res,404,"حساب والد پیدا نشد")}
- const r=await query("insert into ledger_accounts(tenant_id,code,name,account_type,account_mode,book_id,external_code,parent_id) values($1,$2,$3,$4,$5,$6,$7,$8) returning id,code,name,account_type,account_mode,book_id,external_code,parent_id",[t.id,code.trim(),name.trim(),accountType,accountMode,bookId,externalCode,parentId]);
- await audit(t.id,(req as any).user.id,"ledger_account",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
+ const c=await pool.connect();try{await c.query("begin");
+  const r=await c.query("insert into ledger_accounts(tenant_id,code,name,account_type,account_mode,book_id,external_code,parent_id) values($1,$2,$3,$4,$5,$6,$7,$8) returning id,code,name,account_type,account_mode,book_id,external_code,parent_id",[t.id,code.trim(),name.trim(),accountType,accountMode,bookId,externalCode,parentId]);
+  await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,after_data) values($1,'ledger_account',$2,'create',$3,$4)",[t.id,r.rows[0].id,(req as any).user.id,r.rows[0]]);
+  await c.query("commit");res.status(201).json(r.rows[0]);
+ }catch(e:any){await c.query("rollback").catch(()=>{});if(e?.code==="23505")return deny(res,409,"کد حساب تکراری است");throw e}finally{c.release()}
 });
 router.patch("/api/accounting-finance/accounts/:id",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const old=await query("select * from ledger_accounts where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!old.rowCount)return deny(res,404,"حساب پیدا نشد");
- const {name,accountType,accountMode,externalCode}=req.body||{};if(accountMode&&!["official","internal","hybrid"].includes(accountMode))return deny(res,400,"ماهیت حساب نامعتبر است");
- const r=await query("update ledger_accounts set name=coalesce($1,name),account_type=coalesce($2,account_type),account_mode=coalesce($3,account_mode),external_code=coalesce($4,external_code) where id=$5 and tenant_id=$6 returning id,code,name,account_type,account_mode,book_id,external_code,parent_id",[typeof name==="string"?name.trim():null,accountType||null,accountMode||null,externalCode??null,String(String(req.params.id)),t.id]);
- await audit(t.id,(req as any).user.id,"ledger_account",String(String(req.params.id)),"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+ const c=await pool.connect();try{await c.query("begin");
+ const old=await c.query("select * from ledger_accounts where id=$1 and tenant_id=$2 for update",[String(req.params.id),t.id]);if(!old.rowCount){await c.query("rollback");return deny(res,404,"حساب پیدا نشد");}
+ const {name,accountType,accountMode,externalCode}=req.body||{};if(accountMode&&!["official","internal","hybrid"].includes(accountMode)){await c.query("rollback");return deny(res,400,"ماهیت حساب نامعتبر است");}
+ if(name!==undefined&&(typeof name!=="string"||!name.trim())){await c.query("rollback");return deny(res,400,"عنوان حساب نامعتبر است");}
+ const r=await c.query("update ledger_accounts set name=coalesce($1,name),account_type=coalesce($2,account_type),account_mode=coalesce($3,account_mode),external_code=coalesce($4,external_code) where id=$5 and tenant_id=$6 returning id,code,name,account_type,account_mode,book_id,external_code,parent_id",[typeof name==="string"?name.trim():null,accountType||null,accountMode||null,externalCode??null,String(req.params.id),t.id]);
+ await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,'ledger_account',$2,'update',$3,$4,$5)",[t.id,String(req.params.id),(req as any).user.id,old.rows[0],r.rows[0]]);
+ await c.query("commit");res.json(r.rows[0]);
+ }catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
 
 router.post("/api/accounting-finance/periods",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
@@ -80,7 +87,7 @@ router.post("/api/accounting-finance/documents",requireAuth,requirePermission("a
  if(periodId){const p=await query("select status from accounting_fiscal_periods where id=$1 and tenant_id=$2",[periodId,t.id]);if(!p.rowCount)return deny(res,404,"دوره پیدا نشد");if(p.rows[0].status!=="open")return deny(res,409,"دوره بسته است");}
  const ids=lines.map((x:any)=>x.accountId);const ar=await query("select id from ledger_accounts where tenant_id=$1 and id=any($2::uuid[])",[t.id,ids]);if(ar.rowCount!==new Set(ids).size)return deny(res,400,"حساب سند معتبر نیست");
  let debit=0,credit=0;for(const x of lines){const d=Number(x.debit||0),c=Number(x.credit||0);if((d>0)===(c>0)||d<0||c<0)return deny(res,400,"هر ردیف فقط بدهکار یا بستانکار باشد");debit+=d;credit+=c;}if(Math.abs(debit-credit)>0.005)return deny(res,400,"سند متوازن نیست");
- const c=await pool.connect();try{await c.query("begin");const d=await c.query("insert into accounting_documents(tenant_id,book_id,period_id,document_no,document_date,document_type,description,created_by) values($1,$2,$3,$4,$5,$6,$7,$8) returning *",[t.id,bookId,periodId,documentNo.trim(),documentDate,documentType,String(description).trim(),(req as any).user.id]);for(let i=0;i<lines.length;i++){const x=lines[i];await c.query("insert into accounting_document_lines(document_id,line_no,account_id,cost_center_id,description,debit,credit,dimensions) values($1,$2,$3,$4,$5,$6,$7,$8)",[d.rows[0].id,i+1,x.accountId,x.costCenterId||null,String(x.description||"").trim(),Number(x.debit||0),Number(x.credit||0),x.dimensions||{}]);}await c.query("commit");await audit(t.id,(req as any).user.id,"accounting_document",d.rows[0].id,"create",null,d.rows[0]);res.status(201).json(d.rows[0]);}catch(e){await c.query("rollback");throw e}finally{c.release();}
+ const c=await pool.connect();try{await c.query("begin");const d=await c.query("insert into accounting_documents(tenant_id,book_id,period_id,document_no,document_date,document_type,description,created_by) values($1,$2,$3,$4,$5,$6,$7,$8) returning *",[t.id,bookId,periodId,documentNo.trim(),documentDate,documentType,String(description).trim(),(req as any).user.id]);for(let i=0;i<lines.length;i++){const x=lines[i];await c.query("insert into accounting_document_lines(document_id,line_no,account_id,cost_center_id,description,debit,credit,dimensions) values($1,$2,$3,$4,$5,$6,$7,$8)",[d.rows[0].id,i+1,x.accountId,x.costCenterId||null,String(x.description||"").trim(),Number(x.debit||0),Number(x.credit||0),x.dimensions||{}]);}await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,after_data) values($1,'accounting_document',$2,'create',$3,$4)",[t.id,d.rows[0].id,(req as any).user.id,d.rows[0]]);await c.query("commit");res.status(201).json(d.rows[0]);}catch(e){await c.query("rollback");throw e}finally{c.release();}
 });
 
 router.get("/api/accounting-finance/documents/:id",requireAuth,async(req,res)=>{
@@ -89,10 +96,29 @@ router.get("/api/accounting-finance/documents/:id",requireAuth,async(req,res)=>{
  const l=await query("select l.*,a.code account_code,a.name account_name,c.code cost_center_code,c.title cost_center_title from accounting_document_lines l join ledger_accounts a on a.id=l.account_id left join accounting_cost_centers c on c.id=l.cost_center_id where l.document_id=$1 order by l.line_no",[String(String(req.params.id))]);res.json({document:d.rows[0],lines:l.rows});
 });
 router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
- const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const s=req.body?.status;if(!["submitted","approved","posted","void"].includes(s))return deny(res,400,"وضعیت سند نامعتبر است");
- const old=await query("select * from accounting_documents where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!old.rowCount)return deny(res,404,"سند پیدا نشد");
- const flow:any={draft:["submitted","void"],submitted:["approved","void"],approved:["posted","void"],posted:["void"],void:[]};if(!flow[old.rows[0].status]?.includes(s))return deny(res,409,"تغییر وضعیت مجاز نیست");
- const r=await query("update accounting_documents set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,posted_at=case when $1='posted' then now() else posted_at end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[s,(req as any).user.id,String(String(req.params.id)),t.id]);await audit(t.id,(req as any).user.id,"accounting_document",String(String(req.params.id)),"status",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const target=req.body?.status;if(!["submitted","approved","posted","void"].includes(target))return deny(res,400,"وضعیت سند نامعتبر است");
+ const c=await pool.connect();try{
+  await c.query("begin");
+  const old=await c.query("select * from accounting_documents where id=$1 and tenant_id=$2 for update",[String(req.params.id),t.id]);
+  if(!old.rowCount){await c.query("rollback");return deny(res,404,"سند پیدا نشد");}
+  const current=old.rows[0].status;
+  const flow:any={draft:["submitted","void"],submitted:["approved","void"],approved:["posted","void"],posted:[],void:[]};
+  if(!flow[current]?.includes(target)){await c.query("rollback");return deny(res,409,"تغییر وضعیت مجاز نیست؛ سند قطعی یا باطل‌شده قابل ویرایش نیست");}
+  if(target==="posted"){
+   const sums=await c.query("select coalesce(sum(debit),0)::numeric debit,coalesce(sum(credit),0)::numeric credit,count(*)::int line_count from accounting_document_lines where document_id=$1",[old.rows[0].id]);
+   if(sums.rows[0].line_count<2||Math.abs(Number(sums.rows[0].debit)-Number(sums.rows[0].credit))>0.005){await c.query("rollback");return deny(res,409,"سند دارای حداقل دو ردیف متوازن نیست");}
+   if(old.rows[0].period_id){
+    const period=await c.query("select status,starts_on,ends_on from accounting_fiscal_periods where id=$1 and tenant_id=$2 for share",[old.rows[0].period_id,t.id]);
+    if(!period.rowCount||period.rows[0].status!=="open"){await c.query("rollback");return deny(res,409,"دوره مالی برای ثبت قطعی باز نیست");}
+    const docDate=String(old.rows[0].document_date).slice(0,10),from=String(period.rows[0].starts_on).slice(0,10),to=String(period.rows[0].ends_on).slice(0,10);
+    if(docDate<from||docDate>to){await c.query("rollback");return deny(res,409,"تاریخ سند خارج از بازه دوره مالی است");}
+   }
+  }
+  const updated=await c.query("update accounting_documents set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,posted_at=case when $1='posted' then now() else posted_at end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[target,(req as any).user.id,String(req.params.id),t.id]);
+  await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,'accounting_document',$2,'status',$3,$4,$5)",[t.id,String(req.params.id),(req as any).user.id,old.rows[0],updated.rows[0]]);
+  await c.query("commit");res.json(updated.rows[0]);
+ }catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
 
 router.get("/api/accounting-finance/reports",requireAuth,async(req,res)=>{

@@ -380,7 +380,23 @@ html,body{font-family:"IRANSansX","Vazirmatn","Segoe UI",Tahoma,sans-serif;backg
 }
 .naf-login *{box-sizing:border-box}
 .naf-login-panel{display:flex;align-items:center;justify-content:center;padding:42px 32px;order:1}
-.naf-login-box{width:min(420px,100%)}
+.naf-login-box{width:min(460px,100%);position:relative;padding:38px 34px;border:1px solid rgba(148,163,184,.18);border-radius:26px;background:linear-gradient(155deg,rgba(20,31,52,.94),rgba(13,21,36,.88));box-shadow:0 35px 100px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.06);backdrop-filter:blur(22px)}
+.naf-login-panel{position:relative;background:radial-gradient(ellipse at 50% 15%,rgba(201,162,39,.055),transparent 55%)}
+.naf-brand-mark{width:44px;height:44px;border-radius:14px;font-size:19px}
+.naf-brand{margin-bottom:34px}
+.naf-login-box h1{font-size:30px;letter-spacing:-.4px}
+.naf-login-form{gap:17px}
+.naf-login-method{display:flex;gap:6px;padding:5px;border:1px solid #26334d;border-radius:12px;background:#101a2d}
+.naf-login-method button{flex:1;min-height:40px;border:0;border-radius:8px;background:transparent;color:#9aa4bd;font:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:background .2s,color .2s,box-shadow .2s}
+.naf-login-method button.active{background:linear-gradient(135deg,rgba(201,162,39,.22),rgba(201,162,39,.08));color:#f4d77d;box-shadow:inset 0 0 0 1px rgba(201,162,39,.3)}
+.naf-primary{height:51px;border-radius:12px;font-size:14px;letter-spacing:.1px}
+.naf-theme{border-radius:12px;backdrop-filter:blur(12px)}
+.naf-visual{isolation:isolate}
+.naf-orbit{filter:drop-shadow(0 25px 55px rgba(0,0,0,.18))}
+.naf-ring{border-color:rgba(201,162,39,.22)}
+.naf-ring.naf-r2{border-color:rgba(148,163,184,.18)}
+.naf-ring.naf-r3{border-color:rgba(201,162,39,.13)}
+@media(max-width:900px){.naf-login-panel{padding:76px 20px 30px}.naf-login-box{padding:28px 22px;border-radius:22px}.naf-brand{margin-bottom:26px}.naf-login-box h1{font-size:25px}}
 .naf-brand{display:flex;align-items:center;gap:11px;margin-bottom:42px}
 .naf-brand-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(145deg,#c9a227,#8a6c17);color:#12100a;display:grid;place-items:center;font-weight:900;box-shadow:0 10px 25px rgba(201,162,39,.18)}
 .naf-brand-name{font-weight:800;font-size:18px;letter-spacing:.1px}
@@ -672,3 +688,33 @@ html,body{font-family:"IRANSansX","Vazirmatn","Segoe UI",Tahoma,sans-serif;backg
 .naf-password-toggle:focus-visible{outline:2px solid var(--naf-accent);outline-offset:1px}
 .naf-password-toggle svg{width:19px;height:19px;display:block}
 .naf-login-form input[type=tel]{direction:ltr;text-align:left}
+
+/* NAF shared action-button design system: consistent across all application surfaces. */
+:root{--naf-action-save:#2676d5;--naf-action-publish:#239b5b;--naf-action-edit:#159aaa;--naf-action-create:#ed8b18;--naf-action-delete:#df4651;--naf-action-cancel:#737b87;--naf-action-radius:10px}
+button,[role=button],input[type=button],input[type=submit]{transition:background-color .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease}
+button:focus-visible,[role=button]:focus-visible,input[type=button]:focus-visible,input[type=submit]:focus-visible{outline:3px solid rgba(38,118,213,.24);outline-offset:2px}
+button:disabled,[role=button][aria-disabled=true],input[type=button]:disabled,input[type=submit]:disabled{opacity:.52;cursor:not-allowed;transform:none;box-shadow:none}
+button[data-action="save"],.action-save{background:linear-gradient(135deg,#3285e5,var(--naf-action-save));border-color:var(--naf-action-save);color:#fff}
+button[data-action="publish"],.action-publish{background:linear-gradient(135deg,#39b96e,var(--naf-action-publish));border-color:var(--naf-action-publish);color:#fff}
+button[data-action="edit"],.action-edit{background:linear-gradient(135deg,#25b5c0,var(--naf-action-edit));border-color:var(--naf-action-edit);color:#fff}
+button[data-action="new"],button[data-action="create"],.action-new,.action-create{background:linear-gradient(135deg,#ffad35,var(--naf-action-create));border-color:var(--naf-action-create);color:#fff}
+button[data-action="delete"],.action-delete{background:linear-gradient(135deg,#f05b64,var(--naf-action-delete));border-color:var(--naf-action-delete);color:#fff}
+button[data-action="cancel"],button[data-action="close"],.action-cancel,.action-close{background:linear-gradient(135deg,#9299a3,var(--naf-action-cancel));border-color:var(--naf-action-cancel);color:#fff}
+button[data-action="print"],button[data-action="view"],button[data-action="export"],button[data-action="import"],button[data-action="settings"],.action-print,.action-view,.action-export,.action-import,.action-settings{background:#fff;border-color:var(--border);color:var(--text);box-shadow:0 2px 7px rgba(20,35,55,.06)}
+button[data-action]:not(:disabled):hover,.action-save:not(:disabled):hover,.action-publish:not(:disabled):hover,.action-edit:not(:disabled):hover,.action-new:not(:disabled):hover,.action-create:not(:disabled):hover,.action-delete:not(:disabled):hover,.action-cancel:not(:disabled):hover{filter:brightness(1.035);box-shadow:0 5px 13px rgba(20,35,55,.13);transform:translateY(-1px)}
+.naf-action-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px;margin:14px 0;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 3px 12px rgba(20,40,60,.045)}
+.naf-action-group{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.naf-action-toolbar button{min-height:42px;min-width:86px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 13px;border:1px solid transparent;border-radius:var(--naf-action-radius);font-size:12px;font-weight:700}
+.naf-action-toolbar button .action-icon{font-size:17px;line-height:1}
+.naf-modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:18px;background:rgba(15,23,42,.48)}
+.naf-modal{width:min(720px,100%);max-height:min(88vh,900px);overflow:auto;background:#fff;border:1px solid var(--border);border-radius:18px;box-shadow:0 24px 70px rgba(16,24,40,.2);padding:22px}
+.naf-modal-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+@media(max-width:680px){.naf-action-toolbar{align-items:stretch}.naf-action-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}.naf-action-toolbar button{min-width:0;width:100%;padding:9px 5px;font-size:10px}}
+@media print{.naf-action-toolbar,.no-print{display:none!important}}
+
+/* Consistent base geometry for controls in management workspaces; semantic variants retain their own actions. */
+.content button,.enterprise-main button,.module-runtime button,.command-page button,.admin-main button{min-height:40px;border-radius:10px;font-weight:600}
+.content button:not([data-action]):not(.primary):not(.danger):not(.actionSave):not(.actionPublish):not(.actionEdit):not(.actionNew):not(.actionDelete):not(.actionCancel),.enterprise-main button:not([data-action]):not(.primary):not(.danger),.module-runtime button:not([data-action]):not(.primary):not(.danger),.command-page button:not([data-action]):not(.primary):not(.danger){box-shadow:0 1px 3px rgba(20,35,55,.05)}
+.content button.primary,.enterprise-main button.primary,.module-runtime button.primary,.command-page button.primary{background:linear-gradient(135deg,#3285e5,#1760bd);border-color:#1760bd;color:#fff}
+.content button.danger,.enterprise-main button.danger,.module-runtime button.danger,.command-page button.danger{background:linear-gradient(135deg,#f05b64,#d93643);border-color:#d93643;color:#fff}
+.content button:not(:disabled):hover,.enterprise-main button:not(:disabled):hover,.module-runtime button:not(:disabled):hover,.command-page button:not(:disabled):hover{box-shadow:0 4px 11px rgba(20,35,55,.1)}

@@ -95,9 +95,21 @@ domainMarketplaceRouter.post("/api/marketplace/sellers",requireAuth,requirePermi
   const rate=bodyNumber(req.body?.commissionRate??0);
   if(!legal||!display||rate===null||rate<0||rate>100)return res.status(400).json({error:"اطلاعات فروشنده نامعتبر است"});
   const r=await query("insert into sellers(tenant_id,legal_name,display_name,commission_rate) values($1,$2,$3,$4) returning *",[ctx.id,legal,display,rate]);
+  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.created','seller',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({legalName:legal,displayName:display,commissionRate:rate})]);
   res.status(201).json(r.rows[0]);
 }));
 
+domainMarketplaceRouter.patch("/api/marketplace/sellers/:id",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const legal=bodyString(req.body?.legalName,250),display=bodyString(req.body?.displayName,250);
+ const rate=req.body?.commissionRate===undefined?null:bodyNumber(req.body?.commissionRate);
+ if(rate!==null&&(rate<0||rate>100))return res.status(400).json({error:"نرخ کمیسیون باید بین صفر تا صد باشد"});
+ if(!legal&&!display&&rate===null)return res.status(400).json({error:"حداقل یک فیلد برای ویرایش لازم است"});
+ const r=await query("update sellers set legal_name=coalesce($1,legal_name),display_name=coalesce($2,display_name),commission_rate=coalesce($3,commission_rate),updated_at=now() where id=$4 and tenant_id=$5 returning *",[legal||null,display||null,rate,req.params.id,ctx.id]);
+ if(!r.rowCount)return res.status(404).json({error:"فروشنده پیدا نشد"});
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.updated','seller',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({legalName:r.rows[0].legal_name,displayName:r.rows[0].display_name,commissionRate:r.rows[0].commission_rate})]);
+ res.json(r.rows[0]);
+}));
 domainMarketplaceRouter.get("/api/marketplace/stores",requireAuth,requirePermission("store:view"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
@@ -113,9 +125,21 @@ domainMarketplaceRouter.post("/api/marketplace/stores",requireAuth,requirePermis
   const owned=await query("select id from sellers where id=$1 and tenant_id=$2",[seller,ctx.id]);
   if(!owned.rowCount)return res.status(404).json({error:"فروشنده در این محدوده پیدا نشد"});
   const r=await query("insert into stores(tenant_id,seller_id,code,name,slug) values($1,$2,$3,$4,$5) returning *",[ctx.id,seller,code,name,slug]);
+  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'store.created','store',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({sellerId:seller,code,name,slug})]);
   res.status(201).json(r.rows[0]);
 }));
 
+domainMarketplaceRouter.patch("/api/marketplace/stores/:id",requireAuth,requirePermission("store:manage"),asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const name=bodyString(req.body?.name,200),slug=bodyString(req.body?.slug,120),domain=bodyString(req.body?.domain,253);
+ if(!name&&!slug&&req.body?.domain===undefined)return res.status(400).json({error:"حداقل یک فیلد برای ویرایش لازم است"});
+ if(slug&&!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return res.status(400).json({error:"شناسه نشانی فروشگاه معتبر نیست"});
+ if(domain&&!/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(domain))return res.status(400).json({error:"دامنه فروشگاه معتبر نیست"});
+ const r=await query("update stores set name=coalesce($1,name),slug=coalesce($2,slug),domain=case when $3::boolean then nullif($4,'') else domain end,updated_at=now() where id=$5 and tenant_id=$6 returning *",[name||null,slug||null,req.body?.domain!==undefined,domain,req.params.id,ctx.id]);
+ if(!r.rowCount)return res.status(404).json({error:"فروشگاه پیدا نشد"});
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'store.updated','store',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({name:r.rows[0].name,slug:r.rows[0].slug,domain:r.rows[0].domain})]);
+ res.json(r.rows[0]);
+}));
 domainMarketplaceRouter.get("/api/marketplace/brands",requireAuth,requirePermission("product:view"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
@@ -173,6 +197,7 @@ domainMarketplaceRouter.post("/api/marketplace/products",requireAuth,requirePerm
   const submittedAttributes=req.body?.attributes&&typeof req.body.attributes==="object"?req.body.attributes as Record<string,unknown>:{};
   const attributes={inventoryQuantity:10,inventoryVerified:false,inventorySource:"",...submittedAttributes};
   const r=await query("insert into products(tenant_id,seller_id,store_id,sku,title,description,category,category_id,brand_id,price,discount_price,currency,status,attributes) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'draft',$13) returning *",[ctx.id,seller,bodyString(req.body?.storeId,100)||null,sku,title,bodyString(req.body?.description,2000)||null,bodyString(req.body?.category,200)||null,categoryId,brandId,price,discountPrice,bodyString(req.body?.currency,10)||"IRR",JSON.stringify(attributes)]);
+  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'product.created','product',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({sellerId:seller,sku,title,price,status:"draft"})]);
   res.status(201).json(r.rows[0]);
 }));
 
@@ -182,7 +207,7 @@ domainMarketplaceRouter.post("/api/marketplace/products",requireAuth,requirePerm
  * Records remain drafts until price, seller, image and inventory have been reviewed.
  * Product images must already be hosted by this platform; external hotlinks are rejected.
  */
-domainMarketplaceRouter.post("/api/marketplace/products/:id/images",requireAuth,requirePermission("product:image:manage"),asyncHandler(async(req,res)=>{
+domainMarketplaceRouter.post("/api/marketplace/products/:id/images",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const url=bodyString(req.body?.url,500);
@@ -197,16 +222,18 @@ domainMarketplaceRouter.post("/api/marketplace/products/:id/images",requireAuth,
     await client.query("begin");
     if(isMain)await client.query("update product_images set is_main=false,updated_at=now() where tenant_id=$1 and product_id=$2",[ctx.id,req.params.id]);
     const saved=await client.query("insert into product_images(tenant_id,product_id,url,alt_text,is_main,sort_order) values($1,$2,$3,$4,$5,$6) returning id,product_id,url,alt_text,is_main,sort_order",[ctx.id,req.params.id,url,altText,isMain,sortOrder]);
+    await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'product.image.added','product',$3,$4)",[ctx.id,(req as any).user.id,req.params.id,JSON.stringify({imageId:saved.rows[0].id,url,isMain,sortOrder})]);
     await client.query("commit");
     res.status(201).json({item:saved.rows[0]});
   }catch(error){await client.query("rollback");throw error;}finally{client.release();}
 }));
 
-domainMarketplaceRouter.delete("/api/marketplace/products/:id/images/:imageId",requireAuth,requirePermission("product:image:manage"),asyncHandler(async(req,res)=>{
+domainMarketplaceRouter.delete("/api/marketplace/products/:id/images/:imageId",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const removed=await query("delete from product_images where tenant_id=$1 and product_id=$2 and id=$3 returning id",[ctx.id,req.params.id,req.params.imageId]);
   if(!removed.rowCount)return res.status(404).json({error:"تصویر محصول پیدا نشد"});
+  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'product.image.removed','product',$3,$4)",[ctx.id,(req as any).user.id,req.params.id,JSON.stringify({imageId:removed.rows[0].id})]);
   res.json({deleted:true,id:removed.rows[0].id});
 }));
 
@@ -851,7 +878,7 @@ domainMarketplaceRouter.post("/api/marketplace/reference-catalog/materialize",re
   });
 }));
 
-domainMarketplaceRouter.get("/api/marketplace/digikala-catalog",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
+domainMarketplaceRouter.get("/api/marketplace/reference-catalog/stored",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const r=await query("select source_product_id as id,sku,title,description,category,source_price as price,original_price,discount_percent,currency,image_url,source_url,brand,rating,source_available,specifications,gallery_images,variants,source_fetched_at from catalog_reference_products where tenant_id=$1 order by category,title limit 500",[ctx.id]);
@@ -953,12 +980,14 @@ domainMarketplaceRouter.get("/api/public/marketplace",asyncHandler(async(req,res
 domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/status",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
  const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const status=bodyString(req.body?.status,20);if(!["pending","active","suspended","closed"].includes(status))return res.status(400).json({error:"وضعیت فروشنده نامعتبر است"});
- const r=await query("update sellers set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);if(!r.rowCount)return res.status(404).json({error:"فروشنده پیدا نشد"});res.json(r.rows[0]);
+ const r=await query("update sellers set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);if(!r.rowCount)return res.status(404).json({error:"فروشنده پیدا نشد"});
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.status.updated','seller',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({status})]);res.json(r.rows[0]);
 }));
 domainMarketplaceRouter.patch("/api/marketplace/stores/:id/status",requireAuth,requirePermission("store:manage"),asyncHandler(async(req,res)=>{
  const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const status=bodyString(req.body?.status,20);if(!["draft","active","suspended","closed"].includes(status))return res.status(400).json({error:"وضعیت فروشگاه نامعتبر است"});
- const r=await query("update stores set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);if(!r.rowCount)return res.status(404).json({error:"فروشگاه پیدا نشد"});res.json(r.rows[0]);
+ const r=await query("update stores set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);if(!r.rowCount)return res.status(404).json({error:"فروشگاه پیدا نشد"});
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'store.status.updated','store',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({status})]);res.json(r.rows[0]);
 }));
 domainMarketplaceRouter.patch("/api/marketplace/products/:id",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
  const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
@@ -978,6 +1007,7 @@ domainMarketplaceRouter.patch("/api/marketplace/products/:id",requireAuth,requir
   [title,description||null,category||null,req.body?.categoryId!==undefined,categoryId,req.body?.brandId!==undefined,brandId,discountPrice,price,req.params.id,ctx.id]
  );
  if(!result.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'product.updated','product',$3,$4)",[ctx.id,(req as any).user.id,result.rows[0].id,JSON.stringify({sku:result.rows[0].sku,title,price,discountPrice,category,categoryId,brandId})]);
  res.json({item:result.rows[0],message:"قیمت فروش و مشخصات در کاتالوگ داخلی ذخیره شد"});
 }));
 
@@ -997,6 +1027,7 @@ domainMarketplaceRouter.patch("/api/marketplace/products/:id/inventory",requireA
   [JSON.stringify({inventoryQuantity:quantity,inventorySource:source,sourceType,inventoryVerified:verified,inventoryVerifiedAt:verified?new Date().toISOString():null,supplierReference:sourceType==="supplier-verified"?bodyString(req.body?.supplierReference,200):null}),req.params.id,ctx.id]
  );
  if(!result.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'product.inventory.updated','product',$3,$4)",[ctx.id,(req as any).user.id,result.rows[0].id,JSON.stringify({quantity,source,sourceType,verified,supplierReference:sourceType==="supplier-verified"?bodyString(req.body?.supplierReference,200):null})]);
  res.json({item:result.rows[0],message:verified&&quantity>0?"موجودی ثبت و تأیید شد؛ انتشار فقط پس از تکمیل اطلاعات محصول و فعال بودن فروشنده ممکن است.":"موجودی ذخیره شد اما تا زمان تأیید موجودی، کالا در بازارگاه عمومی نمایش داده نمی‌شود."});
 }));
 
@@ -1011,121 +1042,6 @@ domainMarketplaceRouter.patch("/api/marketplace/products/:id/status",requireAuth
  if(status==="active"&&(attributes.demoCatalog===true||attributes.sourceType==="external-reference"||(attributes.sourceName==="دیجی‌کالا"&&attributes.catalogOrigin!=="internal-catalog-copy")))return res.status(409).json({error:"کالای مرجع یا آزمایشی قابل انتشار نیست؛ ابتدا آن را به کاتالوگ داخلی تبدیل کنید"});
  if(status==="active"&&!((attributes.catalogOrigin==="internal-catalog-copy"&&attributes.preorderEnabled===true&&attributes.inventoryMode==="preorder"&&Number.isInteger(Number(attributes.preorderLimit))&&Number(attributes.preorderLimit)>0)||(attributes.inventoryVerified===true&&Number.isInteger(Number(attributes.inventoryQuantity))&&Number(attributes.inventoryQuantity)>0&&["seller-owned","supplier-verified"].includes(String(attributes.sourceType||""))&&String(attributes.inventorySource||"").trim())))return res.status(409).json({error:"برای انتشار، موجودی واقعی را تأیید کنید یا ظرفیت پیش‌فروش داخلی معتبر تعریف شده باشد"});
  const r=await query("update products set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);
- res.json(r.rows[0]);
-}));
-
-domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/status",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
- const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const status=bodyString(req.body?.status,20);if(!["pending","active","suspended","closed"].includes(status))return res.status(400).json({error:"وضعیت فروشنده نامعتبر است"});
- const r=await query("update sellers set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);if(!r.rowCount)return res.status(404).json({error:"فروشنده پیدا نشد"});res.json(r.rows[0]);
-}));
-domainMarketplaceRouter.patch("/api/marketplace/stores/:id/status",requireAuth,requirePermission("store:manage"),asyncHandler(async(req,res)=>{
- const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const status=bodyString(req.body?.status,20);if(!["draft","active","suspended","closed"].includes(status))return res.status(400).json({error:"وضعیت فروشگاه نامعتبر است"});
- const r=await query("update stores set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);if(!r.rowCount)return res.status(404).json({error:"فروشگاه پیدا نشد"});res.json(r.rows[0]);
-}));
-domainMarketplaceRouter.patch("/api/marketplace/products/:id",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
- const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const title=bodyString(req.body?.title,250);
- const price=bodyNumber(req.body?.price);
- const description=bodyString(req.body?.description,5000);
- const category=bodyString(req.body?.category,200);
- if(!title||price===null||price<=0)return res.status(400).json({error:"عنوان و قیمت فروش داخلی باید معتبر و قیمت بیشتر از صفر باشد"});
- const result=await query(
-  "update products set title=$1,description=$2,category=$3,price=$4,attributes=jsonb_set(coalesce(attributes,'{}'::jsonb),'{priceReviewRequired}','false'::jsonb,true),updated_at=now() where id=$5 and tenant_id=$6 returning id,sku,title,description,category,price,currency,status,seller_id,attributes",
-  [title,description||null,category||null,price,req.params.id,ctx.id]
- );
- if(!result.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});
- res.json({item:result.rows[0],message:"قیمت فروش و مشخصات در کاتالوگ داخلی ذخیره شد"});
-}));
-
-domainMarketplaceRouter.patch("/api/marketplace/products/:id/inventory",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
- const ctx=await tenantContext(req,(req as any).user);
- if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const quantity=bodyNumber(req.body?.quantity);
- const sourceType=bodyString(req.body?.sourceType,40);
- const source=bodyString(req.body?.source,250);
- const verified=req.body?.verified===true;
- if(quantity===null||!Number.isInteger(quantity)||quantity<0)return res.status(400).json({error:"موجودی باید عدد صحیح و صفر یا بیشتر باشد"});
- if(!["seller-owned","supplier-verified"].includes(sourceType))return res.status(400).json({error:"منبع کالا باید موجودی خود فروشنده یا تأمین‌کننده تأییدشده باشد"});
- if(!source)return res.status(400).json({error:"نام یا مرجع تأمین کالا الزامی است"});
- if(sourceType==="supplier-verified"&&!bodyString(req.body?.supplierReference,200))return res.status(400).json({error:"برای کالای تأمین‌کننده، شناسه یا مرجع تأمین الزامی است"});
- const result=await query(
-  "update products set attributes=coalesce(attributes,'{}'::jsonb)||$1::jsonb,updated_at=now() where id=$2 and tenant_id=$3 returning id,sku,title,status,attributes",
-  [JSON.stringify({inventoryQuantity:quantity,inventorySource:source,sourceType,inventoryVerified:verified,inventoryVerifiedAt:verified?new Date().toISOString():null,supplierReference:sourceType==="supplier-verified"?bodyString(req.body?.supplierReference,200):null}),req.params.id,ctx.id]
- );
- if(!result.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});
- res.json({item:result.rows[0],message:verified&&quantity>0?"موجودی ثبت و تأیید شد؛ انتشار فقط پس از تکمیل اطلاعات محصول و فعال بودن فروشنده ممکن است.":"موجودی ذخیره شد اما تا زمان تأیید موجودی، کالا در بازارگاه عمومی نمایش داده نمی‌شود."});
-}));
-
-domainMarketplaceRouter.patch("/api/marketplace/products/:id/status",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
- const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const status=bodyString(req.body?.status,20);if(!["draft","active","archived"].includes(status))return res.status(400).json({error:"وضعیت محصول نامعتبر است"});
- const current=await query("select p.id,p.price,p.attributes,s.status as seller_status from products p join sellers s on s.id=p.seller_id and s.tenant_id=p.tenant_id where p.id=$1 and p.tenant_id=$2",[req.params.id,ctx.id]);
- if(!current.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});
- if(status==="active"&&current.rows[0].seller_status!=="active")return res.status(409).json({error:"برای انتشار محصول ابتدا فروشنده را فعال کنید"});
- const attributes=current.rows[0].attributes&&typeof current.rows[0].attributes==="object"?current.rows[0].attributes as Record<string,unknown>:{};
- if(status==="active"&&(Number(current.rows[0].price)<=0||attributes.priceReviewRequired===true))return res.status(409).json({error:"قبل از انتشار، قیمت فروش داخلی و اطلاعات محصول را بررسی و ذخیره کنید"});
- if(status==="active"&&(attributes.demoCatalog===true||attributes.sourceType==="external-reference"||attributes.sourceName==="دیجی‌کالا"))return res.status(409).json({error:"کالای مرجع یا آزمایشی قابل انتشار نیست؛ کالای متعلق به فروشنده را ثبت کنید"});
- if(status==="active"&&(attributes.inventoryVerified!==true||!Number.isInteger(Number(attributes.inventoryQuantity))||Number(attributes.inventoryQuantity)<=0||!["seller-owned","supplier-verified"].includes(String(attributes.sourceType||""))||!String(attributes.inventorySource||"").trim()))return res.status(409).json({error:"برای انتشار، منبع واقعی کالا و موجودی مثبت را ثبت و تأیید کنید"});
- const r=await query("update products set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);
- res.json(r.rows[0]);
-}));
-
-domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/status",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
- const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const status=bodyString(req.body?.status,20);if(!["pending","active","suspended","closed"].includes(status))return res.status(400).json({error:"وضعیت فروشنده نامعتبر است"});
- const r=await query("update sellers set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);if(!r.rowCount)return res.status(404).json({error:"فروشنده پیدا نشد"});res.json(r.rows[0]);
-}));
-domainMarketplaceRouter.patch("/api/marketplace/stores/:id/status",requireAuth,requirePermission("store:manage"),asyncHandler(async(req,res)=>{
- const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const status=bodyString(req.body?.status,20);if(!["draft","active","suspended","closed"].includes(status))return res.status(400).json({error:"وضعیت فروشگاه نامعتبر است"});
- const r=await query("update stores set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);if(!r.rowCount)return res.status(404).json({error:"فروشگاه پیدا نشد"});res.json(r.rows[0]);
-}));
-domainMarketplaceRouter.patch("/api/marketplace/products/:id",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
- const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const title=bodyString(req.body?.title,250);
- const price=bodyNumber(req.body?.price);
- const description=bodyString(req.body?.description,5000);
- const category=bodyString(req.body?.category,200);
- if(!title||price===null||price<=0)return res.status(400).json({error:"عنوان و قیمت فروش داخلی باید معتبر و قیمت بیشتر از صفر باشد"});
- const result=await query(
-  "update products set title=$1,description=$2,category=$3,price=$4,attributes=jsonb_set(coalesce(attributes,'{}'::jsonb),'{priceReviewRequired}','false'::jsonb,true),updated_at=now() where id=$5 and tenant_id=$6 returning id,sku,title,description,category,price,currency,status,seller_id,attributes",
-  [title,description||null,category||null,price,req.params.id,ctx.id]
- );
- if(!result.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});
- res.json({item:result.rows[0],message:"قیمت فروش و مشخصات در کاتالوگ داخلی ذخیره شد"});
-}));
-
-domainMarketplaceRouter.patch("/api/marketplace/products/:id/inventory",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
- const ctx=await tenantContext(req,(req as any).user);
- if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const quantity=bodyNumber(req.body?.quantity);
- const sourceType=bodyString(req.body?.sourceType,40);
- const source=bodyString(req.body?.source,250);
- const verified=req.body?.verified===true;
- if(quantity===null||!Number.isInteger(quantity)||quantity<0)return res.status(400).json({error:"موجودی باید عدد صحیح و صفر یا بیشتر باشد"});
- if(!["seller-owned","supplier-verified"].includes(sourceType))return res.status(400).json({error:"منبع کالا باید موجودی خود فروشنده یا تأمین‌کننده تأییدشده باشد"});
- if(!source)return res.status(400).json({error:"نام یا مرجع تأمین کالا الزامی است"});
- if(sourceType==="supplier-verified"&&!bodyString(req.body?.supplierReference,200))return res.status(400).json({error:"برای کالای تأمین‌کننده، شناسه یا مرجع تأمین الزامی است"});
- const result=await query(
-  "update products set attributes=coalesce(attributes,'{}'::jsonb)||$1::jsonb,updated_at=now() where id=$2 and tenant_id=$3 returning id,sku,title,status,attributes",
-  [JSON.stringify({inventoryQuantity:quantity,inventorySource:source,sourceType,inventoryVerified:verified,inventoryVerifiedAt:verified?new Date().toISOString():null,supplierReference:sourceType==="supplier-verified"?bodyString(req.body?.supplierReference,200):null}),req.params.id,ctx.id]
- );
- if(!result.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});
- res.json({item:result.rows[0],message:verified&&quantity>0?"موجودی ثبت و تأیید شد؛ انتشار فقط پس از تکمیل اطلاعات محصول و فعال بودن فروشنده ممکن است.":"موجودی ذخیره شد اما تا زمان تأیید موجودی، کالا در بازارگاه عمومی نمایش داده نمی‌شود."});
-}));
-
-domainMarketplaceRouter.patch("/api/marketplace/products/:id/status",requireAuth,requirePermission("product:manage"),asyncHandler(async(req,res)=>{
- const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const status=bodyString(req.body?.status,20);if(!["draft","active","archived"].includes(status))return res.status(400).json({error:"وضعیت محصول نامعتبر است"});
- const current=await query("select p.id,p.price,p.attributes,s.status as seller_status from products p join sellers s on s.id=p.seller_id and s.tenant_id=p.tenant_id where p.id=$1 and p.tenant_id=$2",[req.params.id,ctx.id]);
- if(!current.rowCount)return res.status(404).json({error:"محصول پیدا نشد"});
- if(status==="active"&&current.rows[0].seller_status!=="active")return res.status(409).json({error:"برای انتشار محصول ابتدا فروشنده را فعال کنید"});
- const attributes=current.rows[0].attributes&&typeof current.rows[0].attributes==="object"?current.rows[0].attributes as Record<string,unknown>:{};
- if(status==="active"&&(Number(current.rows[0].price)<=0||attributes.priceReviewRequired===true))return res.status(409).json({error:"قبل از انتشار، قیمت فروش داخلی و اطلاعات محصول را بررسی و ذخیره کنید"});
- if(status==="active"&&(attributes.demoCatalog===true||attributes.sourceType==="external-reference"||attributes.sourceName==="دیجی‌کالا"))return res.status(409).json({error:"کالای مرجع یا آزمایشی قابل انتشار نیست؛ کالای متعلق به فروشنده را ثبت کنید"});
- if(status==="active"&&(attributes.inventoryVerified!==true||!Number.isInteger(Number(attributes.inventoryQuantity))||Number(attributes.inventoryQuantity)<=0||!["seller-owned","supplier-verified"].includes(String(attributes.sourceType||""))||!String(attributes.inventorySource||"").trim()))return res.status(409).json({error:"برای انتشار، منبع واقعی کالا و موجودی مثبت را ثبت و تأیید کنید"});
- const r=await query("update products set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,ctx.id]);
+ await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'product.status.updated','product',$3,$4)",[ctx.id,(req as any).user.id,r.rows[0].id,JSON.stringify({status})]);
  res.json(r.rows[0]);
 }));

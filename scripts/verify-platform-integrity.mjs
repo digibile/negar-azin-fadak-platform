@@ -17,6 +17,10 @@ const organization=fs.readFileSync(path.join(root,"apps/api/src/domain-organizat
 const commandPage=fs.readFileSync(path.join(root,"apps/web/app/command-center/page.tsx"),"utf8");
 const masterMenu=fs.readFileSync(path.join(root,"apps/web/app/admin/master-menu.ts"),"utf8");
 const sidebar=fs.readFileSync(path.join(root,"apps/web/app/admin/AdminSidebar.tsx"),"utf8");
+const marketplaceApi=fs.readFileSync(path.join(root,"apps/api/src/domain-marketplace.ts"),"utf8");
+const marketplaceRoutes=[...marketplaceApi.matchAll(/domainMarketplaceRouter\.(get|post|patch|put|delete)\("([^"]+)"/g)].map(match=>match[1].toUpperCase()+" "+match[2]);
+const duplicateMarketplaceRoutes=marketplaceRoutes.filter((route,index)=>marketplaceRoutes.indexOf(route)!==index);
+if(duplicateMarketplaceRoutes.length)throw new Error("Duplicate marketplace API routes: "+[...new Set(duplicateMarketplaceRoutes)].join(", "));
 const modulePage=fs.readFileSync(path.join(root,"apps/web/app/modules/page.tsx"),"utf8");
 
 const expected=[
@@ -97,7 +101,7 @@ const missingLegacy=expectedLegacyCodes.filter(code=>!masterMenu.includes('"'+co
 if(missingLegacy.length)throw new Error("Legacy menu codes missing from canonical panels: "+missingLegacy.join(", "));
 const routeRegistryBlock=modulePage.match(/const MODULE_ROUTE_REGISTRY\s*:\s*Record<string,\s*\(context:\s*ModuleRouteContext\)\s*=>\s*React\.ReactNode>\s*=\s*\{([\s\S]*?)\n\};/);
 const operationalCodesBlock=modulePage.match(/const operationalModuleCodes\s*=\s*\[([\s\S]*?)\];/);
-const landingCodesBlock=modulePage.match(/const canonicalLandingCodes\s*=\s*\[([\s\S]*?)\];/);
+const landingCodesBlock=modulePage.match(/const canonicalLandingCodes(?:\s*:\s*string\[\])?\s*=\s*\[([\s\S]*?)\];/);
 if(!routeRegistryBlock||!operationalCodesBlock||!landingCodesBlock)throw new Error("Unified module route registry could not be parsed");
 if(modulePage.includes("WORKSPACE_REGISTRY")||modulePage.includes("CANONICAL_LANDING_CODES")||modulePage.includes("CANONICAL_WORKSPACES")||modulePage.includes("GENERIC_OPERATIONAL_WORKSPACES")||modulePage.includes("const canonicalCodes"))throw new Error("Duplicate module dispatcher registries must be removed");
 const declaredCodes=new Set([
@@ -130,12 +134,12 @@ const firstChildren=[...firstPanel[4].matchAll(/child\("([^"]+)"(?:,\s*(?:"([^"]
 const firstDestinations=firstChildren.map(child=>child[2]||child[3]).filter(Boolean);
 if(new Set(firstDestinations).size!==firstDestinations.length)throw new Error("Panel 01 contains duplicate child destinations");
 if(!masterMenu.includes('child("مرکز فرماندهی عملیاتی","","command-center","/command-center")'))throw new Error("Panel 01 command center route is not explicitly registered");
-if(!sidebar.includes("const childRoute=child.route"))throw new Error("Sidebar does not honor explicit canonical child routes");
+if(!sidebar.includes('if(node.path&&node.path!=="#")return node.path')||!sidebar.includes('if(node.menu_key)return "/modules/?code="+encodeURIComponent(node.menu_key)'))throw new Error("Sidebar must honor backend-provided paths and resolve pathless menu nodes through their menu keys");
 const unroutedLegacy=expectedLegacyCodes.filter(code=>!declaredCodes.has(code));
 if(unroutedLegacy.length)throw new Error("Legacy menu codes are not registered in a real dispatcher branch/workspace: "+unroutedLegacy.join(", "));
 
-if(!sidebar.includes("const visit=(nodes:MenuNode[])")||!sidebar.includes("visit(node.child_items||[])"))throw new Error("Legacy menu merge must index every nested level");
-if(!sidebar.includes("function flattenTitles(nodes:MenuNode[])")||!sidebar.includes("...flattenTitles(x.dbChildren)"))throw new Error("Menu search must include all nested legacy levels");
+if(!sidebar.includes("function containsPath(node:MenuNode,path:string)")||!sidebar.includes("(node.child_items||[]).some(child=>containsPath(child,path))"))throw new Error("Central menu navigation must inspect every nested API node");
+if(!sidebar.includes("function filterTree(nodes:MenuNode[],query:string)")||!sidebar.includes("filterTree(node.child_items||[],query)"))throw new Error("Menu search must include every nested API node without dropping ancestors");
 
 const dynamicMenu=fs.readFileSync(path.join(root,"apps/api/src/dynamic-menu.ts"),"utf8");
 const workflowDir=path.join(root,".github/workflows");
@@ -230,5 +234,16 @@ if(!modulePage.includes('"03-users-access": () => <IdentityWorkspace />'))throw 
 for(const tab of ["users","profiles","roles","groups","permissions","policies","auth","twofa","sessions","audit"])if(!identityWorkspace.includes('["'+tab+'"'))throw new Error("Panel 03 workspace tab missing: "+tab);
 for(const title of ["مدیریت کاربران و حساب‌ها","پروفایل کاربران","نقش‌ها و مسئولیت‌ها","گروه‌های کاربری","کاتالوگ مجوزها و دسترسی‌ها","سیاست‌های امنیتی","احراز هویت دومرحله‌ای","نشست‌ها و دستگاه‌های مجاز","تاریخچه ورود و ممیزی امنیتی"])if(!masterMenu.includes(title))throw new Error("Panel 03 child menu missing: "+title);
 if(fs.existsSync(path.join(root,"apps/web/app/modules/SecurityWorkspace.tsx"))||fs.existsSync(path.join(root,"apps/web/app/modules/SecurityWorkspace.module.css")))throw new Error("Duplicate security workspace must be removed after consolidation");
+
+
+const assistantApi=fs.readFileSync(path.join(root,"apps/api/src/ai-workshop.ts"),"utf8");
+const assistantUi=fs.readFileSync(path.join(root,"apps/web/app/admin/GlobalAIAssistant.tsx"),"utf8");
+const assistantMigration=fs.readFileSync(path.join(root,"database/migrations/149_ai_assistant_conversation_history.sql"),"utf8");
+const assistantRootLayout=fs.readFileSync(path.join(root,"apps/web/app/layout.tsx"),"utf8");
+if(!server.includes("app.use(aiWorkshopRouter)"))throw new Error("AI assistant API router is not mounted");
+if(!assistantApi.includes('router.get("/api/ai/assistant/history"')&&!assistantApi.includes('aiWorkshopRouter.get("/api/ai/assistant/status"')||!assistantApi.includes('aiWorkshopRouter.get("/api/ai/assistant/history"'))throw new Error("Persistent AI assistant history endpoint is missing");
+if(!assistantApi.includes('aiWorkshopRouter.post("/api/ai/assistant/chat"')||!assistantApi.includes("resolveTenant")||!assistantApi.includes("ai_assistant_messages"))throw new Error("AI assistant chat must use authenticated tenant-scoped persistence");
+if(!assistantMigration.includes("unique(tenant_id,user_id,page_path)")||!assistantMigration.includes("references users(id)")||!assistantMigration.includes("references tenants(id)"))throw new Error("AI assistant history must enforce tenant and user ownership");
+if(!assistantRootLayout.includes("<GlobalAIAssistant/>")||!assistantUi.includes("/api/ai/assistant/history")||!assistantUi.includes("/api/ai/assistant/chat"))throw new Error("Global AI assistant must be mounted and use real history/chat APIs");
 
 console.log("Platform integrity OK: 45 modules, 20 canonical panels, recursive legacy-menu merge/search, all 49 legacy codes routed, unified workflow, approval-gated deployment, artifact secret exclusions, live menu-tree route, stages 19-45 operational layers, storage, pagination, and activation verified.");
