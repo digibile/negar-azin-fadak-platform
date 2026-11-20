@@ -115,6 +115,51 @@ logisticsRouter.post("/api/logistics/routes",requireAuth,requirePermission("modu
   res.status(201).json((await query("insert into logistics_routes(tenant_id,code,name,origin,destination,distance_km) values($1,$2,$3,$4,$5,$6) returning *",[t.id,b.code,b.name,b.origin,b.destination,Number(b.distanceKm||0)])).rows[0]);
 }));
 
+logisticsRouter.post("/api/logistics/marketplace-orders/:orderId/shipments",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  if(!b.vehicleId||!b.driverId)return fail(res,400,"برای ثبت ارسال، ناوگان و راننده الزامی است");
+  const c=await pool.connect();
+  try{
+    await c.query("begin");
+    const order=(await c.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.orderId,t.id])).rows[0];
+    if(!order){await c.query("rollback");return fail(res,404,"سفارش فروشگاه پیدا نشد");}
+    if(order.status!=="processing"){await c.query("rollback");return fail(res,409,"ارسال فقط پس از شروع آماده‌سازی سفارش ممکن است");}
+    const existing=(await c.query("select * from logistics_shipments where tenant_id=$1 and marketplace_order_id=$2 for update",[t.id,order.id])).rows[0];
+    if(existing){await c.query("commit");return res.json({shipment:existing,idempotent:true});}
+    const vehicle=(await c.query("select * from logistics_vehicles where id=$1 and tenant_id=$2 for update",[b.vehicleId,t.id])).rows[0];
+    if(!vehicle||vehicle.status!=="available"){await c.query("rollback");return fail(res,409,"ناوگان انتخاب‌شده در دسترس نیست");}
+    const driver=(await c.query("select * from logistics_drivers where id=$1 and tenant_id=$2",[b.driverId,t.id])).rows[0];
+    if(!driver||driver.status!=="active"){await c.query("rollback");return fail(res,409,"راننده فعال پیدا نشد");}
+    if(driver.license_expiry&&new Date(driver.license_expiry)<new Date()){await c.query("rollback");return fail(res,409,"گواهینامه راننده منقضی شده است");}
+    const shipmentNo=String(b.shipmentNo||("SHP-"+order.order_no)).trim();
+    if(!shipmentNo){await c.query("rollback");return fail(res,400,"شماره مرسوله الزامی است");}
+    const shipment=(await c.query(
+      "insert into logistics_shipments(tenant_id,shipment_no,marketplace_order_id,vehicle_id,driver_id,origin,destination,tracking_code,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *",
+      [t.id,shipmentNo,order.id,vehicle.id,driver.id,String(b.origin||"انبار فروشنده"),String(b.destination||"نشانی مشتری"),b.trackingCode||null,(req as any).user.id]
+    )).rows[0];
+    await c.query("update logistics_vehicles set status='assigned' where id=$1 and tenant_id=$2",[vehicle.id,t.id]);
+    await c.query("insert into logistics_delivery_events(tenant_id,shipment_id,status,location,description,actor_user_id) values($1,$2,'planned',$3,$4,$5)",[t.id,shipment.id,shipment.origin,"مرسوله برای سفارش فروشگاه ایجاد شد",(req as any).user.id]);
+    await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.shipment_created','marketplace_order',$3,$4)",[t.id,(req as any).user.id,order.id,JSON.stringify({shipmentId:shipment.id,shipmentNo,trackingCode:shipment.tracking_code})]);
+    await c.query("commit");
+    await audit(t.id,"shipment",shipment.id,"marketplace_order_created",null,shipment.status,(req as any).user.id);
+    res.status(201).json({shipment});
+  }catch(e:any){await c.query("rollback");if(e?.code==="23505")return fail(res,409,"برای این سفارش مرسوله ثبت شده یا شماره رهگیری تکراری است");throw e;}
+  finally{c.release();}
+}));
+
+logisticsRouter.get("/api/marketplace/orders/:orderId/shipment",requireAuth,asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const order=(await query("select id,order_no,customer_ref from marketplace_orders where id=$1 and tenant_id=$2",[req.params.orderId,t.id])).rows[0];
+  if(!order)return fail(res,404,"سفارش پیدا نشد");
+  const user=(req as any).user;
+  const allowed=user.role==="admin"||order.customer_ref===user.id||await can(req,"order:lifecycle")||await can(req,"modules:12-logistics-supply:track");
+  if(!allowed)return fail(res,403,"دسترسی مشاهده رهگیری سفارش وجود ندارد");
+  const shipment=(await query("select * from logistics_shipments where tenant_id=$1 and marketplace_order_id=$2",[t.id,order.id])).rows[0];
+  if(!shipment)return res.json({order,shipment:null,events:[]});
+  const events=(await query("select id,status,location,description,occurred_at from logistics_delivery_events where tenant_id=$1 and shipment_id=$2 order by occurred_at,id",[t.id,shipment.id])).rows;
+  res.json({order,shipment,events});
+}));
+
 logisticsRouter.get("/api/logistics/shipments",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   res.json((await query(
@@ -190,6 +235,14 @@ logisticsRouter.patch("/api/logistics/shipments/:id/status",requireAuth,asyncHan
     }
     if(s.supply_order_id&&b.status==="cancelled"){
       await c.query("update logistics_supply_orders set status='cancelled',updated_at=now() where id=$1 and tenant_id=$2 and status not in ('delivered','cancelled')",[s.supply_order_id,t.id]);
+    }
+    if(s.marketplace_order_id&&b.status==="in_transit"){
+      await c.query("update marketplace_orders set status='shipped',shipped_at=coalesce(shipped_at,now()),updated_at=now() where id=$1 and tenant_id=$2 and status='processing'",[s.marketplace_order_id,t.id]);
+      await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.order_shipped','marketplace_order',$3,$4)",[t.id,(req as any).user.id,s.marketplace_order_id,JSON.stringify({shipmentId:s.id,trackingCode:s.tracking_code})]);
+    }
+    if(s.marketplace_order_id&&b.status==="delivered"){
+      await c.query("update marketplace_orders set status='delivered',delivered_at=coalesce(delivered_at,now()),updated_at=now() where id=$1 and tenant_id=$2 and status='shipped'",[s.marketplace_order_id,t.id]);
+      await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.order_delivered','marketplace_order',$3,$4)",[t.id,(req as any).user.id,s.marketplace_order_id,JSON.stringify({shipmentId:s.id,location:b.location})]);
     }
     await c.query("insert into logistics_delivery_events(tenant_id,shipment_id,status,location,description,actor_user_id) values($1,$2,$3,$4,$5,$6)",[t.id,s.id,b.status,b.location||null,b.description||b.reason||null,(req as any).user.id]);
     await c.query("commit");
