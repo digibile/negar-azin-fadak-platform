@@ -70,3 +70,17 @@ test("purchase order creation validates each line and locks tenant-owned supplie
  assert.ok(purchasing.includes("quote.rows[0].supplier_id!==b.supplierId"));
  assert.ok(purchasing.includes("x.quantity<=0||x.unitPrice<0||x.taxRate<0||x.taxRate>100"));
 });
+
+test("sales invoice issuance locks a delivered tenant order and rejects duplicate invoices",()=>{
+ assert.ok(sales.includes("select * from sales_orders where id=$1 and tenant_id=$2 for update"));
+ assert.ok(sales.includes("if(x.status!==\"delivered\")"));
+ assert.ok(sales.includes("select id from sales_invoices where tenant_id=$1 and order_id=$2 limit 1"));
+ assert.ok(sales.includes("where id=$1 and tenant_id=$2 and status='delivered' returning id"));
+});
+
+test("sales invoice payments lock the invoice, validate outstanding balance and commit atomically",()=>{
+ assert.ok(sales.includes("select * from sales_invoices where id=$1 and tenant_id=$2 for update"));
+ assert.ok(sales.includes("paidBefore+amount>total+0.000001"));
+ assert.ok(sales.includes("update sales_invoices set paid_total=$1,status=$2,updated_at=now() where id=$3 and tenant_id=$4 returning id"));
+ assert.ok(sales.includes("if(!updated.rowCount){await c.query(\"rollback\")"));
+});
