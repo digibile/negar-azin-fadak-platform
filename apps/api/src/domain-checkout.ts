@@ -295,8 +295,8 @@ checkoutRouter.post("/api/storefront/orders/:id/cancel",requireAuth,asyncHandler
   if(!order.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش متعلق به این حساب پیدا نشد"});}
   if(order.rows[0].status==="cancelled"){await client.query("commit");return res.json({order:order.rows[0],alreadyCancelled:true});}
   if(!["pending","confirmed"].includes(order.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"لغو سفارش پس از شروع پردازش یا پرداخت از این مسیر مجاز نیست"});}
-  const paid=await client.query("select 1 from marketplace_payments where tenant_id=$1 and order_id=$2 and status in ('paid','authorized') limit 1",[t.id,order.rows[0].id]);
-  if(paid.rowCount){await client.query("rollback");return res.status(409).json({error:"سفارش دارای پرداخت موفق یا مجازشده است و باید از مسیر بررسی/بازپرداخت پرداخت پیگیری شود"});}
+  const paid=await client.query("select 1 from marketplace_payments where tenant_id=$1 and order_id=$2 and status in ('paid','authorized','pending') limit 1",[t.id,order.rows[0].id]);
+  if(paid.rowCount){await client.query("rollback");return res.status(409).json({error:"برای این سفارش تراکنش پرداخت فعال یا موفق وجود دارد؛ ابتدا وضعیت پرداخت را از درگاه بررسی کنید"});}
   const items=await client.query("select product_id,quantity from marketplace_order_items where order_id=$1",[order.rows[0].id]);
   for(const item of items.rows){
    await client.query("update product_inventory set reserved_quantity=greatest(0,reserved_quantity-$1),updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[Number(item.quantity),t.id,item.product_id,order.rows[0].store_id]);
