@@ -107,8 +107,17 @@ function CheckoutContent(){
     setMessage("سفارش ثبت شد. تا زمان صدور و تأیید پیش‌فاکتور حمل، امکان پرداخت وجود ندارد.");
     return;
    }else{
+    const addressChanged=Object.keys(shippingAddress).some((key:string)=>String((shippingAddress as any)[key]||"")!==String((order.shipping_address||{})[key]||""));
+    if(addressChanged){
+     const ar=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/shipping-address",{method:"PATCH",credentials:"include",headers:headers(),body:JSON.stringify({shippingAddress})});
+     const ab=await ar.json();if(!ar.ok)throw new Error(ab.error||"ثبت نشانی تحویل ناموفق بود");
+     const refreshed=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid),{credentials:"include"});const rb=await refreshed.json();
+     if(refreshed.ok)setOrder({...rb.order,deliveryQuote:rb.deliveryQuote||null,items:rb.items||[],payments:rb.payments||[],refunds:rb.refunds||[]});
+     setMessage("نشانی تحویل تغییر کرد. پیش‌فاکتور قبلی باطل شد و باید هزینه ارسال برای نشانی جدید دوباره استعلام شود.");
+     return;
+    }
     if(order?.delivery_quote_required&&order?.delivery_quote_snapshot?.status!=="accepted"){setError("ابتدا پیش‌فاکتور هزینه ارسال را بررسی و تأیید کنید.");return;}
-const ar=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/shipping-address",{method:"PATCH",credentials:"include",headers:headers(),body:JSON.stringify({shippingAddress})});const ab=await ar.json();if(!ar.ok)throw new Error(ab.error||"ثبت نشانی تحویل ناموفق بود");}
+   }
    const attemptKey=paymentAttemptKey||("WEB-"+oid+"-"+Date.now()+"-"+Math.random().toString(36).slice(2,10));
    if(!paymentAttemptKey)setPaymentAttemptKey(attemptKey);
    const pr=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/payment",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({
