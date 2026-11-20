@@ -65,6 +65,7 @@ for(const marker of [".settlement-card",".settlement-metric",".settlements-state
   if(!settlementCss.includes(marker))throw new Error("Settlement workspace isolated styles are missing: "+marker);
 }
 if(!checkoutApi.includes("async function canAccessCustomer")||!checkoutApi.includes("customerRef===user.id"))throw new Error("Customer checkout must authorize access by authenticated cart/order ownership");
+if(!checkoutApi.includes("resolvePublicTenant(req)")||!checkoutApi.includes("insert into user_tenants(user_id,tenant_id,is_default)"))throw new Error("New storefront customers must be safely attached to the tenant resolved from the public store domain");
 for(const route of [
   'checkoutRouter.post("/api/checkout/carts",requireAuth,asyncHandler',
   'checkoutRouter.post("/api/checkout/carts/:id/items",requireAuth,asyncHandler',
