@@ -14,6 +14,8 @@ type Order= {
  status:string;
  created_at?:string|null;
  updated_at?:string|null;
+ latest_return_id?:string|null;
+ latest_return_status?:string|null;
 };
 
 const labels:Record<string,string>={
@@ -34,9 +36,9 @@ const actions:Record<string,Array<{status:string;label:string;reason?:boolean;da
  pending:[{status:"confirmed",label:"تأیید سفارش"},{status:"cancelled",label:"لغو سفارش",reason:true,danger:true}],
  confirmed:[{status:"cancelled",label:"لغو سفارش",reason:true,danger:true}],
  paid:[{status:"processing",label:"شروع آماده‌سازی"}],
- processing:[{status:"shipped",label:"ثبت ارسال"},{status:"returned",label:"ثبت مرجوعی",reason:true,danger:true}],
- shipped:[{status:"delivered",label:"ثبت تحویل"},{status:"returned",label:"ثبت مرجوعی",reason:true,danger:true}],
- delivered:[{status:"returned",label:"ثبت مرجوعی",reason:true,danger:true}]
+ processing:[{status:"shipped",label:"ثبت ارسال"},{status:"return_request",label:"درخواست مرجوعی",reason:true,danger:true}],
+ shipped:[{status:"delivered",label:"ثبت تحویل"},{status:"return_request",label:"درخواست مرجوعی",reason:true,danger:true}],
+ delivered:[{status:"return_request",label:"درخواست مرجوعی",reason:true,danger:true}]
 };
 
 const money=(value:string|number,currency:string)=>Number(value||0).toLocaleString("fa-IR")+" "+(currency==="IRR"?"ریال":currency);
@@ -79,6 +81,18 @@ export default function OrdersPage(){
      method:"POST",
      body:JSON.stringify({reason})
     });
+   }else if(next==="return_request"){
+    await api("/api/marketplace/orders/"+encodeURIComponent(order.id)+"/returns",{
+     method:"POST",
+     body:JSON.stringify({reason})
+    });
+   }else if(next.startsWith("return_")){
+    if(!order.latest_return_id)throw new Error("پرونده مرجوعی سفارش پیدا نشد.");
+    const statusMap:Record<string,string>={return_approve:"approved",return_receive:"received",return_accept:"accepted",return_reject:"rejected"};
+    await api("/api/marketplace/returns/"+encodeURIComponent(order.latest_return_id)+"/status",{
+     method:"PATCH",
+     body:JSON.stringify({status:statusMap[next],...(reason?{reason}:{})})
+    });
    }else{
     await api("/api/marketplace/orders/"+encodeURIComponent(order.id)+"/status",{
      method:"PATCH",
@@ -120,11 +134,12 @@ export default function OrdersPage(){
      <b>{order.order_no}</b>
      <small>{order.customer_ref||"مشتری ثبت نشده"} · {date(order.created_at)}</small>
      {order.seller_name&&<small>فروشنده: {order.seller_name}</small>}
+     {order.latest_return_status&&<small>پرونده مرجوعی: {({requested:"درخواست‌شده",approved:"تأییدشده",received:"دریافت‌شده",accepted:"بازرسی و تأییدشده",rejected:"ردشده"} as Record<string,string>)[order.latest_return_status]||order.latest_return_status}</small>}
      <strong>{money(order.total_amount,order.currency)}</strong>
     </div>
     <div className="platform-order-state"><span className={"platform-order-badge status-"+order.status}>{labels[order.status]||order.status}</span><small>آخرین تغییر: {date(order.updated_at)}</small></div>
     <div className="platform-actions">
-     {(actions[order.status]||[]).map(action=><button
+     {(order.latest_return_status?({requested:[{status:"return_approve",label:"تأیید مرجوعی"},{status:"return_reject",label:"رد درخواست",reason:true,danger:true}],approved:[{status:"return_receive",label:"ثبت دریافت کالا"}],received:[{status:"return_accept",label:"تأیید بازرسی و ورود موجودی"},{status:"return_reject",label:"رد پس از بازرسی",reason:true,danger:true}]} as Record<string,Array<{status:string;label:string;reason?:boolean;danger?:boolean}>>)[order.latest_return_status]||[]:(actions[order.status]||[])).map(action=><button
       type="button"
       key={action.status}
       disabled={busyId===order.id}
