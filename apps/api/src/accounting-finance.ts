@@ -89,10 +89,29 @@ router.get("/api/accounting-finance/documents/:id",requireAuth,async(req,res)=>{
  const l=await query("select l.*,a.code account_code,a.name account_name,c.code cost_center_code,c.title cost_center_title from accounting_document_lines l join ledger_accounts a on a.id=l.account_id left join accounting_cost_centers c on c.id=l.cost_center_id where l.document_id=$1 order by l.line_no",[String(String(req.params.id))]);res.json({document:d.rows[0],lines:l.rows});
 });
 router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
- const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const s=req.body?.status;if(!["submitted","approved","posted","void"].includes(s))return deny(res,400,"وضعیت سند نامعتبر است");
- const old=await query("select * from accounting_documents where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!old.rowCount)return deny(res,404,"سند پیدا نشد");
- const flow:any={draft:["submitted","void"],submitted:["approved","void"],approved:["posted","void"],posted:["void"],void:[]};if(!flow[old.rows[0].status]?.includes(s))return deny(res,409,"تغییر وضعیت مجاز نیست");
- const r=await query("update accounting_documents set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,posted_at=case when $1='posted' then now() else posted_at end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[s,(req as any).user.id,String(String(req.params.id)),t.id]);await audit(t.id,(req as any).user.id,"accounting_document",String(String(req.params.id)),"status",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const target=req.body?.status;if(!["submitted","approved","posted","void"].includes(target))return deny(res,400,"وضعیت سند نامعتبر است");
+ const c=await pool.connect();try{
+  await c.query("begin");
+  const old=await c.query("select * from accounting_documents where id=$1 and tenant_id=$2 for update",[String(req.params.id),t.id]);
+  if(!old.rowCount){await c.query("rollback");return deny(res,404,"سند پیدا نشد");}
+  const current=old.rows[0].status;
+  const flow:any={draft:["submitted","void"],submitted:["approved","void"],approved:["posted","void"],posted:[],void:[]};
+  if(!flow[current]?.includes(target)){await c.query("rollback");return deny(res,409,"تغییر وضعیت مجاز نیست؛ سند قطعی یا باطل‌شده قابل ویرایش نیست");}
+  if(target==="posted"){
+   const sums=await c.query("select coalesce(sum(debit),0)::numeric debit,coalesce(sum(credit),0)::numeric credit,count(*)::int line_count from accounting_document_lines where document_id=$1",[old.rows[0].id]);
+   if(sums.rows[0].line_count<2||Math.abs(Number(sums.rows[0].debit)-Number(sums.rows[0].credit))>0.005){await c.query("rollback");return deny(res,409,"سند دارای حداقل دو ردیف متوازن نیست");}
+   if(old.rows[0].period_id){
+    const period=await c.query("select status,starts_on,ends_on from accounting_fiscal_periods where id=$1 and tenant_id=$2 for share",[old.rows[0].period_id,t.id]);
+    if(!period.rowCount||period.rows[0].status!=="open"||old.rows[0].document_date<period.rows[0].starts_on.toISOString?.().slice(0,10)&&false){await c.query("rollback");return deny(res,409,"دوره مالی برای ثبت قطعی باز نیست");}
+    const docDate=String(old.rows[0].document_date).slice(0,10),from=String(period.rows[0].starts_on).slice(0,10),to=String(period.rows[0].ends_on).slice(0,10);
+    if(docDate<from||docDate>to){await c.query("rollback");return deny(res,409,"تاریخ سند خارج از بازه دوره مالی است");}
+   }
+  }
+  const updated=await c.query("update accounting_documents set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,posted_at=case when $1='posted' then now() else posted_at end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[target,(req as any).user.id,String(req.params.id),t.id]);
+  await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,'accounting_document',$2,'status',$3,$4,$5)",[t.id,String(req.params.id),(req as any).user.id,old.rows[0],updated.rows[0]]);
+  await c.query("commit");res.json(updated.rows[0]);
+ }catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
 
 router.get("/api/accounting-finance/reports",requireAuth,async(req,res)=>{
