@@ -5,16 +5,17 @@ import {ManagementDialog,ManagementToolbar} from "../../components/ManagementWor
 type Seller={id:string;legal_name:string;display_name:string;status:string;commission_rate:string|number;[key:string]:unknown};
 const statusLabel:Record<string,string>={pending:"در انتظار بررسی",active:"فعال",suspended:"تعلیق‌شده",closed:"بسته"};
 export default function SellersPage(){
- const [items,setItems]=useState<Seller[]>([]),[legal,setLegal]=useState(""),[display,setDisplay]=useState(""),[rate,setRate]=useState("0"),[error,setError]=useState(""),[savingId,setSavingId]=useState(""),[selected,setSelected]=useState<Seller|null>(null);
+ const [items,setItems]=useState<Seller[]>([]),[legal,setLegal]=useState(""),[display,setDisplay]=useState(""),[rate,setRate]=useState("0"),[error,setError]=useState(""),[savingId,setSavingId]=useState(""),[selected,setSelected]=useState<Seller|null>(null),[createOpen,setCreateOpen]=useState(false);
  async function load(){try{const r=await api<{items:Seller[]}>("/api/marketplace/sellers");setItems(r.items||[])}catch(e){setError(e instanceof Error?e.message:"خطا در دریافت فروشندگان")}}
  useEffect(()=>{void load()},[]);
- async function create(){setError("");try{await api("/api/marketplace/sellers",{method:"POST",body:JSON.stringify({legalName:legal,displayName:display,commissionRate:Number(rate)})});setLegal("");setDisplay("");setRate("0");await load()}catch(e){setError(e instanceof Error?e.message:"ثبت فروشنده ناموفق بود")}}
+ async function create(){setError("");try{await api("/api/marketplace/sellers",{method:"POST",body:JSON.stringify({legalName:legal,displayName:display,commissionRate:Number(rate)})});setLegal("");setDisplay("");setRate("0");setCreateOpen(false);await load()}catch(e){setError(e instanceof Error?e.message:"ثبت فروشنده ناموفق بود")}}
  async function changeStatus(item:Seller,status:"active"|"suspended"){setError("");setSavingId(item.id);try{await api("/api/marketplace/sellers/"+encodeURIComponent(item.id)+"/status",{method:"PATCH",body:JSON.stringify({status})});await load()}catch(e){setError(e instanceof Error?e.message:"تغییر وضعیت فروشنده ناموفق بود")}finally{setSavingId("")}}
  return <main className="enterprise-main" dir="rtl">
   <header className="platform-header"><div><span className="section-kicker">مرکز فروشندگان</span><h1>فروشندگان</h1><p>مدیریت واقعی فروشندگان در محدوده سازمانی. فقط فروشنده فعال می‌تواند کالای خود را در کاتالوگ عمومی نمایش دهد.</p></div><a href="/platform">مرکز عملیات</a></header>
-  <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-sellers" onCreate={()=>document.getElementById("marketplace-create-form")?.scrollIntoView({behavior:"smooth",block:"center"})}/>
+  <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-sellers" onCreate={()=>setCreateOpen(true)}/>
+  {createOpen&&<ManagementDialog title="افزودن فروشنده" onClose={()=>setCreateOpen(false)}><div className="platform-form"><input value={legal} onChange={e=>setLegal(e.target.value)} placeholder="نام حقوقی"/><input value={display} onChange={e=>setDisplay(e.target.value)} placeholder="نام نمایشی"/><input value={rate} onChange={e=>setRate(e.target.value)} type="number" min="0" max="100" placeholder="درصد کارمزد"/><button onClick={create} disabled={!legal.trim()||!display.trim()}>ثبت فروشنده</button></div></ManagementDialog>}
   <section className="platform-panel">
-   <div id="marketplace-create-form" className="platform-form"><input value={legal} onChange={e=>setLegal(e.target.value)} placeholder="نام حقوقی"/><input value={display} onChange={e=>setDisplay(e.target.value)} placeholder="نام نمایشی"/><input value={rate} onChange={e=>setRate(e.target.value)} type="number" min="0" max="100" placeholder="درصد کارمزد"/><button onClick={create} disabled={!legal.trim()||!display.trim()}>ثبت فروشنده</button></div>
+   
    {error&&<p className="enterprise-loading error" role="alert">{error}</p>}
    <div className="platform-list">{items.map(item=><article className="platform-row" key={item.id}>
     <div><b>{item.display_name}</b><small>{item.legal_name}</small></div><span>کارمزد {Number(item.commission_rate).toLocaleString("fa-IR")}%</span><strong>{statusLabel[item.status]||item.status}</strong>
