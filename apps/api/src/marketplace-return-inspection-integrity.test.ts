@@ -241,3 +241,24 @@ test("supplier handover persists financial quantity snapshot for stable cumulati
  assert.ok(route.includes("handoverFinanceProductId"));
  assert.ok(route.includes("handoverFinanceQuantity"));
 });
+
+test("financial handover readiness report is tenant-scoped, read-only and fails closed on missing prerequisites",()=>{
+ const start=checkout.indexOf('checkoutRouter.get("/api/marketplace/returns/finance-handover-readiness"');
+ const end=checkout.indexOf('checkoutRouter.put("/api/marketplace/returns/finance-mappings/products"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(start>=0&&end>start);
+ assert.ok(route.includes('requirePermission("order:manage")'));
+ assert.ok(route.includes('requirePermission("accounting-finance.read")'));
+ assert.ok(route.includes("where q.tenant_id=$1"));
+ assert.ok(route.includes("marketplace_finance_warehouse_links"));
+ assert.ok(route.includes("finance_purchase_lines"));
+ assert.ok(route.includes("finance_quantity"));
+ assert.ok(route.includes("purchase_supplier_id!==item.supplier_party_id"));
+ assert.ok(route.includes("structuralReady:blockers.length===0"));
+ assert.ok(route.includes("postingReady:false"));
+ assert.ok(route.includes("گردش ثبت رسید قرنطینه در دفتر موجودی مالی هنوز پیاده‌سازی نشده است"));
+ assert.ok(route.includes("روش مصوب ارزش‌گذاری کالای برگشتی"));
+ assert.ok(!route.includes("insert into finance_inventory_documents"));
+ assert.ok(!route.includes("update finance_inventory_balances"));
+ assert.ok(!route.includes("insert into accounting_documents"));
+});
