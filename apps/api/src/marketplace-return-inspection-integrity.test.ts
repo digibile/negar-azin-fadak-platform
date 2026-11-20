@@ -59,7 +59,8 @@ test("returns workspace requires warehouse and separates received from restockab
  assert.ok(page.includes("restockQuantity"));
  assert.ok(page.includes("warehouseId"));
  assert.ok(!page.includes('transition(item,"inspected")'));
- assert.ok(!page.includes("\\n type Warehouse="));
+ assert.ok(!page.includes("\
+ type Warehouse="));
 });
 
 test("non-restockable returned quantity is registered in tenant quarantine without saleable stock",()=>{
@@ -99,7 +100,8 @@ test("quarantine migration has tenant-safe return and warehouse references",()=>
  const q=fs.readFileSync(new URL("../../../database/migrations/zz_marketplace_return_quarantine.sql",import.meta.url),"utf8");
  assert.ok(q.includes("unique(tenant_id,return_request_id)"));
  assert.ok(q.includes("foreign key(tenant_id,return_request_id)"));
- assert.ok(q.includes("foreign key(tenant_id,warehouse_id)"));\n assert.ok(q.includes("inventory_warehouses_tenant_id_uq"));
+ assert.ok(q.includes("foreign key(tenant_id,warehouse_id)"));
+ assert.ok(q.includes("inventory_warehouses_tenant_id_uq"));
  assert.ok(q.includes("quarantine_quantity numeric(20,3)"));
  assert.ok(q.includes("supplier_handover"));
  assert.ok(q.includes("disposed"));
