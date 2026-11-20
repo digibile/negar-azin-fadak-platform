@@ -17,6 +17,7 @@ test("return inspection is a tenant-scoped, permission-checked warehouse receipt
  assert.ok(route.includes("received>Number(rr.requested_quantity)"));
  assert.ok(route.includes("status='active'"));
  assert.ok(route.includes("mil.tenant_id=$1 and mil.product_id=$2"));
+ assert.ok(route.includes("for share of mil,ip"));
 });
 
 test("only inspected sellable quantity is posted into warehouse stock",()=>{
