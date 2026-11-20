@@ -351,7 +351,7 @@ checkoutRouter.post("/api/storefront/returns/:id/cancel",requireAuth,requireCsrf
 
 checkoutRouter.get("/api/marketplace/returns",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("select rr.*,o.order_no,o.store_id,o.seller_id,oi.product_id,p.title product_title,mr.status refund_status,mr.amount refund_amount,mr.refund_no from marketplace_return_requests rr join marketplace_orders o on o.id=rr.order_id and o.tenant_id=rr.tenant_id join marketplace_order_items oi on oi.id=rr.order_item_id and oi.order_id=o.id join products p on p.id=oi.product_id left join marketplace_refunds mr on mr.return_request_id=rr.id and mr.tenant_id=rr.tenant_id where rr.tenant_id=$1 order by rr.created_at desc limit 500",[t.id]);
+ const r=await query("select rr.*,o.order_no,o.store_id,o.seller_id,oi.product_id,p.title product_title,mr.status refund_status,mr.amount refund_amount,mr.refund_no,rq.id quarantine_id,rq.quarantine_quantity,rq.status quarantine_status,rq.supplier_name quarantine_supplier_name,rq.supplier_reference quarantine_supplier_reference,rq.disposition_notes quarantine_disposition_notes from marketplace_return_requests rr join marketplace_orders o on o.id=rr.order_id and o.tenant_id=rr.tenant_id join marketplace_order_items oi on oi.id=rr.order_item_id and oi.order_id=o.id join products p on p.id=oi.product_id left join marketplace_refunds mr on mr.return_request_id=rr.id and mr.tenant_id=rr.tenant_id left join marketplace_return_quarantine rq on rq.return_request_id=rr.id and rq.tenant_id=rr.tenant_id where rr.tenant_id=$1 order by rr.created_at desc limit 500",[t.id]);
  res.json({items:r.rows,total:r.rowCount});
 }));
 
@@ -380,6 +380,9 @@ checkoutRouter.post("/api/marketplace/returns/:id/inspect",requireAuth,requirePe
    await client.query("insert into inventory_document_items(document_id,product_id,quantity,unit_price) values($1,$2,$3,0)",[doc.id,mapping.inventory_product_id,warehouseQuantity]);
    await client.query("insert into inventory_stock(tenant_id,warehouse_id,product_id,quantity,reserved_quantity) values($1,$2,$3,$4,0) on conflict(tenant_id,warehouse_id,product_id) do update set quantity=inventory_stock.quantity+excluded.quantity,updated_at=now()",[t.id,warehouseId,mapping.inventory_product_id,warehouseQuantity]);
   }
+  if(received-restock>0){
+   await client.query("insert into marketplace_return_quarantine(tenant_id,return_request_id,warehouse_id,quarantine_quantity,status,reason,created_by) values($1,$2,$3,$4,'quarantined',$5,$6)",[t.id,requestId,warehouseId,Number((received-restock).toFixed(3)),"کالای دریافت‌شده و غیرقابل بازگشت به موجودی آزاد؛ "+rr.request_no,(req as any).user.id]);
+  }
   const updated=(await client.query("update marketplace_return_requests set status='inspected',received_quantity=$1,restock_quantity=$2,inspection_notes=$3,inspection_result=$4,inspection_warehouse_id=$5,inventory_receipt_document_id=$6,inspected_at=now(),reviewed_by=$7,updated_at=now() where id=$8 and tenant_id=$9 returning *",[received,restock,notes||null,result,warehouseId,doc.id,(req as any).user.id,requestId,t.id])).rows[0];
   await client.query("insert into inventory_events(tenant_id,entity_type,entity_id,event_type,to_status,quantity,actor_user_id,reason) values($1,'document',$2,'posted','posted',$3,$4,$5)",[t.id,doc.id,warehouseQuantity,(req as any).user.id,"رسید مرجوعی "+rr.request_no+"؛ "+result]);
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'marketplace.return.inspected','marketplace_return_request',$3,$4,$5)",[t.id,(req as any).user.id,requestId,JSON.stringify({status:"received"}),JSON.stringify({status:"inspected",receivedQuantity:received,restockQuantity:restock,warehouseId,inventoryReceiptDocumentId:doc.id,inspectionResult:result})]);
@@ -387,6 +390,26 @@ checkoutRouter.post("/api/marketplace/returns/:id/inspect",requireAuth,requirePe
   await emitBusinessEvent({tenantId:t.id,eventKey:"return.inspected",subjectType:"marketplace_return_request",subjectId:requestId,userId:(req as any).user.id,input:{requestNo:rr.request_no,inspectionResult:result,restockQuantity:restock,inventoryReceiptDocumentId:doc.id}});
   res.json({item:updated,inventoryReceipt:{id:doc.id,documentNo,status:"posted",warehouseId,restockedQuantity:warehouseQuantity,inspectionResult:result}});
  }catch(e:any){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
+checkoutRouter.patch("/api/marketplace/returns/:id/disposition",requireAuth,requirePermission("order:manage"),requirePermission("modules:23-inventory-warehouse:write"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const requestId=s(req.params.id,100),action=s(req.body?.action,32),supplierName=s(req.body?.supplierName,200),supplierReference=s(req.body?.supplierReference,160),notes=s(req.body?.notes,2000);
+ if(!["supplier_handover","disposed"].includes(action))return res.status(400).json({error:"نوع تعیین تکلیف معتبر نیست"});
+ if(action==="supplier_handover"&&!supplierName)return res.status(400).json({error:"نام تأمین‌کننده یا تحویل‌گیرنده الزامی است"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const q=(await client.query("select q.*,rr.request_no,rr.status return_status from marketplace_return_quarantine q join marketplace_return_requests rr on rr.id=q.return_request_id and rr.tenant_id=q.tenant_id where q.tenant_id=$1 and q.return_request_id=$2 for update of q,rr",[t.id,requestId])).rows[0];
+  if(!q){await client.query("rollback");return res.status(404).json({error:"پرونده قرنطینه برای این مرجوعی ثبت نشده است"});}
+  if(q.status!=="quarantined"||q.return_status!=="inspected"){await client.query("rollback");return res.status(409).json({error:"این پرونده قبلاً تعیین تکلیف شده یا وضعیت مرجوعی معتبر نیست"});}
+  const updated=(await client.query("update marketplace_return_quarantine set status=$1,supplier_name=$2,supplier_reference=$3,disposition_notes=$4,resolved_by=$5,resolved_at=now() where id=$6 and tenant_id=$7 returning *",[action,supplierName||null,supplierReference||null,notes||null,(req as any).user.id,q.id,t.id])).rows[0];
+  await client.query("insert into inventory_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,quantity,actor_user_id,reason) values($1,'marketplace_return_quarantine',$2,'disposition','quarantined',$3,$4,$5,$6)",[t.id,q.id,action,q.quarantine_quantity,(req as any).user.id,notes||supplierName||"تعیین تکلیف کالای قرنطینه"]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'marketplace.return.quarantine.disposed','marketplace_return_quarantine',$3,$4,$5)",[t.id,(req as any).user.id,q.id,JSON.stringify({status:"quarantined"}),JSON.stringify({status:action,supplierName:supplierName||null,supplierReference:supplierReference||null,notes:notes||null})]);
+  await client.query("commit");
+  await emitBusinessEvent({tenantId:t.id,eventKey:"return.quarantine.disposition",subjectType:"marketplace_return_quarantine",subjectId:q.id,userId:(req as any).user.id,input:{requestNo:q.request_no,status:action,quantity:q.quarantine_quantity}});
+  res.json({item:updated});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
 checkoutRouter.patch("/api/marketplace/returns/:id/status",requireAuth,requirePermission("order:manage"),requireCsrf,asyncHandler(async(req,res)=>{
