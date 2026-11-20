@@ -351,7 +351,7 @@ checkoutRouter.post("/api/storefront/returns/:id/cancel",requireAuth,requireCsrf
 
 checkoutRouter.get("/api/marketplace/returns",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("select rr.*,o.order_no,o.store_id,o.seller_id,oi.product_id,p.title product_title,mr.status refund_status,mr.amount refund_amount,mr.refund_no,rq.id quarantine_id,rq.quarantine_quantity,rq.status quarantine_status,rq.supplier_name quarantine_supplier_name,rq.supplier_reference quarantine_supplier_reference,rq.disposition_notes quarantine_disposition_notes from marketplace_return_requests rr join marketplace_orders o on o.id=rr.order_id and o.tenant_id=rr.tenant_id join marketplace_order_items oi on oi.id=rr.order_item_id and oi.order_id=o.id join products p on p.id=oi.product_id left join marketplace_refunds mr on mr.return_request_id=rr.id and mr.tenant_id=rr.tenant_id left join marketplace_return_quarantine rq on rq.return_request_id=rr.id and rq.tenant_id=rr.tenant_id where rr.tenant_id=$1 order by rr.created_at desc limit 500",[t.id]);
+ const r=await query("select rr.*,o.order_no,o.store_id,o.seller_id,oi.product_id,p.title product_title,mr.status refund_status,mr.amount refund_amount,mr.refund_no,rq.id quarantine_id,rq.quarantine_quantity,rq.status quarantine_status,rq.supplier_name quarantine_supplier_name,rq.supplier_reference quarantine_supplier_reference,rq.disposition_notes quarantine_disposition_notes,rq.supplier_party_id,rq.source_purchase_id,ap.title supplier_party_title from marketplace_return_requests rr join marketplace_orders o on o.id=rr.order_id and o.tenant_id=rr.tenant_id join marketplace_order_items oi on oi.id=rr.order_item_id and oi.order_id=o.id join products p on p.id=oi.product_id left join marketplace_refunds mr on mr.return_request_id=rr.id and mr.tenant_id=rr.tenant_id left join marketplace_return_quarantine rq on rq.return_request_id=rr.id and rq.tenant_id=rr.tenant_id left join accounting_parties ap on ap.id=rq.supplier_party_id and ap.tenant_id=rq.tenant_id where rr.tenant_id=$1 order by rr.created_at desc limit 500",[t.id]);
  res.json({items:r.rows,total:r.rowCount});
 }));
 
@@ -392,18 +392,41 @@ checkoutRouter.post("/api/marketplace/returns/:id/inspect",requireAuth,requirePe
  }catch(e:any){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
+checkoutRouter.get("/api/marketplace/returns/suppliers",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query("select id,party_code,title,phone from accounting_parties where tenant_id=$1 and party_type='supplier' and status='active' order by title limit 500",[t.id]);
+ res.json({items:r.rows});
+}));
+checkoutRouter.get("/api/marketplace/returns/suppliers/:supplierId/purchases",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const supplier=await query("select id from accounting_parties where id=$1 and tenant_id=$2 and party_type='supplier' and status='active'",[s(req.params.supplierId,100),t.id]);
+ if(!supplier.rowCount)return res.status(404).json({error:"تأمین‌کننده فعال پیدا نشد"});
+ const r=await query("select id,invoice_no,invoice_date,status,total from finance_purchases where tenant_id=$1 and supplier_id=$2 and status in ('confirmed','received','paid') order by invoice_date desc nulls last,created_at desc limit 250",[t.id,supplier.rows[0].id]);
+ res.json({items:r.rows});
+}));
+
 checkoutRouter.patch("/api/marketplace/returns/:id/disposition",requireAuth,requirePermission("order:manage"),requirePermission("modules:23-inventory-warehouse:write"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const requestId=s(req.params.id,100),action=s(req.body?.action,32),supplierName=s(req.body?.supplierName,200),supplierReference=s(req.body?.supplierReference,160),notes=s(req.body?.notes,2000);
+ const requestId=s(req.params.id,100),action=s(req.body?.action,32),supplierPartyId=s(req.body?.supplierPartyId,100),purchaseId=s(req.body?.purchaseId,100),supplierName=s(req.body?.supplierName,200),supplierReference=s(req.body?.supplierReference,160),notes=s(req.body?.notes,2000);
  if(!["supplier_handover","disposed"].includes(action))return res.status(400).json({error:"نوع تعیین تکلیف معتبر نیست"});
- if(action==="supplier_handover"&&!supplierName)return res.status(400).json({error:"نام تأمین‌کننده یا تحویل‌گیرنده الزامی است"});
+ if(action==="supplier_handover"&&!supplierPartyId)return res.status(400).json({error:"انتخاب تأمین‌کننده معتبر از دفتر طرف‌حساب‌ها الزامی است"});
  const client=await pool.connect();
  try{
   await client.query("begin");
   const q=(await client.query("select q.*,rr.request_no,rr.status return_status from marketplace_return_quarantine q join marketplace_return_requests rr on rr.id=q.return_request_id and rr.tenant_id=q.tenant_id where q.tenant_id=$1 and q.return_request_id=$2 for update of q,rr",[t.id,requestId])).rows[0];
   if(!q){await client.query("rollback");return res.status(404).json({error:"پرونده قرنطینه برای این مرجوعی ثبت نشده است"});}
   if(q.status!=="quarantined"||q.return_status!=="inspected"){await client.query("rollback");return res.status(409).json({error:"این پرونده قبلاً تعیین تکلیف شده یا وضعیت مرجوعی معتبر نیست"});}
-  const updated=(await client.query("update marketplace_return_quarantine set status=$1,supplier_name=$2,supplier_reference=$3,disposition_notes=$4,resolved_by=$5,resolved_at=now() where id=$6 and tenant_id=$7 returning *",[action,supplierName||null,supplierReference||null,notes||null,(req as any).user.id,q.id,t.id])).rows[0];
+  let supplierTitle:string|null=null;
+  if(action==="supplier_handover"){
+   const supplier=(await client.query("select id,title from accounting_parties where id=$1 and tenant_id=$2 and party_type='supplier' and status='active' for share",[supplierPartyId,t.id])).rows[0];
+   if(!supplier){await client.query("rollback");return res.status(400).json({error:"تأمین‌کننده انتخاب‌شده فعال و متعلق به همین سازمان نیست"});}
+   supplierTitle=supplier.title;
+   if(purchaseId){
+    const purchase=(await client.query("select id from finance_purchases where id=$1 and tenant_id=$2 and supplier_id=$3 and status in ('confirmed','received','paid') for share",[purchaseId,t.id,supplierPartyId])).rows[0];
+    if(!purchase){await client.query("rollback");return res.status(400).json({error:"فاکتور خرید باید متعلق به همین تأمین‌کننده و در وضعیت معتبر باشد"});}
+   }
+  }
+  const updated=(await client.query("update marketplace_return_quarantine set status=$1,supplier_party_id=$2,source_purchase_id=$3,supplier_name=$4,supplier_reference=$5,disposition_notes=$6,resolved_by=$7,resolved_at=now() where id=$8 and tenant_id=$9 returning *",[action,action==="supplier_handover"?supplierPartyId:null,action==="supplier_handover"?(purchaseId||null):null,action==="supplier_handover"?(supplierTitle||null):null,supplierReference||null,notes||null,(req as any).user.id,q.id,t.id])).rows[0];
   await client.query("insert into inventory_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,quantity,actor_user_id,reason) values($1,'marketplace_return_quarantine',$2,'disposition','quarantined',$3,$4,$5,$6)",[t.id,q.id,action,q.quarantine_quantity,(req as any).user.id,notes||supplierName||"تعیین تکلیف کالای قرنطینه"]);
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'marketplace.return.quarantine.disposed','marketplace_return_quarantine',$3,$4,$5)",[t.id,(req as any).user.id,q.id,JSON.stringify({status:"quarantined"}),JSON.stringify({status:action,supplierName:supplierName||null,supplierReference:supplierReference||null,notes:notes||null})]);
   await client.query("commit");
