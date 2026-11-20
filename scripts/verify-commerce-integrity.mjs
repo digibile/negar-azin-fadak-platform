@@ -190,3 +190,7 @@ if(!logisticsWorkspace.includes("/marketplace/shipping/resources")||!logisticsRe
 
 if(!logisticsApi.includes('/api/logistics/vehicles/:id/status')||!logisticsApi.includes('/api/logistics/drivers/:id/status')||!logisticsApi.includes("تا پایان مأموریت فعال امکان تغییر وضعیت"))throw new Error("Fleet and driver status changes must be audited and blocked while an active shipment is assigned");
 if(!logisticsResources.includes('"/status"')||!logisticsResources.includes("ارسال به تعمیرگاه")||!logisticsResources.includes("تعلیق"))throw new Error("Fleet and driver workspace must expose operational status controls");
+
+const logisticsRoutesWorkspace=read("apps/web/app/marketplace/shipping/routes/page.tsx");
+if(!logisticsApi.includes("if(b.routeId)")||!logisticsApi.includes("route_id,vehicle_id,driver_id")||!logisticsWorkspace.includes("/api/logistics/routes")||!logisticsWorkspace.includes("routeId:routeByOrder"))throw new Error("Marketplace shipments must support tenant-scoped active route selection");
+if(!logisticsRoutesWorkspace.includes('"/api/logistics/routes"')||!logisticsRoutesWorkspace.includes("ثبت مسیر جدید")||!logisticsRoutesWorkspace.includes("/marketplace/shipping/resources"))throw new Error("Logistics must provide a route registry linked to fleet resources");
