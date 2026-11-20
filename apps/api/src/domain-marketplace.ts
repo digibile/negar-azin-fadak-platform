@@ -271,11 +271,19 @@ domainMarketplaceRouter.post("/api/marketplace/products/import-supplier-catalog"
   });
 }));
 
-domainMarketplaceRouter.get("/api/marketplace/orders",requireAuth,requirePermission("order:view"),asyncHandler(async(req,res)=>{
-  const ctx=await tenantContext(req,(req as any).user);
+domainMarketplaceRouter.get("/api/marketplace/orders",requireAuth,asyncHandler(async(req,res)=>{
+  const user=(req as any).user as User;
+  const ctx=await tenantContext(req,user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
-  const r=await query("select id,order_no,store_id,seller_id,customer_ref,status,currency,subtotal,discount_amount,shipping_amount,total_amount,commission_amount,seller_payable,payment_method,delivery_due_at,created_at,updated_at from marketplace_orders where tenant_id=$1 order by created_at desc",[ctx.id]);
-  res.json({tenant:ctx,items:r.rows,total:r.rowCount});
+  const permission=await query("select 1 from role_permissions where role=$1 and permission='order:view' limit 1",[user.role]);
+  const params:any[]=[ctx.id];
+  let where="o.tenant_id=$1";
+  if(!permission.rowCount&&user.role!=="admin"){params.push(user.id);where+=" and o.customer_ref=$2";}
+  const r=await query(
+   "select o.id,o.order_no,o.store_id,o.seller_id,o.customer_ref,o.status,o.currency,o.subtotal,o.discount_amount,o.shipping_amount,o.total_amount,o.commission_amount,o.seller_payable,o.payment_method,o.delivery_due_at,o.created_at,o.updated_at,sl.display_name as seller_name,(select p.status from marketplace_payments p where p.order_id=o.id and p.tenant_id=o.tenant_id order by p.created_at desc limit 1) as latest_payment_status,(select p.payment_no from marketplace_payments p where p.order_id=o.id and p.tenant_id=o.tenant_id order by p.created_at desc limit 1) as latest_payment_no,(select rf.status from marketplace_refunds rf where rf.order_id=o.id and rf.tenant_id=o.tenant_id order by rf.created_at desc limit 1) as latest_refund_status from marketplace_orders o left join sellers sl on sl.id=o.seller_id where "+where+" order by o.created_at desc",
+   params
+  );
+  res.json({tenant:ctx,items:r.rows,total:r.rowCount,scope:permission.rowCount||user.role==="admin"?"tenant":"customer"});
 }));
 
 domainMarketplaceRouter.post("/api/marketplace/orders",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
