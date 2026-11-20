@@ -116,9 +116,10 @@ checkoutRouter.get("/api/marketplace/orders/:id",requireAuth,asyncHandler(async(
  const [items,payment,refund]=await Promise.all([
   query("select oi.*,p.sku,p.title from marketplace_order_items oi join products p on p.id=oi.product_id where oi.order_id=$1 order by oi.created_at",[req.params.id]),
   query("select id,payment_no,amount,method,status,provider_code,paid_at,created_at from marketplace_payments where order_id=$1 and tenant_id=$2 order by created_at desc",[req.params.id,t.id]),
-  query("select refund_no,amount,reason,status,created_at from marketplace_refunds where order_id=$1 and tenant_id=$2 order by created_at desc",[req.params.id,t.id])
+  query("select refund_no,amount,reason,status,created_at from marketplace_refunds where order_id=$1 and tenant_id=$2 order by created_at desc",[req.params.id,t.id]),
+  query("select id,version,currency,carrier_cost,customer_charge,carrier_name,service_name,estimated_business_days_min,estimated_business_days_max,notes,expires_at,status,created_at from marketplace_delivery_quotes where tenant_id=$1 and order_id=$2 and status='offered' order by version desc limit 1",[t.id,req.params.id])
  ]);
- res.json({order:o.rows[0],items:items.rows,payments:payment.rows,refunds:refund.rows});
+ res.json({order:o.rows[0],items:items.rows,payments:payment.rows,refunds:refund.rows,deliveryQuote:deliveryQuote.rows[0]||null});
 }));
 
 checkoutRouter.patch("/api/marketplace/orders/:id/shipping-address",requireAuth,asyncHandler(async(req,res)=>{
