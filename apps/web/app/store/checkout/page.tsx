@@ -5,7 +5,8 @@ import {useSearchParams} from "next/navigation";
 import "../storefront-checkout.css";
 type CartItem={id:string;sku:string;title:string;price:number|string;currency:string;quantity:number;store_id?:string|null;is_demo_product?:boolean};
 type Address={id:string;recipient_name:string;mobile:string;province:string;city:string;address_line:string;postal_code:string;is_default:boolean};
-type Order={id:string;order_no:string;status:string;subtotal?:number|string;shipping_amount?:number|string;total_amount:number|string};\ntype DeliveryMethod={id:string;code:string;title:string;carrier_type:string;business_days_min:number;business_days_max:number;cost:number|string;currency:string};
+type Order={id:string;order_no:string;status:string;subtotal?:number|string;shipping_amount?:number|string;total_amount:number|string};
+type DeliveryMethod={id:string;code:string;title:string;carrier_type:string;business_days_min:number;business_days_max:number;cost:number|string;currency:string};
 const KEY="sookar.store.cart.v1";
 const csrf=()=>typeof document==="undefined"?"":document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
 async function request(path:string,method="GET",body?:unknown){const token=csrf();const r=await fetch(path,{method,credentials:"include",cache:"no-store",headers:{"accept":"application/json",...(body?{"content-type":"application/json"}:{}),...(method!=="GET"&&token?{"x-csrf-token":token}:{})},body:body?JSON.stringify(body):undefined});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"درخواست ناموفق بود");return d;}
@@ -13,7 +14,8 @@ const money=(v:number|string,c="IRR")=>Number(v).toLocaleString("fa-IR")+" "+(c=
 function CheckoutContent(){
  const search=useSearchParams();
  const [items,setItems]=useState<CartItem[]>([]),[addresses,setAddresses]=useState<Address[]>([]);
- const [selected,setSelected]=useState(""),[authenticated,setAuthenticated]=useState<boolean|null>(null);\n const [deliveryMethods,setDeliveryMethods]=useState<DeliveryMethod[]>([]),[selectedDeliveryMethodId,setSelectedDeliveryMethodId]=useState(""),[deliveryError,setDeliveryError]=useState("");
+ const [selected,setSelected]=useState(""),[authenticated,setAuthenticated]=useState<boolean|null>(null);
+ const [deliveryMethods,setDeliveryMethods]=useState<DeliveryMethod[]>([]),[selectedDeliveryMethodId,setSelectedDeliveryMethodId]=useState(""),[deliveryError,setDeliveryError]=useState("");
  const [formOpen,setFormOpen]=useState(false),[editingAddressId,setEditingAddressId]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const [order,setOrder]=useState<Order|null>(null);
  const [form,setForm]=useState({recipientName:"",mobile:"",province:"",city:"",addressLine:"",postalCode:"",isDefault:true});
@@ -21,7 +23,9 @@ function CheckoutContent(){
  const storeIds=[...new Set(items.map(x=>x.store_id).filter((x):x is string=>Boolean(x)))];
  const currencies=[...new Set(items.map(x=>x.currency))];
  const eligible=items.length>0&&storeIds.length===1&&currencies.length===1&&items.every(x=>Boolean(x.store_id)&&!x.is_demo_product);
- const selectedDeliveryMethod=deliveryMethods.find(x=>x.id===selectedDeliveryMethodId);\n const shippingAmount=selectedDeliveryMethod?Number(selectedDeliveryMethod.cost):0;\n const grandTotal=total+shippingAmount;
+ const selectedDeliveryMethod=deliveryMethods.find(x=>x.id===selectedDeliveryMethodId);
+ const shippingAmount=selectedDeliveryMethod?Number(selectedDeliveryMethod.cost):0;
+ const grandTotal=total+shippingAmount;
  async function refreshAddresses(){const d=await request("/api/storefront/addresses");setAddresses(d.items||[]);const a=(d.items||[]).find((x:Address)=>x.is_default)||(d.items||[])[0];if(a)setSelected(a.id);}
  useEffect(()=>{let live=true;(async()=>{try{const me=await request("/api/auth/me");if(!live)return;setAuthenticated(Boolean(me.user?.id));const raw=JSON.parse(localStorage.getItem(KEY)||"[]");setItems(Array.isArray(raw)?raw.filter((x:any)=>x&&typeof x.id==="string"&&Number.isInteger(Number(x.quantity))&&Number(x.quantity)>0):[]);await refreshAddresses();const orderId=search.get("order");if(orderId){const list=await request("/api/storefront/orders");const found=(list.items||[]).find((x:any)=>x.id===orderId);if(found)setOrder(found);}}catch(e){if(live){const m=e instanceof Error?e.message:"خطا در دریافت اطلاعات";if(m.includes("احراز هویت")||m.includes("نشست"))setAuthenticated(false);else setError(m);}}})();return()=>{live=false};},[search]);
  useEffect(()=>{let active=true;setDeliveryMethods([]);setSelectedDeliveryMethodId("");setDeliveryError("");if(items.length===0)return()=>{active=false};const stores=[...new Set(items.map(x=>x.store_id).filter((x):x is string=>Boolean(x)))];if(stores.length!==1||items.some(x=>x.is_demo_product)){setDeliveryError("روش ارسال فقط برای کالاهای واقعی یک فروشگاه قابل محاسبه است.");return()=>{active=false};}const params=new URLSearchParams({storeId:stores[0],productIds:items.map(x=>x.id).join(",")});request("/api/storefront/delivery-methods?"+params.toString()).then(d=>{if(!active)return;const methods=(d.items||[]) as DeliveryMethod[];setDeliveryMethods(methods);if(methods.length)setSelectedDeliveryMethodId(methods[0].id);else setDeliveryError("برای این کالاها روش تحویل فعال و سازگار تعریف نشده است.");}).catch(e=>{if(active)setDeliveryError(e instanceof Error?e.message:"دریافت روش‌های تحویل ناموفق بود");});return()=>{active=false};},[items]);
