@@ -27,6 +27,9 @@ create table if not exists marketplace_delivery_quotes (
 alter table marketplace_orders
  add column if not exists delivery_quote_id uuid references marketplace_delivery_quotes(id) on delete set null,
  add column if not exists delivery_quote_snapshot jsonb;
+alter table marketplace_orders
+ add column if not exists delivery_quote_required boolean not null default false;
+alter table marketplace_orders alter column delivery_quote_required set default true;
 create index if not exists idx_marketplace_delivery_quotes_order
  on marketplace_delivery_quotes(tenant_id,order_id,version desc);
 create index if not exists idx_marketplace_delivery_quotes_status
