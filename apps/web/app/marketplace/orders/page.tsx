@@ -74,10 +74,17 @@ export default function OrdersPage(){
   }
   setBusyId(order.id);setError("");setNotice("");
   try{
-   await api("/api/marketplace/orders/"+encodeURIComponent(order.id)+"/status",{
-    method:"PATCH",
-    body:JSON.stringify({status:next,...(reason?{reason}:{})})
-   });
+   if(next==="cancelled"){
+    await api("/api/marketplace/orders/"+encodeURIComponent(order.id)+"/cancel",{
+     method:"POST",
+     body:JSON.stringify({reason})
+    });
+   }else{
+    await api("/api/marketplace/orders/"+encodeURIComponent(order.id)+"/status",{
+     method:"PATCH",
+     body:JSON.stringify({status:next,...(reason?{reason}:{})})
+    });
+   }
    setNotice("وضعیت سفارش "+order.order_no+" به‌روزرسانی شد.");
    await load();
   }catch(e){
