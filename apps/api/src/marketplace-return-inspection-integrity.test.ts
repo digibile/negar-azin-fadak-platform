@@ -121,3 +121,36 @@ test("returns list exposes quarantine status and custody data from the same tena
  assert.ok(route.includes("rq.quarantine_quantity"));
  assert.ok(route.includes("rq.supplier_name quarantine_supplier_name"));
 });
+
+test("supplier handover uses active canonical supplier party and optional same-supplier purchase",()=>{
+ const start=checkout.indexOf('checkoutRouter.get("/api/marketplace/returns/suppliers"');
+ const end=checkout.indexOf('checkoutRouter.patch("/api/marketplace/returns/:id/status"',start);
+ const routes=checkout.slice(start,end);
+ assert.ok(routes.includes("accounting_parties"));
+ assert.ok(routes.includes("party_type='supplier'"));
+ assert.ok(routes.includes("finance_purchases"));
+ assert.ok(routes.includes("supplier_id=$2"));
+ assert.ok(routes.includes("party_type='supplier' and status='active'"));
+ assert.ok(routes.includes("supplierPartyId"));
+ assert.ok(routes.includes("purchaseId"));
+ assert.ok(routes.includes("source_purchase_id"));
+ assert.ok(routes.includes("supplier_party_id"));
+});
+
+test("quarantine migration references canonical supplier and purchase records by tenant",()=>{
+ const q=fs.readFileSync(new URL("../../../database/migrations/zz_marketplace_return_quarantine.sql",import.meta.url),"utf8");
+ assert.ok(q.includes("accounting_parties_tenant_id_uq"));
+ assert.ok(q.includes("finance_purchases_tenant_id_uq"));
+ assert.ok(q.includes("foreign key(tenant_id,supplier_party_id)"));
+ assert.ok(q.includes("references accounting_parties(tenant_id,id)"));
+ assert.ok(q.includes("foreign key(tenant_id,source_purchase_id)"));
+ assert.ok(q.includes("references finance_purchases(tenant_id,id)"));
+});
+
+test("returns workspace uses supplier and purchase selectors instead of free-text supplier names",()=>{
+ assert.ok(page.includes("/api/marketplace/returns/suppliers"));
+ assert.ok(page.includes("/purchases"));
+ assert.ok(page.includes("supplierPartyId"));
+ assert.ok(page.includes("فاکتور خرید مرجع"));
+ assert.ok(page.includes("ثبت تحویل کالای قرنطینه به تأمین‌کننده"));
+});
