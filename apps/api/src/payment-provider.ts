@@ -24,7 +24,7 @@ export interface PaymentProvider {
  readonly code:string;
  createPayment(input:PaymentRequest):Promise<PaymentResult>;
  verifyPayment(input:{providerTransactionId:string;amount:number;metadata?:Record<string,unknown>}):Promise<PaymentResult>;
- refundPayment(input:{providerTransactionId:string;amount:number;metadata?:Record<string,unknown>}):Promise<PaymentResult>;
+ refundPayment(input:{providerTransactionId:string;amount:number;idempotencyKey?:string;metadata?:Record<string,unknown>}):Promise<PaymentResult>;
 }
 
 type HttpAction="create"|"verify"|"refund";
@@ -83,7 +83,7 @@ class ConfiguredHttpPaymentProvider implements PaymentProvider {
  constructor(cfg:HttpProviderConfig){this.code=cfg.code;this.cfg=cfg;}
  createPayment(input:PaymentRequest){return callHttp(this.cfg,"create",input as unknown as Record<string,unknown>);}
  verifyPayment(input:{providerTransactionId:string;amount:number;metadata?:Record<string,unknown>}){return callHttp(this.cfg,"verify",input as unknown as Record<string,unknown>);}
- refundPayment(input:{providerTransactionId:string;amount:number;metadata?:Record<string,unknown>}){return callHttp(this.cfg,"refund",input as unknown as Record<string,unknown>);}
+ refundPayment(input:{providerTransactionId:string;amount:number;idempotencyKey?:string;metadata?:Record<string,unknown>}){return callHttp(this.cfg,"refund",input as unknown as Record<string,unknown>);}
 }
 
 const providers:Record<string,PaymentProvider>={};
