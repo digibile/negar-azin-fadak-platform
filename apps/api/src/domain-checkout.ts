@@ -165,7 +165,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandl
   }
   const p=await client.query("insert into marketplace_payments(tenant_id,order_id,payment_no,amount,method,status,provider_ref,provider_code,idempotency_key,provider_transaction_id,provider_payload,paid_at) values($1,$2,$3,$4,$5,'paid',$6,$7,$8,$9,$10,now()) returning *",[t.id,o.rows[0].id,paymentNo,Number(o.rows[0].total_amount),requestedMethod,providerTransactionId,providerCode,idempotencyKey,providerTransactionId,JSON.stringify(providerPayload)]);
   await client.query("update marketplace_orders set status='paid',paid_at=coalesce(paid_at,now()),updated_at=now() where id=$1 and tenant_id=$2",[o.rows[0].id,t.id]);
-  await postLedgerEntry(client,{tenantId:t.id,entryNo:"PAY-"+p.rows[0].payment_no,sourceType:"marketplace_payment",sourceId:p.rows[0].id,description:"ثبت پرداخت سفارش "+o.rows[0].order_no,createdBy:(req as any).user.id,lines:[
+  await postLedgerEntry(client,{tenantId:t.id,entryNo:"PAY-"+p.rows[0].payment_no,sourceType:"marketplace_payment",sourceId:p.rows[0].id,description:"ثبت پرداخت سفارش "+o.rows[0].order_no,createdBy:(req as any).user.id,currency:o.rows[0].currency||"IRR",lines:[
    requestedMethod==="credit"
     ? {accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",debit:Number(o.rows[0].total_amount)}
     : {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",debit:Number(o.rows[0].total_amount)},
@@ -212,7 +212,7 @@ checkoutRouter.post("/api/marketplace/payments/:paymentId/verify",requireAuth,as
   if(!["pending","confirmed"].includes(payment.order_status)){await client.query("rollback");return res.status(409).json({error:"وضعیت سفارش برای نهایی‌سازی پرداخت مجاز نیست"});}
   await client.query("update marketplace_payments set status='paid',provider_transaction_id=$2,provider_ref=$2,provider_payload=$3,paid_at=now(),updated_at=now() where id=$1",[payment.id,verified.providerTransactionId,JSON.stringify(verified.providerPayload)]);
   await client.query("update marketplace_orders set status='paid',paid_at=coalesce(paid_at,now()),updated_at=now() where id=$1 and tenant_id=$2",[payment.order_id,t.id]);
-  await postLedgerEntry(client,{tenantId:t.id,entryNo:"PAY-"+payment.payment_no,sourceType:"marketplace_payment",sourceId:payment.id,description:"ثبت پرداخت سفارش "+payment.order_no,createdBy:(req as any).user.id,lines:[
+  await postLedgerEntry(client,{tenantId:t.id,entryNo:"PAY-"+payment.payment_no,sourceType:"marketplace_payment",sourceId:payment.id,description:"ثبت پرداخت سفارش "+payment.order_no,createdBy:(req as any).user.id,currency:payment.currency||"IRR",lines:[
    {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",debit:Number(payment.amount)},
    {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",credit:Number(payment.seller_payable)},
    {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",credit:Number(payment.commission_amount)}
@@ -276,7 +276,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
   const rr=await client.query("insert into marketplace_refunds(tenant_id,order_id,payment_id,refund_no,amount,reason,status,provider_code,provider_transaction_id,provider_refund_transaction_id,provider_payload,created_by) values($1,$2,$3,$4,$5,$6,'refunded',$7,$8,$9,$10,$11) returning *",[t.id,order.id,payment.rows[0].id,refundNo,Number(payment.rows[0].amount),s(req.body?.reason,500)||null,refundProviderCode,payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref,refundProviderTransactionId,JSON.stringify(refundProviderPayload),(req as any).user.id]);
   await client.query("update marketplace_payments set status='refunded',updated_at=now() where id=$1 and tenant_id=$2 and status='paid'",[payment.rows[0].id,t.id]);
   await client.query("update marketplace_orders set status='refunded',updated_at=now() where id=$1 and tenant_id=$2",[order.id,t.id]);
-  await postLedgerEntry(client,{tenantId:t.id,entryNo:"REF-"+rr.rows[0].refund_no,sourceType:"marketplace_refund",sourceId:rr.rows[0].id,description:"معکوس‌سازی پرداخت سفارش "+order.order_no,createdBy:(req as any).user.id,lines:[
+  await postLedgerEntry(client,{tenantId:t.id,entryNo:"REF-"+rr.rows[0].refund_no,sourceType:"marketplace_refund",sourceId:rr.rows[0].id,description:"معکوس‌سازی پرداخت سفارش "+order.order_no,createdBy:(req as any).user.id,currency:order.currency||"IRR",lines:[
    {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",debit:Number(order.seller_payable)},
    {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",debit:Number(order.commission_amount)},
    payment.rows[0].provider_code==="credit_facility"
