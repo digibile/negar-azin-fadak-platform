@@ -711,3 +711,10 @@ button[data-action]:not(:disabled):hover,.action-save:not(:disabled):hover,.acti
 .naf-modal-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--border)}
 @media(max-width:680px){.naf-action-toolbar{align-items:stretch}.naf-action-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}.naf-action-toolbar button{min-width:0;width:100%;padding:9px 5px;font-size:10px}}
 @media print{.naf-action-toolbar,.no-print{display:none!important}}
+
+/* Consistent base geometry for controls in management workspaces; semantic variants retain their own actions. */
+.content button,.enterprise-main button,.module-runtime button,.command-page button,.admin-main button{min-height:40px;border-radius:10px;font-weight:600}
+.content button:not([data-action]):not(.primary):not(.danger):not(.actionSave):not(.actionPublish):not(.actionEdit):not(.actionNew):not(.actionDelete):not(.actionCancel),.enterprise-main button:not([data-action]):not(.primary):not(.danger),.module-runtime button:not([data-action]):not(.primary):not(.danger),.command-page button:not([data-action]):not(.primary):not(.danger){box-shadow:0 1px 3px rgba(20,35,55,.05)}
+.content button.primary,.enterprise-main button.primary,.module-runtime button.primary,.command-page button.primary{background:linear-gradient(135deg,#3285e5,#1760bd);border-color:#1760bd;color:#fff}
+.content button.danger,.enterprise-main button.danger,.module-runtime button.danger,.command-page button.danger{background:linear-gradient(135deg,#f05b64,#d93643);border-color:#d93643;color:#fff}
+.content button:not(:disabled):hover,.enterprise-main button:not(:disabled):hover,.module-runtime button:not(:disabled):hover,.command-page button:not(:disabled):hover{box-shadow:0 4px 11px rgba(20,35,55,.1)}
