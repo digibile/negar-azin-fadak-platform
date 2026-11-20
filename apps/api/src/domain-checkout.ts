@@ -171,6 +171,11 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
   const o=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
   if(!o.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}
   const order=o.rows[0];
+  const linkedSupply=(await client.query("select * from logistics_supply_orders where tenant_id=$1 and marketplace_order_id=$2 for update",[t.id,order.id])).rows[0];
+  if(linkedSupply){
+   const activeShipment=await client.query("select id,status from logistics_shipments where tenant_id=$1 and supply_order_id=$2 and status in ('planned','assigned','picked_up','in_transit') limit 1 for update",[t.id,linkedSupply.id]);
+   if(activeShipment.rowCount){await client.query("rollback");return res.status(409).json({error:"پیش از بازپرداخت، مرسوله فعال باید از مسیر حمل تعیین تکلیف شود"});}
+  }
   if(!["paid","processing","delivered","returned"].includes(order.status)){await client.query("rollback");return res.status(409).json({error:"فقط سفارش پرداخت‌شده قابل بازگشت وجه است"});}
   const payment=await client.query("select * from marketplace_payments where tenant_id=$1 and order_id=$2 and status='paid' order by paid_at desc nulls last,created_at desc limit 1 for update",[t.id,order.id]);
   if(!payment.rowCount){await client.query("rollback");return res.status(409).json({error:"پرداخت موفق سفارش پیدا نشد"});}
@@ -195,7 +200,6 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
   const rr=await client.query("insert into marketplace_refunds(tenant_id,order_id,payment_id,refund_no,amount,reason,status,provider_code,provider_transaction_id,provider_refund_transaction_id,provider_payload,created_by) values($1,$2,$3,$4,$5,$6,'refunded',$7,$8,$9,$10,$11) returning *",[t.id,order.id,payment.rows[0].id,refundNo,Number(payment.rows[0].amount),s(req.body?.reason,500)||null,refundProviderCode,payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref,refundProviderTransactionId,JSON.stringify(refundProviderPayload),(req as any).user.id]);
   await client.query("update marketplace_payments set status='refunded',updated_at=now() where id=$1 and tenant_id=$2 and status='paid'",[payment.rows[0].id,t.id]);
   await client.query("update marketplace_orders set status='refunded',updated_at=now() where id=$1 and tenant_id=$2",[order.id,t.id]);
-  const linkedSupply=(await client.query("select * from logistics_supply_orders where tenant_id=$1 and marketplace_order_id=$2 for update",[t.id,order.id])).rows[0];
   if(linkedSupply&&["draft","submitted","approved","assigned"].includes(linkedSupply.status)){
    const reservations=(await client.query("select * from marketplace_inventory_reservations where tenant_id=$1 and supply_order_id=$2 and status='reserved' order by inventory_product_id for update",[t.id,linkedSupply.id])).rows;
    for(const reservation of reservations){
