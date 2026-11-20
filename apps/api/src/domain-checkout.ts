@@ -39,11 +39,12 @@ checkoutRouter.post("/api/checkout/carts/:id/items",requireAuth,asyncHandler(asy
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const product=s(req.body?.productId),qty=n(req.body?.quantity);
  if(!product||qty===null||qty<=0)return res.status(400).json({error:"محصول و تعداد معتبر الزامی است"});
- const c=await query("select id,store_id,status,customer_ref from cart_sessions where id=$1 and tenant_id=$2",[req.params.id,t.id]);
+ const c=await query("select id,store_id,status,customer_ref,currency from cart_sessions where id=$1 and tenant_id=$2",[req.params.id,t.id]);
  if(!c.rowCount||c.rows[0].status!=="open")return res.status(404).json({error:"سبد باز پیدا نشد"});
  if(!(await canAccessCustomer(req,c.rows[0].customer_ref,"cart:manage")))return res.status(403).json({error:"دسترسی به این سبد مجاز نیست"});
- const p=await query("select id,price from products where id=$1 and tenant_id=$2 and store_id=$3 and status='active'",[product,t.id,c.rows[0].store_id]);
+ const p=await query("select id,price,currency from products where id=$1 and tenant_id=$2 and store_id=$3 and status='active'",[product,t.id,c.rows[0].store_id]);
  if(!p.rowCount)return res.status(404).json({error:"محصول فعال پیدا نشد"});
+ if(String(p.rows[0].currency||"IRR")!==String(c.rows[0].currency||"IRR"))return res.status(409).json({error:"واحد پول کالا با سبد خرید یکسان نیست"});
  const r=await query("insert into cart_items(cart_id,product_id,quantity,unit_price) values($1,$2,$3,$4) on conflict(cart_id,product_id) do update set quantity=cart_items.quantity+excluded.quantity,unit_price=excluded.unit_price returning *",[req.params.id,product,qty,p.rows[0].price]);
  res.status(201).json(r.rows[0]);
 }));
@@ -65,12 +66,13 @@ checkoutRouter.post("/api/checkout/carts/:id/checkout",requireAuth,asyncHandler(
   const c=await client.query("select * from cart_sessions where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
   if(!c.rowCount||c.rows[0].status!=="open"){await client.query("rollback");return res.status(409).json({error:"سبد قابل تسویه نیست"});}
   if(!(await canAccessCustomer(req,c.rows[0].customer_ref,["checkout:manage","cart:manage"]))){await client.query("rollback");return res.status(403).json({error:"فقط مالک سبد یا اپراتور مجاز می‌تواند سفارش را ثبت کند"});}
-  const items=await client.query("select ci.*,p.title,p.seller_id,p.store_id,p.price as current_price,p.status as product_status from cart_items ci join products p on p.id=ci.product_id where ci.cart_id=$1 for update",[req.params.id]);
+  const items=await client.query("select ci.*,p.title,p.seller_id,p.store_id,p.price as current_price,p.currency as product_currency,p.status as product_status from cart_items ci join products p on p.id=ci.product_id where ci.cart_id=$1 for update",[req.params.id]);
   if(!items.rowCount){await client.query("rollback");return res.status(400).json({error:"سبد خالی است"});}
   const sellers=[...new Set(items.rows.map(x=>x.seller_id))];if(sellers.length!==1){await client.query("rollback");return res.status(400).json({error:"هر سفارش فعلاً باید متعلق به یک فروشنده باشد"});}
   let subtotal=0;
   for(const item of items.rows){
    if(item.product_status!=="active"){await client.query("rollback");return res.status(409).json({error:"این کالا دیگر برای فروش فعال نیست: "+item.title});}
+   if(String(item.product_currency||"IRR")!==String(c.rows[0].currency||"IRR")){await client.query("rollback");return res.status(409).json({error:"واحد پول کالا با واحد پول سبد یکسان نیست: "+item.title});}
    const currentPrice=Number(item.current_price);
    if(!Number.isFinite(currentPrice)||currentPrice<0){await client.query("rollback");return res.status(409).json({error:"قیمت معتبر برای کالا پیدا نشد: "+item.title});}
    // Re-price at checkout so a stale cart cannot charge an outdated price.
@@ -86,7 +88,7 @@ checkoutRouter.post("/api/checkout/carts/:id/checkout",requireAuth,asyncHandler(
   if(!sr.rowCount){await client.query("rollback");return res.status(404).json({error:"فروشنده پیدا نشد"});}
   const commission=Number((subtotal*Number(sr.rows[0].commission_rate)/100).toFixed(2)),payable=subtotal-commission;
   const orderNo=s(req.body?.orderNo,100)||("ORD-"+Date.now()+"-"+Math.random().toString(36).slice(2,7));
-  const o=await client.query("insert into marketplace_orders(tenant_id,store_id,seller_id,order_no,customer_ref,subtotal,total_amount,commission_amount,seller_payable,payment_method,delivery_due_at) values($1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10) returning *",[t.id,c.rows[0].store_id,sellers[0],orderNo,c.rows[0].customer_ref,subtotal,commission,payable,s(req.body?.paymentMethod,50)||"online",req.body?.deliveryDueAt||null]);
+  const o=await client.query("insert into marketplace_orders(tenant_id,store_id,seller_id,order_no,customer_ref,currency,subtotal,total_amount,commission_amount,seller_payable,payment_method,delivery_due_at) values($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$11) returning *",[t.id,c.rows[0].store_id,sellers[0],orderNo,c.rows[0].customer_ref,c.rows[0].currency||"IRR",subtotal,commission,payable,s(req.body?.paymentMethod,50)||"online",req.body?.deliveryDueAt||null]);
   for(const item of items.rows)await client.query("insert into marketplace_order_items(order_id,product_id,quantity,unit_price,line_total) values($1,$2,$3,$4,$5)",[o.rows[0].id,item.product_id,item.quantity,item.unit_price,Number(item.quantity)*Number(item.unit_price)]);
   await client.query("update cart_sessions set status='checked_out',updated_at=now() where id=$1",[req.params.id]);
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'checkout.created','marketplace_order',$3,$4)",[t.id,(req as any).user.id,o.rows[0].id,JSON.stringify(o.rows[0])]);
@@ -139,7 +141,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandl
    providerPayload={facilityId,amount,orderNo:o.rows[0].order_no};
   }else{
    const provider=getPaymentProvider(providerCode||undefined);
-   const providerResult=await provider.createPayment({tenantId:t.id,orderId:o.rows[0].id,amount:Number(o.rows[0].total_amount),currency:"IRR",paymentNo,providerRef:providerTransactionId||null,metadata:{orderNo:o.rows[0].order_no}});
+   const providerResult=await provider.createPayment({tenantId:t.id,orderId:o.rows[0].id,amount:Number(o.rows[0].total_amount),currency:o.rows[0].currency||"IRR",paymentNo,providerRef:providerTransactionId||null,metadata:{orderNo:o.rows[0].order_no}});
    providerCode=provider.code;
    providerTransactionId=providerResult.providerTransactionId||"";
    providerPayload=providerResult.providerPayload;
