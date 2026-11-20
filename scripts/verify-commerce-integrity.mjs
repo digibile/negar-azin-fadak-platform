@@ -142,3 +142,9 @@ if(!checkoutApi.includes("marketplace_seller_recovery_claims")||!checkoutApi.inc
 
 if(!checkoutApi.includes("select ss.id,ss.seller_id,ss.status,ss.adjustment_amount"))throw new Error("Post-payout refund claims must resolve the seller from the paid settlement");
 if(!settlementPage.includes("/api/marketplace/seller-recoveries")||!settlementPage.includes("/collect")||!settlementPage.includes("paymentRef"))throw new Error("Settlement workspace must expose seller recovery collection");
+
+const providerAdapter=read("apps/api/src/payment-provider.ts");
+const notificationWorker=read("apps/api/src/notification-worker.ts");
+if(!providerAdapter.includes('"idempotency-key"')||!providerAdapter.includes("idempotencyKey?:string"))throw new Error("HTTP payment refunds must transmit a stable provider idempotency key");
+if(!checkoutApi.includes('idempotencyKey:"marketplace-refund-"+payment.rows[0].id'))throw new Error("Marketplace refund retries must reuse a payment-scoped idempotency key");
+if(!notificationWorker.includes('idempotencyKey:"merchant-review-reversal-"+row.payment_intent_id'))throw new Error("Merchant review reversal retries must reuse a payment-intent idempotency key");
