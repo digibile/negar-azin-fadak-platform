@@ -294,9 +294,10 @@ domainMarketplaceRouter.post("/api/marketplace/orders",requireAuth,requirePermis
   if(!storeId||!sellerId||!orderNo||subtotal===null||subtotal<0)return res.status(400).json({error:"اطلاعات سفارش نامعتبر است"});
   const ownership=await query("select 1 from stores where id=$1 and tenant_id=$2 and seller_id=$3",[storeId,ctx.id,sellerId]);
   if(!ownership.rowCount)return res.status(404).json({error:"فروشگاه متعلق به این محدوده یا فروشنده نیست"});
-  const discount=bodyNumber(req.body?.discountAmount??0)??0;
-  const shipping=bodyNumber(req.body?.shippingAmount??0)??0;
-  const total=Math.max(0,subtotal-discount+shipping);
+  const discount=bodyNumber(req.body?.discountAmount??0);
+  const shipping=bodyNumber(req.body?.shippingAmount??0);
+  if(discount===null||shipping===null||discount<0||shipping<0||discount>subtotal)return res.status(400).json({error:"تخفیف و هزینه ارسال باید نامنفی باشند و تخفیف از مبلغ کالا بیشتر نباشد"});
+  const total=subtotal-discount+shipping;
   const seller=await query("select commission_rate from sellers where id=$1 and tenant_id=$2",[sellerId,ctx.id]);
   if(!seller.rowCount)return res.status(404).json({error:"فروشنده پیدا نشد"});
   const commission=Number((total*Number(seller.rows[0].commission_rate)/100).toFixed(2));
