@@ -9,7 +9,7 @@ import "./tracking-workspace.css";
 type Event={id:string|number;status:string;location?:string|null;description?:string|null;occurred_at:string};
 type Shipment={id:string;shipment_no:string;status:string;tracking_code?:string|null;origin:string;destination:string;dispatch_at?:string|null;delivered_at?:string|null;delivered_reason?:string|null};
 type CustomerNotice={id:string;title:string;body:string;status:string;created_at:string;read_at?:string|null};
-type Tracking={order:{id:string;order_no:string};shipment:Shipment|null;events:Event[];notifications:CustomerNotice[]};
+type Tracking={order:{id:string;order_no:string;delivery_method_snapshot?:{title?:string;carrierType?:string;businessDaysMin?:number;businessDaysMax?:number;customerCharge?:number|string;currency?:string;pricingStatus?:string}|null};shipment:Shipment|null;events:Event[];notifications:CustomerNotice[]};
 const labels:Record<string,string>={planned:"برنامه‌ریزی‌شده",assigned:"ناوگان تخصیص یافته",picked_up:"دریافت از انبار",in_transit:"در مسیر",delivered:"تحویل‌شده",failed:"عدم تحویل",cancelled:"لغوشده"};
 const date=(v?:string|null)=>v?new Date(v).toLocaleString("fa-IR"):"—";
 
@@ -38,6 +38,7 @@ export default function OrderTrackingPage(){
      <div><small>شماره سفارش</small><b>{data.order.order_no}</b></div>
      <div><small>شماره مرسوله</small><b>{data.shipment.shipment_no}</b></div>
      <div><small>کد رهگیری</small><b>{data.shipment.tracking_code||"ثبت نشده"}</b></div>
+     {data.order.delivery_method_snapshot?.title&&<div><small>روش ارسال انتخاب‌شده</small><b>{data.order.delivery_method_snapshot.title}</b></div>}
      <span className={"tracking-status status-"+data.shipment.status}>{labels[data.shipment.status]||data.shipment.status}</span>
     </article>
     <div className="tracking-route"><div><small>مبدأ</small><b>{data.shipment.origin}</b></div><span>←</span><div><small>مقصد</small><b>{data.shipment.destination}</b></div></div>
