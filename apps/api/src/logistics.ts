@@ -55,6 +55,15 @@ logisticsRouter.patch("/api/logistics/plans/:id/status",requireAuth,requirePermi
   res.json(r);
 }));
 
+logisticsRouter.get("/api/logistics/marketplace-orders/eligible",requireAuth,asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const r=await query(
+    "select o.id,o.order_no,o.status,o.created_at,o.total_amount,o.currency,a.recipient_name,a.mobile,a.province,a.city,a.address_line,so.id as supply_order_id,so.status as supply_status,(select coalesce(jsonb_agg(jsonb_build_object('title',p.title,'quantity',oi.quantity) order by oi.created_at),'[]'::jsonb) from marketplace_order_items oi join products p on p.id=oi.product_id where oi.order_id=o.id) as items from marketplace_orders o left join marketplace_customer_addresses a on a.id=o.delivery_address_id and a.tenant_id=o.tenant_id left join logistics_supply_orders so on so.tenant_id=o.tenant_id and so.marketplace_order_id=o.id where o.tenant_id=$1 and o.status='paid' order by o.created_at asc limit 200",
+    [t.id]
+  );
+  res.json(r.rows);
+}));
+
 logisticsRouter.get("/api/logistics/orders",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   const r=await query(
