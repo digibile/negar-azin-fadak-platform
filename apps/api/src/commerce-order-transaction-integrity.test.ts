@@ -126,3 +126,20 @@ test("supplier quote line totals, shipping and quality values are validated befo
  assert.ok(purchasing.includes("quality>100"));
  assert.ok(purchasing.includes("insert into purchase_events(tenant_id,entity_type,entity_id,to_status,event_type,actor_user_id)"));
 });
+
+test("purchase return creation locks an invoiced tenant order and reserves only remaining invoice value",()=>{
+ assert.ok(purchasing.includes("select * from purchase_orders where id=$1 and tenant_id=$2 for update"));
+ assert.ok(purchasing.includes('if(!["invoiced","paid"].includes(old.status))'));
+ assert.ok(purchasing.includes("select * from purchase_invoices where order_id=$1 and tenant_id=$2 for update"));
+ assert.ok(purchasing.includes("amount+already>invoiceTotal+0.000001"));
+ assert.ok(purchasing.includes("insert into purchase_returns(tenant_id,return_no,order_id,amount,reason,created_by)"));
+});
+
+test("purchase return credit is tenant-scoped, transition-locked and posted as a negative supplier credit event",()=>{
+ assert.ok(purchasing.includes("select * from purchase_returns where id=$1 and tenant_id=$2 for update"));
+ assert.ok(purchasing.includes("update purchase_returns set status=$1 where id=$2 and tenant_id=$3 and status=$4 returning *"));
+ assert.ok(purchasing.includes("credited+amount>total+0.000001"));
+ assert.ok(purchasing.includes("'supplier_credit_note'"));
+ assert.ok(purchasing.includes("-Number(old.amount)"));
+ assert.ok(purchasing.includes('await c.query("rollback")'));
+});
