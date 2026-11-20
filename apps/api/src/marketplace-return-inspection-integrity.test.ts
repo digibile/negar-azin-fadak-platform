@@ -392,3 +392,28 @@ test("closed return is not reported as refunded unless a completed refund row ex
  assert.ok(route.includes("manualReconciliationRequired:true"));
  assert.ok(route.includes("پرونده مرجوعی بسته شده اما بازپرداخت قطعی ثبت نشده است"));
 });
+
+test("refund reconciliation queue is tenant-scoped, read-only, and exposes only provider identifiers needed for manual comparison",()=>{
+ const start=checkout.indexOf('checkoutRouter.get("/api/marketplace/returns/refund-reconciliation"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/returns/:id/inspect"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes('requirePermission("order:manage")'));
+ assert.ok(route.includes('requirePermission("payment:refund")'));
+ assert.ok(route.includes("where mr.tenant_id=$1 and mr.status in ('pending','failed')"));
+ assert.ok(route.includes("payment_provider_transaction_id"));
+ assert.ok(route.includes("provider_refund_transaction_id"));
+ assert.ok(route.includes("claim_active"));
+ assert.ok(route.includes("automaticProviderRefundLookup:false"));
+ assert.ok(!route.includes("provider_payload"));
+ assert.ok(!route.includes("update marketplace_refunds"));
+ assert.ok(!route.includes("refundPayment("));
+});
+
+test("returns workspace presents the refund reconciliation queue as manual and read-only",()=>{
+ assert.ok(page.includes("/api/marketplace/returns/refund-reconciliation"));
+ assert.ok(page.includes("صف تطبیق بازپرداخت‌های نامشخص و ناموفق"));
+ assert.ok(page.includes("فهرست فقط‌خواندنی"));
+ assert.ok(page.includes("manualComparisonRequired"));
+ assert.ok(page.includes("شناسه پرداخت درگاه"));
+ assert.ok(page.includes("کلید یکتای پیگیری"));
+});
