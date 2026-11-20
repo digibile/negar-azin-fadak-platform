@@ -1,17 +1,134 @@
 "use client";
-import {useEffect,useState} from "react";
+
+import {useCallback,useEffect,useState} from "react";
 import {api} from "../../../lib/api";
-const nextStatus:Record<string,string>={pending:"confirmed",confirmed:"paid",paid:"processing",processing:"shipped",shipped:"delivered",delivered:"returned",returned:"refunded"};
+
+type Order= {
+ id:string;
+ order_no:string;
+ customer_ref?:string|null;
+ seller_name?:string|null;
+ total_amount:string|number;
+ currency:string;
+ status:string;
+ created_at?:string|null;
+ updated_at?:string|null;
+};
+
+const labels:Record<string,string>={
+ pending:"در انتظار تأیید",
+ confirmed:"تأییدشده",
+ paid:"پرداخت‌شده",
+ processing:"در حال آماده‌سازی",
+ shipped:"ارسال‌شده",
+ delivered:"تحویل‌شده",
+ returned:"مرجوع‌شده",
+ cancelled:"لغوشده",
+ refunded:"بازپرداخت‌شده"
+};
+
+// Payment and refund statuses are intentionally excluded from manual actions.
+// They must be written by the payment/refund provider workflow, not by an operator button.
+const actions:Record<string,Array<{status:string;label:string;reason?:boolean;danger?:boolean}>>={
+ pending:[{status:"confirmed",label:"تأیید سفارش"},{status:"cancelled",label:"لغو سفارش",reason:true,danger:true}],
+ confirmed:[{status:"cancelled",label:"لغو سفارش",reason:true,danger:true}],
+ paid:[{status:"processing",label:"شروع آماده‌سازی"}],
+ processing:[{status:"shipped",label:"ثبت ارسال"},{status:"returned",label:"ثبت مرجوعی",reason:true,danger:true}],
+ shipped:[{status:"delivered",label:"ثبت تحویل"},{status:"returned",label:"ثبت مرجوعی",reason:true,danger:true}],
+ delivered:[{status:"returned",label:"ثبت مرجوعی",reason:true,danger:true}]
+};
+
+const money=(value:string|number,currency:string)=>Number(value||0).toLocaleString("fa-IR")+" "+(currency==="IRR"?"ریال":currency);
+const date=(value?:string|null)=>value?new Date(value).toLocaleString("fa-IR"):"-";
+
 export default function OrdersPage(){
- const [items,setItems]=useState<any[]>([]),[error,setError]=useState("");
- async function load(){try{const r:any=await api("/api/marketplace/orders");setItems(r.items||[])}catch(e){setError(e instanceof Error?e.message:"خطا")}}
- useEffect(()=>{load()},[]);
- async function move(id:string,status:string){try{await api("/api/marketplace/orders/"+id+"/status",{method:"PATCH",body:JSON.stringify({status})});await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}}
+ const [items,setItems]=useState<Order[]>([]);
+ const [error,setError]=useState("");
+ const [notice,setNotice]=useState("");
+ const [loading,setLoading]=useState(true);
+ const [busyId,setBusyId]=useState("");
+ const [filter,setFilter]=useState("all");
+
+ const load=useCallback(async()=>{
+  setLoading(true);setError("");
+  try{
+   const result=await api<{items:Order[]}>("/api/marketplace/orders");
+   setItems(result.items||[]);
+  }catch(e){
+   setError(e instanceof Error?e.message:"دریافت سفارش‌ها ناموفق بود.");
+  }finally{setLoading(false);}
+ },[]);
+
+ useEffect(()=>{void load();},[load]);
+
+ async function move(order:Order,next:string,needsReason:boolean){
+  let reason="";
+  if(needsReason){
+   const answer=window.prompt(next==="cancelled"?"علت لغو سفارش را وارد کنید:":"علت مرجوعی سفارش را وارد کنید:");
+   if(answer===null)return;
+   reason=answer.trim();
+   if(!reason){setError("ثبت علت برای این عملیات الزامی است.");return;}
+  }else if(!window.confirm("وضعیت سفارش "+order.order_no+" تغییر کند؟")){
+   return;
+  }
+  setBusyId(order.id);setError("");setNotice("");
+  try{
+   await api("/api/marketplace/orders/"+encodeURIComponent(order.id)+"/status",{
+    method:"PATCH",
+    body:JSON.stringify({status:next,...(reason?{reason}:{})})
+   });
+   setNotice("وضعیت سفارش "+order.order_no+" به‌روزرسانی شد.");
+   await load();
+  }catch(e){
+   setError(e instanceof Error?e.message:"تغییر وضعیت سفارش ناموفق بود.");
+  }finally{setBusyId("");}
+ }
+
+ const filtered=filter==="all"?items:items.filter(x=>x.status===filter);
+ const count=(status:string)=>items.filter(x=>x.status===status).length;
  return <main className="enterprise-main" dir="rtl">
-  <header className="platform-header"><div><span className="section-kicker">عملیات تجارت</span><h1>سفارش‌ها</h1><p>چرخه وضعیت کنترل‌شده و ثبت ممیزی</p></div><a href="/platform">مرکز عملیات</a></header>
-  <section className="platform-panel">{error&&<p className="enterprise-loading error">{error}</p>}
-   {items.map(x=><div className="platform-row" key={x.id}><div><b>{x.order_no}</b><small>{x.customer_ref||"مشتری ثبت نشده"} · {x.total_amount} {x.currency}</small></div><strong>{x.status}</strong><div className="platform-actions">{nextStatus[x.status]&&<button onClick={()=>move(x.id,nextStatus[x.status])}>مرحله بعد</button>}</div></div>)}
-   {!items.length&&<p className="empty">سفارشی ثبت نشده است.</p>}
+  <header className="platform-header">
+   <div><span className="section-kicker">عملیات تجارت</span><h1>مدیریت سفارش‌ها</h1><p>چرخه سفارش، ثبت ممیزی و تفکیک وضعیت پرداخت از عملیات ارسال</p></div>
+   <button type="button" onClick={()=>void load()} disabled={loading}>بازخوانی سفارش‌ها</button>
+  </header>
+  {error&&<p className="enterprise-loading error" role="alert">{error}</p>}
+  {notice&&<p className="enterprise-loading" role="status">{notice}</p>}
+  <section className="platform-panel">
+   <div className="platform-order-summary">
+    <span>همه سفارش‌ها <b>{items.length.toLocaleString("fa-IR")}</b></span>
+    <span>در انتظار <b>{count("pending").toLocaleString("fa-IR")}</b></span>
+    <span>در حال آماده‌سازی <b>{count("processing").toLocaleString("fa-IR")}</b></span>
+    <span>ارسال‌شده <b>{count("shipped").toLocaleString("fa-IR")}</b></span>
+   </div>
+   <div className="platform-order-filter">
+    <label htmlFor="order-status-filter">نمایش وضعیت</label>
+    <select id="order-status-filter" value={filter} onChange={e=>setFilter(e.target.value)}>
+     <option value="all">همه سفارش‌ها</option>
+     {Object.entries(labels).map(([key,label])=><option key={key} value={key}>{label}</option>)}
+    </select>
+   </div>
+   {loading?<p className="empty">در حال دریافت سفارش‌ها…</p>:filtered.map(order=><article className="platform-row platform-order-row" key={order.id}>
+    <div className="platform-order-main">
+     <b>{order.order_no}</b>
+     <small>{order.customer_ref||"مشتری ثبت نشده"} · {date(order.created_at)}</small>
+     {order.seller_name&&<small>فروشنده: {order.seller_name}</small>}
+     <strong>{money(order.total_amount,order.currency)}</strong>
+    </div>
+    <div className="platform-order-state"><span className={"platform-order-badge status-"+order.status}>{labels[order.status]||order.status}</span><small>آخرین تغییر: {date(order.updated_at)}</small></div>
+    <div className="platform-actions">
+     {(actions[order.status]||[]).map(action=><button
+      type="button"
+      key={action.status}
+      disabled={busyId===order.id}
+      className={action.danger?"platform-order-danger":""}
+      onClick={()=>void move(order,action.status,Boolean(action.reason))}
+     >{busyId===order.id?"در حال ثبت…":action.label}</button>)}
+     {order.status==="refunded"&&<small>بازپرداخت باید از چرخه مالی تأیید شود.</small>}
+     {order.status==="cancelled"&&<small>این سفارش لغو شده است.</small>}
+    </div>
+   </article>)}
+   {!loading&&!filtered.length&&<p className="empty">سفارشی با این وضعیت وجود ندارد.</p>}
   </section>
+  <p className="platform-order-footnote">تأیید پرداخت و بازپرداخت در این صفحه قابل ثبت دستی نیست. این وضعیت‌ها باید از رویداد معتبر درگاه و چرخه مالی به‌روزرسانی شوند. انتقال‌های نامعتبر نیز در سرویس سمت سرور رد می‌شوند.</p>
  </main>;
 }
