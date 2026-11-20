@@ -11,6 +11,7 @@ type Facility={id:string;facility_no:string;approved_amount:string;available_amo
 function CheckoutContent(){
  const search=useSearchParams();
  const cartId=search.get("cart")||"";
+ const paymentNo=search.get("paymentNo")||"";
  const [cart,setCart]=useState<Cart|null>(null),[items,setItems]=useState<Item[]>([]);
  const [facilities,setFacilities]=useState<Facility[]>([]);
  const [method,setMethod]=useState<"online"|"credit">("online");
@@ -31,7 +32,24 @@ function CheckoutContent(){
    setCart(b.cart);setItems(b.items||[]);
    const f=await fetch("/api/lendtech/my-facilities",{credentials:"include"});
    const fb=await f.json();if(f.ok){setFacilities(fb.items||[]);if((fb.items||[]).length)setFacilityId(fb.items[0].id);}
-   if(orderId){const or=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});const ob=await or.json();if(or.ok)setOrder(ob.order);}
+   if(orderId){
+    const or=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});
+    const ob=await or.json();
+    if(or.ok){
+     setOrder(ob.order);
+     if(paymentNo){
+      const pending=(ob.payments||[]).find((p:any)=>p.payment_no===paymentNo);
+      if(pending&&["pending","authorized"].includes(pending.status)){
+       const vr=await fetch("/api/marketplace/payments/"+encodeURIComponent(pending.id)+"/verify",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({})});
+       const vb=await vr.json();
+       if(!vr.ok)throw new Error(vb.error||"تأیید پرداخت از درگاه انجام نشد");
+       setMessage(vb.status==="paid"?"پرداخت با تأیید مستقیم درگاه نهایی شد.":"درگاه هنوز پرداخت را نهایی نکرده است؛ وضعیت سفارش در انتظار تأیید باقی می‌ماند.");
+       const refreshed=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});
+       const rb=await refreshed.json();if(refreshed.ok)setOrder(rb.order);
+      }else if(pending?.status==="paid")setMessage("پرداخت این سفارش قبلاً تأیید شده است.");
+     }
+    }
+   }
   }catch(e){setError(e instanceof Error?e.message:"خطا در دریافت سبد");}
   finally{setLoading(false);}
  }
@@ -46,11 +64,12 @@ function CheckoutContent(){
     oid=cb.order.id;setOrderId(oid);
    }
    const pr=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/payment",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({
-    method,creditFacilityId:method==="credit"?facilityId:undefined,idempotencyKey:"WEB-"+oid
+    method,creditFacilityId:method==="credit"?facilityId:undefined,idempotencyKey:"WEB-"+oid,cartId
    })});
    const pb=await pr.json();if(!pr.ok)throw new Error(pb.error||"پرداخت ناموفق بود");
    const resolvedOrder=pb.order||{id:oid,status:pb.status||"pending"};
    setOrder(resolvedOrder);
+   if(pb.redirectUrl){window.location.assign(pb.redirectUrl);return;}
    setMessage(resolvedOrder.status==="paid"||pb.status==="paid"?"پرداخت توسط سرویس پرداخت تأیید شد.":"سفارش ثبت شد؛ وضعیت پرداخت هنوز نهایی نیست و باید از سرویس پرداخت پیگیری شود.");
   }catch(e){setError(e instanceof Error?e.message:"خطا در ثبت سفارش");}
   finally{setBusy(false);}
