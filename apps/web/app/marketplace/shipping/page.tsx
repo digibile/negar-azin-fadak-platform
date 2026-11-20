@@ -4,7 +4,8 @@ import {useCallback,useEffect,useState} from "react";
 import {api} from "../../../lib/api";
 import "./shipping-workspace.css";
 
-type Order={id:string;order_no:string;status:string;customer_ref?:string|null;latest_shipment_id?:string|null;shipment_no?:string|null;tracking_code?:string|null;shipment_status?:string|null};
+type ShippingAddress={recipientName?:string;recipientPhone?:string;province?:string;city?:string;addressLine?:string;postalCode?:string;unit?:string};
+type Order={id:string;order_no:string;status:string;shipping_address?:ShippingAddress|null;customer_ref?:string|null;latest_shipment_id?:string|null;shipment_no?:string|null;tracking_code?:string|null;shipment_status?:string|null};
 type Vehicle={id:string;title:string;plate_no:string;status:string};
 type Driver={id:string;name:string;mobile?:string|null;status:string};
 type Route={id:string;name:string;origin:string;destination:string;distance_km?:number;status:string};
@@ -101,13 +102,13 @@ export default function MarketplaceShippingPage(){
   <section className="platform-panel shipping-panel">
    <div className="shipping-section-title"><div><h2>سفارش‌های آماده ارسال</h2><p>فقط سفارش‌های در حال آماده‌سازی امکان ایجاد مرسوله دارند.</p></div></div>
    {loading?<p className="empty">در حال دریافت اطلاعات…</p>:orders.filter(o=>o.status==="processing").map(order=><article className="shipping-order" key={order.id}>
-    <div className="shipping-order-info"><b>{order.order_no}</b><span>مشتری: {order.customer_ref||"ثبت نشده"}</span></div>
+    <div className="shipping-order-info"><b>{order.order_no}</b><span>مشتری: {order.shipping_address?.recipientName||order.customer_ref||"ثبت نشده"}</span><small>{order.shipping_address?[order.shipping_address.province,order.shipping_address.city,order.shipping_address.addressLine,order.shipping_address.postalCode].filter(Boolean).join("، "):"نشانی تحویل ثبت نشده"}</small></div>
     {order.latest_shipment_id?<div className="shipping-existing"><span className="shipping-pill">{statusLabel[order.shipment_status||""]||order.shipment_status}</span><b>{order.shipment_no}</b><small>کد رهگیری: {order.tracking_code||"ثبت نشده"}</small></div>:<div className="shipping-create">
      <label>ناوگان<select value={vehicleByOrder[order.id]||""} onChange={e=>setVehicleByOrder(p=>({...p,[order.id]:e.target.value}))}><option value="">انتخاب خودرو</option>{availableVehicles.map(v=><option key={v.id} value={v.id}>{v.title} · {v.plate_no}</option>)}</select></label>
      <label>راننده<select value={driverByOrder[order.id]||""} onChange={e=>setDriverByOrder(p=>({...p,[order.id]:e.target.value}))}><option value="">انتخاب راننده</option>{activeDrivers.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
      <label>مسیر حمل<select value={routeByOrder[order.id]||""} onChange={e=>setRouteByOrder(p=>({...p,[order.id]:e.target.value}))}><option value="">بدون مسیر مشخص</option>{routes.map(r=><option key={r.id} value={r.id}>{r.name} · {r.origin} ← {r.destination}</option>)}</select></label>
      <label>کد رهگیری<input value={trackingByOrder[order.id]||""} onChange={e=>setTrackingByOrder(p=>({...p,[order.id]:e.target.value}))} placeholder="اختیاری"/></label>
-     <button type="button" disabled={busy===order.id} onClick={()=>void createShipment(order)}>{busy===order.id?"در حال ثبت…":"ایجاد مرسوله"}</button>
+     <button type="button" disabled={busy===order.id||!order.shipping_address?.addressLine||!order.shipping_address?.postalCode} onClick={()=>void createShipment(order)}>{busy===order.id?"در حال ثبت…":"ایجاد مرسوله"}</button>
     </div>}
    </article>)}
    {!loading&&!orders.some(o=>o.status==="processing")&&<p className="empty">سفارش آماده ارسال وجود ندارد.</p>}

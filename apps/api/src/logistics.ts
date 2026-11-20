@@ -124,6 +124,7 @@ logisticsRouter.post("/api/logistics/marketplace-orders/:orderId/shipments",requ
     const order=(await c.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.orderId,t.id])).rows[0];
     if(!order){await c.query("rollback");return fail(res,404,"سفارش فروشگاه پیدا نشد");}
     if(order.status!=="processing"){await c.query("rollback");return fail(res,409,"ارسال فقط پس از شروع آماده‌سازی سفارش ممکن است");}
+    if(!order.shipping_address||!order.shipping_address.recipientName||!order.shipping_address.recipientPhone||!order.shipping_address.addressLine||!order.shipping_address.city||!order.shipping_address.postalCode){await c.query("rollback");return fail(res,409,"نشانی معتبر تحویل برای این سفارش ثبت نشده است؛ ابتدا نشانی مشتری را تکمیل کنید");}
     const existing=(await c.query("select * from logistics_shipments where tenant_id=$1 and marketplace_order_id=$2 for update",[t.id,order.id])).rows[0];
     if(existing){await c.query("commit");return res.json({shipment:existing,idempotent:true});}
     const vehicle=(await c.query("select * from logistics_vehicles where id=$1 and tenant_id=$2 for update",[b.vehicleId,t.id])).rows[0];
@@ -140,7 +141,7 @@ logisticsRouter.post("/api/logistics/marketplace-orders/:orderId/shipments",requ
     if(!shipmentNo){await c.query("rollback");return fail(res,400,"شماره مرسوله الزامی است");}
     const shipment=(await c.query(
       "insert into logistics_shipments(tenant_id,shipment_no,marketplace_order_id,route_id,vehicle_id,driver_id,origin,destination,tracking_code,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",
-      [t.id,shipmentNo,order.id,route?.id||null,vehicle.id,driver.id,String(b.origin||route?.origin||"انبار فروشنده"),String(b.destination||route?.destination||"نشانی مشتری"),b.trackingCode||null,(req as any).user.id]
+      [t.id,shipmentNo,order.id,route?.id||null,vehicle.id,driver.id,String(b.origin||route?.origin||"مبدأ عملیاتی ثبت‌نشده"),String([order.shipping_address?.recipientName,order.shipping_address?.province,order.shipping_address?.city,order.shipping_address?.addressLine,order.shipping_address?.unit?("واحد "+order.shipping_address.unit):null,order.shipping_address?.postalCode?("کدپستی "+order.shipping_address.postalCode):null].filter(Boolean).join("، ")),b.trackingCode||null,(req as any).user.id]
     )).rows[0];
     await c.query("update logistics_vehicles set status='assigned' where id=$1 and tenant_id=$2",[vehicle.id,t.id]);
     await c.query("insert into logistics_delivery_events(tenant_id,shipment_id,status,location,description,actor_user_id) values($1,$2,'planned',$3,$4,$5)",[t.id,shipment.id,shipment.origin,"مرسوله برای سفارش فروشگاه ایجاد شد",(req as any).user.id]);
@@ -154,7 +155,7 @@ logisticsRouter.post("/api/logistics/marketplace-orders/:orderId/shipments",requ
 
 logisticsRouter.get("/api/marketplace/orders/:orderId/shipment",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
-  const order=(await query("select id,order_no,customer_ref from marketplace_orders where id=$1 and tenant_id=$2",[req.params.orderId,t.id])).rows[0];
+  const order=(await query("select id,order_no,customer_ref,shipping_address from marketplace_orders where id=$1 and tenant_id=$2",[req.params.orderId,t.id])).rows[0];
   if(!order)return fail(res,404,"سفارش پیدا نشد");
   const user=(req as any).user;
   const allowed=user.role==="admin"||order.customer_ref===user.id||await can(req,"order:lifecycle")||await can(req,"modules:12-logistics-supply:track");
@@ -168,7 +169,7 @@ logisticsRouter.get("/api/marketplace/orders/:orderId/shipment",requireAuth,asyn
 logisticsRouter.get("/api/logistics/shipments",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   res.json((await query(
-    "select s.*,coalesce(o.order_no,mo.order_no) order_no,r.name route_name,v.plate_no,d.name driver_name from logistics_shipments s left join logistics_supply_orders o on o.id=s.supply_order_id left join marketplace_orders mo on mo.id=s.marketplace_order_id and mo.tenant_id=s.tenant_id left join logistics_routes r on r.id=s.route_id left join logistics_vehicles v on v.id=s.vehicle_id left join logistics_drivers d on d.id=s.driver_id where s.tenant_id=$1 order by s.created_at desc",
+    "select s.*,coalesce(o.order_no,mo.order_no) order_no,mo.shipping_address,r.name route_name,v.plate_no,d.name driver_name from logistics_shipments s left join logistics_supply_orders o on o.id=s.supply_order_id left join marketplace_orders mo on mo.id=s.marketplace_order_id and mo.tenant_id=s.tenant_id left join logistics_routes r on r.id=s.route_id left join logistics_vehicles v on v.id=s.vehicle_id left join logistics_drivers d on d.id=s.driver_id where s.tenant_id=$1 order by s.created_at desc",
     [t.id]
   )).rows);
 }));

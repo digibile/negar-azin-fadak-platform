@@ -16,6 +16,7 @@ function CheckoutContent(){
  const [cart,setCart]=useState<Cart|null>(null),[items,setItems]=useState<Item[]>([]);
  const [facilities,setFacilities]=useState<Facility[]>([]);
  const [method,setMethod]=useState<"online"|"credit">("online");
+ const [shippingAddress,setShippingAddress]=useState({recipientName:"",recipientPhone:"",province:"",city:"",addressLine:"",postalCode:"",unit:""});
  const [facilityId,setFacilityId]=useState("");
  const [orderId,setOrderId]=useState(search.get("order")||"");
  const [order,setOrder]=useState<any>(null),[pendingPaymentId,setPendingPaymentId]=useState("");
@@ -40,6 +41,7 @@ function CheckoutContent(){
     const ob=await or.json();
     if(or.ok){
      setOrder({...ob.order,items:ob.items||[],payments:ob.payments||[],refunds:ob.refunds||[]});
+     if(ob.order.shipping_address)setShippingAddress({...shippingAddress,...ob.order.shipping_address});
      if(ob.order.shipping_address)setShippingAddress({...shippingAddress,...ob.order.shipping_address});
      const latestPending=(ob.payments||[]).find((p:any)=>["pending","authorized"].includes(p.status));
      if(latestPending)setPendingPaymentId(latestPending.id);
@@ -75,14 +77,15 @@ function CheckoutContent(){
  }
  async function checkoutAndPay(){
   if(!cartId||!items.length)return;
+  if(!shippingAddress.recipientName.trim()||!shippingAddress.recipientPhone.trim()||!shippingAddress.province.trim()||!shippingAddress.city.trim()||!shippingAddress.addressLine.trim()||!shippingAddress.postalCode.trim()){setError("برای ادامه خرید، اطلاعات کامل نشانی تحویل را وارد کنید.");return;}
   setBusy(true);setError("");setMessage("");
   try{
    let oid=orderId;
    if(!oid){
-    const cr=await fetch("/api/checkout/carts/"+encodeURIComponent(cartId)+"/checkout",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({paymentMethod:method})});
+    const cr=await fetch("/api/checkout/carts/"+encodeURIComponent(cartId)+"/checkout",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({paymentMethod:method,shippingAddress})});
     const cb=await cr.json();if(!cr.ok)throw new Error(cb.error||"ثبت سفارش ناموفق بود");
     oid=cb.order.id;setOrderId(oid);
-   }
+   }else{const ar=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/shipping-address",{method:"PATCH",credentials:"include",headers:headers(),body:JSON.stringify({shippingAddress})});const ab=await ar.json();if(!ar.ok)throw new Error(ab.error||"ثبت نشانی تحویل ناموفق بود");}
    const pr=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/payment",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({
     method,creditFacilityId:method==="credit"?facilityId:undefined,idempotencyKey:"WEB-"+oid+"-"+Date.now(),cartId
    })});
@@ -105,7 +108,8 @@ function CheckoutContent(){
    <header className="sk-checkout-heading"><div><span>تسویه سفارش</span><h1>تکمیل خرید</h1><p>مبلغ و اقلام سفارش را بررسی کنید و سپس روش پرداخت را انتخاب کنید. وضعیت نهایی فقط بر اساس پاسخ سرویس پرداخت نمایش داده می‌شود.</p></div><Link href="/store/cart">بازگشت به سبد</Link></header>
    {error&&<div className="pay-notice" role="alert">{error}</div>}{message&&<div className="sk-checkout-message" role="status">{message}</div>}
    {loading?<div className="product-card sk-checkout-loading" role="status"><span className="sk-checkout-spinner" aria-hidden="true" />در حال دریافت سبد و بررسی وضعیت سفارش…</div>:cartId==="history"&&order?<article className="product-card sk-checkout-order-status"><span>پیگیری سفارش</span><h2>{order.order_no||order.id}</h2><p>وضعیت سفارش: {order.status}</p><p>وضعیت پرداخت: {order.payments?.[0]?.status||"ثبت نشده"}</p><p>مبلغ: {Number(order.total_amount||0).toLocaleString("fa-IR")} {order.currency||"IRR"}</p>{(order.items||[]).map((item:any)=><div className="module-row" key={item.id}><strong>{item.title}</strong><span>{Number(item.quantity).toLocaleString("fa-IR")} عدد</span></div>)}{pendingPaymentId&&<button type="button" className="sk-checkout-secondary" disabled={busy} onClick={verifyPendingPayment}>بررسی مجدد وضعیت پرداخت</button>}<Link href="/account/orders">بازگشت به سفارش‌های من</Link></article>:items.length===0?<div className="product-card sk-checkout-empty"><h2>سبد قابل تسویه نیست</h2><p>این سبد خالی است یا قبلاً تسویه شده. برای ثبت سفارش جدید، به فروشگاه برگردید.</p><Link className="sk-checkout-primary" href="/store/shop">مرور کالاها</Link></div>:<div className="plan-grid sk-checkout-grid">
-    <article className="product-card sk-checkout-card"><span>خلاصه سفارش</span><h3>{items.length.toLocaleString("fa-IR")} قلم</h3>{items.map(i=><div key={i.id} className="module-row"><div><strong>{i.title}</strong><small>{i.sku} · تعداد {Number(i.quantity).toLocaleString("fa-IR")}</small></div><span>{(Number(i.unit_price)*Number(i.quantity)).toLocaleString("fa-IR")} {cart?.currency||"IRR"}</span></div>)}<hr/><strong>جمع کل: {total.toLocaleString("fa-IR")} {cart?.currency||"IRR"}</strong></article>
+    <article className="product-card sk-checkout-card sk-delivery-address"><span>اطلاعات تحویل</span><h3>نشانی دریافت سفارش</h3><p>این نشانی همراه سفارش ذخیره می‌شود و مبنای تحویل مرسوله خواهد بود.</p><div className="sk-delivery-address-grid"><label>نام گیرنده<input required value={shippingAddress.recipientName} onChange={e=>setShippingAddress(p=>({...p,recipientName:e.target.value}))} placeholder="نام و نام خانوادگی"/></label><label>شماره همراه گیرنده<input required inputMode="tel" value={shippingAddress.recipientPhone} onChange={e=>setShippingAddress(p=>({...p,recipientPhone:e.target.value}))} placeholder="09…"/></label><label>استان<input required value={shippingAddress.province} onChange={e=>setShippingAddress(p=>({...p,province:e.target.value}))} placeholder="استان"/></label><label>شهر<input required value={shippingAddress.city} onChange={e=>setShippingAddress(p=>({...p,city:e.target.value}))} placeholder="شهر"/></label><label className="wide">نشانی دقیق<input required value={shippingAddress.addressLine} onChange={e=>setShippingAddress(p=>({...p,addressLine:e.target.value}))} placeholder="خیابان، کوچه، پلاک، طبقه"/></label><label>کدپستی<input required inputMode="numeric" value={shippingAddress.postalCode} onChange={e=>setShippingAddress(p=>({...p,postalCode:e.target.value}))} placeholder="۱۰ رقم"/></label><label>واحد / پلاک تکمیلی<input value={shippingAddress.unit} onChange={e=>setShippingAddress(p=>({...p,unit:e.target.value}))} placeholder="اختیاری"/></label></div></article>
+ <article className="product-card sk-checkout-card"><span>خلاصه سفارش</span><h3>{items.length.toLocaleString("fa-IR")} قلم</h3>{items.map(i=><div key={i.id} className="module-row"><div><strong>{i.title}</strong><small>{i.sku} · تعداد {Number(i.quantity).toLocaleString("fa-IR")}</small></div><span>{(Number(i.unit_price)*Number(i.quantity)).toLocaleString("fa-IR")} {cart?.currency||"IRR"}</span></div>)}<hr/><strong>جمع کل: {total.toLocaleString("fa-IR")} {cart?.currency||"IRR"}</strong></article>
     <article className="product-card sk-checkout-card"><span>مرحله پرداخت</span><h3>انتخاب روش پرداخت</h3>
      <label className="sk-checkout-choice"><input type="radio" checked={method==="online"} onChange={()=>setMethod("online")}/> پرداخت آنلاین از درگاه متصل</label>
      <label className="sk-checkout-choice"><input type="radio" checked={method==="credit"} onChange={()=>setMethod("credit")}/> استفاده از اعتبار خرید فعال</label>

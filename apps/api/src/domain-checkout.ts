@@ -10,6 +10,7 @@ import {getPaymentProvider} from "./payment-provider.js";
 export const checkoutRouter=Router();
 const s=(v:unknown,n=200)=>typeof v==="string"?v.trim().slice(0,n):"";
 const n=(v:unknown)=>{const x=Number(v);return Number.isFinite(x)?x:null;};
+function normalizeShippingAddress(value:any){if(!value||typeof value!=="object"||Array.isArray(value))return null;const a={recipientName:s(value.recipientName,120),recipientPhone:s(value.recipientPhone,30),province:s(value.province,80),city:s(value.city,80),addressLine:s(value.addressLine,1000),postalCode:s(value.postalCode,20),unit:s(value.unit,40)};if(!Object.values(a).some(Boolean))return null;if(!a.recipientName||!a.recipientPhone||!a.province||!a.city||!a.addressLine||!a.postalCode)return false;return a;}
 async function ctx(req:any){return resolveTenant(req,(req as any).user);}
 async function canAccessCustomer(req:any,customerRef:string,permissions:string|string[]=[]):Promise<boolean>{
  const user=req.user;
@@ -90,7 +91,8 @@ checkoutRouter.post("/api/checkout/carts/:id/checkout",requireAuth,asyncHandler(
   const orderNo=s(req.body?.orderNo,100)||("ORD-"+Date.now()+"-"+Math.random().toString(36).slice(2,7));
   const configuredReservationTtl=Number(process.env.MARKETPLACE_RESERVATION_TTL_MINUTES||30);
   const reservationTtlMinutes=Number.isFinite(configuredReservationTtl)?Math.min(240,Math.max(5,configuredReservationTtl)):30;
-  const o=await client.query("insert into marketplace_orders(tenant_id,store_id,seller_id,order_no,customer_ref,currency,subtotal,total_amount,commission_amount,seller_payable,payment_method,delivery_due_at,reservation_expires_at) values($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$11,now()+($12::text||' minutes')::interval) returning *",[t.id,c.rows[0].store_id,sellers[0],orderNo,c.rows[0].customer_ref,c.rows[0].currency||"IRR",subtotal,commission,payable,s(req.body?.paymentMethod,50)||"online",req.body?.deliveryDueAt||null,reservationTtlMinutes]);
+  const shippingAddress=normalizeShippingAddress(req.body?.shippingAddress);if(shippingAddress===false){await client.query("rollback");return res.status(400).json({error:"نشانی تحویل ناقص است؛ نام گیرنده، همراه، استان، شهر، نشانی و کدپستی را کامل کنید"});}
+  const o=await client.query("insert into marketplace_orders(tenant_id,store_id,seller_id,order_no,customer_ref,currency,subtotal,total_amount,commission_amount,seller_payable,payment_method,shipping_address,delivery_due_at,reservation_expires_at) values($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$11::jsonb,$12,now()+($13::text||' minutes')::interval) returning *",[t.id,c.rows[0].store_id,sellers[0],orderNo,c.rows[0].customer_ref,c.rows[0].currency||"IRR",subtotal,commission,payable,s(req.body?.paymentMethod,50)||"online",shippingAddress?JSON.stringify(shippingAddress):null,req.body?.deliveryDueAt||null,reservationTtlMinutes]);
   for(const item of items.rows)await client.query("insert into marketplace_order_items(order_id,product_id,quantity,unit_price,line_total) values($1,$2,$3,$4,$5)",[o.rows[0].id,item.product_id,item.quantity,item.unit_price,Number(item.quantity)*Number(item.unit_price)]);
   await client.query("update cart_sessions set status='checked_out',updated_at=now() where id=$1",[req.params.id]);
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'checkout.created','marketplace_order',$3,$4)",[t.id,(req as any).user.id,o.rows[0].id,JSON.stringify(o.rows[0])]);
@@ -111,6 +113,12 @@ checkoutRouter.get("/api/marketplace/orders/:id",requireAuth,asyncHandler(async(
   query("select refund_no,amount,reason,status,created_at from marketplace_refunds where order_id=$1 and tenant_id=$2 order by created_at desc",[req.params.id,t.id])
  ]);
  res.json({order:o.rows[0],items:items.rows,payments:payment.rows,refunds:refund.rows});
+}));
+
+checkoutRouter.patch("/api/marketplace/orders/:id/shipping-address",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const address=normalizeShippingAddress(req.body?.shippingAddress);if(!address||address===false)return res.status(400).json({error:"نشانی تحویل ناقص است؛ نام گیرنده، همراه، استان، شهر، نشانی و کدپستی را کامل کنید"});
+ const client=await pool.connect();try{await client.query("begin");const order=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);if(!order.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}if(!(await canAccessCustomer(req,order.rows[0].customer_ref,"order:manage"))){await client.query("rollback");return res.status(403).json({error:"دسترسی ویرایش نشانی سفارش مجاز نیست"});}if(!["pending","confirmed"].includes(order.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"نشانی فقط پیش از نهایی‌شدن سفارش قابل ویرایش است"});}const updated=await client.query("update marketplace_orders set shipping_address=$1::jsonb,updated_at=now() where id=$2 and tenant_id=$3 returning *",[JSON.stringify(address),req.params.id,t.id]);await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.shipping_address_updated','marketplace_order',$3,$4)",[t.id,(req as any).user.id,req.params.id,JSON.stringify(address)]);await client.query("commit");res.json({order:updated.rows[0]});}catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
 checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandler(async(req,res)=>{

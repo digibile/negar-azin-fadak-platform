@@ -179,6 +179,13 @@ if(!customerTracking.includes("/api/marketplace/orders/")||!customerTracking.inc
 if(!customerOrdersPage.includes("latest_shipment_id")||!customerOrdersPage.includes("/tracking"))throw new Error("Customer order history must link to shipment tracking when a shipment exists");
 if(orderLifecycle.includes('processing:["shipped"]')&&!orderLifecycle.includes("ثبت ارسال سفارش فقط پس از شروع حرکت مرسوله"))throw new Error("Marketplace order shipping must be controlled by logistics events");
 
+const shippingAddressMigration=read("database/migrations/156_marketplace_order_shipping_address.sql");
+const checkoutDomain=read("apps/api/src/domain-checkout.ts");
+const marketplaceShippingPage=read("apps/web/app/marketplace/shipping/page.tsx");
+if(!shippingAddressMigration.includes("add column if not exists shipping_address jsonb")||!checkoutDomain.includes("/api/marketplace/orders/:id/shipping-address")||!checkoutDomain.includes("shipping_address")||!checkoutDomain.includes("normalizeShippingAddress"))throw new Error("Checkout must persist and validate a tenant-scoped delivery address snapshot");
+if(!logisticsApi.includes("order.shipping_address?.addressLine")||!logisticsApi.includes("نشانی معتبر تحویل برای این سفارش ثبت نشده است"))throw new Error("Marketplace dispatch must use the actual saved customer delivery address and reject missing addresses");
+if(!marketplaceShippingPage.includes("order.shipping_address?.addressLine")||!marketplaceShippingPage.includes("shipping_address"))throw new Error("Shipping workspace must show the saved customer delivery address before dispatch");
+
 const logisticsPermissions=read("database/migrations/154_marketplace_logistics_permissions.sql");
 if(!logisticsPermissions.includes("'manager','modules:12-logistics-supply:dispatch'")||!logisticsPermissions.includes("'viewer','modules:12-logistics-supply:track'"))throw new Error("Logistics workflow permissions must be granted to operational roles");
 
