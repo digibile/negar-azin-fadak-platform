@@ -2,7 +2,7 @@
 import Link from "next/link";
 import {Suspense,useEffect,useMemo,useState} from "react";
 import {useSearchParams} from "next/navigation";
-import "./storefront-checkout.css";
+import "../storefront-checkout.css";
 type CartItem={id:string;sku:string;title:string;price:number|string;currency:string;quantity:number;store_id?:string|null;is_demo_product?:boolean};
 type Address={id:string;recipient_name:string;mobile:string;province:string;city:string;address_line:string;postal_code:string;is_default:boolean};
 type Order={id:string;order_no:string;status:string;total_amount:number|string};
