@@ -96,7 +96,7 @@ logisticsRouter.post("/api/logistics/orders/from-marketplace/:orderId",requireAu
     if(!destination){await c.query("rollback");return fail(res,409,"نشانی تحویل سفارش ثبت نشده است");}
 
     const orderItems=(await c.query(
-      "select oi.product_id,mil.inventory_product_id,mil.quantity_factor,round(sum(oi.quantity)*mil.quantity_factor,4)::numeric warehouse_quantity from marketplace_order_items oi join products p on p.id=oi.product_id and p.tenant_id=$2 left join marketplace_inventory_product_links mil on mil.tenant_id=p.tenant_id and mil.product_id=p.id where oi.order_id=$1 group by oi.product_id,mil.inventory_product_id,mil.quantity_factor order by mil.inventory_product_id nulls last,oi.product_id",
+      "select oi.product_id,ip.id as inventory_product_id,mil.quantity_factor,round(sum(oi.quantity)*mil.quantity_factor,4)::numeric warehouse_quantity from marketplace_order_items oi join products p on p.id=oi.product_id and p.tenant_id=$2 left join marketplace_inventory_product_links mil on mil.tenant_id=p.tenant_id and mil.product_id=p.id left join inventory_products ip on ip.id=mil.inventory_product_id and ip.tenant_id=mil.tenant_id and ip.status='active' where oi.order_id=$1 group by oi.product_id,ip.id,mil.quantity_factor order by ip.id nulls last,oi.product_id",
       [order.id,t.id]
     )).rows;
     if(!orderItems.length){await c.query("rollback");return fail(res,409,"اقلام سفارش برای رزرو انبار پیدا نشدند");}
