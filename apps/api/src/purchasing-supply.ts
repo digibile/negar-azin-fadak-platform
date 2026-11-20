@@ -101,7 +101,32 @@ router.patch("/api/purchasing/rfqs/:id/select",requireAuth,requirePermission("mo
  const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const q=await query("select q.*,r.request_id from purchase_supplier_quotes q join purchase_rfqs r on r.id=q.rfq_id where q.id=$1 and r.tenant_id=$2",[req.params.id,t.id]);if(!q.rowCount)return deny(res,404,"پیشنهاد پیدا نشد");const x=q.rows[0];const c=await pool.connect();try{await c.query("begin");await c.query("update purchase_supplier_quotes set status='rejected' where rfq_id=$1",[x.rfq_id]);await c.query("update purchase_supplier_quotes set status='selected' where id=$1",[x.id]);await c.query("update purchase_rfqs set status='selected' where id=$1",[x.rfq_id]);await c.query("update purchase_requests set status='approved',updated_at=now() where id=$1",[x.request_id]);await c.query("commit");res.json({...x,status:"selected"})}catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
 router.post("/api/purchasing/orders",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{
- const t=await tenantOf(req),b=req.body||{},items=Array.isArray(b.items)?b.items:[];if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");if(!b.supplierId||!items.length)return deny(res,400,"تأمین‌کننده و اقلام سفارش الزامی است");const s=await query("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active'",[b.supplierId,t.id]);if(!s.rowCount)return deny(res,400,"تأمین‌کننده فعال نیست");const sub=items.reduce((a:any,x:any)=>a+n(x.quantity)*n(x.unitPrice),0),tax=items.reduce((a:any,x:any)=>a+n(x.quantity)*n(x.unitPrice)*n(x.taxRate)/100,0),total=sub+tax,c=await pool.connect();try{await c.query("begin");const o=await c.query("insert into purchase_orders(tenant_id,order_no,supplier_id,request_id,quote_id,expected_date,subtotal,tax_total,total,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,b.orderNo||"PO-"+Date.now(),b.supplierId,b.requestId||null,b.quoteId||null,b.expectedDate||null,sub,tax,total,b.notes||null,(req as any).user.id]);for(const x of items)await c.query("insert into purchase_order_items(order_id,product_name,sku,quantity,unit,unit_price,tax_rate,line_total) values($1,$2,$3,$4,$5,$6,$7,$8)",[o.rows[0].id,x.productName,x.sku||null,n(x.quantity),x.unit||"عدد",n(x.unitPrice),n(x.taxRate),n(x.quantity)*n(x.unitPrice)*(1+n(x.taxRate)/100)]);await c.query("commit");res.status(201).json(o.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
+ const t=await tenantOf(req),b=req.body||{},items=Array.isArray(b.items)?b.items:[];
+ if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ if(!b.supplierId||!items.length)return deny(res,400,"تأمین‌کننده و اقلام سفارش الزامی است");
+ const normalized=items.map((x:any)=>({productName:String(x.productName||"").trim(),sku:String(x.sku||"").trim()||null,quantity:n(x.quantity),unit:String(x.unit||"عدد").trim(),unitPrice:n(x.unitPrice),taxRate:n(x.taxRate)}));
+ if(normalized.some((x:any)=>!x.productName||x.productName.length>240||![x.quantity,x.unitPrice,x.taxRate].every(Number.isFinite)||x.quantity<=0||x.unitPrice<0||x.taxRate<0||x.taxRate>100||!x.unit||x.unit.length>40||(x.sku&&x.sku.length>120)))return deny(res,400,"نام، تعداد، قیمت، مالیات یا واحد یکی از اقلام سفارش معتبر نیست");
+ const sub=normalized.reduce((a:number,x:any)=>a+x.quantity*x.unitPrice,0),tax=normalized.reduce((a:number,x:any)=>a+x.quantity*x.unitPrice*x.taxRate/100,0),total=sub+tax;
+ if(![sub,tax,total].every(Number.isFinite))return deny(res,400,"مجموع مالی سفارش معتبر نیست");
+ const orderNo=String(b.orderNo||"PO-"+Date.now()).trim();
+ if(!orderNo||orderNo.length>100)return deny(res,400,"شماره سفارش خرید معتبر نیست");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const supplier=await c.query("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active' for update",[b.supplierId,t.id]);
+  if(!supplier.rowCount){await c.query("rollback");return deny(res,400,"تأمین‌کننده فعال و متعلق به سازمان انتخاب نشده است");}
+  if(b.requestId){
+   const request=await c.query("select id,status from purchase_requests where id=$1 and tenant_id=$2 for update",[b.requestId,t.id]);
+   if(!request.rowCount||!["approved","rfq"].includes(request.rows[0].status)){await c.query("rollback");return deny(res,409,"درخواست خرید متعلق به سازمان یا آماده سفارش نیست");}
+  }
+  if(b.quoteId){
+   const quote=await c.query("select q.id,q.supplier_id,q.status,r.tenant_id from purchase_supplier_quotes q join purchase_rfqs r on r.id=q.rfq_id where q.id=$1 and r.tenant_id=$2 for update of q,r",[b.quoteId,t.id]);
+   if(!quote.rowCount||quote.rows[0].supplier_id!==b.supplierId||quote.rows[0].status!=="selected"){await c.query("rollback");return deny(res,409,"پیشنهاد انتخاب‌شده متعلق به این تأمین‌کننده و سازمان نیست");}
+  }
+  const o=await c.query("insert into purchase_orders(tenant_id,order_no,supplier_id,request_id,quote_id,expected_date,subtotal,tax_total,total,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,orderNo,b.supplierId,b.requestId||null,b.quoteId||null,b.expectedDate||null,sub,tax,total,b.notes||null,(req as any).user.id]);
+  for(const x of normalized)await c.query("insert into purchase_order_items(order_id,product_name,sku,quantity,unit,unit_price,tax_rate,line_total) values($1,$2,$3,$4,$5,$6,$7,$8)",[o.rows[0].id,x.productName,x.sku,x.quantity,x.unit,x.unitPrice,x.taxRate,x.quantity*x.unitPrice*(1+x.taxRate/100)]);
+  await c.query("commit");res.status(201).json(o.rows[0]);
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.patch("/api/purchasing/orders/:id/status",requireAuth,requirePermission("modules:21-purchasing-supply:approve"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
