@@ -298,6 +298,17 @@ console.log("MARKETPLACE_DELIVERY_QUOTE_ADDRESS_AND_REFUND_INTEGRITY_OK");
 if(!deliveryQuoteCheckoutApi.includes("const [items,payment,refund,deliveryQuote]=await Promise.all([")||!deliveryQuoteCheckoutApi.includes("deliveryQuote:deliveryQuote.rows[0]||null"))throw new Error("Order detail must correctly resolve and return the active delivery quote query result");
 if(!deliveryQuoteCheckoutApi.includes("debit:Math.min(refundCustomerShipping,refundCarrierCost)"))throw new Error("Shipping refund journal must reverse delivery margin and recognize only the carrier-cost portion as refund expense");
 console.log("MARKETPLACE_DELIVERY_QUOTE_ORDER_DETAIL_AND_REFUND_BALANCE_OK");
+const deliveryQuoteTrackingApi=read("apps/api/src/logistics.ts");
+const deliveryQuoteTrackingPage=read("apps/web/app/account/orders/[id]/tracking/page.tsx");
+const deliveryQuoteTrackingCss=read("apps/web/app/account/orders/[id]/tracking/tracking-workspace.css");
+const deliveryQuoteShippingPage=read("apps/web/app/marketplace/shipping/page.tsx");
+if(!deliveryQuoteMarketplaceApi.includes("o.delivery_quote_id,o.delivery_quote_snapshot,o.delivery_quote_required"))throw new Error("Marketplace order history must expose the accepted delivery quote snapshot");
+if(!deliveryQuoteTrackingApi.includes("delivery_quote_snapshot,delivery_quote_required,shipping_amount,total_amount,currency"))throw new Error("Customer tracking API must expose accepted delivery quote and final order amounts");
+if(!deliveryQuoteTrackingApi.includes("mo.delivery_quote_snapshot,mo.shipping_amount,mo.total_amount,mo.currency"))throw new Error("Logistics shipment list must expose accepted delivery quote amounts");
+if(!deliveryQuoteTrackingPage.includes("هزینه ارسال تأییدشده")||!deliveryQuoteTrackingPage.includes("در انتظار تأیید هزینه ارسال")||!deliveryQuoteTrackingCss.includes(".tracking-quote-summary"))throw new Error("Customer tracking must display delivery charge status before and after shipment creation");
+if(!deliveryQuoteShippingPage.includes("هزینه حمل تأییدشده مشتری")||!deliveryQuoteShippingPage.includes("هزینه ارسال مصوب"))throw new Error("Logistics order and shipment cards must display accepted delivery charge");
+console.log("MARKETPLACE_DELIVERY_QUOTE_TRACKING_AND_LOGISTICS_VISIBILITY_OK");
+
 
 
 
