@@ -11,7 +11,7 @@ export default function OrdersPage(){
  useEffect(()=>{void load()},[]);
  async function move(id:string,status:string){try{await api("/api/marketplace/orders/"+encodeURIComponent(id)+"/status",{method:"PATCH",body:JSON.stringify({status})});await load()}catch(e){setError(e instanceof Error?e.message:"تغییر وضعیت سفارش ناموفق بود")}}
  return <main className="enterprise-main" dir="rtl">
-  <header className="platform-header"><div><span className="section-kicker">عملیات تجارت</span><h1>سفارش‌ها</h1><p>چرخه وضعیت کنترل‌شده و ثبت ممیزی</p></div><a href="/platform">مرکز عملیات</a></header>
+  <header className="platform-header"><div><span className="section-kicker">عملیات تجارت</span><h1>سفارش‌ها</h1><p>چرخه وضعیت کنترل‌شده و ثبت ممیزی</p></div><div className="mp-orders-header-links"><a href="/marketplace/returns">درخواست‌های مرجوعی</a><a href="/platform">مرکز عملیات</a></div></header>
   <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-orders"/>
   <section className="platform-panel">{error&&<p className="enterprise-loading error" role="alert">{error}</p>}
    {items.map(x=><div className="platform-row" key={x.id}><div><b>{x.order_no}</b><small>{x.customer_ref||"مشتری ثبت نشده"} · {x.total_amount} {x.currency}</small></div><strong>{x.status}</strong><div className="record-actions"><button type="button" onClick={()=>setSelected(x)}>مشاهده</button>{nextStatus[x.status]&&<button type="button" onClick={()=>move(x.id,nextStatus[x.status])}>مرحله بعد</button>}</div></div>)}
