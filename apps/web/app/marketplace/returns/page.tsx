@@ -5,7 +5,8 @@ import {api} from "../../../lib/api";
 import {ManagementToolbar} from "../../components/ManagementWorkspaceTools";
 import "./returns-workspace.css";
 
-type ReturnItem={id:string;request_no:string;order_no:string;order_id:string;product_title:string;requested_quantity:number|string;received_quantity?:number|string;restock_quantity?:number|string;inspection_result?:string|null;inspection_notes?:string|null;inspection_warehouse_id?:string|null;inventory_receipt_document_id?:string|null;reason_code:string;description:string;status:string;decision_reason?:string|null;created_at:string;customer_ref:string;refund_status?:string|null;refund_amount?:number|string|null;refund_no?:string|null};\ntype Warehouse={id:string;name:string;status:string};
+type ReturnItem={id:string;request_no:string;order_no:string;order_id:string;product_title:string;requested_quantity:number|string;received_quantity?:number|string;restock_quantity?:number|string;inspection_result?:string|null;inspection_notes?:string|null;inspection_warehouse_id?:string|null;inventory_receipt_document_id?:string|null;reason_code:string;description:string;status:string;decision_reason?:string|null;created_at:string;customer_ref:string;refund_status?:string|null;refund_amount?:number|string|null;refund_no?:string|null};
+type Warehouse={id:string;name:string;status:string};
 const labels:Record<string,string>={submitted:"در انتظار بررسی",approved:"تأییدشده",rejected:"ردشده",received:"دریافت‌شده",inspected:"بازرسی‌شده",cancelled:"لغوشده",closed:"بسته‌شده"};
 const reasons:Record<string,string>={damaged:"آسیب‌دیده",defective:"ایراد فنی",wrong_item:"کالای اشتباه",not_as_described:"مغایرت توضیحات",missing_parts:"اقلام ناقص",changed_mind:"انصراف از خرید",other:"سایر"};
 export default function MarketplaceReturnsPage(){
