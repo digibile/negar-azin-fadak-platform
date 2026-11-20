@@ -1,0 +1,27 @@
+.sk-delivery-admin .sk-delivery-panel{padding:18px}
+.sk-delivery-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;color:#475569;font-size:13px}
+.sk-delivery-summary b{color:#172033}
+.sk-delivery-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.sk-delivery-card{min-width:0;padding:16px;border:1px solid #e5eaf0;border-radius:12px;background:#fff}
+.sk-delivery-card-title{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.sk-delivery-card-title>div{display:grid;gap:5px;min-width:0}
+.sk-delivery-card-title b{font-size:14px;color:#172033}
+.sk-delivery-card-title small{font-size:11px;color:#64748b}
+.sk-delivery-card-title>span{white-space:nowrap;border-radius:20px;padding:4px 9px;font-size:10px}
+.sk-delivery-card-title .is-enabled{background:#e8f6ee;color:#167044}
+.sk-delivery-card-title .is-disabled{background:#f1f3f5;color:#64748b}
+.sk-delivery-card-data{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:18px 0}
+.sk-delivery-card-data>div{display:grid;gap:6px;min-width:0}
+.sk-delivery-card-data small{font-size:10px;color:#64748b}
+.sk-delivery-card-data strong{font-size:11px;color:#243044;overflow-wrap:anywhere}
+.sk-delivery-card-actions{display:flex;flex-wrap:wrap;gap:8px}
+.sk-delivery-card-actions button,.sk-delivery-form>button{border:1px solid #dbe2ea;border-radius:8px;background:#f8fafc;color:#253247;padding:8px 12px;font:inherit;font-size:11px;cursor:pointer}
+.sk-delivery-form{display:grid;gap:12px;min-width:min(100%,420px)}
+.sk-delivery-form label{display:grid;gap:6px;font-size:11px;color:#475569}
+.sk-delivery-form input,.sk-delivery-form select{width:100%;min-height:38px;border:1px solid #dbe2ea;border-radius:8px;padding:7px 10px;background:#fff;color:#172033;font:inherit}
+.sk-delivery-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sk-delivery-form .sk-delivery-enabled{display:flex;align-items:center;gap:9px}
+.sk-delivery-form .sk-delivery-enabled input{width:16px;min-height:16px}
+.sk-delivery-form>button{background:#172d4d;color:#fff;border-color:#172d4d;min-height:42px}
+.sk-delivery-form>button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:600px){.sk-delivery-admin .sk-delivery-panel{padding:12px}.sk-delivery-card-data{grid-template-columns:1fr}.sk-delivery-form-grid{grid-template-columns:1fr}.sk-delivery-summary{align-items:flex-start;flex-direction:column}}
