@@ -171,3 +171,44 @@ test("customer and marketplace return pages use the real return request APIs",()
  assert.ok(adminReturns.includes("تأیید بازرسی"));
  assert.ok(returnGuide.includes("/account/returns"));
 });
+
+
+test("inspected customer returns use one idempotent partial refund, the configured provider and central ledger",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/returns/:id/refund"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/storefront/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes('requirePermission("payment:refund")'));
+ assert.ok(route.includes("requireCsrf"));
+ assert.ok(route.includes('status!=="inspected"'));
+ assert.ok(route.includes("return_request_id"));
+ assert.ok(route.includes("requested_quantity"));
+ assert.ok(route.includes("unit_price"));
+ assert.ok(route.includes("paymentRefunded"));
+ assert.ok(route.includes("provider.refundPayment"));
+ assert.ok(route.includes("idempotencyKey:\"return-refund-\"+refund.id"));
+ assert.ok(route.includes("postLedgerEntry"));
+ assert.ok(route.includes('sourceType:"marketplace_refund"'));
+ assert.ok(route.includes("inventory_movements"));
+ assert.ok(route.includes("status='closed'"));
+ assert.ok(route.includes("status='refunded'"));
+ assert.ok(route.includes("rollback"));
+});
+
+test("partial return refunds are unique per return and full-order refund cannot double-refund",()=>{
+ assert.ok(returnsMigration.includes("return_request_id"));
+ assert.ok(returnsMigration.includes("uq_marketplace_refund_return_request"));
+ assert.ok(returnsMigration.includes("DROP INDEX IF EXISTS uq_marketplace_refund_payment"));
+ const fullStart=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"');
+ const fullEnd=checkout.indexOf('checkoutRouter.post("/api/marketplace/returns/:id/refund"',fullStart);
+ const fullRoute=checkout.slice(fullStart,fullEnd);
+ assert.ok(fullRoute.includes("coalesce(sum(amount),0)"));
+ assert.ok(fullRoute.includes("بازپرداخت جزئی"));
+});
+
+test("marketplace return workspace exposes refund status and only executes refunds after inspection",()=>{
+ assert.ok(checkout.includes("mr.status refund_status"));
+ assert.ok(checkout.includes("mr.return_request_id=rr.id"));
+ assert.ok(adminReturns.includes("/refund"));
+ assert.ok(adminReturns.includes("ثبت و اجرای بازپرداخت"));
+ assert.ok(adminReturns.includes("در انتظار پاسخ درگاه"));
+});
