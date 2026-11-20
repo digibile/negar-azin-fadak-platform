@@ -332,7 +332,7 @@ checkoutRouter.post("/api/storefront/checkout",requireAuth,asyncHandler(async(re
  const client=await pool.connect();
  try{
   await client.query("begin");
-  const prior=await client.query("select cr.order_id,o.order_no,o.status,o.total_amount from marketplace_checkout_requests cr left join marketplace_orders o on o.id=cr.order_id where cr.tenant_id=$1 and cr.user_id=$2 and cr.idempotency_key=$3 for update of cr",[t.id,(req as any).user.id,key]);
+  const prior=await client.query("select o.id,o.id as order_id,o.order_no,o.status,o.subtotal,o.shipping_amount,o.total_amount,o.delivery_method_id,o.delivery_method_snapshot,o.created_at from marketplace_checkout_requests cr left join marketplace_orders o on o.id=cr.order_id where cr.tenant_id=$1 and cr.user_id=$2 and cr.idempotency_key=$3 for update of cr",[t.id,(req as any).user.id,key]);
   if(prior.rowCount&&prior.rows[0].order_id){await client.query("commit");return res.status(200).json({order:prior.rows[0],idempotent:true});}
   const address=await client.query("select id from marketplace_customer_addresses where id=$1 and tenant_id=$2 and user_id=$3",[addressId,t.id,(req as any).user.id]);
   if(!address.rowCount){await client.query("rollback");return res.status(404).json({error:"نشانی انتخاب‌شده متعلق به حساب شما نیست"});}
