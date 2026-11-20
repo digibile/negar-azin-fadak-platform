@@ -352,3 +352,15 @@ test("returns workspace shows refund attempts and exposes manual retry for pendi
  assert.ok(page.includes("پیگیری پاسخ درگاه"));
  assert.ok(page.includes("تلاش مجدد امن بازپرداخت"));
 });
+
+test("refund retry is disabled unless the provider explicitly guarantees idempotent refund handling",()=>{
+ const provider=fs.readFileSync(new URL("./payment-provider.ts",import.meta.url),"utf8");
+ const start=checkout.indexOf("const processMarketplaceReturnRefund=");
+ const end=checkout.indexOf('checkoutRouter.post("/api/storefront/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(provider.includes("supportsIdempotentRefunds?:boolean"));
+ assert.ok(provider.includes("PAYMENT_PROVIDER_"+normalized.toUpperCase()+"_IDEMPOTENT_REFUNDS"));
+ assert.ok(route.includes("Number(refund.provider_attempt_count)>1&&provider.supportsIdempotentRefunds!==true"));
+ assert.ok(route.includes("manualReconciliationRequired:true"));
+ assert.ok(route.includes("metadata.idempotencyKey"));
+});
