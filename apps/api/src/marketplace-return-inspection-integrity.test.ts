@@ -271,3 +271,30 @@ test("returns workspace exposes the read-only financial handover readiness repor
  assert.ok(page.includes("صدور سند مالی: هنوز مجاز نیست."));
  assert.ok(page.includes("postingPolicy.blockers"));
 });
+
+test("return refund is based on physically received quantity and net order-line amount",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/returns/:id/refund"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/storefront/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes("Number(rr.rows[0].received_quantity)"));
+ assert.ok(route.includes("Number(rr.rows[0].restock_quantity)"));
+ assert.ok(route.includes("lineTotal*qty/orderedQuantity"));
+ assert.ok(route.includes("oi.line_total"));
+ assert.ok(route.includes("oi.quantity order_quantity"));
+ assert.ok(route.includes("priorItemRefunds"));
+ assert.ok(route.includes("prior_rr.order_item_id=$2"));
+ assert.ok(route.includes("mr.status in ('pending','refunded')"));
+ assert.ok(!route.includes("const qty=Number(rr.rows[0].requested_quantity)"));
+});
+
+test("only the inspected sellable quantity returns to storefront stock; quarantined quantity stays out",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/returns/:id/refund"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/storefront/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes("if(returnItem.restockQuantity>0)"));
+ assert.ok(route.includes("quantity=quantity+$1"));
+ assert.ok(route.includes("returnItem.restockQuantity,t.id,returnItem.product_id"));
+ assert.ok(route.includes("returnItem.restockQuantity,refund.id"));
+ assert.ok(route.includes("quarantineQuantity:returnItem.quarantineQuantity"));
+ assert.ok(!route.includes("returnItem.quantity,t.id,returnItem.product_id"));
+});
