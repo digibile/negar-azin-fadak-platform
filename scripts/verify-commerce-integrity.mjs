@@ -137,5 +137,5 @@ const recoveryMigration=read("database/migrations/151_marketplace_seller_recover
 const recoveryApi=read("apps/api/src/domain-settlement.ts");
 if(!recoveryMigration.includes("marketplace_seller_recovery_claims")||!recoveryMigration.includes("recognition_ledger_entry_id")||!recoveryMigration.includes("collection_ledger_entry_id"))throw new Error("Seller recovery claim schema is incomplete");
 if(!recoveryApi.includes("/api/marketplace/seller-recoveries")||!recoveryApi.includes('claim.status==="recovered"')||!recoveryApi.includes("marketplace_seller_recovery_collection"))throw new Error("Seller recovery listing and idempotent collection API are required");
-if(refundRoute.includes('x.status==="paid")){await client.query("rollback")'))throw new Error("Refunds after seller payout must create a seller recovery claim instead of being blocked");
+if(refundRoute.includes('settlementLink.rows.some((x:any)=>x.status==="paid")'))throw new Error("Refunds after seller payout must create a seller recovery claim instead of being blocked");
 if(!checkoutApi.includes("marketplace_seller_recovery_claims")||!checkoutApi.includes("seller_recovery.claim_created")||!checkoutApi.includes('accountCode:"1202"'))throw new Error("Refunds after seller payout must recognize a seller receivable in the ledger");
