@@ -31,7 +31,7 @@ settlementRouter.post("/api/marketplace/settlements/generate",requireAuth,requir
   for(const o of orders.rows){
    const currency=String(o.currency||"IRR").trim().toUpperCase();
    const key=o.seller_id+"::"+currency;
-   const group=bySellerCurrency.get(key)||{sellerId:o.seller_id,currency,rows:[]};
+   const group:{sellerId:string;currency:string;rows:any[]} = bySellerCurrency.get(key)||{sellerId:o.seller_id,currency,rows:[]};
    group.rows.push(o);bySellerCurrency.set(key,group);
   }
   const created:any[]=[];
