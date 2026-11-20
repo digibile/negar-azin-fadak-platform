@@ -64,7 +64,7 @@ function CheckoutContent(){
     oid=cb.order.id;setOrderId(oid);
    }
    const pr=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/payment",{method:"POST",credentials:"include",headers:headers(),body:JSON.stringify({
-    method,creditFacilityId:method==="credit"?facilityId:undefined,idempotencyKey:"WEB-"+oid,cartId
+    method,creditFacilityId:method==="credit"?facilityId:undefined,idempotencyKey:"WEB-"+oid+"-"+Date.now(),cartId
    })});
    const pb=await pr.json();if(!pr.ok)throw new Error(pb.error||"پرداخت ناموفق بود");
    const resolvedOrder=pb.order||{id:oid,status:pb.status||"pending"};
