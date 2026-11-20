@@ -94,14 +94,37 @@ logisticsRouter.post("/api/logistics/orders/from-marketplace/:orderId",requireAu
     if(existing.rowCount){await c.query("commit");return res.json({supplyOrder:existing.rows[0],idempotent:true});}
     const destination=[order.province,order.city,order.address_line].filter(Boolean).join("، ");
     if(!destination){await c.query("rollback");return fail(res,409,"نشانی تحویل سفارش ثبت نشده است");}
+
+    const orderItems=(await c.query(
+      "select oi.product_id,mil.inventory_product_id,mil.quantity_factor,round(sum(oi.quantity)*mil.quantity_factor,4)::numeric warehouse_quantity from marketplace_order_items oi join products p on p.id=oi.product_id and p.tenant_id=$2 left join marketplace_inventory_product_links mil on mil.tenant_id=p.tenant_id and mil.product_id=p.id where oi.order_id=$1 group by oi.product_id,mil.inventory_product_id,mil.quantity_factor order by mil.inventory_product_id nulls last,oi.product_id",
+      [order.id,t.id]
+    )).rows;
+    if(!orderItems.length){await c.query("rollback");return fail(res,409,"اقلام سفارش برای رزرو انبار پیدا نشدند");}
+    if(orderItems.some((item:any)=>!item.inventory_product_id||Number(item.warehouse_quantity)<=0)){await c.query("rollback");return fail(res,409,"همه کالاهای سفارش باید به کالای انبار متصل و دارای ضریب تبدیل معتبر باشند");}
+
+    const totals=new Map<string,number>();
+    for(const item of orderItems)totals.set(item.inventory_product_id,(totals.get(item.inventory_product_id)||0)+Number(item.warehouse_quantity));
+    for(const [inventoryProductId,required] of [...totals.entries()].sort((a,b)=>a[0].localeCompare(b[0]))){
+      const stock=(await c.query("select quantity,reserved_quantity from inventory_stock where tenant_id=$1 and warehouse_id=$2 and product_id=$3 for update",[t.id,warehouse.id,inventoryProductId])).rows[0];
+      if(!stock){await c.query("rollback");return fail(res,409,"برای یکی از کالاهای سفارش در انبار مبدأ موجودی ثبت نشده است");}
+      if(Number(stock.quantity)-Number(stock.reserved_quantity)<required){await c.query("rollback");return fail(res,409,"موجودی آزاد انبار برای تکمیل سفارش کافی نیست",{inventoryProductId,available:Number(stock.quantity)-Number(stock.reserved_quantity),required});}
+    }
+
     const created=(await c.query(
       "insert into logistics_supply_orders(tenant_id,order_no,marketplace_order_id,source_warehouse_id,origin,destination,cargo_description,quantity,status,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,'submitted',$9) returning *",
       [t.id,order.order_no,order.id,warehouse.id,origin,destination,order.cargo||"اقلام سفارش فروشگاه",Number(order.quantity||0),(req as any).user.id]
     )).rows[0];
-    await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,actor_user_id,reason) values($1,'supply_order',$2,'marketplace_order_linked',null,'submitted',$3,$4)",[t.id,created.id,(req as any).user.id,"سفارش فروشگاه "+order.order_no]);
-    await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'logistics.marketplace_order_linked','logistics_supply_order',$3,$4)",[t.id,(req as any).user.id,created.id,JSON.stringify({marketplaceOrderId:order.id,orderNo:order.order_no})]);
+    for(const [inventoryProductId,required] of [...totals.entries()].sort((a,b)=>a[0].localeCompare(b[0]))){
+      const updated=await c.query("update inventory_stock set reserved_quantity=reserved_quantity+$1,updated_at=now() where tenant_id=$2 and warehouse_id=$3 and product_id=$4 and quantity-reserved_quantity >= $1",[required,t.id,warehouse.id,inventoryProductId]);
+      if(!updated.rowCount)throw new Error("موجودی آزاد انبار هنگام رزرو تغییر کرده است؛ عملیات دوباره بررسی شود");
+    }
+    for(const item of orderItems){
+      await c.query("insert into marketplace_inventory_reservations(tenant_id,supply_order_id,marketplace_order_id,warehouse_id,marketplace_product_id,inventory_product_id,quantity,status) values($1,$2,$3,$4,$5,$6,$7,'reserved')",[t.id,created.id,order.id,warehouse.id,item.product_id,item.inventory_product_id,item.warehouse_quantity]);
+    }
+    await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,actor_user_id,reason) values($1,'supply_order',$2,'marketplace_order_linked',null,'submitted',$3,$4)",[t.id,created.id,(req as any).user.id,"سفارش فروشگاه "+order.order_no+"؛ رزرو موجودی انبار"]);
+    await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'logistics.marketplace_order_linked','logistics_supply_order',$3,$4)",[t.id,(req as any).user.id,created.id,JSON.stringify({marketplaceOrderId:order.id,orderNo:order.order_no,warehouseId:warehouse.id,reservedItems:orderItems.length})]);
     await c.query("commit");
-    res.status(201).json({supplyOrder:created,idempotent:false});
+    res.status(201).json({supplyOrder:created,idempotent:false,reservation:{status:"reserved",items:orderItems.length,warehouseId:warehouse.id}});
   }catch(e){await c.query("rollback");throw e;}finally{c.release();}
 }));
 logisticsRouter.post("/api/logistics/orders",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
@@ -122,16 +145,40 @@ logisticsRouter.post("/api/logistics/orders",requireAuth,requirePermission("modu
   res.status(201).json(r.rows[0]);
 }));
 logisticsRouter.patch("/api/logistics/orders/:id/status",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
-  const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
-  const o=(await query("select * from logistics_supply_orders where id=$1 and tenant_id=$2",[req.params.id,t.id])).rows[0];
-  if(!o)return fail(res,404,"سفارش تأمین پیدا نشد");
-  const allowed:any={draft:["submitted","cancelled"],submitted:["approved","cancelled"],approved:["assigned","cancelled"],assigned:["shipped","cancelled"],shipped:["delivered","cancelled"],delivered:[],cancelled:[]};
-  if(!allowed[o.status]?.includes(b.status))return fail(res,409,"تغییر وضعیت سفارش مجاز نیست");
-  const r=(await query("update logistics_supply_orders set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[b.status,(req as any).user.id,o.id,t.id])).rows[0];
-  await audit(t.id,"supply_order",o.id,"status_change",o.status,b.status,(req as any).user.id,b.reason);
-  res.json(r);
-}));
+  const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const c=await pool.connect();
+  let beforeStatus="";
+  try{
+    await c.query("begin");
+    const o=(await c.query("select * from logistics_supply_orders where id=$1 and tenant_id=$2 for update",[req.params.id,t.id])).rows[0];
+    if(!o){await c.query("rollback");return fail(res,404,"سفارش تأمین پیدا نشد");}
+    beforeStatus=o.status;
+    const allowed:any={draft:["submitted","cancelled"],submitted:["approved","cancelled"],approved:["assigned","cancelled"],assigned:["shipped","cancelled"],shipped:["delivered","cancelled"],delivered:[],cancelled:[]};
+    if(!allowed[o.status]?.includes(b.status)){await c.query("rollback");return fail(res,409,"تغییر وضعیت سفارش مجاز نیست");}
 
+    if(b.status==="shipped"){
+      const reservations=(await c.query("select * from marketplace_inventory_reservations where tenant_id=$1 and supply_order_id=$2 and status='reserved' order by inventory_product_id for update",[t.id,o.id])).rows;
+      if(o.marketplace_order_id&&!reservations.length){await c.query("rollback");return fail(res,409,"رزرو انبار این سفارش موجود نیست؛ اعزام بدون رزرو مجاز نیست");}
+      for(const reservation of reservations){
+        const consumed=await c.query("update inventory_stock set quantity=quantity-$1,reserved_quantity=reserved_quantity-$1,updated_at=now() where tenant_id=$2 and warehouse_id=$3 and product_id=$4 and quantity >= $1 and reserved_quantity >= $1",[reservation.quantity,t.id,reservation.warehouse_id,reservation.inventory_product_id]);
+        if(!consumed.rowCount)throw new Error("موجودی یا رزرو انبار با مقدار ثبت‌شده هم‌خوانی ندارد؛ اعزام متوقف شد");
+        await c.query("update marketplace_inventory_reservations set status='consumed',updated_at=now() where id=$1 and tenant_id=$2",[reservation.id,t.id]);
+      }
+    }else if(b.status==="cancelled"&&["draft","submitted","approved","assigned"].includes(o.status)){
+      const reservations=(await c.query("select * from marketplace_inventory_reservations where tenant_id=$1 and supply_order_id=$2 and status='reserved' order by inventory_product_id for update",[t.id,o.id])).rows;
+      for(const reservation of reservations){
+        const released=await c.query("update inventory_stock set reserved_quantity=reserved_quantity-$1,updated_at=now() where tenant_id=$2 and warehouse_id=$3 and product_id=$4 and reserved_quantity >= $1",[reservation.quantity,t.id,reservation.warehouse_id,reservation.inventory_product_id]);
+        if(!released.rowCount)throw new Error("مقدار رزرو انبار با دفتر رزرو هم‌خوانی ندارد؛ لغو متوقف شد");
+        await c.query("update marketplace_inventory_reservations set status='released',updated_at=now() where id=$1 and tenant_id=$2",[reservation.id,t.id]);
+      }
+    }
+    const r=(await c.query("update logistics_supply_orders set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[b.status,(req as any).user.id,o.id,t.id])).rows[0];
+    await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,actor_user_id,reason) values($1,'supply_order','status_change',$2,$3,$4,$5,$6)",[t.id,o.id,b.status,beforeStatus,b.status,(req as any).user.id,b.reason||null]);
+    await c.query("commit");
+    await audit(t.id,"supply_order",o.id,"status_change",beforeStatus,b.status,(req as any).user.id,b.reason);
+    res.json(r);
+  }catch(e:any){await c.query("rollback");throw e;}finally{c.release();}
+}));
 logisticsRouter.get("/api/logistics/vehicles",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   res.json((await query("select * from logistics_vehicles where tenant_id=$1 order by title",[t.id])).rows);
