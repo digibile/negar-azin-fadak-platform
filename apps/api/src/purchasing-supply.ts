@@ -206,10 +206,10 @@ router.post("/api/purchasing/invoices/:id/payments",requireAuth,requirePermissio
   await c.query("insert into purchase_financial_events(tenant_id,source_type,source_id,event_type,amount,state,reference_no) values($1,'purchase_payment',$2,'supplier_payment',$3,'pending_accounting',$4)",[t.id,payment.rows[0].id,amount,req.body?.referenceNo||null]);
   if(nextInvoice==="paid"&&inv.order_id){
    const order=await c.query("select id,status from purchase_orders where id=$1 and tenant_id=$2 for update",[inv.order_id,t.id]);
-   if(order.rowCount&&order.rows[0].status==="invoiced"){
-    await c.query("update purchase_orders set status='paid',updated_at=now() where id=$1 and tenant_id=$2 and status='invoiced'",[inv.order_id,t.id]);
-    await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id,reason) values($1,'order',$2,'invoiced','paid','payment',$3,$4)",[t.id,inv.order_id,(req as any).user.id,"تسویه فاکتور "+inv.invoice_no]);
-   }
+   if(!order.rowCount||order.rows[0].status!=="invoiced"){await c.query("rollback");return deny(res,409,"وضعیت سفارش برای تسویه این فاکتور معتبر نیست");}
+   const updatedOrder=await c.query("update purchase_orders set status='paid',updated_at=now() where id=$1 and tenant_id=$2 and status='invoiced' returning id",[inv.order_id,t.id]);
+   if(!updatedOrder.rowCount){await c.query("rollback");return deny(res,409,"سفارش هنگام تسویه تغییر کرده است");}
+   await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id,reason) values($1,'order',$2,'invoiced','paid','payment',$3,$4)",[t.id,inv.order_id,(req as any).user.id,"تسویه فاکتور "+inv.invoice_no]);
   }
   await c.query("commit");
   res.status(201).json({payment:payment.rows[0],invoiceStatus:nextInvoice,paidTotal:paid});
