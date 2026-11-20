@@ -21,6 +21,7 @@ test("shipment cancellation before dispatch releases reservations, while failure
  const end=source.indexOf('logisticsRouter.get("/api/logistics/shipments/:id/tracking"',start);
  const route=source.slice(start,end);
  assert.ok(route.includes('b.status==="cancelled"&&["draft","submitted","approved","assigned"].includes(supply.status)'));
+ assert.ok(route.includes('["planned","assigned"].includes(shipment.status)'));
  assert.ok(route.includes("status='released'"));
  assert.ok(!route.includes('b.status==="failed"&&["draft","submitted","approved","assigned"].includes(supply.status)'));
 });
@@ -30,6 +31,6 @@ test("supply-order cancellation refuses to release stock while a shipment remain
  const end=source.indexOf('logisticsRouter.get("/api/logistics/vehicles"',start);
  const route=source.slice(start,end);
  assert.ok(route.includes("select id,status from logistics_shipments"));
- assert.ok(route.includes("status in ('planned','assigned','picked_up','in_transit')"));
+ assert.ok(route.includes("status in ('planned','assigned','picked_up','in_transit','failed')"));
  assert.ok(route.includes("ابتدا مرسوله فعال را از مسیر حمل لغو کنید"));
 });
