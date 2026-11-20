@@ -16,3 +16,13 @@ test("refund releases only pre-dispatch warehouse reservations and cancels linke
  assert.ok(route.includes("refund_cancelled"));
  assert.ok(route.includes("رزرو انبار با دفتر موجودی هم‌خوانی ندارد"));
 });
+
+test("refund blocks while a shipment is active before calling the payment provider",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"');
+ const route=checkout.slice(start);
+ const guard=route.indexOf("activeShipment");
+ const provider=route.indexOf("provider.refundPayment");
+ assert.ok(guard>=0&&provider>guard);
+ assert.ok(route.includes("status in ('planned','assigned','picked_up','in_transit')"));
+ assert.ok(route.includes("پیش از بازپرداخت، مرسوله فعال باید از مسیر حمل تعیین تکلیف شود"));
+});
