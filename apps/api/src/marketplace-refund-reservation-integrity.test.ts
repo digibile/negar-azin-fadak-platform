@@ -23,6 +23,6 @@ test("refund blocks while a shipment is active before calling the payment provid
  const guard=route.indexOf("activeShipment");
  const provider=route.indexOf("provider.refundPayment");
  assert.ok(guard>=0&&provider>guard);
- assert.ok(route.includes("status in ('planned','assigned','picked_up','in_transit')"));
+ assert.ok(route.includes("status in ('planned','assigned','picked_up','in_transit','failed')"));
  assert.ok(route.includes("پیش از بازپرداخت، مرسوله فعال باید از مسیر حمل تعیین تکلیف شود"));
 });
