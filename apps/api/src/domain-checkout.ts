@@ -268,6 +268,8 @@ checkoutRouter.patch("/api/storefront/addresses/:id",requireAuth,asyncHandler(as
 }));
 checkoutRouter.delete("/api/storefront/addresses/:id",requireAuth,asyncHandler(async(req,res)=>{
  const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const used=await query("select 1 from marketplace_orders where delivery_address_id=$1 and tenant_id=$2 limit 1",[req.params.id,t.id]);
+ if(used.rowCount)return res.status(409).json({error:"این نشانی به سفارش ثبت‌شده متصل است و قابل حذف نیست"});
  const r=await query("delete from marketplace_customer_addresses where id=$1 and tenant_id=$2 and user_id=$3 returning id",[req.params.id,t.id,(req as any).user.id]);
  if(!r.rowCount)return res.status(404).json({error:"نشانی پیدا نشد"});
  res.json({deleted:true,id:r.rows[0].id});
@@ -293,11 +295,11 @@ checkoutRouter.post("/api/storefront/checkout",requireAuth,asyncHandler(async(re
   if(!address.rowCount){await client.query("rollback");return res.status(404).json({error:"نشانی انتخاب‌شده متعلق به حساب شما نیست"});}
   const store=await client.query("select id from stores where id=$1 and tenant_id=$2 and status='active'",[storeId,t.id]);
   if(!store.rowCount){await client.query("rollback");return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});}
-  const sellerIds=new Set<string>();let subtotal=0;let currency="IRR";const locked:any[]=[];
+  const sellerIds=new Set<string>();let subtotal=0;const locked:any[]=[];
   for(const item of normalized){
    const p=await client.query("select p.id,p.sku,p.title,p.price,p.currency,p.seller_id,p.store_id,p.status,sl.status as seller_status from products p join sellers sl on sl.id=p.seller_id and sl.tenant_id=p.tenant_id left join stores st on st.id=p.store_id and st.tenant_id=p.tenant_id where p.id=$1 and p.tenant_id=$2 and p.store_id=$3 and p.status='active' and sl.status='active' and (p.store_id is null or st.status='active') for update of p",[item.productId,t.id,storeId]);
    if(!p.rowCount){await client.query("rollback");return res.status(409).json({error:"یکی از کالاها دیگر در این فروشگاه قابل فروش نیست"});}
-   const product=p.rows[0];sellerIds.add(product.seller_id);currency=product.currency||currency;
+   const product=p.rows[0];sellerIds.add(product.seller_id);
    const inventory=await client.query("select id,quantity,reserved_quantity from product_inventory where tenant_id=$1 and product_id=$2 and store_id=$3 for update",[t.id,product.id,storeId]);
    if(!inventory.rowCount||Number(inventory.rows[0].quantity)-Number(inventory.rows[0].reserved_quantity)<Number(item.quantity)){await client.query("rollback");return res.status(409).json({error:"موجودی کافی یا تأییدشده برای «"+product.title+"» وجود ندارد"});}
    const unitPrice=Number(product.price);if(!Number.isFinite(unitPrice)||unitPrice<=0){await client.query("rollback");return res.status(409).json({error:"قیمت فروش کالا معتبر نیست"});}
