@@ -19,16 +19,28 @@ function downloadCsv(rows:Row[],filename:string){
   const anchor=document.createElement("a");anchor.href=url;anchor.download=filename.endsWith(".csv")?filename:filename+".csv";anchor.style.display="none";document.body.appendChild(anchor);anchor.click();anchor.remove();window.setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function parseCsv(input:string):string[][]{
-  const rows:string[][]=[];let row:string[]=[],cell="",quoted=false;
+  const rows:string[][]=[];let row:string[]=[],cell="",quoted=false,afterQuote=false;
   for(let i=0;i<input.length;i++){const ch=input[i];
-    if(ch==='"'&&quoted&&input[i+1]==='"'){cell+='"';i++;}
-    else if(ch==='"'){quoted=!quoted;}
-    else if(ch===","&&!quoted){row.push(cell);cell="";}
-    else if((ch==="\n"||ch==="\r")&&!quoted){if(ch==="\r"&&input[i+1]==="\n")i++;row.push(cell);if(row.some(v=>v.trim()))rows.push(row);row=[];cell="";}
+    if(quoted){
+      if(ch==='"'&&input[i+1]==='"'){cell+='"';i++;}
+      else if(ch==='"'){quoted=false;afterQuote=true;}
+      else cell+=ch;
+      continue;
+    }
+    if(afterQuote){
+      if(ch===","){row.push(cell);cell="";afterQuote=false;continue;}
+      if(ch==="\n"||ch==="\r"){if(ch==="\r"&&input[i+1]==="\n")i++;row.push(cell);if(row.some(v=>v.trim()))rows.push(row);row=[];cell="";afterQuote=false;continue;}
+      throw new Error("پس از پایان کوتیشن فقط ویرگول یا پایان ردیف مجاز است.");
+    }
+    if(ch==='"'){
+      if(cell.length!==0)throw new Error("کوتیشن فقط باید در ابتدای مقدار CSV قرار بگیرد.");
+      quoted=true;
+    }else if(ch===","){row.push(cell);cell="";}
+    else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&input[i+1]==="\n")i++;row.push(cell);if(row.some(v=>v.trim()))rows.push(row);row=[];cell="";}
     else cell+=ch;
   }
-  row.push(cell);if(row.some(v=>v.trim()))rows.push(row);
   if(quoted)throw new Error("ساختار CSV ناقص است؛ کوتیشن بسته‌نشده وجود دارد.");
+  row.push(cell);if(row.some(v=>v.trim()))rows.push(row);
   return rows;
 }
 
@@ -39,7 +51,7 @@ export function ManagementToolbar({rows=[],filename="گزارش",onCreate,onImpo
   async function readFile(file?:File){if(!file)return;setImportError("");try{
     if(file.size>5*1024*1024)throw new Error("حجم فایل نباید بیشتر از ۵ مگابایت باشد.");
     const matrix=parseCsv((await file.text()).replace(/^\uFEFF/,""));if(matrix.length<2)throw new Error("فایل باید حداقل یک ردیف عنوان و یک ردیف داده داشته باشد.");
-    const headers=matrix[0].map(x=>x.trim());if(headers.some(x=>!x)||new Set(headers).size!==headers.length)throw new Error("عنوان ستون‌ها خالی یا تکراری است.");
+    const headers=matrix[0].map(x=>x.trim());if(headers.some(x=>!x)||new Set(headers.map(x=>x.toLocaleLowerCase("en-US"))).size!==headers.length)throw new Error("عنوان ستون‌ها خالی یا تکراری است.");
     if(matrix.length>1001)throw new Error("حداکثر ۱٬۰۰۰ ردیف در هر بار ورود مجاز است.");
     const dataRows=matrix.slice(1);const invalid=dataRows.findIndex(values=>values.length!==headers.length);if(invalid>=0)throw new Error("تعداد ستون‌های ردیف "+(invalid+2)+" با عنوان‌ها یکسان نیست.");
     setPreview(dataRows.map(values=>Object.fromEntries(headers.map((h,i)=>[h,values[i]??""]))));}
