@@ -14,13 +14,13 @@ test("sales order lifecycle allows only declared forward transitions",()=>{
  assert.equal(isAllowedLifecycleTransition(salesOrderTransitions,"returned","invoiced"),false);
 });
 
-test("purchase order lifecycle enforces approval, dispatch, receipt and payment sequence",()=>{
+test("purchase order status endpoint cannot bypass receipt, invoice or payment operations",()=>{
  assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"draft","approved"),true);
  assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"approved","sent"),true);
- assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"sent","partially_received"),true);
- assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"partially_received","received"),true);
- assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"received","invoiced"),true);
- assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"invoiced","paid"),true);
+ assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"sent","partially_received"),false);
+ assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"partially_received","received"),false);
+ assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"received","invoiced"),false);
+ assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"invoiced","paid"),false);
  assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"draft","paid"),false);
  assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"sent","paid"),false);
  assert.equal(isAllowedLifecycleTransition(purchaseOrderTransitions,"paid","cancelled"),false);
