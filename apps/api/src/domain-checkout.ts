@@ -127,6 +127,36 @@ checkoutRouter.patch("/api/marketplace/orders/:id/shipping-address",requireAuth,
  const client=await pool.connect();try{await client.query("begin");const order=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);if(!order.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}if(!(await canAccessCustomer(req,order.rows[0].customer_ref,"order:manage"))){await client.query("rollback");return res.status(403).json({error:"دسترسی ویرایش نشانی سفارش مجاز نیست"});}if(!["pending","confirmed"].includes(order.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"نشانی فقط پیش از نهایی‌شدن سفارش قابل ویرایش است"});}const updated=await client.query("update marketplace_orders set shipping_address=$1::jsonb,updated_at=now() where id=$2 and tenant_id=$3 returning *",[JSON.stringify(address),req.params.id,t.id]);await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.shipping_address_updated','marketplace_order',$3,$4)",[t.id,(req as any).user.id,req.params.id,JSON.stringify(address)]);await client.query("commit");res.json({order:updated.rows[0]});}catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
+checkoutRouter.post("/api/marketplace/orders/:id/delivery-quote/accept",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const order=(await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.id,t.id])).rows[0];
+  if(!order){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}
+  if(!(await canAccessCustomer(req,order.customer_ref,"order:manage"))){await client.query("rollback");return res.status(403).json({error:"فقط مالک سفارش می‌تواند مبلغ حمل را تأیید کند"});}
+  if(!order.delivery_quote_required){await client.query("rollback");return res.status(409).json({error:"این سفارش به تأیید پیش‌فاکتور حمل نیاز ندارد"});}
+  if(!["pending","confirmed"].includes(order.status)){await client.query("rollback");return res.status(409).json({error:"وضعیت سفارش برای تأیید هزینه حمل مجاز نیست"});}
+  const existingPayment=await client.query("select id from marketplace_payments where tenant_id=$1 and order_id=$2 limit 1 for update",[t.id,order.id]);
+  if(existingPayment.rowCount){await client.query("rollback");return res.status(409).json({error:"پس از ایجاد تلاش پرداخت، پیش‌فاکتور حمل قابل تغییر نیست"});}
+  const quote=(await client.query("select * from marketplace_delivery_quotes where tenant_id=$1 and order_id=$2 and status='offered' order by version desc limit 1 for update",[t.id,order.id])).rows[0];
+  if(!quote){await client.query("rollback");return res.status(404).json({error:"پیش‌فاکتور معتبر حمل برای این سفارش ثبت نشده است"});}
+  if(quote.expires_at&&new Date(quote.expires_at).getTime()<=Date.now()){
+   await client.query("update marketplace_delivery_quotes set status='expired',updated_at=now() where id=$1",[quote.id]);
+   await client.query("commit");
+   return res.status(409).json({error:"مهلت پیش‌فاکتور حمل پایان یافته است"});
+  }
+  const customerCharge=Number(quote.customer_charge),carrierCost=Number(quote.carrier_cost);
+  if(!Number.isFinite(customerCharge)||customerCharge<0||!Number.isFinite(carrierCost)||carrierCost<0){await client.query("rollback");return res.status(409).json({error:"مبالغ پیش‌فاکتور معتبر نیستند"});}
+  const snapshot={id:quote.id,version:quote.version,currency:quote.currency,carrierCost:String(quote.carrier_cost),customerCharge:String(quote.customer_charge),carrierName:quote.carrier_name,serviceName:quote.service_name,estimatedBusinessDaysMin:quote.estimated_business_days_min,estimatedBusinessDaysMax:quote.estimated_business_days_max,notes:quote.notes,expiresAt:quote.expires_at,acceptedAt:new Date().toISOString(),status:"accepted"};
+  await client.query("update marketplace_delivery_quotes set status='accepted',accepted_by=$2,accepted_at=now(),updated_at=now() where id=$1",[quote.id,(req as any).user.id]);
+  const updated=(await client.query("update marketplace_orders set shipping_amount=$1,total_amount=subtotal+$1,delivery_quote_id=$2,delivery_quote_snapshot=$3::jsonb,updated_at=now() where id=$4 and tenant_id=$5 returning *",[customerCharge,quote.id,JSON.stringify(snapshot),order.id,t.id])).rows[0];
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.delivery_quote_accepted','marketplace_order',$3,$4)",[t.id,(req as any).user.id,order.id,JSON.stringify({quoteId:quote.id,version:quote.version,shippingAmount:customerCharge,totalAmount:updated.total_amount,currency:quote.currency})]);
+  await client.query("commit");
+  res.json({order:updated,quote});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
 checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const client=await pool.connect();
@@ -137,6 +167,12 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandl
   if(!(await canAccessCustomer(req,o.rows[0].customer_ref,"payment:manage"))){await client.query("rollback");return res.status(403).json({error:"فقط مالک سفارش یا اپراتور مجاز می‌تواند پرداخت را آغاز کند"});}
   if(!["pending","confirmed"].includes(o.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"وضعیت سفارش برای پرداخت مجاز نیست"});}
   if(o.rows[0].reservation_expires_at&&new Date(o.rows[0].reservation_expires_at).getTime()<=Date.now()){await client.query("rollback");return res.status(409).json({error:"مهلت رزرو موجودی این سفارش پایان یافته است"});}
+  if(o.rows[0].delivery_quote_required){
+   const quote=await client.query("select id,status,expires_at from marketplace_delivery_quotes where id=$1 and tenant_id=$2 and order_id=$3 for update",[o.rows[0].delivery_quote_id,t.id,o.rows[0].id]);
+   if(!quote.rowCount||quote.rows[0].status!=="accepted"||(quote.rows[0].expires_at&&new Date(quote.rows[0].expires_at).getTime()<=Date.now())){
+    await client.query("rollback");return res.status(409).json({error:"پیش از پرداخت باید پیش‌فاکتور هزینه ارسال توسط مشتری تأیید شود"});
+   }
+  }
   const paymentNo=s(req.body?.paymentNo,100)||("PAY-"+Date.now()+"-"+Math.random().toString(36).slice(2,7));
   const idempotencyKey=s(req.body?.idempotencyKey,160)||null;
   if(idempotencyKey){const existing=await client.query("select * from marketplace_payments where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey]);if(existing.rowCount){await client.query("rollback");return res.status(200).json({payment:existing.rows[0],order:{id:o.rows[0].id,status:o.rows[0].status}});}}
