@@ -4,7 +4,7 @@ import Link from "next/link";
 import {useParams,useSearchParams} from "next/navigation";
 import {useEffect,useMemo,useState} from "react";
 import {AddToCartButton,CartCount} from "../../cart-actions";
-import "./product-detail.css";
+import "../product-detail.css";
 
 type Product={
  id:string;sku:string;title:string;description:string|null;category:string|null;
@@ -69,7 +69,7 @@ export default function StoreProductDetailPage(){
      {product.description&&<p className="sk-product-description">{product.description}</p>}
      <div className="sk-product-price-box"><span>قیمت ثبت‌شده</span><strong>{money(product.price,product.currency)}</strong><small>قیمت و موجودی هنگام ثبت سفارش دوباره از سامانه بررسی می‌شود.</small></div>
      <div className="sk-product-quantity"><span>تعداد</span><div><button type="button" onClick={()=>setQuantity(v=>Math.max(1,v-1))} aria-label="کاهش تعداد">−</button><b>{quantity.toLocaleString("fa-IR")}</b><button type="button" onClick={()=>setQuantity(v=>Math.min(preorder?preorderLimit:20,v+1))} aria-label="افزایش تعداد">＋</button></div></div>
-     <div className="sk-product-actions"><AddToCartButton product={{id:product.id,sku:product.sku,title:product.title,price:product.price,currency:product.currency,seller_name:product.seller_name,store_id:product.store_id,image_url:product.image_url,is_preorder:preorder,preorder_limit:preorderLimit,site}}/><Link href="/store/cart" className="sk-product-secondary-action">مشاهده سبد خرید</Link></div>
+     <div className="sk-product-actions"><AddToCartButton quantity={quantity} product={{id:product.id,sku:product.sku,title:product.title,price:product.price,currency:product.currency,seller_name:product.seller_name,store_id:product.store_id,image_url:product.image_url,is_preorder:preorder,preorder_limit:preorderLimit,site}}/><Link href="/store/cart" className="sk-product-secondary-action">مشاهده سبد خرید</Link></div>
      {preorder&&<p className="sk-product-preorder">این کالا با ظرفیت پیش‌فروش حداکثر {preorderLimit.toLocaleString("fa-IR")} عدد عرضه شده است.</p>}
      <div className="sk-product-trust"><div><b>اطلاعات شفاف</b><small>مشخصات از کاتالوگ فروشگاه</small></div><div><b>فروشنده مشخص</b><small>نام فروشنده در سفارش ثبت می‌شود</small></div><div><b>بررسی مجدد</b><small>قیمت و موجودی در زمان سفارش</small></div></div>
     </div>
