@@ -98,3 +98,11 @@ test("sales refunds update invoice net receipts and create a financial refund ev
  assert.ok(sales.includes('await c.query("commit")'));
  assert.ok(sales.includes('await c.query("rollback")'));
 });
+
+test("purchase supplier quote selection locks tenant RFQ and only selects an active received offer",()=>{
+ assert.ok(purchasing.includes("for update of q,r"));
+ assert.ok(purchasing.includes('selected.status!=="received"||!["sent","quoting","compared"].includes(selected.rfq_status)'));
+ assert.ok(purchasing.includes("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active' for update"));
+ assert.ok(purchasing.includes("where id=$1 and tenant_id=$2 and status in ('sent','quoting','compared') returning id"));
+ assert.ok(purchasing.includes("'supplier_selected'"));
+});
