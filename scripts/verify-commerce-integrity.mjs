@@ -116,7 +116,7 @@ if(!reservationMigration.includes("created_at+interval"))throw new Error("Existi
 
 const refundRoute=checkoutApi.slice(checkoutApi.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"'),checkoutApi.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"'));
 if(!refundRoute.includes('if(order.status==="refunded")')||!refundRoute.includes("idempotent:true"))throw new Error("Repeated full refunds must return the existing refund idempotently");
-if(!refundRoute.includes('if(order.status==="returned")'))throw new Error("Refunds must not restore sellable stock unless the order was physically returned");
+if(!refundRoute.includes('["paid","processing","delivered","returned"].includes(order.status)')||refundRoute.includes("quantity=quantity+"))throw new Error("Refunds must accept inspected returns without restoring stock a second time");
 
 if(!refundRoute.includes("settlement.order_removed_for_refund")||!refundRoute.includes('x.status==="paid"')||!refundRoute.includes("seller_settlement_items where tenant_id=$1 and settlement_id=$2 and order_id=$3"))throw new Error("Refunds must reconcile unpaid seller settlement items and block already-paid seller settlements");
 if(!refundRoute.includes("status='reversed'"))throw new Error("Empty pending seller settlements must be reversed when their final order is refunded");
