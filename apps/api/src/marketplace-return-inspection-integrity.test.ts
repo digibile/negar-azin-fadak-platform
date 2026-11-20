@@ -383,3 +383,12 @@ test("gateway pending responses are stored separately and cannot overwrite the i
  assert.ok(route.includes("const returnSnapshot={receivedQuantity,restockQuantity,quarantineQuantity}"));
  assert.ok(route.includes("provider_payload=coalesce(provider_payload,'{}'::jsonb)||$1::jsonb"));
 });
+
+test("closed return is not reported as refunded unless a completed refund row exists",()=>{
+ const start=checkout.indexOf("const processMarketplaceReturnRefund=");
+ const end=checkout.indexOf('checkoutRouter.post("/api/storefront/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes('prior.rows[0].status==="refunded"'));
+ assert.ok(route.includes("manualReconciliationRequired:true"));
+ assert.ok(route.includes("پرونده مرجوعی بسته شده اما بازپرداخت قطعی ثبت نشده است"));
+});
