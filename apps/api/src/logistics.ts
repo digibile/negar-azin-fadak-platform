@@ -155,7 +155,7 @@ logisticsRouter.post("/api/logistics/marketplace-orders/:orderId/shipments",requ
 
 logisticsRouter.get("/api/marketplace/orders/:orderId/shipment",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
-  const order=(await query("select id,order_no,customer_ref,shipping_address from marketplace_orders where id=$1 and tenant_id=$2",[req.params.orderId,t.id])).rows[0];
+  const order=(await query("select id,order_no,customer_ref,shipping_address,delivery_method_id,delivery_method_snapshot from marketplace_orders where id=$1 and tenant_id=$2",[req.params.orderId,t.id])).rows[0];
   if(!order)return fail(res,404,"سفارش پیدا نشد");
   const user=(req as any).user;
   const allowed=user.role==="admin"||order.customer_ref===user.id||await can(req,"order:lifecycle")||await can(req,"modules:12-logistics-supply:track");
@@ -179,7 +179,7 @@ logisticsRouter.patch("/api/marketplace/orders/:orderId/notifications/:notificat
 logisticsRouter.get("/api/logistics/shipments",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   res.json((await query(
-    "select s.*,coalesce(o.order_no,mo.order_no) order_no,mo.shipping_address,r.name route_name,v.plate_no,d.name driver_name from logistics_shipments s left join logistics_supply_orders o on o.id=s.supply_order_id left join marketplace_orders mo on mo.id=s.marketplace_order_id and mo.tenant_id=s.tenant_id left join logistics_routes r on r.id=s.route_id left join logistics_vehicles v on v.id=s.vehicle_id left join logistics_drivers d on d.id=s.driver_id where s.tenant_id=$1 order by s.created_at desc",
+    "select s.*,coalesce(o.order_no,mo.order_no) order_no,mo.shipping_address,mo.delivery_method_snapshot,r.name route_name,v.plate_no,d.name driver_name from logistics_shipments s left join logistics_supply_orders o on o.id=s.supply_order_id left join marketplace_orders mo on mo.id=s.marketplace_order_id and mo.tenant_id=s.tenant_id left join logistics_routes r on r.id=s.route_id left join logistics_vehicles v on v.id=s.vehicle_id left join logistics_drivers d on d.id=s.driver_id where s.tenant_id=$1 order by s.created_at desc",
     [t.id]
   )).rows);
 }));
