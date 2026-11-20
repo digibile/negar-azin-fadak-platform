@@ -22,6 +22,8 @@ export interface PaymentResult {
 
 export interface PaymentProvider {
  readonly code:string;
+ /** True only when refundPayment deduplicates repeated calls using metadata.idempotencyKey. */
+ readonly supportsIdempotentRefunds?:boolean;
  createPayment(input:PaymentRequest):Promise<PaymentResult>;
  verifyPayment(input:{providerTransactionId:string;amount:number;metadata?:Record<string,unknown>}):Promise<PaymentResult>;
  refundPayment(input:{providerTransactionId:string;amount:number;metadata?:Record<string,unknown>}):Promise<PaymentResult>;
@@ -34,6 +36,7 @@ interface HttpProviderConfig {
  endpoint:string;
  secret:string;
  timeoutMs:number;
+ idempotentRefunds:boolean;
 }
 
 function env(name:string){return process.env[name]?.trim()||"";}
@@ -79,8 +82,9 @@ async function callHttp(cfg:HttpProviderConfig,action:HttpAction,body:Record<str
 
 class ConfiguredHttpPaymentProvider implements PaymentProvider {
  readonly code:string;
+ readonly supportsIdempotentRefunds:boolean;
  private readonly cfg:HttpProviderConfig;
- constructor(cfg:HttpProviderConfig){this.code=cfg.code;this.cfg=cfg;}
+ constructor(cfg:HttpProviderConfig){this.code=cfg.code;this.cfg=cfg;this.supportsIdempotentRefunds=cfg.idempotentRefunds;}
  createPayment(input:PaymentRequest){return callHttp(this.cfg,"create",input as unknown as Record<string,unknown>);}
  verifyPayment(input:{providerTransactionId:string;amount:number;metadata?:Record<string,unknown>}){return callHttp(this.cfg,"verify",input as unknown as Record<string,unknown>);}
  refundPayment(input:{providerTransactionId:string;amount:number;metadata?:Record<string,unknown>}){return callHttp(this.cfg,"refund",input as unknown as Record<string,unknown>);}
@@ -97,7 +101,8 @@ function configured(code:string):PaymentProvider|undefined{
   code,
   endpoint,
   secret:secretRef,
-  timeoutMs:Math.max(1000,Math.min(30000,Number(env("PAYMENT_PROVIDER_"+normalized.toUpperCase()+"_TIMEOUT_MS"))||10000))
+  timeoutMs:Math.max(1000,Math.min(30000,Number(env("PAYMENT_PROVIDER_"+normalized.toUpperCase()+"_TIMEOUT_MS"))||10000)),
+  idempotentRefunds:env("PAYMENT_PROVIDER_"+normalized.toUpperCase()+"_IDEMPOTENT_REFUNDS").toLowerCase()==="true"
  });
 }
 
