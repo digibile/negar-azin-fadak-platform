@@ -143,3 +143,20 @@ test("purchase return credit is tenant-scoped, transition-locked and posted as a
  assert.ok(purchasing.includes("-Number(old.amount)"));
  assert.ok(purchasing.includes('await c.query("rollback")'));
 });
+
+test("supplier evaluations validate date range, bounded scores and active tenant-owned supplier in a transaction",()=>{
+ assert.ok(purchasing.includes("scores.some(x=>!Number.isFinite(x)||x<0||x>100)"));
+ assert.ok(purchasing.includes("start>end"));
+ assert.ok(purchasing.includes("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active' for update"));
+ assert.ok(purchasing.includes("insert into supplier_evaluations"));
+ assert.ok(purchasing.includes('await c.query("commit")'));
+ assert.ok(purchasing.includes('await c.query("rollback")'));
+});
+
+test("supplier contracts validate values, lifecycle and active tenant-owned supplier before insert",()=>{
+ assert.ok(purchasing.includes('!["draft","active","expired","terminated"].includes(status)'));
+ assert.ok(purchasing.includes("value<0"));
+ assert.ok(purchasing.includes("title.length>240"));
+ assert.ok(purchasing.includes("insert into supplier_contracts"));
+ assert.ok(purchasing.includes("'supplier_contract'"));
+});
