@@ -267,3 +267,16 @@ if(!deliverySnapshotLogisticsApi.includes("delivery_method_snapshot from marketp
 if(!deliverySnapshotLogisticsPage.includes("روش ارسال: {order.delivery_method_snapshot.title}")||!deliverySnapshotLogisticsPage.includes("روش انتخاب‌شده مشتری: {s.delivery_method_snapshot.title}"))throw new Error("Logistics workspace must show the selected delivery method for orders and shipments");
 if(!deliverySnapshotTrackingPage.includes("روش ارسال انتخاب‌شده")||!deliverySnapshotTrackingPage.includes("data.order.delivery_method_snapshot?.title"))throw new Error("Customer tracking must show the delivery method selected at checkout");
 console.log("DELIVERY_METHOD_ORDER_VISIBILITY_INTEGRITY_OK");
+ 
+const deliveryQuoteMigration=read("database/migrations/158_marketplace_delivery_quotes.sql");
+const deliveryQuoteApi=read("apps/api/src/logistics.ts");
+const deliveryQuotePage=read("apps/web/app/marketplace/shipping/delivery-quotes/page.tsx");
+const deliveryQuoteCss=read("apps/web/app/marketplace/shipping/delivery-quotes/delivery-quotes.css");
+const deliveryShippingPage=read("apps/web/app/marketplace/shipping/page.tsx");
+if(!deliveryQuoteMigration.includes("create table if not exists marketplace_delivery_quotes")||!deliveryQuoteMigration.includes("carrier_cost numeric(20,2)")||!deliveryQuoteMigration.includes("customer_charge numeric(20,2)")||!deliveryQuoteMigration.includes("unique(tenant_id,order_id,version)"))throw new Error("Manual delivery quote records must be tenant-scoped, versioned and retain separate carrier/customer amounts");
+if(!deliveryQuoteApi.includes("/api/logistics/marketplace-delivery-quotes")||!deliveryQuoteApi.includes("/api/logistics/marketplace-orders/:orderId/delivery-quotes")||!deliveryQuoteApi.includes("modules:12-logistics-supply:write")||!deliveryQuoteApi.includes("status='superseded'"))throw new Error("Delivery quote issuance must be permissioned, versioned and supersede the previous offer");
+if(!deliveryQuoteApi.includes("order.status")||!deliveryQuoteApi.includes("marketplace_payments")||!deliveryQuoteApi.includes("واحد پول پیش‌فاکتور با سفارش یکسان نیست"))throw new Error("Delivery quotes must reject closed/paid orders and enforce order currency");
+if(!deliveryQuotePage.includes("carrierCost")||!deliveryQuotePage.includes("customerCharge")||!deliveryQuotePage.includes("/api/logistics/marketplace-delivery-quotes")||!deliveryQuotePage.includes("تا پیش از مرحله تأیید مشتری"))throw new Error("Delivery quote workspace must expose separate carrier and customer amounts and clearly mark offers as unaccepted");
+if(!deliveryQuoteCss.includes(".delivery-quotes-form")||!deliveryShippingPage.includes("/marketplace/shipping/delivery-quotes"))throw new Error("Shipping operations must link to the delivery quote workspace and provide responsive styling");
+console.log("MARKETPLACE_DELIVERY_QUOTE_DRAFT_INTEGRITY_OK");
+
