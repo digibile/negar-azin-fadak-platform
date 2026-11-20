@@ -19,6 +19,7 @@ export default function MarketplaceCategoriesPage() {
   const [notice,setNotice]=useState("");
   const [search,setSearch]=useState("");
   const [selected,setSelected]=useState<Category|null>(null);
+  const [createOpen,setCreateOpen]=useState(false);
 
   async function load() {
     setError("");
@@ -41,6 +42,7 @@ export default function MarketplaceCategoriesPage() {
       await api("/api/marketplace/categories",{method:"POST",body:JSON.stringify({name:cleanName,code:cleanCode,sortOrder:Number(sortOrder)||0,status:"active"})});
       setName("");setCode("");setSortOrder(String((Number(sortOrder)||0)+10));
       setNotice("دسته‌بندی در پایگاه داده ثبت شد و پس از بارگیری دوباره در ویترین استفاده می‌شود.");
+      setCreateOpen(false);
       await load();
     } catch(reason) {
       setError(reason instanceof Error?reason.message:"ثبت دسته‌بندی ناموفق بود.");
@@ -68,8 +70,8 @@ export default function MarketplaceCategoriesPage() {
     </header>
     {error&&<div className="sk-cat-feedback is-error" role="alert">{error}</div>}
     {notice&&<div className="sk-cat-feedback is-success" role="status">{notice}</div>}
-    <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-categories" onCreate={()=>document.querySelector(".sk-cat-create")?.scrollIntoView({behavior:"smooth",block:"center"})}/>
-    <section className="sk-cat-create">
+    <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-categories" onCreate={()=>setCreateOpen(true)}/>
+    {createOpen&&<ManagementDialog title="افزودن دسته‌بندی" onClose={()=>setCreateOpen(false)}>    <section className="sk-cat-create">
       <div><h2>افزودن دسته‌بندی</h2><p>برای هر دسته یک کد پایدار انگلیسی تعریف کنید.</p></div>
       <div className="sk-cat-form">
         <label>نام نمایشی<input value={name} onChange={e=>setName(e.target.value)} placeholder="مثلاً لوازم جانبی موبایل"/></label>
@@ -77,7 +79,7 @@ export default function MarketplaceCategoriesPage() {
         <label>ترتیب نمایش<input type="number" value={sortOrder} onChange={e=>setSortOrder(e.target.value)} min="0"/></label>
         <button type="button" onClick={createCategory} disabled={saving||!name.trim()||!code.trim()}>{saving?"در حال ذخیره…":"ثبت دسته‌بندی"}</button>
       </div>
-    </section>
+    </section></ManagementDialog}>
     <section className="sk-cat-list">
       <div className="sk-cat-list-head"><div><h2>فهرست دسته‌بندی‌ها</h2><p>{items.length.toLocaleString("fa-IR")} دسته ثبت‌شده</p></div><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="جستجوی نام یا کد…"/></div>
       {loading?<div className="sk-cat-empty">در حال دریافت اطلاعات…</div>:visible.length?<div className="sk-cat-table">
