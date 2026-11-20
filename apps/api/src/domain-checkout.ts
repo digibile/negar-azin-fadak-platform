@@ -355,6 +355,40 @@ checkoutRouter.get("/api/marketplace/returns",requireAuth,requirePermission("ord
  res.json({items:r.rows,total:r.rowCount});
 }));
 
+checkoutRouter.post("/api/marketplace/returns/:id/inspect",requireAuth,requirePermission("order:manage"),requirePermission("modules:23-inventory-warehouse:post"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const requestId=s(req.params.id,100),warehouseId=s(req.body?.warehouseId,100);
+ const received=n(req.body?.receivedQuantity),restock=n(req.body?.restockQuantity),notes=s(req.body?.inspectionNotes,2000);
+ if(!warehouseId||received===null||restock===null||received<=0||restock<0||restock>received)return res.status(400).json({error:"انبار دریافت، تعداد دریافت‌شده و تعداد سالم قابل بازگشت به موجودی را معتبر وارد کنید"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const rr=(await client.query("select rr.*,oi.product_id,oi.quantity order_quantity from marketplace_return_requests rr join marketplace_order_items oi on oi.id=rr.order_item_id and oi.order_id=rr.order_id where rr.id=$1 and rr.tenant_id=$2 for update of rr,oi",[requestId,t.id])).rows[0];
+  if(!rr){await client.query("rollback");return res.status(404).json({error:"درخواست مرجوعی پیدا نشد"});}
+  if(rr.status!=="received"){await client.query("rollback");return res.status(409).json({error:"بازرسی فقط پس از ثبت دریافت فیزیکی کالا مجاز است"});}
+  if(received>Number(rr.requested_quantity)+0.000001){await client.query("rollback");return res.status(409).json({error:"تعداد دریافت‌شده از تعداد تأییدشده مرجوعی بیشتر است"});}
+  const warehouse=(await client.query("select id,name from inventory_warehouses where id=$1 and tenant_id=$2 and status='active' for share",[warehouseId,t.id])).rows[0];
+  if(!warehouse){await client.query("rollback");return res.status(400).json({error:"انبار دریافت باید فعال و متعلق به همین سازمان باشد"});}
+  const mapping=(await client.query("select mil.inventory_product_id,mil.quantity_factor,ip.name from marketplace_inventory_product_links mil join inventory_products ip on ip.id=mil.inventory_product_id and ip.tenant_id=mil.tenant_id and ip.status='active' where mil.tenant_id=$1 and mil.product_id=$2",[t.id,rr.product_id])).rows[0];
+  if(restock>0&&!mapping){await client.query("rollback");return res.status(409).json({error:"برای بازگشت کالای سالم به موجودی، نگاشت فعال کالای فروشگاه به کالای انبار الزامی است"});}
+  const warehouseQuantity=restock>0?Number((restock*Number(mapping.quantity_factor)).toFixed(4)):0;
+  if(restock>0&&(!Number.isFinite(warehouseQuantity)||warehouseQuantity<=0)){await client.query("rollback");return res.status(409).json({error:"ضریب تبدیل کالای انبار معتبر نیست"});}
+  const result=restock===0?"non_restockable":restock+0.000001>=received?"restocked":"partial";
+  const documentNo="RET-RCV-"+String(rr.request_no).replace(/[^A-Za-z0-9_-]/g,"").slice(-55);
+  const doc=(await client.query("insert into inventory_documents(tenant_id,document_no,type,status,target_warehouse_id,reason,reference_no,created_by,posted_by,posted_at) values($1,$2,'receipt','posted',$3,$4,$5,$6,$6,now()) returning id",[t.id,documentNo,warehouseId,"دریافت و بازرسی مرجوعی "+rr.request_no,rr.request_no,(req as any).user.id])).rows[0];
+  if(warehouseQuantity>0){
+   await client.query("insert into inventory_document_items(document_id,product_id,quantity,unit_price) values($1,$2,$3,0)",[doc.id,mapping.inventory_product_id,warehouseQuantity]);
+   await client.query("insert into inventory_stock(tenant_id,warehouse_id,product_id,quantity,reserved_quantity) values($1,$2,$3,$4,0) on conflict(tenant_id,warehouse_id,product_id) do update set quantity=inventory_stock.quantity+excluded.quantity,updated_at=now()",[t.id,warehouseId,mapping.inventory_product_id,warehouseQuantity]);
+  }
+  const updated=(await client.query("update marketplace_return_requests set status='inspected',received_quantity=$1,restock_quantity=$2,inspection_notes=$3,inspection_result=$4,inspection_warehouse_id=$5,inventory_receipt_document_id=$6,inspected_at=now(),reviewed_by=$7,updated_at=now() where id=$8 and tenant_id=$9 returning *",[received,restock,notes||null,result,warehouseId,doc.id,(req as any).user.id,requestId,t.id])).rows[0];
+  await client.query("insert into inventory_events(tenant_id,entity_type,entity_id,event_type,to_status,quantity,actor_user_id,reason) values($1,'document',$2,'posted','posted',$3,$4,$5)",[t.id,doc.id,warehouseQuantity,(req as any).user.id,"رسید مرجوعی "+rr.request_no+"؛ "+result]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'marketplace.return.inspected','marketplace_return_request',$3,$4,$5)",[t.id,(req as any).user.id,requestId,JSON.stringify({status:"received"}),JSON.stringify({status:"inspected",receivedQuantity:received,restockQuantity:restock,warehouseId,inventoryReceiptDocumentId:doc.id,inspectionResult:result})]);
+  await client.query("commit");
+  await emitBusinessEvent({tenantId:t.id,eventKey:"return.inspected",subjectType:"marketplace_return_request",subjectId:requestId,userId:(req as any).user.id,input:{requestNo:rr.request_no,inspectionResult:result,restockQuantity:restock,inventoryReceiptDocumentId:doc.id}});
+  res.json({item:updated,inventoryReceipt:{id:doc.id,documentNo,status:"posted",warehouseId,restockedQuantity:warehouseQuantity,inspectionResult:result}});
+ }catch(e:any){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
 checkoutRouter.patch("/api/marketplace/returns/:id/status",requireAuth,requirePermission("order:manage"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});const requestId=s(req.params.id,100);
  const target=s(req.body?.status,24),reason=s(req.body?.decisionReason,1000);
@@ -363,7 +397,7 @@ checkoutRouter.patch("/api/marketplace/returns/:id/status",requireAuth,requirePe
   await client.query("begin");
   const current=await client.query("select * from marketplace_return_requests where id=$1 and tenant_id=$2 for update",[requestId,t.id]);
   if(!current.rowCount){await client.query("rollback");return res.status(404).json({error:"درخواست مرجوعی پیدا نشد"});}
-  const transitions:Record<string,string[]>={submitted:["approved","rejected"],approved:["received","cancelled"],received:["inspected"],inspected:["closed"]};
+  const transitions:Record<string,string[]>={submitted:["approved","rejected"],approved:["received","cancelled"],inspected:["closed"]};
   if(!(transitions[current.rows[0].status]||[]).includes(target)){await client.query("rollback");return res.status(409).json({error:"تغییر وضعیت درخواست مرجوعی مجاز نیست"});}
   if(target==="rejected"&&!reason){await client.query("rollback");return res.status(400).json({error:"دلیل رد درخواست الزامی است"});}
   const updated=await client.query("update marketplace_return_requests set status=$1,decision_reason=$2,reviewed_by=$3,received_at=case when $1='received' then now() else received_at end,inspected_at=case when $1='inspected' then now() else inspected_at end,updated_at=now() where id=$4 and tenant_id=$5 returning *",[target,reason||null,(req as any).user.id,requestId,t.id]);
