@@ -4,7 +4,7 @@ import {useCallback,useEffect,useState} from "react";
 import {api} from "../../../../lib/api";
 import "./delivery-quotes.css";
 
-type Order={id:string;order_no:string;status:string;currency:string;total_amount:number;delivery_method_snapshot?:{title?:string}|null};
+type Order={id:string;order_no:string;status:string;currency:string;total_amount:number;delivery_quote_required:boolean;delivery_method_snapshot?:{title?:string}|null};
 type Quote={id:string;order_id:string;order_no:string;version:number;currency:string;carrier_cost:string;customer_charge:string;carrier_name?:string|null;service_name?:string|null;status:string;expires_at?:string|null;created_at:string;delivery_method_title?:string|null};
 const statusLabel:Record<string,string>={offered:"در انتظار پاسخ مشتری",accepted:"پذیرفته‌شده",rejected:"ردشده",expired:"منقضی‌شده",superseded:"جایگزین‌شده"};
 
@@ -32,7 +32,7 @@ export default function DeliveryQuotesPage(){
     api<{items:Order[]}>("/api/marketplace/orders"),
     api<Quote[]>("/api/logistics/marketplace-delivery-quotes")
    ]);
-   setOrders((o.items||[]).filter(x=>["pending","confirmed"].includes(x.status)));
+   setOrders((o.items||[]).filter(x=>x.delivery_quote_required&&["pending","confirmed"].includes(x.status)));
    setQuotes(q||[]);
   }catch(e){setError(e instanceof Error?e.message:"دریافت پیش‌فاکتورهای حمل ناموفق بود.");}
   finally{setLoading(false);}
