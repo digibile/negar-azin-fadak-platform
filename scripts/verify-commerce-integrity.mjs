@@ -119,7 +119,7 @@ if(!refundRoute.includes('if(order.status==="refunded")')||!refundRoute.includes
 if(!refundRoute.includes('["paid","processing","delivered","returned"].includes(order.status)')||refundRoute.includes("quantity=quantity+"))throw new Error("Refunds must accept inspected returns without restoring stock a second time");
 
 if(!refundRoute.includes("settlement.order_removed_for_refund")||!refundRoute.includes('x.status==="paid"')||!refundRoute.includes("seller_settlement_items where tenant_id=$1 and settlement_id=$2 and order_id=$3"))throw new Error("Refunds must reconcile unpaid seller settlement items and block already-paid seller settlements");
-if(!refundRoute.includes("status='reversed'"))throw new Error("Empty pending seller settlements must be reversed when their final order is refunded");
+if(!refundRoute.includes('?"reversed":linked.status')||!refundRoute.includes("status=$7"))throw new Error("Empty pending seller settlements must be reversed when their final order is refunded");
 
 const settlementApi=read("apps/api/src/domain-settlement.ts");
 const ledgerApi=read("apps/api/src/ledger.ts");
