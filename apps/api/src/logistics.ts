@@ -444,7 +444,7 @@ logisticsRouter.post("/api/logistics/carrier-invoices/:id/approve",requireAuth,r
   const c=await pool.connect();
   try{
     await c.query("begin");
-    const invoice=(await c.query("select * from logistics_carrier_invoices where id=$1 and tenant_id=$2 for update",[req.params.id,t.id])).rows[0];
+    const invoice=(await c.query("select i.*,o.shipping_amount from logistics_carrier_invoices i join marketplace_orders o on o.id=i.order_id and o.tenant_id=i.tenant_id where i.id=$1 and i.tenant_id=$2 for update of i,o",[req.params.id,t.id])).rows[0];
     if(!invoice){await c.query("rollback");return fail(res,404,"صورتحساب شرکت حمل پیدا نشد");}
     if(invoice.status==="approved"){await c.query("commit");return res.json({invoice,idempotent:true});}
     if(!["matched","disputed"].includes(invoice.status)){await c.query("rollback");return fail(res,409,"وضعیت صورتحساب برای تأیید مجاز نیست");}
@@ -456,9 +456,22 @@ logisticsRouter.post("/api/logistics/carrier-invoices/:id/approve",requireAuth,r
     let ledgerAdjustmentEntryId:string|null=null;
     if(Math.abs(variance)>0.005){
       const amount=Math.abs(variance);
-      const lines=variance>0
-        ? [{accountCode:"5201",accountName:"هزینه مازاد حمل سفارش",accountType:"expense",debit:amount},{accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",credit:amount}]
-        : [{accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",debit:amount},{accountCode:"5201",accountName:"هزینه مازاد حمل سفارش",accountType:"expense",credit:amount}];
+      const customerShipping=Math.max(0,Number(invoice.shipping_amount||0));
+      const quotedCost=Math.max(0,Number(invoice.quoted_cost||0));
+      const lines:any[]=[];
+      if(variance>0){
+        const revenueReduction=Math.min(variance,Math.max(0,customerShipping-quotedCost));
+        const additionalExpense=variance-revenueReduction;
+        if(revenueReduction>0)lines.push({accountCode:"4201",accountName:"درآمد خدمات حمل",accountType:"revenue",debit:revenueReduction});
+        if(additionalExpense>0)lines.push({accountCode:"5201",accountName:"هزینه مازاد حمل سفارش",accountType:"expense",debit:additionalExpense});
+        lines.push({accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",credit:variance});
+      }else{
+        const expenseReduction=Math.min(amount,Math.max(0,quotedCost-customerShipping));
+        const marginIncrease=amount-expenseReduction;
+        lines.push({accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",debit:amount});
+        if(expenseReduction>0)lines.push({accountCode:"5201",accountName:"هزینه مازاد حمل سفارش",accountType:"expense",credit:expenseReduction});
+        if(marginIncrease>0)lines.push({accountCode:"4201",accountName:"درآمد خدمات حمل",accountType:"revenue",credit:marginIncrease});
+      }
       ledgerAdjustmentEntryId=await postLedgerEntry(c,{tenantId:t.id,entryNo:"CINV-ADJ-"+String(invoice.id).slice(0,12),sourceType:"logistics_carrier_invoice_adjustment",sourceId:invoice.id,description:"تعدیل اختلاف صورتحساب حمل "+invoice.invoice_no,createdBy:(req as any).user.id,currency:invoice.currency,lines});
     }
     const updated=(await c.query("update logistics_carrier_invoices set status='approved',party_id=$2,payable_id=$3,ledger_adjustment_entry_id=$4,resolution_note=$5,reviewed_by=$6,reviewed_at=now(),updated_at=now() where id=$1 and tenant_id=$7 returning *",[invoice.id,partyId,payable.id,ledgerAdjustmentEntryId,resolutionNote||null,(req as any).user.id,t.id])).rows[0];
