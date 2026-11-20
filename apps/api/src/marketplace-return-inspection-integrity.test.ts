@@ -233,6 +233,9 @@ test("supplier handover persists financial quantity snapshot for stable cumulati
  const route=checkout.slice(start,end);
  assert.ok(route.includes("finance_product_id=$3 and pq.status='supplier_handover'"));
  assert.ok(route.includes("sum(pq.finance_quantity)"));
+ assert.ok(route.includes("legacy_count"));
+ assert.ok(route.includes("pq.finance_product_id is null or pq.finance_quantity is null"));
+ assert.ok(route.includes("تحویل‌های قبلی این فاکتور فاقد snapshot مقدار مالی هستند"));
  assert.ok(route.includes("finance_product_id=$4,finance_quantity=$5"));
  assert.ok(route.includes("handoverFinanceProductId"));
  assert.ok(route.includes("handoverFinanceQuantity"));
