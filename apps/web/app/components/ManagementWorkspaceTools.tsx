@@ -37,6 +37,7 @@ export function ManagementToolbar({rows=[],filename="گزارش",onCreate,onImpo
 }){
   const fileRef=useRef<HTMLInputElement>(null);const [preview,setPreview]=useState<Record<string,string>[]>([]);const [importError,setImportError]=useState("");const [busy,setBusy]=useState(false);
   async function readFile(file?:File){if(!file)return;setImportError("");try{
+    if(file.size>5*1024*1024)throw new Error("حجم فایل نباید بیشتر از ۵ مگابایت باشد.");
     const matrix=parseCsv((await file.text()).replace(/^\uFEFF/,""));if(matrix.length<2)throw new Error("فایل باید حداقل یک ردیف عنوان و یک ردیف داده داشته باشد.");
     const headers=matrix[0].map(x=>x.trim());if(headers.some(x=>!x)||new Set(headers).size!==headers.length)throw new Error("عنوان ستون‌ها خالی یا تکراری است.");
     if(matrix.length>1001)throw new Error("حداکثر ۱٬۰۰۰ ردیف در هر بار ورود مجاز است.");
