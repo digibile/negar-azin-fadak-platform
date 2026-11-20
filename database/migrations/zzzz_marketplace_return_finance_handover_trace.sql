@@ -19,7 +19,7 @@ begin
  if not exists(select 1 from pg_constraint where conname='marketplace_return_quarantine_finance_quantity_check') then
   alter table marketplace_return_quarantine
    add constraint marketplace_return_quarantine_finance_quantity_check
-   check(finance_quantity is null or finance_quantity>0);
+   check((finance_product_id is null and finance_quantity is null) or (finance_product_id is not null and finance_quantity>0));
  end if;
 end;
 $migration$;
