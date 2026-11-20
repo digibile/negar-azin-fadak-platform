@@ -280,3 +280,43 @@ logisticsRouter.get("/api/logistics/reports",requireAuth,asyncHandler(async(req,
   ]);
   res.json({byShipment:byShipment.rows,byVehicle:byVehicle.rows,byRoute:byRoute.rows});
 }));
+
+logisticsRouter.patch("/api/logistics/vehicles/:id/status",requireAuth,asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  if(!(await can(req,"modules:12-logistics-supply:write")))return fail(res,403,"دسترسی مدیریت ناوگان ندارید");
+  const allowed:any={available:["maintenance","inactive"],maintenance:["available","inactive"],inactive:["available"],assigned:[]};
+  const c=await pool.connect();
+  try{
+    await c.query("begin");
+    const v=(await c.query("select * from logistics_vehicles where id=$1 and tenant_id=$2 for update",[req.params.id,t.id])).rows[0];
+    if(!v){await c.query("rollback");return fail(res,404,"خودرو پیدا نشد");}
+    if(v.status===b.status){await c.query("commit");return res.json(v);}
+    if(!allowed[v.status]?.includes(b.status)){await c.query("rollback");return fail(res,409,"تغییر وضعیت خودرو مجاز نیست");}
+    const active=(await c.query("select id from logistics_shipments where tenant_id=$1 and vehicle_id=$2 and status in ('planned','assigned','picked_up','in_transit') limit 1 for update",[t.id,v.id])).rows[0];
+    if(active){await c.query("rollback");return fail(res,409,"تا پایان مأموریت فعال امکان تغییر وضعیت خودرو وجود ندارد");}
+    const updated=(await c.query("update logistics_vehicles set status=$1 where id=$2 and tenant_id=$3 returning *",[b.status,v.id,t.id])).rows[0];
+    await c.query("commit");
+    await audit(t.id,"vehicle",v.id,"status_change",v.status,b.status,(req as any).user.id,b.reason);
+    res.json(updated);
+  }catch(e){await c.query("rollback");throw e;}finally{c.release();}
+}));
+
+logisticsRouter.patch("/api/logistics/drivers/:id/status",requireAuth,asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  if(!(await can(req,"modules:12-logistics-supply:write")))return fail(res,403,"دسترسی مدیریت رانندگان ندارید");
+  const allowed:any={active:["inactive","suspended"],inactive:["active"],suspended:["active"]};
+  const c=await pool.connect();
+  try{
+    await c.query("begin");
+    const d=(await c.query("select * from logistics_drivers where id=$1 and tenant_id=$2 for update",[req.params.id,t.id])).rows[0];
+    if(!d){await c.query("rollback");return fail(res,404,"راننده پیدا نشد");}
+    if(d.status===b.status){await c.query("commit");return res.json(d);}
+    if(!allowed[d.status]?.includes(b.status)){await c.query("rollback");return fail(res,409,"تغییر وضعیت راننده مجاز نیست");}
+    const active=(await c.query("select id from logistics_shipments where tenant_id=$1 and driver_id=$2 and status in ('planned','assigned','picked_up','in_transit') limit 1 for update",[t.id,d.id])).rows[0];
+    if(active){await c.query("rollback");return fail(res,409,"تا پایان مأموریت فعال امکان تغییر وضعیت راننده وجود ندارد");}
+    const updated=(await c.query("update logistics_drivers set status=$1 where id=$2 and tenant_id=$3 returning *",[b.status,d.id,t.id])).rows[0];
+    await c.query("commit");
+    await audit(t.id,"driver",d.id,"status_change",d.status,b.status,(req as any).user.id,b.reason);
+    res.json(updated);
+  }catch(e){await c.query("rollback");throw e;}finally{c.release();}
+}));
