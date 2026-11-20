@@ -596,7 +596,7 @@ export default function ProductsPage() {
           </div>
           {mappingEditingId === item.id && <div className="mp-product-edit-form">
             <h3>اتصال محصول فروشگاه به کالای انبار</h3>
-            <p>این اتصال فقط شناسه کالای متناظر را ثبت می‌کند. تا زمان تکمیل کنترل موجودی و رزرو، هیچ مقدار موجودی تغییر نمی‌کند.</p>
+            <p>این اتصال فقط شناسه کالای متناظر را ثبت می‌کند. در زمان ارجاع سفارش پرداخت‌شده به لجستیک، موجودی این کالای انبار رزرو می‌شود؛ هنگام اعزام، مقدار رزروشده از موجودی انبار کسر خواهد شد.</p>
             <label>کالای انبار<select value={selectedInventoryProductId} onChange={event => setSelectedInventoryProductId(event.target.value)}><option value="">بدون اتصال</option>{inventoryProducts.map(stockProduct => <option key={stockProduct.id} value={stockProduct.id}>{stockProduct.sku} · {stockProduct.name}</option>)}</select></label>
             <label>ضریب تبدیل به واحد انبار<input type="number" min="0.000001" max="1000000" step="0.000001" value={mappingQuantityFactor} onChange={event => setMappingQuantityFactor(event.target.value)} disabled={!selectedInventoryProductId} /></label>
             <small>مقدار رزرو انبار = تعداد سفارش × ضریب تبدیل. مقدار پیش‌فرض ۱ است.</small>
