@@ -107,3 +107,9 @@ if(!reservationMigration.includes("reservation_expires_at")||!reservationMigrati
 if(!checkoutApi.includes("MARKETPLACE_RESERVATION_TTL_MINUTES")||!checkoutApi.includes("reservation_expires_at"))throw new Error("New marketplace orders must receive a bounded stock reservation expiry");
 if(!checkoutApi.includes("payment.reservation_expired")||!checkoutApi.includes("مهلت رزرو موجودی این سفارش پایان یافته است"))throw new Error("Payment start and verification must reject expired reservations");
 if(!notificationWorker.includes("expireMarketplaceReservations")||!notificationWorker.includes("reserved_quantity=greatest(0,reserved_quantity-$1)")||!notificationWorker.includes("order.reservation_expired"))throw new Error("Existing worker must release expired reservations and audit the order transition");
+
+const orderLockPosition=checkoutApi.indexOf("const orderLock=await client.query");
+const paymentLockPosition=checkoutApi.indexOf("for update of p",orderLockPosition);
+if(orderLockPosition<0||paymentLockPosition<orderLockPosition)throw new Error("Payment verification must lock the order before the payment to serialize with reservation expiry");
+if(!checkoutApi.includes('(["pending","confirmed"].includes(payment.order_status)&&payment.reservation_expired)'))throw new Error("Idempotent verification of already-paid orders must remain available after the reservation deadline");
+if(!reservationMigration.includes("created_at+interval"))throw new Error("Existing unpaid orders must receive a reservation expiry during migration");
