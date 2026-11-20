@@ -459,7 +459,7 @@ checkoutRouter.patch("/api/marketplace/returns/:id/disposition",requireAuth,requ
    if(!supplier){await client.query("rollback");return res.status(400).json({error:"تأمین‌کننده انتخاب‌شده فعال و متعلق به همین سازمان نیست"});}
    supplierTitle=supplier.title;
    if(purchaseId){
-    const purchase=(await client.query("select id from finance_purchases where id=$1 and tenant_id=$2 and supplier_id=$3 and status in ('confirmed','received','paid') for share",[purchaseId,t.id,supplierPartyId])).rows[0];
+    const purchase=(await client.query("select id from finance_purchases where id=$1 and tenant_id=$2 and supplier_id=$3 and status in ('confirmed','received','paid') for update",[purchaseId,t.id,supplierPartyId])).rows[0];
     if(!purchase){await client.query("rollback");return res.status(400).json({error:"فاکتور خرید باید متعلق به همین تأمین‌کننده و در وضعیت معتبر باشد"});}
     const purchaseLines=(await client.query("select fpl.product_id,fpl.quantity,mil.quantity_factor inventory_factor,mfl.quantity_factor finance_factor from finance_purchase_lines fpl join marketplace_return_requests rr on rr.id=$3 and rr.tenant_id=$2 join marketplace_order_items oi on oi.id=rr.order_item_id and oi.order_id=rr.order_id join marketplace_inventory_product_links mil on mil.tenant_id=rr.tenant_id and mil.product_id=oi.product_id join marketplace_finance_product_links mfl on mfl.tenant_id=mil.tenant_id and mfl.inventory_product_id=mil.inventory_product_id and mfl.status='active' and mfl.finance_product_id=fpl.product_id where fpl.purchase_id=$1 for share of fpl,mil,mfl",[purchaseId,t.id,requestId])).rows;
     const purchaseLine=purchaseLines[0];
