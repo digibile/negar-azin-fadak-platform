@@ -110,7 +110,7 @@ export default function MarketplaceShippingPage(){
    <div className="shipping-section-title"><div><h2>مرسوله‌های فروشگاه</h2><p>هر تغییر وضعیت همراه با ثبت رویداد و زمان انجام می‌شود.</p></div><span>{shipments.length.toLocaleString("fa-IR")} مرسوله</span></div>
    {loading?<p className="empty">در حال دریافت مرسوله‌ها…</p>:shipments.map(s=><article className="shipping-shipment" key={s.id}>
     <div className="shipping-shipment-main"><b>{s.shipment_no}</b><span>سفارش: {s.order_no||"—"}</span><small>{s.origin} ← {s.destination}</small><small>رهگیری: {s.tracking_code||"ثبت نشده"} · {s.plate_no||"ناوگان"} · {s.driver_name||"راننده"}</small></div>
-    <div className="shipping-shipment-state"><span className={"shipping-pill state-"+s.status}>{statusLabel[s.status]||s.status}</span><div className="shipping-actions">{(transitions[s.status]||[]).map(next=><button type="button" key={next} disabled={busy===s.id} onClick={()=>void moveShipment(s,next)}>{actionLabel[next]}</button>)}</div></div>
+    <div className="shipping-shipment-state"><span className={"shipping-pill state-"+s.status}>{statusLabel[s.status]||s.status}</span><div className="shipping-actions">{(transitions[s.status]||[]).filter(next=>!(s.marketplace_order_id&&next==="cancelled")).map(next=><button type="button" key={next} disabled={busy===s.id} onClick={()=>void moveShipment(s,next)}>{actionLabel[next]}</button>)}</div></div>
    </article>)}
    {!loading&&!shipments.length&&<p className="empty">هنوز مرسوله‌ای برای سفارش‌های فروشگاه ثبت نشده است.</p>}
   </section>
