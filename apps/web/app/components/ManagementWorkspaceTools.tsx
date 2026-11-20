@@ -6,6 +6,8 @@ import styles from "./ManagementWorkspaceTools.module.css";
 type Row=Record<string,unknown>;
 type ImportHandler=(rows:Record<string,string>[])=>void|Promise<void>;
 
+const managementDialogStack:symbol[]=[];
+
 function csvCell(value:unknown){
   let text=String(value??"");
   if(/^(?:[=+@\t\r]|-(?!\d))/.test(text))text="'"+text;
@@ -73,11 +75,14 @@ export function ManagementDialog({title,children,onClose,dirty=false,initialFull
   const [fullscreen,setFullscreen]=useState(initialFullscreen);
   const closeRef=useRef(onClose);closeRef.current=onClose;
   const dialogRef=useRef<HTMLElement>(null);
+  const dirtyRef=useRef(dirty);dirtyRef.current=dirty;
   useEffect(()=>{
+    const token=Symbol("management-dialog");managementDialogStack.push(token);
     const previous=document.activeElement instanceof HTMLElement?document.activeElement:null;
     dialogRef.current?.focus();
     const key=(event:KeyboardEvent)=>{
-      if(event.key==="Escape"){if(dirty&&!window.confirm("تغییرات ذخیره‌نشده هستند. پنجره بسته شود؟"))return;closeRef.current();return;}
+      if(managementDialogStack[managementDialogStack.length-1]!==token)return;
+      if(event.key==="Escape"){if(dirtyRef.current&&!window.confirm("تغییرات ذخیره‌نشده هستند. پنجره بسته شود؟"))return;event.preventDefault();event.stopImmediatePropagation();closeRef.current();return;}
       if(event.key!=="Tab")return;
       const items=Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')??[]).filter(item=>item.getAttribute("aria-hidden")!=="true");
       if(!items.length){event.preventDefault();dialogRef.current?.focus();return;}
@@ -87,8 +92,8 @@ export function ManagementDialog({title,children,onClose,dirty=false,initialFull
       else if(!event.shiftKey&&active===last){event.preventDefault();first.focus();}
     };
     document.addEventListener("keydown",key);
-    return()=>{document.removeEventListener("keydown",key);previous?.focus();};
-  },[dirty]);
+    return()=>{document.removeEventListener("keydown",key);const index=managementDialogStack.lastIndexOf(token);if(index>=0)managementDialogStack.splice(index,1);previous?.focus();};
+  },[]);
   function close(){if(dirty&&!window.confirm("تغییرات ذخیره‌نشده هستند. پنجره بسته شود؟"))return;onClose();}
   return <div className={styles.backdrop} role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)close();}}>
     <section ref={dialogRef} tabIndex={-1} className={fullscreen?styles.dialogFull:styles.dialog} role="dialog" aria-modal="true" aria-label={title} dir="rtl">
