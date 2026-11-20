@@ -118,4 +118,5 @@ test("delivery tariff management page supports create, edit, enable and disable 
  assert.ok(deliveryAdmin.includes("ویرایش تعرفه"));
  assert.ok(deliveryAdmin.includes("فعال‌سازی"));
  assert.ok(deliveryAdmin.includes("غیرفعال‌سازی"));
+ assert.ok(deliveryAdmin.includes("rules:items.find(item=>item.id===editingId)?.rules||{}"));
 });
