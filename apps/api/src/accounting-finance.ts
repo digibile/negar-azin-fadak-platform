@@ -36,10 +36,14 @@ router.post("/api/accounting-finance/accounts",requireAuth,requirePermission("ac
 });
 router.patch("/api/accounting-finance/accounts/:id",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const old=await query("select * from ledger_accounts where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!old.rowCount)return deny(res,404,"حساب پیدا نشد");
- const {name,accountType,accountMode,externalCode}=req.body||{};if(accountMode&&!["official","internal","hybrid"].includes(accountMode))return deny(res,400,"ماهیت حساب نامعتبر است");
- const r=await query("update ledger_accounts set name=coalesce($1,name),account_type=coalesce($2,account_type),account_mode=coalesce($3,account_mode),external_code=coalesce($4,external_code) where id=$5 and tenant_id=$6 returning id,code,name,account_type,account_mode,book_id,external_code,parent_id",[typeof name==="string"?name.trim():null,accountType||null,accountMode||null,externalCode??null,String(String(req.params.id)),t.id]);
- await audit(t.id,(req as any).user.id,"ledger_account",String(String(req.params.id)),"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+ const c=await pool.connect();try{await c.query("begin");
+ const old=await c.query("select * from ledger_accounts where id=$1 and tenant_id=$2 for update",[String(req.params.id),t.id]);if(!old.rowCount){await c.query("rollback");return deny(res,404,"حساب پیدا نشد");}
+ const {name,accountType,accountMode,externalCode}=req.body||{};if(accountMode&&!["official","internal","hybrid"].includes(accountMode)){await c.query("rollback");return deny(res,400,"ماهیت حساب نامعتبر است");}
+ if(name!==undefined&&(typeof name!=="string"||!name.trim())){await c.query("rollback");return deny(res,400,"عنوان حساب نامعتبر است");}
+ const r=await c.query("update ledger_accounts set name=coalesce($1,name),account_type=coalesce($2,account_type),account_mode=coalesce($3,account_mode),external_code=coalesce($4,external_code) where id=$5 and tenant_id=$6 returning id,code,name,account_type,account_mode,book_id,external_code,parent_id",[typeof name==="string"?name.trim():null,accountType||null,accountMode||null,externalCode??null,String(req.params.id),t.id]);
+ await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,'ledger_account',$2,'update',$3,$4,$5)",[t.id,String(req.params.id),(req as any).user.id,old.rows[0],r.rows[0]]);
+ await c.query("commit");res.json(r.rows[0]);
+ }catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
 
 router.post("/api/accounting-finance/periods",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
