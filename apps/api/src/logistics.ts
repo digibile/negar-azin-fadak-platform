@@ -414,7 +414,7 @@ logisticsRouter.post("/api/logistics/carrier-invoices",requireAuth,requirePermis
     const source=(await c.query("select s.id shipment_id,s.shipment_no,s.status shipment_status,o.id order_id,o.order_no,o.status order_status,o.currency order_currency,o.delivery_quote_id,q.status quote_status,q.currency quote_currency,q.carrier_cost,q.carrier_name from logistics_shipments s join marketplace_orders o on o.id=s.marketplace_order_id and o.tenant_id=s.tenant_id join marketplace_delivery_quotes q on q.id=o.delivery_quote_id and q.tenant_id=o.tenant_id where s.id=$1 and s.tenant_id=$2 for update of s,o,q",[String(b.shipmentId||""),t.id])).rows[0];
     if(!source){await c.query("rollback");return fail(res,404,"مرسوله یا پیش‌فاکتور تأییدشده آن پیدا نشد");}
     if(source.shipment_status!=="delivered"||source.order_status!=="delivered"){await c.query("rollback");return fail(res,409,"ثبت صورتحساب فقط برای مرسوله‌ای که تحویل آن نهایی شده مجاز است");}
-    if(source.quote_status!=="accepted"||!source.delivery_quote_id&& !source.quote_status){await c.query("rollback");return fail(res,409,"پیش‌فاکتور تأییدشده‌ای برای این مرسوله وجود ندارد");}
+    if(source.quote_status!=="accepted"||!source.delivery_quote_id){await c.query("rollback");return fail(res,409,"پیش‌فاکتور تأییدشده‌ای برای این مرسوله وجود ندارد");}
     const currency=String(source.quote_currency||source.order_currency||"IRR").toUpperCase();
     const quotedCost=Number(source.carrier_cost);
     if(!Number.isFinite(quotedCost)||quotedCost<0){await c.query("rollback");return fail(res,409,"مبلغ مرجع پیش‌فاکتور معتبر نیست");}
