@@ -8,6 +8,10 @@ const webCheckout=fs.readFileSync(new URL("../../web/app/store/checkout/page.tsx
 const customerOrders=fs.readFileSync(new URL("../../web/app/account/orders/page.tsx",import.meta.url),"utf8");
 const commerceIntelligence=fs.readFileSync(new URL("./commerce-intelligence.ts",import.meta.url),"utf8");
 const deliveryAdmin=fs.readFileSync(new URL("../../web/app/marketplace/delivery-methods/page.tsx",import.meta.url),"utf8");
+const returnsMigration=fs.readFileSync(new URL("../../../database/migrations/999_storefront_customer_returns.sql",import.meta.url),"utf8");
+const customerReturns=fs.readFileSync(new URL("../../web/app/account/returns/page.tsx",import.meta.url),"utf8");
+const adminReturns=fs.readFileSync(new URL("../../web/app/marketplace/returns/page.tsx",import.meta.url),"utf8");
+const returnGuide=fs.readFileSync(new URL("../../web/app/store/returns/page.tsx",import.meta.url),"utf8");
 const productPage=fs.readFileSync(new URL("../../web/app/store/product/[slug]/page.tsx",import.meta.url),"utf8");
 const productControls=fs.readFileSync(new URL("../../web/app/store/product/[slug]/ProductPurchaseControls.tsx",import.meta.url),"utf8");
 const productCss=fs.readFileSync(new URL("../../web/app/store/product/[slug]/digikala-product.css",import.meta.url),"utf8");
@@ -119,4 +123,51 @@ test("delivery tariff management page supports create, edit, enable and disable 
  assert.ok(deliveryAdmin.includes("فعال‌سازی"));
  assert.ok(deliveryAdmin.includes("غیرفعال‌سازی"));
  assert.ok(deliveryAdmin.includes("rules:items.find(item=>item.id===editingId)?.rules||{}"));
+});
+
+
+test("customer return requests require delivered owned orders, order items and unclaimed quantity",()=>{
+ assert.ok(checkout.includes('checkoutRouter.post("/api/storefront/orders/:id/returns",requireAuth,requireCsrf'));
+ assert.ok(checkout.includes("customer_ref=$3 for update"));
+ assert.ok(checkout.includes("status!==\"delivered\"&&order.rows[0].status!==\"returned\""));
+ assert.ok(checkout.includes("oi.id=$1 and oi.order_id=$2 for update of oi"));
+ assert.ok(checkout.includes("sum(requested_quantity)"));
+ assert.ok(checkout.includes("status not in ('rejected','cancelled')"));
+ assert.ok(checkout.includes("storefront.return.requested"));
+});
+
+test("customer return cancellation is limited to the owning customer and submitted requests",()=>{
+ assert.ok(checkout.includes('checkoutRouter.post("/api/storefront/returns/:id/cancel",requireAuth,requireCsrf'));
+ assert.ok(checkout.includes("customer_ref=$3 for update"));
+ assert.ok(checkout.includes('current.rows[0].status!=="submitted"'));
+ assert.ok(checkout.includes("storefront.return.cancelled"));
+});
+
+test("marketplace return review uses permission protected audited lifecycle transitions",()=>{
+ assert.ok(checkout.includes('checkoutRouter.get("/api/marketplace/returns",requireAuth,requirePermission("order:manage")'));
+ assert.ok(checkout.includes('checkoutRouter.patch("/api/marketplace/returns/:id/status",requireAuth,requirePermission("order:manage"),requireCsrf'));
+ assert.ok(checkout.includes('submitted:["approved","rejected"]'));
+ assert.ok(checkout.includes('approved:["received","cancelled"]'));
+ assert.ok(checkout.includes('received:["inspected"]'));
+ assert.ok(checkout.includes('inspected:["closed"]'));
+ assert.ok(checkout.includes("marketplace.return.status.changed"));
+});
+
+test("return request migration records tenant, order, item, quantity, reason and lifecycle",()=>{
+ assert.ok(returnsMigration.includes("marketplace_return_requests"));
+ assert.ok(returnsMigration.includes("marketplace_order_items(id)"));
+ assert.ok(returnsMigration.includes("requested_quantity numeric(20,3)"));
+ assert.ok(returnsMigration.includes("UNIQUE (tenant_id,request_no)"));
+ assert.ok(returnsMigration.includes("marketplace_return_requests_customer_idx"));
+});
+
+test("customer and marketplace return pages use the real return request APIs",()=>{
+ assert.ok(customerReturns.includes("/api/storefront/returns"));
+ assert.ok(customerReturns.includes("/api/storefront/orders/"));
+ assert.ok(customerReturns.includes("orderItemId:selected.item.itemId"));
+ assert.ok(customerReturns.includes("/cancel"));
+ assert.ok(adminReturns.includes("/api/marketplace/returns"));
+ assert.ok(adminReturns.includes("/status"));
+ assert.ok(adminReturns.includes("تأیید بازرسی"));
+ assert.ok(returnGuide.includes("/account/returns"));
 });
