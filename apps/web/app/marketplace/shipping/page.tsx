@@ -7,6 +7,7 @@ import "./shipping-workspace.css";
 type Order={id:string;order_no:string;status:string;customer_ref?:string|null;latest_shipment_id?:string|null;shipment_no?:string|null;tracking_code?:string|null;shipment_status?:string|null};
 type Vehicle={id:string;title:string;plate_no:string;status:string};
 type Driver={id:string;name:string;mobile?:string|null;status:string};
+type Route={id:string;name:string;origin:string;destination:string;distance_km?:number;status:string};
 type Shipment={id:string;shipment_no:string;marketplace_order_id?:string|null;order_no?:string|null;status:string;tracking_code?:string|null;origin:string;destination:string;vehicle_id?:string;driver_id?:string;driver_name?:string;plate_no?:string;created_at:string};
 const statusLabel:Record<string,string>={planned:"برنامه‌ریزی‌شده",assigned:"اختصاص‌یافته",picked_up:"تحویل راننده",in_transit:"در مسیر",delivered:"تحویل‌شده",failed:"ناموفق",cancelled:"لغوشده"};
 const transitions:Record<string,string[]>={planned:["assigned","cancelled"],assigned:["picked_up","cancelled"],picked_up:["in_transit","failed"],in_transit:["delivered","failed"],failed:["assigned","cancelled"]};
@@ -17,8 +18,10 @@ export default function MarketplaceShippingPage(){
  const [shipments,setShipments]=useState<Shipment[]>([]);
  const [vehicles,setVehicles]=useState<Vehicle[]>([]);
  const [drivers,setDrivers]=useState<Driver[]>([]);
+ const [routes,setRoutes]=useState<Route[]>([]);
  const [vehicleByOrder,setVehicleByOrder]=useState<Record<string,string>>({});
  const [driverByOrder,setDriverByOrder]=useState<Record<string,string>>({});
+ const [routeByOrder,setRouteByOrder]=useState<Record<string,string>>({});
  const [trackingByOrder,setTrackingByOrder]=useState<Record<string,string>>({});
  const [error,setError]=useState("");
  const [notice,setNotice]=useState("");
@@ -28,16 +31,18 @@ export default function MarketplaceShippingPage(){
  const load=useCallback(async()=>{
   setLoading(true);setError("");
   try{
-   const [o,s,v,d]=await Promise.all([
+   const [o,s,v,d,r]=await Promise.all([
     api<{items:Order[]}>("/api/marketplace/orders"),
     api<Shipment[]>("/api/logistics/shipments"),
     api<Vehicle[]>("/api/logistics/vehicles"),
-    api<Driver[]>("/api/logistics/drivers")
+    api<Driver[]>("/api/logistics/drivers"),
+    api<Route[]>("/api/logistics/routes")
    ]);
    setOrders(o.items||[]);
    setShipments((s||[]).filter(x=>x.marketplace_order_id));
    setVehicles(v||[]);
    setDrivers(d||[]);
+   setRoutes((r||[]).filter(x=>x.status==="active"));
   }catch(e){setError(e instanceof Error?e.message:"دریافت اطلاعات ارسال ناموفق بود.");}
   finally{setLoading(false);}
  },[]);
@@ -48,7 +53,7 @@ export default function MarketplaceShippingPage(){
   if(!vehicleId||!driverId){setError("برای ثبت ارسال، ناوگان و راننده را انتخاب کنید.");return;}
   setBusy(order.id);setError("");setNotice("");
   try{
-   await api("/api/logistics/marketplace-orders/"+encodeURIComponent(order.id)+"/shipments",{method:"POST",body:JSON.stringify({vehicleId,driverId,trackingCode:trackingByOrder[order.id]||null,shipmentNo:"SHP-"+order.order_no})});
+   await api("/api/logistics/marketplace-orders/"+encodeURIComponent(order.id)+"/shipments",{method:"POST",body:JSON.stringify({vehicleId,driverId,routeId:routeByOrder[order.id]||null,trackingCode:trackingByOrder[order.id]||null,shipmentNo:"SHP-"+order.order_no})});
    setNotice("مرسوله سفارش "+order.order_no+" ثبت شد.");
    await load();
   }catch(e){setError(e instanceof Error?e.message:"ثبت مرسوله ناموفق بود.");}
@@ -83,7 +88,7 @@ export default function MarketplaceShippingPage(){
  return <main className="enterprise-main shipping-workspace" dir="rtl">
   <header className="platform-header shipping-header">
    <div><span className="section-kicker">تجارت · زنجیره تأمین و لجستیک</span><h1>ارسال و رهگیری سفارش‌ها</h1><p>اتصال مستقیم سفارش فروشگاه به ناوگان، راننده و رویدادهای تحویل</p></div>
-   <div className="shipping-header-actions"><a href="/marketplace/shipping/resources">مدیریت ناوگان و رانندگان</a><button type="button" onClick={()=>void load()} disabled={loading}>بازخوانی اطلاعات</button></div>
+   <div className="shipping-header-actions"><a href="/marketplace/shipping/resources">مدیریت ناوگان و رانندگان</a><a href="/marketplace/shipping/routes">مدیریت مسیرها</a><button type="button" onClick={()=>void load()} disabled={loading}>بازخوانی اطلاعات</button></div>
   </header>
   {error&&<p className="shipping-message error" role="alert">{error}</p>}
   {notice&&<p className="shipping-message success" role="status">{notice}</p>}
@@ -99,7 +104,7 @@ export default function MarketplaceShippingPage(){
     <div className="shipping-order-info"><b>{order.order_no}</b><span>مشتری: {order.customer_ref||"ثبت نشده"}</span></div>
     {order.latest_shipment_id?<div className="shipping-existing"><span className="shipping-pill">{statusLabel[order.shipment_status||""]||order.shipment_status}</span><b>{order.shipment_no}</b><small>کد رهگیری: {order.tracking_code||"ثبت نشده"}</small></div>:<div className="shipping-create">
      <label>ناوگان<select value={vehicleByOrder[order.id]||""} onChange={e=>setVehicleByOrder(p=>({...p,[order.id]:e.target.value}))}><option value="">انتخاب خودرو</option>{availableVehicles.map(v=><option key={v.id} value={v.id}>{v.title} · {v.plate_no}</option>)}</select></label>
-     <label>راننده<select value={driverByOrder[order.id]||""} onChange={e=>setDriverByOrder(p=>({...p,[order.id]:e.target.value}))}><option value="">انتخاب راننده</option>{activeDrivers.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+     <label>راننده<select value={driverByOrder[order.id]||""} onChange={e=>setDriverByOrder(p=>({...p,[order.id]:e.target.value}))}><option value="">انتخاب راننده</option>{activeDrivers.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></label>\n     <label>مسیر حمل<select value={routeByOrder[order.id]||""} onChange={e=>setRouteByOrder(p=>({...p,[order.id]:e.target.value}))}><option value="">بدون مسیر مشخص</option>{routes.map(r=><option key={r.id} value={r.id}>{r.name} · {r.origin} ← {r.destination}</option>)}</select></label>
      <label>کد رهگیری<input value={trackingByOrder[order.id]||""} onChange={e=>setTrackingByOrder(p=>({...p,[order.id]:e.target.value}))} placeholder="اختیاری"/></label>
      <button type="button" disabled={busy===order.id} onClick={()=>void createShipment(order)}>{busy===order.id?"در حال ثبت…":"ایجاد مرسوله"}</button>
     </div>}
