@@ -63,6 +63,34 @@ logisticsRouter.get("/api/logistics/orders",requireAuth,asyncHandler(async(req,r
   );
   res.json(r.rows);
 }));
+
+logisticsRouter.post("/api/logistics/orders/from-marketplace/:orderId",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req),origin=String(req.body?.origin??"").trim();
+  if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  if(!origin||origin.length>250)return fail(res,400,"مبدأ ارسال معتبر و الزامی است");
+  const c=await pool.connect();
+  try{
+    await c.query("begin");
+    const order=(await c.query(
+      "select o.id,o.order_no,o.status,a.province,a.city,a.address_line,(select coalesce(sum(oi.quantity),0) from marketplace_order_items oi where oi.order_id=o.id) quantity,(select string_agg(p.title||' × '||oi.quantity,', ' order by oi.created_at) from marketplace_order_items oi join products p on p.id=oi.product_id where oi.order_id=o.id) cargo from marketplace_orders o left join marketplace_customer_addresses a on a.id=o.delivery_address_id and a.tenant_id=o.tenant_id where o.id=$1 and o.tenant_id=$2 for update of o",
+      [req.params.orderId,t.id]
+    )).rows[0];
+    if(!order){await c.query("rollback");return fail(res,404,"سفارش فروشگاه پیدا نشد");}
+    if(order.status!=="paid"){await c.query("rollback");return fail(res,409,"فقط سفارش پرداخت‌شده قابل ارجاع به لجستیک است");}
+    const existing=await c.query("select * from logistics_supply_orders where tenant_id=$1 and marketplace_order_id=$2 for update",[t.id,order.id]);
+    if(existing.rowCount){await c.query("commit");return res.json({supplyOrder:existing.rows[0],idempotent:true});}
+    const destination=[order.province,order.city,order.address_line].filter(Boolean).join("، ");
+    if(!destination){await c.query("rollback");return fail(res,409,"نشانی تحویل سفارش ثبت نشده است");}
+    const created=(await c.query(
+      "insert into logistics_supply_orders(tenant_id,order_no,marketplace_order_id,origin,destination,cargo_description,quantity,status,created_by) values($1,$2,$3,$4,$5,$6,$7,'submitted',$8) returning *",
+      [t.id,order.order_no,order.id,origin,destination,order.cargo||"اقلام سفارش فروشگاه",Number(order.quantity||0),(req as any).user.id]
+    )).rows[0];
+    await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,actor_user_id,reason) values($1,'supply_order',$2,'marketplace_order_linked',null,'submitted',$3,$4)",[t.id,created.id,(req as any).user.id,"سفارش فروشگاه "+order.order_no]);
+    await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'logistics.marketplace_order_linked','logistics_supply_order',$3,$4)",[t.id,(req as any).user.id,created.id,JSON.stringify({marketplaceOrderId:order.id,orderNo:order.order_no})]);
+    await c.query("commit");
+    res.status(201).json({supplyOrder:created,idempotent:false});
+  }catch(e){await c.query("rollback");throw e;}finally{c.release();}
+}));
 logisticsRouter.post("/api/logistics/orders",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{}; if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   const quantity=Number(b.quantity??0),orderNo=String(b.orderNo??"").trim(),origin=String(b.origin??"").trim(),destination=String(b.destination??"").trim();
