@@ -49,7 +49,7 @@ router.post("/api/purchasing/suppliers/import",requireAuth,requirePermission("mo
   if(seen.has(row.code))return deny(res,400,"کد تکراری در فایل: "+row.code);
   seen.add(row.code);
   if(!Number.isInteger(row.paymentTermsDays)||row.paymentTermsDays<0||row.paymentTermsDays>3650)return deny(res,400,"مهلت پرداخت در ردیف "+row.row+" باید عدد صحیح بین صفر تا ۳۶۵۰ باشد");
-  if(row.email&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(row.email))return deny(res,400,"ایمیل ردیف "+row.row+" معتبر نیست");
+  if(row.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email))return deny(res,400,"ایمیل ردیف "+row.row+" معتبر نیست");
  }
  const client=await pool.connect();
  try{
