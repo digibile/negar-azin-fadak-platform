@@ -2,7 +2,8 @@ import {Router} from "express";
 import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
-import {resolveTenant} from "./tenant-context.js";
+import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
+import {randomUUID} from "node:crypto";
 import {postLedgerEntry} from "./ledger.js";
 import {emitBusinessEvent} from "./business-events.js";
 import {getPaymentProvider} from "./payment-provider.js";
@@ -216,5 +217,96 @@ checkoutRouter.post("/api/marketplace/orders/:id/cancel",requireAuth,requirePerm
   await client.query("commit");
   await emitBusinessEvent({tenantId:t.id,eventKey:"order.cancelled",subjectType:"marketplace_order",subjectId:o.rows[0].id,userId:(req as any).user.id,input:{orderId:o.rows[0].id}});
   res.json({id:o.rows[0].id,status:"cancelled"});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
+
+// Public customer self-service uses the same marketplace tables and payment engine.
+// The customer identity is always taken from the authenticated session, never from request data.
+async function storefrontContext(req:any){return resolvePublicTenant(req);}
+checkoutRouter.get("/api/storefront/addresses",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const r=await query("select id,recipient_name,mobile,province,city,address_line,postal_code,is_default,created_at,updated_at from marketplace_customer_addresses where tenant_id=$1 and user_id=$2 order by is_default desc,updated_at desc",[t.id,(req as any).user.id]);
+ res.json({items:r.rows,total:r.rowCount});
+}));
+checkoutRouter.post("/api/storefront/addresses",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const b=req.body||{},recipient=s(b.recipientName,200),mobile=s(b.mobile,20),province=s(b.province,100),city=s(b.city,100),line=s(b.addressLine,2000),postal=s(b.postalCode,20);
+ if(recipient.length<2||mobile.replace(/\\D/g,"").length<10||!province||!city||line.length<8||!/^[0-9۰-۹٠-٩-]{5,20}$/.test(postal))return res.status(400).json({error:"نام گیرنده، موبایل، استان، شهر، نشانی و کدپستی معتبر الزامی هستند"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const makeDefault=Boolean(b.isDefault);
+  if(makeDefault)await client.query("update marketplace_customer_addresses set is_default=false,updated_at=now() where tenant_id=$1 and user_id=$2",[t.id,(req as any).user.id]);
+  const r=await client.query("insert into marketplace_customer_addresses(tenant_id,user_id,recipient_name,mobile,province,city,address_line,postal_code,is_default) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id,recipient_name,mobile,province,city,address_line,postal_code,is_default,created_at,updated_at",[t.id,(req as any).user.id,recipient,mobile,province,city,line,postal,makeDefault]);
+  await client.query("commit");res.status(201).json({address:r.rows[0]});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+checkoutRouter.patch("/api/storefront/addresses/:id",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const b=req.body||{},recipient=s(b.recipientName,200),mobile=s(b.mobile,20),province=s(b.province,100),city=s(b.city,100),line=s(b.addressLine,2000),postal=s(b.postalCode,20);
+ if(recipient.length<2||mobile.replace(/\\D/g,"").length<10||!province||!city||line.length<8||!/^[0-9۰-۹٠-٩-]{5,20}$/.test(postal))return res.status(400).json({error:"اطلاعات نشانی معتبر نیست"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  if(Boolean(b.isDefault))await client.query("update marketplace_customer_addresses set is_default=false,updated_at=now() where tenant_id=$1 and user_id=$2",[t.id,(req as any).user.id]);
+  const r=await client.query("update marketplace_customer_addresses set recipient_name=$1,mobile=$2,province=$3,city=$4,address_line=$5,postal_code=$6,is_default=$7,updated_at=now() where id=$8 and tenant_id=$9 and user_id=$10 returning id,recipient_name,mobile,province,city,address_line,postal_code,is_default,updated_at",[recipient,mobile,province,city,line,postal,Boolean(b.isDefault),req.params.id,t.id,(req as any).user.id]);
+  if(!r.rowCount){await client.query("rollback");return res.status(404).json({error:"نشانی پیدا نشد"});}
+  await client.query("commit");res.json({address:r.rows[0]});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+checkoutRouter.delete("/api/storefront/addresses/:id",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const r=await query("delete from marketplace_customer_addresses where id=$1 and tenant_id=$2 and user_id=$3 returning id",[req.params.id,t.id,(req as any).user.id]);
+ if(!r.rowCount)return res.status(404).json({error:"نشانی پیدا نشد"});
+ res.json({deleted:true,id:r.rows[0].id});
+}));
+checkoutRouter.get("/api/storefront/orders",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const r=await query("select o.id,o.order_no,o.status,o.subtotal,o.total_amount,o.payment_method,o.created_at,o.paid_at,a.recipient_name,a.mobile,a.province,a.city,a.address_line,a.postal_code,(select jsonb_agg(jsonb_build_object('productId',oi.product_id,'sku',p.sku,'title',p.title,'quantity',oi.quantity,'unitPrice',oi.unit_price,'lineTotal',oi.line_total) order by oi.created_at) from marketplace_order_items oi join products p on p.id=oi.product_id where oi.order_id=o.id) as items,(select jsonb_agg(jsonb_build_object('id',mp.id,'paymentNo',mp.payment_no,'amount',mp.amount,'method',mp.method,'status',mp.status,'providerCode',mp.provider_code,'paidAt',mp.paid_at) order by mp.created_at desc) from marketplace_payments mp where mp.order_id=o.id and mp.tenant_id=o.tenant_id) as payments from marketplace_orders o left join marketplace_customer_addresses a on a.id=o.delivery_address_id and a.tenant_id=o.tenant_id where o.tenant_id=$1 and o.customer_ref=$2 order by o.created_at desc limit 100",[t.id,(req as any).user.id]);
+ res.json({items:r.rows,total:r.rowCount});
+}));
+checkoutRouter.post("/api/storefront/checkout",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const b=req.body||{},storeId=s(b.storeId,100),addressId=s(b.addressId,100),key=s(b.idempotencyKey,160);
+ const requested=Array.isArray(b.items)?b.items:[];
+ if(!storeId||!addressId||!key||requested.length<1||requested.length>50)return res.status(400).json({error:"فروشگاه، نشانی، شناسه یکتای درخواست و اقلام سبد الزامی هستند"});
+ const normalized=requested.map((x:any)=>({productId:s(x?.productId,100),quantity:n(x?.quantity)}));
+ if(normalized.some(x=>!x.productId||x.quantity===null||!Number.isInteger(x.quantity)||x.quantity<=0||x.quantity>99)||new Set(normalized.map(x=>x.productId)).size!==normalized.length)return res.status(400).json({error:"شناسه یا تعداد کالاها معتبر نیست"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const prior=await client.query("select cr.order_id,o.order_no,o.status,o.total_amount from marketplace_checkout_requests cr left join marketplace_orders o on o.id=cr.order_id where cr.tenant_id=$1 and cr.user_id=$2 and cr.idempotency_key=$3 for update of cr",[t.id,(req as any).user.id,key]);
+  if(prior.rowCount&&prior.rows[0].order_id){await client.query("commit");return res.status(200).json({order:prior.rows[0],idempotent:true});}
+  const address=await client.query("select id from marketplace_customer_addresses where id=$1 and tenant_id=$2 and user_id=$3",[addressId,t.id,(req as any).user.id]);
+  if(!address.rowCount){await client.query("rollback");return res.status(404).json({error:"نشانی انتخاب‌شده متعلق به حساب شما نیست"});}
+  const store=await client.query("select id from stores where id=$1 and tenant_id=$2 and status='active'",[storeId,t.id]);
+  if(!store.rowCount){await client.query("rollback");return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});}
+  const sellerIds=new Set<string>();let subtotal=0;let currency="IRR";const locked:any[]=[];
+  for(const item of normalized){
+   const p=await client.query("select p.id,p.sku,p.title,p.price,p.currency,p.seller_id,p.store_id,p.status,sl.status as seller_status from products p join sellers sl on sl.id=p.seller_id and sl.tenant_id=p.tenant_id left join stores st on st.id=p.store_id and st.tenant_id=p.tenant_id where p.id=$1 and p.tenant_id=$2 and p.store_id=$3 and p.status='active' and sl.status='active' and (p.store_id is null or st.status='active') for update of p",[item.productId,t.id,storeId]);
+   if(!p.rowCount){await client.query("rollback");return res.status(409).json({error:"یکی از کالاها دیگر در این فروشگاه قابل فروش نیست"});}
+   const product=p.rows[0];sellerIds.add(product.seller_id);currency=product.currency||currency;
+   const inventory=await client.query("select id,quantity,reserved_quantity from product_inventory where tenant_id=$1 and product_id=$2 and store_id=$3 for update",[t.id,product.id,storeId]);
+   if(!inventory.rowCount||Number(inventory.rows[0].quantity)-Number(inventory.rows[0].reserved_quantity)<Number(item.quantity)){await client.query("rollback");return res.status(409).json({error:"موجودی کافی یا تأییدشده برای «"+product.title+"» وجود ندارد"});}
+   const unitPrice=Number(product.price);if(!Number.isFinite(unitPrice)||unitPrice<=0){await client.query("rollback");return res.status(409).json({error:"قیمت فروش کالا معتبر نیست"});}
+   subtotal+=unitPrice*Number(item.quantity);locked.push({product,inventory:inventory.rows[0],quantity:item.quantity,unitPrice});
+  }
+  if(sellerIds.size!==1){await client.query("rollback");return res.status(409).json({error:"برای ثبت سفارش، کالاها باید از یک فروشنده باشند"});}
+  const sellerId=[...sellerIds][0];
+  const seller=await client.query("select commission_rate from sellers where id=$1 and tenant_id=$2",[sellerId,t.id]);
+  if(!seller.rowCount){await client.query("rollback");return res.status(404).json({error:"فروشنده فعال پیدا نشد"});}
+  const commission=Number((subtotal*Number(seller.rows[0].commission_rate)/100).toFixed(2)),payable=subtotal-commission;
+  const orderNo="ORD-"+randomUUID().replace(/-/g,"").slice(0,18).toUpperCase();
+  const order=await client.query("insert into marketplace_orders(tenant_id,store_id,seller_id,order_no,customer_ref,subtotal,total_amount,commission_amount,seller_payable,payment_method,delivery_address_id) values($1,$2,$3,$4,$5,$6,$6,$7,$8,'online',$9) returning id,order_no,status,total_amount,created_at",[t.id,storeId,sellerId,orderNo,(req as any).user.id,subtotal,commission,payable,addressId]);
+  for(const item of locked){
+   await client.query("update product_inventory set reserved_quantity=reserved_quantity+$1,updated_at=now() where id=$2",[item.quantity,item.inventory.id]);
+   await client.query("insert into marketplace_order_items(order_id,product_id,quantity,unit_price,line_total) values($1,$2,$3,$4,$5)",[order.rows[0].id,item.product.id,item.quantity,item.unitPrice,item.unitPrice*item.quantity]);
+  }
+  await client.query("insert into marketplace_checkout_requests(tenant_id,user_id,idempotency_key,order_id) values($1,$2,$3,$4)",[t.id,(req as any).user.id,key,order.rows[0].id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'storefront.checkout.created','marketplace_order',$3,$4)",[t.id,(req as any).user.id,order.rows[0].id,JSON.stringify({orderNo,subtotal,commission,deliveryAddressId:addressId})]);
+  await client.query("commit");
+  await emitBusinessEvent({tenantId:t.id,eventKey:"order.created",subjectType:"marketplace_order",subjectId:order.rows[0].id,userId:(req as any).user.id,input:{orderId:order.rows[0].id,totalAmount:Number(order.rows[0].total_amount),sellerId}});
+  res.status(201).json({order:order.rows[0]});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
