@@ -31,6 +31,7 @@ router.post("/api/treasury-bank/accounts",requireAuth,requirePermission("treasur
  }catch(e:any){await c.query("rollback").catch(()=>{});if(e?.code==="23505")return deny(res,409,"شماره حساب بانکی تکراری است");throw e}finally{c.release()}
 });
 router.patch("/api/treasury-bank/accounts/:id",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const c=await pool.connect();try{await c.query("begin");const old=await c.query("select * from treasury_bank_accounts where id=$1 and tenant_id=$2 for update",[String(req.params.id),t.id]);
  if(!old.rowCount){await c.query("rollback");return deny(res,404,"حساب بانکی پیدا نشد");}
  const {accountTitle,iban,branchName,status}=req.body||{};if(status&&!["active","blocked","closed"].includes(status)){await c.query("rollback");return deny(res,400,"وضعیت حساب نامعتبر است");}
