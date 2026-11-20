@@ -1,7 +1,7 @@
 "use client";
 
 import {useEffect,useMemo,useState} from "react";
-import {ManagementToolbar} from "../components/ManagementWorkspaceTools";
+import {ManagementDialog,ManagementToolbar} from "../components/ManagementWorkspaceTools";
 
 type Mode="commerce"|"domains"|"sellers"|"payments";
 type PanelTab="domains"|"sellers"|"payments";
@@ -41,6 +41,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
  const [error,setError]=useState("");
  const [form,setForm]=useState<Row>({});
  const [saving,setSaving]=useState(false);
+ const [createOpen,setCreateOpen]=useState(false);
 
  const title=useMemo(()=>({commerce:"تجارت و فروشگاه‌ها",domains:"مدیریت دامنه‌ها",sellers:"فروشندگان",payments:"پرداخت و تسویه"} as Record<Mode,string>)[mode],[mode]);
 
@@ -71,17 +72,17 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
 
  const saveSeller=async()=>{
   setSaving(true);setError("");
-  try{await mutate("/api/marketplace/sellers","POST",{legalName:form.legalName,displayName:form.displayName,commissionRate:Number(form.commissionRate||0)});setForm({});await load();}
+  try{await mutate("/api/marketplace/sellers","POST",{legalName:form.legalName,displayName:form.displayName,commissionRate:Number(form.commissionRate||0)});setForm({});setCreateOpen(false);await load();}
   catch(e){setError(e instanceof Error?e.message:"ثبت فروشنده انجام نشد")}finally{setSaving(false)}
  };
  const saveStore=async()=>{
   setSaving(true);setError("");
-  try{await mutate("/api/marketplace/stores","POST",{sellerId:form.sellerId,code:form.code,name:form.name,slug:form.slug});setForm({});await load();}
+  try{await mutate("/api/marketplace/stores","POST",{sellerId:form.sellerId,code:form.code,name:form.name,slug:form.slug});setForm({});setCreateOpen(false);await load();}
   catch(e){setError(e instanceof Error?e.message:"ثبت فروشگاه انجام نشد")}finally{setSaving(false)}
  };
  const addDomain=async()=>{
   setSaving(true);setError("");
-  try{await mutate("/api/marketplace/sellers/"+encodeURIComponent(selectedDomainSeller)+"/domains","POST",{hostname:form.hostname,storeId:form.storeId||null,isPrimary:Boolean(form.isPrimary),sslMode:form.sslMode||"managed"});setForm({});await load();}
+  try{await mutate("/api/marketplace/sellers/"+encodeURIComponent(selectedDomainSeller)+"/domains","POST",{hostname:form.hostname,storeId:form.storeId||null,isPrimary:Boolean(form.isPrimary),sslMode:form.sslMode||"managed"});setForm({});setCreateOpen(false);await load();}
   catch(e){setError(e instanceof Error?e.message:"ثبت دامنه انجام نشد")}finally{setSaving(false)}
  };
  const verifyDomain=async(id:string)=>{
@@ -106,21 +107,22 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
    <a className="back-link" href="/admin">مرکز مدیریت</a>
   </header>
   {error&&<div className="error runtime-error">{error}</div>}
-  <ManagementToolbar rows={exportRows} filename={"commerce-"+mode+"-"+tab} onCreate={()=>document.querySelector(".runtime-panel .control-grid")?.scrollIntoView({behavior:"smooth",block:"center"})}/>
+  <ManagementToolbar rows={exportRows} filename={"commerce-"+mode+"-"+tab} onCreate={mode==="domains"||mode==="sellers"||tab==="sellers"||tab==="stores"?()=>setCreateOpen(true):undefined} createLabel={mode==="domains"?"افزودن دامنه":tab==="stores"?"افزودن فروشگاه":"افزودن فروشنده"}/>
+  {createOpen&&<ManagementDialog title={mode==="domains"?"افزودن دامنه فروشنده":tab==="stores"?"افزودن فروشگاه":"افزودن فروشنده"} onClose={()=>setCreateOpen(false)}>{mode==="domains"?<div className="control-grid"><input placeholder="example.ir" value={form.hostname||""} onChange={e=>setForm({...form,hostname:e.target.value})}/><input placeholder="شناسه فروشگاه، در صورت نیاز" value={form.storeId||""} onChange={e=>setForm({...form,storeId:e.target.value})}/><select value={form.sslMode||"managed"} onChange={e=>setForm({...form,sslMode:e.target.value})}><option value="managed">SSL مدیریت‌شده</option><option value="external">SSL خارجی</option></select><button disabled={!selectedDomainSeller||saving} onClick={addDomain}>ثبت دامنه</button></div>:tab==="stores"?<div className="control-grid"><select value={form.sellerId||""} onChange={e=>setForm({...form,sellerId:e.target.value})}><option value="">فروشنده</option>{sellers.map(s=><option key={s.id} value={s.id}>{s.display_name}</option>)}</select><input placeholder="کد" value={form.code||""} onChange={e=>setForm({...form,code:e.target.value})}/><input placeholder="نام" value={form.name||""} onChange={e=>setForm({...form,name:e.target.value})}/><input placeholder="slug" value={form.slug||""} onChange={e=>setForm({...form,slug:e.target.value})}/><button disabled={saving} onClick={saveStore}>ثبت فروشگاه</button></div>:<div className="control-grid"><input placeholder="نام حقوقی" value={form.legalName||""} onChange={e=>setForm({...form,legalName:e.target.value})}/><input placeholder="نام نمایشی" value={form.displayName||""} onChange={e=>setForm({...form,displayName:e.target.value})}/><input type="number" min="0" max="100" placeholder="کمیسیون %" value={form.commissionRate||""} onChange={e=>setForm({...form,commissionRate:e.target.value})}/><button disabled={saving} onClick={saveSeller}>ثبت فروشنده</button></div>}</ManagementDialog>}
   <nav className="module-subnav">
    {(mode==="commerce"?["sellers","stores","products","orders"]:mode==="domains"?["domains"]:mode==="sellers"?["sellers"]:["payments"]).map(x=><button type="button" className={tab===x?"active":""} key={x} onClick={()=>setTab(x)}>{({sellers:"فروشندگان",stores:"فروشگاه‌ها",products:"محصولات",orders:"سفارش‌ها",domains:"دامنه‌ها",payments:"تسویه‌ها"} as any)[x]}</button>)}
   </nav>
 
   {mode==="sellers"&&<section className="runtime-panel">
    <div className="panel-title"><div><h2>فروشندگان</h2><span>{rows.length} رکورد واقعی</span></div></div>
-   <div className="control-grid"><input placeholder="نام حقوقی" value={form.legalName||""} onChange={e=>setForm({...form,legalName:e.target.value})}/><input placeholder="نام نمایشی" value={form.displayName||""} onChange={e=>setForm({...form,displayName:e.target.value})}/><input type="number" min="0" max="100" placeholder="کمیسیون %" value={form.commissionRate||""} onChange={e=>setForm({...form,commissionRate:e.target.value})}/><button disabled={saving} onClick={saveSeller}>ثبت فروشنده</button></div>
+   
    <div className="record-list">{rows.map(r=><article className="record-row" key={r.id}><div><strong>{r.display_name}</strong><small>{r.legal_name} · کمیسیون {r.commission_rate}% · ایجاد {date(r.created_at)}</small></div><select value={r.status} onChange={e=>statusSeller(r.id,e.target.value)}><option value="pending">در انتظار</option><option value="active">فعال</option><option value="suspended">معلق</option><option value="closed">بسته</option></select></article>)}</div>
   </section>}
 
   {mode==="domains"&&<section className="runtime-panel">
    <div className="panel-title"><div><h2>دامنه‌های فروشندگان</h2><span>ثبت، مشاهده و تأیید واقعی دامنه</span></div></div>
    <select value={selectedDomainSeller} onChange={e=>setSelectedDomainSeller(e.target.value)}><option value="">فروشنده را انتخاب کنید</option>{sellers.map(s=><option key={s.id} value={s.id}>{s.display_name}</option>)}</select>
-   <div className="control-grid"><input placeholder="example.ir" value={form.hostname||""} onChange={e=>setForm({...form,hostname:e.target.value})}/><input placeholder="شناسه فروشگاه، در صورت نیاز" value={form.storeId||""} onChange={e=>setForm({...form,storeId:e.target.value})}/><select value={form.sslMode||"managed"} onChange={e=>setForm({...form,sslMode:e.target.value})}><option value="managed">SSL مدیریت‌شده</option><option value="external">SSL خارجی</option></select><button disabled={!selectedDomainSeller||saving} onClick={addDomain}>ثبت دامنه</button></div>
+   
    <div className="record-list">{domains.map(d=><article className="record-row" key={d.id}><div><strong>{d.hostname}</strong><small>{d.verification_status} · SSL: {d.ssl_mode} · {d.is_primary?"دامنه اصلی":"دامنه عادی"}</small></div>{d.verification_status!=="verified"&&<button onClick={()=>verifyDomain(d.id)}>تأیید</button>}</article>)}</div>
   </section>}
 
@@ -130,7 +132,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   </section>}
 
   {mode==="commerce"&&tab==="sellers"&&<section className="runtime-panel"><div className="panel-title"><div><h2>فروشندگان</h2><span>{sellers.length} رکورد واقعی</span></div></div><div className="record-list">{sellers.map(s=><article className="record-row" key={s.id}><div><strong>{s.display_name}</strong><small>{s.legal_name} · کمیسیون {s.commission_rate}%</small></div><span>{s.status}</span></article>)}</div></section>}
-  {mode==="commerce"&&tab==="stores"&&<section className="runtime-panel"><div className="panel-title"><div><h2>فروشگاه‌ها</h2><span>{stores.length} رکورد واقعی</span></div></div><div className="control-grid"><select value={form.sellerId||""} onChange={e=>setForm({...form,sellerId:e.target.value})}><option value="">فروشنده</option>{sellers.map(s=><option key={s.id} value={s.id}>{s.display_name}</option>)}</select><input placeholder="کد" value={form.code||""} onChange={e=>setForm({...form,code:e.target.value})}/><input placeholder="نام" value={form.name||""} onChange={e=>setForm({...form,name:e.target.value})}/><input placeholder="slug" value={form.slug||""} onChange={e=>setForm({...form,slug:e.target.value})}/><button disabled={saving} onClick={saveStore}>ثبت فروشگاه</button></div><div className="record-list">{stores.map(s=><article className="record-row" key={s.id}><div><strong>{s.name}</strong><small>{s.code} · {s.slug} · {s.seller_name||s.seller_id}</small></div><span>{s.status}</span></article>)}</div></section>}
+  {mode==="commerce"&&tab==="stores"&&<section className="runtime-panel"><div className="panel-title"><div><h2>فروشگاه‌ها</h2><span>{stores.length} رکورد واقعی</span></div></div><div className="record-list">{stores.map(s=><article className="record-row" key={s.id}><div><strong>{s.name}</strong><small>{s.code} · {s.slug} · {s.seller_name||s.seller_id}</small></div><span>{s.status}</span></article>)}</div></section>}
   {mode==="commerce"&&tab==="products"&&<section className="runtime-panel"><div className="panel-title"><div><h2>محصولات</h2><span>{productItems.length} رکورد واقعی</span></div></div><div className="record-list">{productItems.map(p=><article className="record-row" key={p.id}><div><strong>{p.title}</strong><small>{p.sku} · {money(p.price)} {p.currency} · {p.seller_name||p.seller_id}</small></div><span>{p.status}</span></article>)}</div></section>}
   {mode==="commerce"&&tab==="orders"&&<section className="runtime-panel"><div className="panel-title"><div><h2>سفارش‌ها</h2><span>{orderItems.length} رکورد واقعی</span></div></div><div className="record-list">{orderItems.map(o=><article className="record-row" key={o.id}><div><strong>{o.order_no}</strong><small>{o.customer_ref||"بدون شناسه مشتری"} · مبلغ {money(o.total_amount)} {o.currency} · سهم فروشنده {money(o.seller_payable)}</small></div><span>{o.status}</span></article>)}</div></section>}
   {loading&&<div className="runtime-panel"><p className="muted">در حال دریافت داده واقعی...</p></div>}
