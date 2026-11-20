@@ -381,3 +381,32 @@ logisticsRouter.patch("/api/logistics/delivery-methods/:id/enabled",requireAuth,
   if(!row.rowCount)return fail(res,404,"روش ارسال پیدا نشد");
   res.json(row.rows[0]);
 }));
+
+
+logisticsRouter.get("/api/logistics/delivery-methods/:id/products",requireAuth,asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const method=await query("select id from commerce_delivery_methods where id=$1 and tenant_id=$2",[req.params.id,t.id]);
+  if(!method.rowCount)return fail(res,404,"روش ارسال پیدا نشد");
+  const rows=await query("select p.id,p.sku,p.title,coalesce(r.enabled,false) as enabled from products p left join product_delivery_rules r on r.product_id=p.id and r.delivery_method_id=$1 and r.tenant_id=$2 where p.tenant_id=$2 order by p.title",[req.params.id,t.id]);
+  res.json(rows.rows);
+}));
+logisticsRouter.put("/api/logistics/delivery-methods/:id/products",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const ids=req.body?.productIds;
+  if(!Array.isArray(ids)||ids.length>1000||ids.some((id:any)=>typeof id!=="string"||!id.trim()))return fail(res,400,"فهرست کالاهای انتخاب‌شده معتبر نیست");
+  const uniqueIds=[...new Set(ids.map((id:string)=>id.trim()))];
+  const client=await pool.connect();
+  try{
+    await client.query("begin");
+    const method=await client.query("select id from commerce_delivery_methods where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+    if(!method.rowCount){await client.query("rollback");return fail(res,404,"روش ارسال پیدا نشد");}
+    if(uniqueIds.length){
+      const valid=await client.query("select id from products where tenant_id=$1 and id=any($2::uuid[])",[t.id,uniqueIds]);
+      if(valid.rowCount!==uniqueIds.length){await client.query("rollback");return fail(res,400,"یک یا چند کالا در محدوده سازمانی جاری وجود ندارد");}
+    }
+    await client.query("delete from product_delivery_rules where tenant_id=$1 and delivery_method_id=$2",[t.id,req.params.id]);
+    if(uniqueIds.length)await client.query("insert into product_delivery_rules(tenant_id,product_id,delivery_method_id,enabled) select $1,p.id,$2,true from products p where p.tenant_id=$1 and p.id=any($3::uuid[])",[t.id,req.params.id,uniqueIds]);
+    await client.query("commit");
+    res.json({deliveryMethodId:req.params.id,assignedProductCount:uniqueIds.length});
+  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
