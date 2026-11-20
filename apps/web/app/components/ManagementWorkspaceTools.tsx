@@ -8,7 +8,7 @@ type ImportHandler=(rows:Record<string,string>[])=>void|Promise<void>;
 
 function csvCell(value:unknown){
   let text=String(value??"");
-  if(/^[=+@\t\r]/.test(text))text="'"+text;
+  if(/^(?:[=+@\t\r]|-(?!\d))/.test(text))text="'"+text;
   return /[",\n\r]/.test(text)?'"'+text.replace(/"/g,'""')+'"':text;
 }
 function downloadCsv(rows:Row[],filename:string){
