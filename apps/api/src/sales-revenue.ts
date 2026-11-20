@@ -163,11 +163,46 @@ router.patch("/api/sales/orders/:id/status",requireAuth,requirePermission("modul
  }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/sales/invoices",requireAuth,requirePermission("modules:22-sales-revenue:invoice"),async(req,res)=>{
- const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};const o=await query("select * from sales_orders where id=$1 and tenant_id=$2",[b.orderId,t.id]);if(!o.rowCount||!["delivered","invoiced"].includes(o.rows[0].status))return deny(res,409,"سفارش هنوز قابل صدور فاکتور نیست");
- const x=o.rows[0],no=b.invoiceNo||"INV-"+Date.now();const c=await pool.connect();try{await c.query("begin");const i=await c.query("insert into sales_invoices(tenant_id,invoice_no,order_id,partner_id,status,due_date,subtotal,discount_total,tax_total,total,created_by) values($1,$2,$3,$4,'issued',$5,$6,$7,$8,$9,$10) returning *",[t.id,no,x.id,x.partner_id,x.due_date,x.subtotal,x.discount_total,x.tax_total,x.total,(req as any).user.id]);await c.query("update sales_orders set status='invoiced',updated_at=now() where id=$1",[x.id]);await c.query("insert into sales_financial_events(tenant_id,source_type,source_id,event_type,amount,state,reference_no) values($1,'invoice',$2,'invoice_issued',$3,'pending_accounting',$4)",[t.id,i.rows[0].id,x.total,no]);await c.query("insert into sales_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id) values($1,'invoice',$2,null,'issued','create',$3)",[t.id,i.rows[0].id,(req as any).user.id]);await c.query("commit");res.status(201).json(i.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
+ const t=await tenantOf(req),b=req.body||{};
+ if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ if(!b.orderId)return deny(res,400,"سفارش فروش الزامی است");
+ const no=String(b.invoiceNo||"INV-"+Date.now()).trim();
+ if(!no||no.length>100)return deny(res,400,"شماره فاکتور معتبر نیست");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const order=await c.query("select * from sales_orders where id=$1 and tenant_id=$2 for update",[b.orderId,t.id]);
+  if(!order.rowCount){await c.query("rollback");return deny(res,404,"سفارش فروش پیدا نشد");}
+  const x=order.rows[0];
+  if(x.status!=="delivered"){await c.query("rollback");return deny(res,409,"فقط سفارش تحویل‌شده و فاکتور‌نشده قابل صدور فاکتور است");}
+  const existing=await c.query("select id from sales_invoices where tenant_id=$1 and order_id=$2 limit 1",[t.id,x.id]);
+  if(existing.rowCount){await c.query("rollback");return deny(res,409,"برای این سفارش قبلاً فاکتور صادر شده است");}
+  const i=await c.query("insert into sales_invoices(tenant_id,invoice_no,order_id,partner_id,status,due_date,subtotal,discount_total,tax_total,total,created_by) values($1,$2,$3,$4,'issued',$5,$6,$7,$8,$9,$10) returning *",[t.id,no,x.id,x.partner_id,x.due_date,x.subtotal,x.discount_total,x.tax_total,x.total,(req as any).user.id]);
+  const changed=await c.query("update sales_orders set status='invoiced',updated_at=now() where id=$1 and tenant_id=$2 and status='delivered' returning id",[x.id,t.id]);
+  if(!changed.rowCount){await c.query("rollback");return deny(res,409,"سفارش هنگام صدور فاکتور تغییر کرده است");}
+  await c.query("insert into sales_financial_events(tenant_id,source_type,source_id,event_type,amount,state,reference_no) values($1,'invoice',$2,'invoice_issued',$3,'pending_accounting',$4)",[t.id,i.rows[0].id,x.total,no]);
+  await c.query("insert into sales_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id) values($1,'invoice',$2,null,'issued','create',$3)",[t.id,i.rows[0].id,(req as any).user.id]);
+  await c.query("commit");res.status(201).json(i.rows[0]);
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/sales/invoices/:id/payments",requireAuth,requirePermission("modules:22-sales-revenue:payment"),async(req,res)=>{
- const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const c=await pool.connect();try{await c.query("begin");const i=await c.query("select * from sales_invoices where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);if(!i.rowCount)return deny(res,404,"فاکتور پیدا نشد");const inv=i.rows[0],amount=num(req.body?.amount);if(amount<=0||num(inv.paid_total)+amount>num(inv.total))return deny(res,400,"مبلغ دریافت نامعتبر است");const p=await c.query("insert into sales_payments(tenant_id,invoice_id,amount,method,reference_no,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,inv.id,amount,req.body?.method||"bank",req.body?.referenceNo||null,(req as any).user.id]);const paid=num(inv.paid_total)+amount;await c.query("update sales_invoices set paid_total=$1,status=$2,updated_at=now() where id=$3",[paid,paid>=num(inv.total)?"paid":"partially_paid",inv.id]);await c.query("insert into sales_financial_events(tenant_id,source_type,source_id,event_type,amount,state,reference_no) values($1,'payment',$2,'customer_receipt',$3,'pending_accounting',$4)",[t.id,p.rows[0].id,amount,req.body?.referenceNo||null]);await c.query("commit");res.status(201).json(p.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
+ const t=await tenantOf(req),amount=num(req.body?.amount),method=String(req.body?.method||"bank");
+ if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ if(!Number.isFinite(amount)||amount<=0||!["cash","bank","card","wallet","credit"].includes(method))return deny(res,400,"مبلغ یا روش دریافت معتبر نیست");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const i=await c.query("select * from sales_invoices where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+  if(!i.rowCount){await c.query("rollback");return deny(res,404,"فاکتور پیدا نشد");}
+  const inv=i.rows[0],paidBefore=num(inv.paid_total),total=num(inv.total);
+  if(!Number.isFinite(paidBefore)||!Number.isFinite(total)||!["issued","final","partially_paid"].includes(inv.status)||paidBefore+amount>total+0.000001){await c.query("rollback");return deny(res,400,"مبلغ دریافت از مانده فاکتور بیشتر است یا فاکتور قابل دریافت نیست");}
+  const p=await c.query("insert into sales_payments(tenant_id,invoice_id,amount,method,reference_no,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,inv.id,amount,method,req.body?.referenceNo||null,(req as any).user.id]);
+  const paid=paidBefore+amount,next=paid+0.000001>=total?"paid":"partially_paid";
+  const updated=await c.query("update sales_invoices set paid_total=$1,status=$2,updated_at=now() where id=$3 and tenant_id=$4 returning id",[paid,next,inv.id,t.id]);
+  if(!updated.rowCount){await c.query("rollback");return deny(res,409,"فاکتور هنگام ثبت دریافت تغییر کرده است");}
+  await c.query("insert into sales_financial_events(tenant_id,source_type,source_id,event_type,amount,state,reference_no) values($1,'payment',$2,'customer_receipt',$3,'pending_accounting',$4)",[t.id,p.rows[0].id,amount,req.body?.referenceNo||null]);
+  await c.query("commit");res.status(201).json(p.rows[0]);
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/sales/returns",requireAuth,requirePermission("modules:22-sales-revenue:return"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};if(!b.invoiceId||num(b.amount)<=0)return deny(res,400,"فاکتور و مبلغ برگشت الزامی است");const inv=await query("select * from sales_invoices where id=$1 and tenant_id=$2",[b.invoiceId,t.id]);if(!inv.rowCount)return deny(res,404,"فاکتور پیدا نشد");const no=b.returnNo||"RET-"+Date.now();const r=await query("insert into sales_returns(tenant_id,return_no,invoice_id,amount,reason,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,no,b.invoiceId,num(b.amount),b.reason||"", (req as any).user.id]);res.status(201).json(r.rows[0]);
