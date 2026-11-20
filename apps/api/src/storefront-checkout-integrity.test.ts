@@ -22,6 +22,8 @@ test("storefront checkout is atomic, idempotent, and revalidates ownership, pric
  const route=checkout.slice(start,end);
  assert.ok(route.includes("begin"));
  assert.ok(route.includes("marketplace_checkout_requests"));
+ assert.ok(checkout.includes("select o.id,o.id as order_id,o.order_no,o.status,o.subtotal,o.shipping_amount,o.total_amount,o.delivery_method_id,o.delivery_method_snapshot,o.created_at from marketplace_checkout_requests"));
+ assert.ok(route.includes("marketplace_checkout_requests"));
  assert.ok(route.includes("idempotency_key"));
  assert.ok(route.includes("marketplace_customer_addresses where id=$1 and tenant_id=$2 and user_id=$3"));
  assert.ok(route.includes("for update of p"));
@@ -70,6 +72,7 @@ test("customer checkout UI sends product identifiers only and delegates final am
  assert.ok(webCheckout.includes("deliveryMethodId:selectedDeliveryMethodId"));
  assert.ok(webCheckout.includes("startPayment"));
  assert.ok(webCheckout.includes("verifyPayment"));
+ assert.ok(webCheckout.includes("order.delivery_method_snapshot?.currency"));
  assert.ok(webCheckout.includes("checkoutRequestKey(signature)"));
  assert.ok(webCheckout.includes("sessionStorage.removeItem(\"sookar.store.checkout.request.v1\")"));
 });
