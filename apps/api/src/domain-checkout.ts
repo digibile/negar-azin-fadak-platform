@@ -215,13 +215,19 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandl
   }
   const p=await client.query("insert into marketplace_payments(tenant_id,order_id,payment_no,amount,method,status,provider_ref,provider_code,idempotency_key,provider_transaction_id,provider_payload,paid_at) values($1,$2,$3,$4,$5,'paid',$6,$7,$8,$9,$10,now()) returning *",[t.id,o.rows[0].id,paymentNo,Number(o.rows[0].total_amount),requestedMethod,providerTransactionId,providerCode,idempotencyKey,providerTransactionId,JSON.stringify(providerPayload)]);
   await client.query("update marketplace_orders set status='paid',paid_at=coalesce(paid_at,now()),updated_at=now() where id=$1 and tenant_id=$2",[o.rows[0].id,t.id]);
-  await postLedgerEntry(client,{tenantId:t.id,entryNo:"PAY-"+p.rows[0].payment_no,sourceType:"marketplace_payment",sourceId:p.rows[0].id,description:"ثبت پرداخت سفارش "+o.rows[0].order_no,createdBy:(req as any).user.id,currency:o.rows[0].currency||"IRR",lines:[
+  const carrierCost=Math.max(0,Number(o.rows[0].delivery_quote_snapshot?.carrierCost||0));
+  const customerShipping=Math.max(0,Number(o.rows[0].shipping_amount||0));
+  const paymentLedgerLines:any[]=[
    requestedMethod==="credit"
     ? {accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",debit:Number(o.rows[0].total_amount)}
     : {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",debit:Number(o.rows[0].total_amount)},
    {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",credit:Number(o.rows[0].seller_payable)},
    {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",credit:Number(o.rows[0].commission_amount)}
-  ]});
+  ];
+  if(carrierCost>0)paymentLedgerLines.push({accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",credit:carrierCost});
+  if(customerShipping>carrierCost)paymentLedgerLines.push({accountCode:"4201",accountName:"درآمد خدمات حمل",accountType:"revenue",credit:customerShipping-carrierCost});
+  if(carrierCost>customerShipping)paymentLedgerLines.push({accountCode:"5201",accountName:"هزینه مازاد حمل سفارش",accountType:"expense",debit:carrierCost-customerShipping});
+  await postLedgerEntry(client,{tenantId:t.id,entryNo:"PAY-"+p.rows[0].payment_no,sourceType:"marketplace_payment",sourceId:p.rows[0].id,description:"ثبت پرداخت سفارش "+o.rows[0].order_no,createdBy:(req as any).user.id,currency:o.rows[0].currency||"IRR",lines:paymentLedgerLines});
   const items=await client.query("select * from marketplace_order_items where order_id=$1",[o.rows[0].id]);
   for(const item of items.rows){
    await client.query("update product_inventory set quantity=quantity-$1,reserved_quantity=reserved_quantity-$1,updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[item.quantity,t.id,item.product_id,o.rows[0].store_id]);
@@ -243,7 +249,7 @@ checkoutRouter.post("/api/marketplace/payments/:paymentId/verify",requireAuth,as
   await client.query("begin");
   const orderLock=await client.query("select id from marketplace_orders where id=(select order_id from marketplace_payments where id=$1 and tenant_id=$2) and tenant_id=$2 for update",[req.params.paymentId,t.id]);
   if(!orderLock.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پرداخت پیدا نشد"});}
-  const p=await client.query("select p.*,o.customer_ref,o.order_no,o.store_id,o.status as order_status,o.total_amount,o.seller_payable,o.commission_amount,o.currency,o.reservation_expires_at,(o.reservation_expires_at is not null and o.reservation_expires_at<=now()) as reservation_expired from marketplace_payments p join marketplace_orders o on o.id=p.order_id and o.tenant_id=p.tenant_id where p.id=$1 and p.tenant_id=$2 for update of p",[req.params.paymentId,t.id]);
+  const p=await client.query("select p.*,o.customer_ref,o.order_no,o.store_id,o.status as order_status,o.total_amount,o.seller_payable,o.commission_amount,o.shipping_amount,o.delivery_quote_required,o.delivery_quote_id,o.delivery_quote_snapshot,o.currency,o.reservation_expires_at,(o.reservation_expires_at is not null and o.reservation_expires_at<=now()) as reservation_expired from marketplace_payments p join marketplace_orders o on o.id=p.order_id and o.tenant_id=p.tenant_id where p.id=$1 and p.tenant_id=$2 for update of p",[req.params.paymentId,t.id]);
   if(!p.rowCount){await client.query("rollback");return res.status(404).json({error:"تلاش پرداخت پیدا نشد"});}
   const payment=p.rows[0];paymentId=payment.id;eventOrderId=payment.order_id;
   if(["cancelled","refunded"].includes(payment.order_status)||(["pending","confirmed"].includes(payment.order_status)&&payment.reservation_expired)){await client.query("rollback");return res.status(409).json({error:"مهلت رزرو سفارش پایان یافته یا سفارش بسته شده است"});}
@@ -262,11 +268,17 @@ checkoutRouter.post("/api/marketplace/payments/:paymentId/verify",requireAuth,as
   if(!["pending","confirmed"].includes(payment.order_status)){await client.query("rollback");return res.status(409).json({error:"وضعیت سفارش برای نهایی‌سازی پرداخت مجاز نیست"});}
   await client.query("update marketplace_payments set status='paid',provider_transaction_id=$2,provider_ref=$2,provider_payload=$3,paid_at=now(),updated_at=now() where id=$1",[payment.id,verified.providerTransactionId,JSON.stringify(verified.providerPayload)]);
   await client.query("update marketplace_orders set status='paid',paid_at=coalesce(paid_at,now()),updated_at=now() where id=$1 and tenant_id=$2",[payment.order_id,t.id]);
-  await postLedgerEntry(client,{tenantId:t.id,entryNo:"PAY-"+payment.payment_no,sourceType:"marketplace_payment",sourceId:payment.id,description:"ثبت پرداخت سفارش "+payment.order_no,createdBy:(req as any).user.id,currency:payment.currency||"IRR",lines:[
+  const verifiedCarrierCost=Math.max(0,Number(payment.delivery_quote_snapshot?.carrierCost||0));
+  const verifiedCustomerShipping=Math.max(0,Number(payment.shipping_amount||0));
+  const verifiedLedgerLines:any[]=[
    {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",debit:Number(payment.amount)},
    {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",credit:Number(payment.seller_payable)},
    {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",credit:Number(payment.commission_amount)}
-  ]});
+  ];
+  if(verifiedCarrierCost>0)verifiedLedgerLines.push({accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",credit:verifiedCarrierCost});
+  if(verifiedCustomerShipping>verifiedCarrierCost)verifiedLedgerLines.push({accountCode:"4201",accountName:"درآمد خدمات حمل",accountType:"revenue",credit:verifiedCustomerShipping-verifiedCarrierCost});
+  if(verifiedCarrierCost>verifiedCustomerShipping)verifiedLedgerLines.push({accountCode:"5201",accountName:"هزینه مازاد حمل سفارش",accountType:"expense",debit:verifiedCarrierCost-verifiedCustomerShipping});
+  await postLedgerEntry(client,{tenantId:t.id,entryNo:"PAY-"+payment.payment_no,sourceType:"marketplace_payment",sourceId:payment.id,description:"ثبت پرداخت سفارش "+payment.order_no,createdBy:(req as any).user.id,currency:payment.currency||"IRR",lines:verifiedLedgerLines});
   const items=await client.query("select * from marketplace_order_items where order_id=$1",[payment.order_id]);
   for(const item of items.rows){
    const stock=await client.query("update product_inventory set quantity=quantity-$1,reserved_quantity=greatest(0,reserved_quantity-$1),updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4 and quantity >= $1 returning product_id",[item.quantity,t.id,item.product_id,payment.store_id]);
