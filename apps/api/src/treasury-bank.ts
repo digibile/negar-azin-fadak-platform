@@ -125,8 +125,15 @@ router.patch("/api/treasury-bank/transactions/:id/reconcile",requireAuth,require
 });
 
 router.post("/api/treasury-bank/cashboxes",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
- const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};if(typeof b.code!=="string"||typeof b.title!=="string")return deny(res,400,"اطلاعات تنخواه ناقص است");
- const r=await query("insert into treasury_cashboxes(tenant_id,code,title,custodian_user_id,opening_balance,current_balance,max_balance) values($1,$2,$3,$4,$5,$5,$6) returning *",[t.id,b.code.trim(),b.title.trim(),b.custodianUserId||null,Number(b.openingBalance||0),b.maxBalance?Number(b.maxBalance):null]);await audit(t.id,(req as any).user.id,"cashbox",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};
+ if(typeof b.code!=="string"||typeof b.title!=="string")return deny(res,400,"اطلاعات تنخواه ناقص است");
+ const opening=Number(b.openingBalance??0),maximum=b.maxBalance==null||b.maxBalance===""?null:Number(b.maxBalance);
+ if(!b.code.trim()||!b.title.trim()||!Number.isFinite(opening)||opening<0||(maximum!==null&&(!Number.isFinite(maximum)||maximum<opening)))return deny(res,400,"کد، عنوان، مانده یا سقف تنخواه نامعتبر است");
+ const c=await pool.connect();try{await c.query("begin");
+  const r=await c.query("insert into treasury_cashboxes(tenant_id,code,title,custodian_user_id,opening_balance,current_balance,max_balance) values($1,$2,$3,$4,$5,$5,$6) returning *",[t.id,b.code.trim(),b.title.trim(),b.custodianUserId||null,opening,maximum]);
+  await c.query("insert into treasury_audit(tenant_id,entity_type,entity_id,action,actor_user_id,after_data) values($1,'cashbox',$2,'create',$3,$4)",[t.id,r.rows[0].id,(req as any).user.id,r.rows[0]]);
+  await c.query("commit");res.status(201).json(r.rows[0]);
+ }catch(e:any){await c.query("rollback").catch(()=>{});if(e?.code==="23505")return deny(res,409,"کد تنخواه تکراری است");throw e}finally{c.release()}
 });
 router.post("/api/treasury-bank/cashboxes/:id/movements",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};if(!date(b.movementDate)||!(Number(b.amount)>0)||!["in","out"].includes(b.direction))return deny(res,400,"گردش تنخواه نامعتبر است");
