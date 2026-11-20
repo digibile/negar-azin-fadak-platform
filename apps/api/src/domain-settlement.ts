@@ -12,8 +12,15 @@ const tenant=async(req:any)=>resolveTenant(req,req.user);
 
 settlementRouter.get("/api/marketplace/settlements",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("select ss.*,s.display_name as seller_name,(select count(*)::int from seller_settlement_items si where si.settlement_id=ss.id) as order_count from seller_settlements ss join sellers s on s.id=ss.seller_id where ss.tenant_id=$1 order by ss.created_at desc",[t.id]);
+ const r=await query("select ss.*,s.display_name as seller_name,(select count(*)::int from seller_settlement_items si where si.settlement_id=ss.id and si.tenant_id=ss.tenant_id) as order_count,(select coalesce(sum(si.shipping_amount),0) from seller_settlement_items si where si.settlement_id=ss.id and si.tenant_id=ss.tenant_id) as shipping_amount_total from seller_settlements ss join sellers s on s.id=ss.seller_id where ss.tenant_id=$1 order by ss.created_at desc",[t.id]);
  res.json(r.rows);
+}));
+
+settlementRouter.get("/api/marketplace/settlements/:id",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const result=await query("select ss.*,s.display_name as seller_name,coalesce(json_agg(json_build_object('orderId',o.id,'orderNo',o.order_no,'grossAmount',si.gross_amount,'shippingAmount',si.shipping_amount,'commissionAmount',si.commission_amount,'netAmount',si.net_amount,'currency',o.currency) order by o.created_at desc) filter(where si.id is not null),'[]') as orders from seller_settlements ss join sellers s on s.id=ss.seller_id left join seller_settlement_items si on si.settlement_id=ss.id and si.tenant_id=ss.tenant_id left join marketplace_orders o on o.id=si.order_id and o.tenant_id=si.tenant_id where ss.id=$1 and ss.tenant_id=$2 group by ss.id,s.display_name",[req.params.id,t.id]);
+ if(!result.rowCount)return res.status(404).json({error:"پرونده تسویه پیدا نشد"});
+ res.json(result.rows[0]);
 }));
 
 settlementRouter.post("/api/marketplace/settlements/generate",requireAuth,requirePermission("settlement:manage"),asyncHandler(async(req,res)=>{
@@ -42,7 +49,7 @@ settlementRouter.post("/api/marketplace/settlements/generate",requireAuth,requir
    const net=rows.reduce((a,o)=>a+Number(o.seller_payable),0);
    const settlementNo=(s(req.body?.settlementNo,80)||("SET-"+Date.now()))+"-"+sellerId.slice(0,8)+"-"+currency;
    const sr=await client.query("insert into seller_settlements(tenant_id,seller_id,settlement_no,period_start,period_end,gross_amount,commission_amount,adjustment_amount,net_amount,status,currency) values($1,$2,$3,$4,$5,$6,$7,0,$8,'pending',$9) returning *",[t.id,sellerId,settlementNo,periodStart.toISOString(),periodEnd.toISOString(),gross,commission,net,currency]);
-   for(const o of rows)await client.query("insert into seller_settlement_items(tenant_id,settlement_id,order_id,gross_amount,commission_amount,net_amount) values($1,$2,$3,$4,$5,$6)",[t.id,sr.rows[0].id,o.id,o.total_amount,o.commission_amount,o.seller_payable]);
+   for(const o of rows)await client.query("insert into seller_settlement_items(tenant_id,settlement_id,order_id,gross_amount,commission_amount,net_amount,shipping_amount) values($1,$2,$3,$4,$5,$6,$7)",[t.id,sr.rows[0].id,o.id,o.total_amount,o.commission_amount,o.seller_payable,Math.max(0,Number(o.shipping_amount||0))]);
    created.push(sr.rows[0]);
   }
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,after_data) values($1,$2,'settlement.generated','seller_settlement',$3)",[t.id,(req as any).user.id,JSON.stringify({count:created.length,periodStart:periodStart.toISOString(),periodEnd:periodEnd.toISOString()})]);
