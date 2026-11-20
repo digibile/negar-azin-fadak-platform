@@ -335,7 +335,7 @@ checkoutRouter.post("/api/storefront/returns/:id/cancel",requireAuth,requireCsrf
 
 checkoutRouter.get("/api/marketplace/returns",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("select rr.*,o.order_no,o.store_id,o.seller_id,oi.product_id,p.title product_title from marketplace_return_requests rr join marketplace_orders o on o.id=rr.order_id and o.tenant_id=rr.tenant_id join marketplace_order_items oi on oi.id=rr.order_item_id and oi.order_id=o.id join products p on p.id=oi.product_id where rr.tenant_id=$1 order by rr.created_at desc limit 500",[t.id]);
+ const r=await query("select rr.*,o.order_no,o.store_id,o.seller_id,oi.product_id,p.title product_title,mr.status refund_status,mr.amount refund_amount,mr.refund_no from marketplace_return_requests rr join marketplace_orders o on o.id=rr.order_id and o.tenant_id=rr.tenant_id join marketplace_order_items oi on oi.id=rr.order_item_id and oi.order_id=o.id join products p on p.id=oi.product_id left join marketplace_refunds mr on mr.return_request_id=rr.id and mr.tenant_id=rr.tenant_id where rr.tenant_id=$1 order by rr.created_at desc limit 500",[t.id]);
  res.json({items:r.rows,total:r.rowCount});
 }));
 
@@ -382,7 +382,6 @@ checkoutRouter.post("/api/marketplace/returns/:id/refund",requireAuth,requirePer
   if(!item.rowCount){await client.query("rollback");return res.status(404).json({error:"قلم سفارش برای این درخواست پیدا نشد"});}
   const qty=Number(rr.rows[0].requested_quantity),unit=Number(item.rows[0].unit_price),amount=Number((qty*unit).toFixed(2));
   if(!Number.isFinite(qty)||qty<=0||!Number.isFinite(unit)||unit<=0||!Number.isFinite(amount)||amount<=0){await client.query("rollback");return res.status(409).json({error:"مبلغ قابل بازپرداخت این قلم معتبر نیست"});}
-  const already=await client.query("select coalesce(sum(amount),0) amount from marketplace_refunds where tenant_id=$1 and payment_id in (select id from marketplace_payments where tenant_id=$1 and order_id=$2) and status in ('pending','refunded')",[t.id,ord.rows[0].id]);
   const pay=await client.query("select * from marketplace_payments where tenant_id=$1 and order_id=$2 and status='paid' order by paid_at desc nulls last,created_at desc limit 1 for update",[t.id,ord.rows[0].id]);
   if(!pay.rowCount){await client.query("rollback");return res.status(409).json({error:"پرداخت موفق سفارش برای بازپرداخت پیدا نشد"});}
   const paymentRefunded=await client.query("select coalesce(sum(amount),0) amount from marketplace_refunds where tenant_id=$1 and payment_id=$2 and status in ('pending','refunded')",[t.id,pay.rows[0].id]);
@@ -403,8 +402,9 @@ checkoutRouter.post("/api/marketplace/returns/:id/refund",requireAuth,requirePer
   const provider=getPaymentProvider(providerCode);
   const providerResult=await provider.refundPayment({providerTransactionId:payment.provider_transaction_id||payment.provider_ref||"",amount:Number(refund.amount),metadata:{orderId:order.id,paymentId:payment.id,returnRequestId:requestId,refundId:refund.id,idempotencyKey:"return-refund-"+refund.id}});
   if(providerResult.status!=="refunded"){
-   await query("update marketplace_refunds set status='failed',provider_payload=$1,updated_at=now() where id=$2 and tenant_id=$3 and status='pending'",[JSON.stringify(providerResult.providerPayload),refund.id,t.id]);
-   return res.status(409).json({error:"درگاه بازپرداخت این درخواست را تأیید نکرد؛ پرونده برای تطبیق مالی باز می‌ماند",providerStatus:providerResult.status});
+   const terminalFailure=providerResult.status==="failed";
+   await query("update marketplace_refunds set status=$1,provider_payload=$2,updated_at=now() where id=$3 and tenant_id=$4 and status='pending'",[terminalFailure?"failed":"pending",JSON.stringify({...providerResult.providerPayload,status:providerResult.status}),refund.id,t.id]);
+   return res.status(terminalFailure?409:202).json({error:terminalFailure?"درگاه بازپرداخت را ناموفق اعلام کرد؛ پرونده برای بررسی مالی باز می‌ماند":"درخواست بازپرداخت هنوز در درگاه تعیین تکلیف نشده است",providerStatus:providerResult.status,pending:!terminalFailure});
   }
   providerCode=provider.code;providerRefundId=providerResult.providerTransactionId;providerPayload=providerResult.providerPayload;
  }
