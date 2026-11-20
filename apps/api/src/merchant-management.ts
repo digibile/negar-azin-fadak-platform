@@ -1,5 +1,5 @@
 import {Router} from "express";
-import {query} from "./db.js";
+import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
@@ -74,10 +74,15 @@ merchantRouter.patch("/api/merchants/:id/status",requireAuth,requirePermission("
   if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
   const status=str(req.body?.status,20);
   if(!["pending","review","active","suspended","rejected","closed"].includes(status))return res.status(400).json({error:"وضعیت پذیرنده نامعتبر است"});
-  const r=await query("update payment_merchants set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,t.id]);
-  if(!r.rowCount)return res.status(404).json({error:"پذیرنده پیدا نشد"});
-  await query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'merchant.status.updated','payment_merchant',$3,$4)",[t.id,(req as any).user.id,r.rows[0].id,JSON.stringify({status})]);
-  res.json(r.rows[0]);
+  const client=await pool.connect();
+  try{
+    await client.query("begin");
+    const r=await client.query("update payment_merchants set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[status,req.params.id,t.id]);
+    if(!r.rowCount){await client.query("rollback");return res.status(404).json({error:"پذیرنده پیدا نشد"});}
+    await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'merchant.status.updated','payment_merchant',$3,$4)",[t.id,(req as any).user.id,r.rows[0].id,JSON.stringify({status})]);
+    await client.query("commit");
+    res.json(r.rows[0]);
+  }catch(error){await client.query("rollback");throw error;}finally{client.release();}
 }));
 
 merchantRouter.post("/api/merchants/:id/verify",requireAuth,requirePermission("merchant:verify"),asyncHandler(async(req,res)=>{
@@ -89,14 +94,19 @@ merchantRouter.post("/api/merchants/:id/verify",requireAuth,requirePermission("m
   if(decision==="reject"&&!reason)return res.status(400).json({error:"ثبت علت رد احراز الزامی است"});
   const status=decision==="approve"?"active":"rejected";
   const verificationStatus=decision==="approve"?"verified":"rejected";
-  const r=await query(
-    "update payment_merchants set status=$1,verification_status=$2,verified_at=now(),verified_by=$3,verification_reason=$4,updated_at=now() where id=$5 and tenant_id=$6 returning *",
-    [status,verificationStatus,(req as any).user.id,reason,req.params.id,t.id]
-  );
-  if(!r.rowCount)return res.status(404).json({error:"پذیرنده پیدا نشد"});
-  await query(
-    "insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,$3,'payment_merchant',$4,$5)",
-    [t.id,(req as any).user.id,"merchant.verification."+decision,r.rows[0].id,JSON.stringify({status,verificationStatus,reason})]
-  );
-  res.json(r.rows[0]);
+  const client=await pool.connect();
+  try{
+    await client.query("begin");
+    const r=await client.query(
+      "update payment_merchants set status=$1,verification_status=$2,verified_at=now(),verified_by=$3,verification_reason=$4,updated_at=now() where id=$5 and tenant_id=$6 returning *",
+      [status,verificationStatus,(req as any).user.id,reason,req.params.id,t.id]
+    );
+    if(!r.rowCount){await client.query("rollback");return res.status(404).json({error:"پذیرنده پیدا نشد"});}
+    await client.query(
+      "insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,$3,'payment_merchant',$4,$5)",
+      [t.id,(req as any).user.id,"merchant.verification."+decision,r.rows[0].id,JSON.stringify({status,verificationStatus,reason})]
+    );
+    await client.query("commit");
+    res.json(r.rows[0]);
+  }catch(error){await client.query("rollback");throw error;}finally{client.release();}
 }));
