@@ -21,7 +21,7 @@ begin
    add constraint marketplace_return_quarantine_finance_quantity_check
    check(finance_quantity is null or finance_quantity>0);
  end if;
-end
+end;
 $migration$;
 
 create index if not exists marketplace_return_quarantine_purchase_product_idx
