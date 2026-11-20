@@ -20,6 +20,8 @@ const commerce=read("apps/web/app/modules/CommercePanelWorkspace.tsx");
 const commerceCss=read("apps/web/app/modules/commerce-panel.css");
 const orderPage=read("apps/web/app/marketplace/orders/page.tsx");
 const orderCss=read("apps/web/app/marketplace/orders/orders-workspace.css");
+const cartActions=read("apps/web/app/store/cart-actions.tsx");
+const cartCss=read("apps/web/app/store/cart-workspace.css");
 const api=read("apps/api/src/domain-marketplace.ts");
 const checkoutApi=read("apps/api/src/domain-checkout.ts");
 
@@ -50,5 +52,10 @@ if(!api.includes('pending:["confirmed"]')||!api.includes('paid:["processing"]'))
 if(api.includes('confirmed:["paid"')||api.includes('paid:["processing","refunded"')||api.includes('delivered:["returned","refunded"'))throw new Error("Generic order lifecycle exposes payment/refund transitions");
 if(!checkoutApi.includes('"/api/marketplace/orders/:id/cancel"')||!checkoutApi.includes("reserved_quantity=greatest(0,reserved_quantity-$1)"))throw new Error("Order cancellation must release reserved inventory through its dedicated endpoint");
 if(!orderPage.includes('"/api/marketplace/orders/"+encodeURIComponent(order.id)+"/cancel"'))throw new Error("Order UI must call the dedicated inventory-safe cancellation endpoint");
+
+if(!cartActions.includes('"/api/auth/me"')||!cartActions.includes('"/api/checkout/carts"')||!cartActions.includes('"/items"'))throw new Error("Browser cart must hand off authenticated items to the operational checkout API");
+if(!cartActions.includes('new Set(items.map(item => item.store_id'))||!cartActions.includes('new Set(items.map(item => item.currency'))throw new Error("Browser cart must prevent unsupported multi-store or mixed-currency checkout");
+if(!cartActions.includes('"/store/checkout?cart="'))throw new Error("Operational cart handoff must open the checkout route");
+if(!cartActions.includes('import "./cart-workspace.css"')||!cartCss.includes(".sk-store .sk-cart-checkout"))throw new Error("Cart checkout controls must use isolated styles");
 console.log("COMMERCE_STOREFRONT_INTEGRITY_OK");
 
