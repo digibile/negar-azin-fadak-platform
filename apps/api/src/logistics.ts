@@ -349,3 +349,35 @@ logisticsRouter.patch("/api/logistics/drivers/:id/status",requireAuth,asyncHandl
     res.json(updated);
   }catch(e){await c.query("rollback");throw e;}finally{c.release();}
 }));
+
+
+logisticsRouter.get("/api/logistics/delivery-methods",requireAuth,asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const rows=await query("select id,code,title,carrier_type,business_days_min,business_days_max,cutoff_hour_local,cost,currency,enabled,rules,created_at from commerce_delivery_methods where tenant_id=$1 order by enabled desc,title",[t.id]);
+  res.json(rows.rows);
+}));
+logisticsRouter.post("/api/logistics/delivery-methods",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const code=String(b.code||"").trim().toLowerCase().replace(/[^a-z0-9_-]/g,"").slice(0,60);
+  const title=String(b.title||"").trim().slice(0,120);
+  const carrierType=String(b.carrierType||"");
+  const minDays=Number(b.businessDaysMin),maxDays=Number(b.businessDaysMax),cutoff=Number(b.cutoffHourLocal),cost=Number(b.cost);
+  const currency=String(b.currency||"IRR").trim().toUpperCase();
+  if(!code||!title)return fail(res,400,"شناسه و عنوان روش ارسال الزامی است");
+  if(!["courier","post","pickup","freight","digital"].includes(carrierType))return fail(res,400,"نوع روش ارسال معتبر نیست");
+  if(!Number.isInteger(minDays)||!Number.isInteger(maxDays)||minDays<0||maxDays<minDays||maxDays>90)return fail(res,400,"بازه روز کاری باید عدد صحیح و از صفر تا ۹۰ باشد");
+  if(!Number.isInteger(cutoff)||cutoff<0||cutoff>23)return fail(res,400,"ساعت پایان پذیرش باید بین صفر تا ۲۳ باشد");
+  if(!Number.isFinite(cost)||cost<0)return fail(res,400,"هزینه ارسال باید عدد معتبر و غیرمنفی باشد");
+  if(!/^[A-Z]{3}$/.test(currency))return fail(res,400,"واحد پول باید کد سه‌حرفی معتبر باشد");
+  try{
+    const row=await query("insert into commerce_delivery_methods(tenant_id,code,title,carrier_type,business_days_min,business_days_max,cutoff_hour_local,cost,currency,enabled) values($1,$2,$3,$4,$5,$6,$7,$8,$9,true) returning id,code,title,carrier_type,business_days_min,business_days_max,cutoff_hour_local,cost,currency,enabled",[t.id,code,title,carrierType,minDays,maxDays,cutoff,cost,currency]);
+    res.status(201).json(row.rows[0]);
+  }catch(e:any){if(e?.code==="23505")return fail(res,409,"شناسه این روش ارسال قبلاً ثبت شده است");throw e;}
+}));
+logisticsRouter.patch("/api/logistics/delivery-methods/:id/enabled",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  if(typeof req.body?.enabled!=="boolean")return fail(res,400,"وضعیت فعال یا غیرفعال باید مشخص باشد");
+  const row=await query("update commerce_delivery_methods set enabled=$1 where id=$2 and tenant_id=$3 returning id,code,title,carrier_type,business_days_min,business_days_max,cutoff_hour_local,cost,currency,enabled",[req.body.enabled,req.params.id,t.id]);
+  if(!row.rowCount)return fail(res,404,"روش ارسال پیدا نشد");
+  res.json(row.rows[0]);
+}));
