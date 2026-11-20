@@ -68,7 +68,8 @@ export function AddToCartButton({ product, compact = false, quantity = 1 }: { pr
     const cart = readCart();
     const existing = cart.find(item => item.id === product.id);
     const limit = product.is_preorder ? Math.max(1, Number(product.preorder_limit) || 10) : Number.POSITIVE_INFINITY;
-    const requestedQuantity = Math.max(1, Math.min(99, Math.floor(Number(quantity) || 1)));\n    if ((existing?.quantity || 0) + requestedQuantity > limit) {
+    const requestedQuantity = Math.max(1, Math.min(99, Math.floor(Number(quantity) || 1)));
+    if ((existing?.quantity || 0) + requestedQuantity > limit) {
       setNotice("سقف مجاز این کالا " + limit.toLocaleString("fa-IR") + " عدد است.");
       window.setTimeout(() => setNotice(""), 2400);
       return;
