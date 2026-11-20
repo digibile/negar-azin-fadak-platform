@@ -45,7 +45,7 @@ function CheckoutContent(){
     const or=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});
     const ob=await or.json();
     if(or.ok){
-     setOrder({...ob.order,items:ob.items||[],payments:ob.payments||[],refunds:ob.refunds||[]});setItems(ob.items||[]);
+     setOrder({...ob.order,deliveryQuote:ob.deliveryQuote||null,items:ob.items||[],payments:ob.payments||[],refunds:ob.refunds||[]});setItems(ob.items||[]);
      if(ob.order.shipping_address)setShippingAddress(current=>({...current,...ob.order.shipping_address}));
      const latestPending=(ob.payments||[]).find((p:any)=>["pending","authorized"].includes(p.status));
      if(latestPending)setPendingPaymentId(latestPending.id);
@@ -59,7 +59,7 @@ function CheckoutContent(){
        if(["paid","failed"].includes(vb.status)){setPendingPaymentId("");setPaymentAttemptKey("");}
        setMessage(vb.status==="paid"?"پرداخت با تأیید مستقیم درگاه نهایی شد.":vb.status==="failed"?"درگاه این تلاش را ناموفق اعلام کرد؛ می‌توانید پرداخت را دوباره آغاز کنید.":"درگاه هنوز پرداخت را نهایی نکرده است؛ وضعیت سفارش در انتظار تأیید باقی می‌ماند.");
        const refreshed=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});
-       const rb=await refreshed.json();if(refreshed.ok)setOrder({...rb.order,items:rb.items||[],payments:rb.payments||[],refunds:rb.refunds||[]});
+       const rb=await refreshed.json();if(refreshed.ok)setOrder({...rb.order,deliveryQuote:rb.deliveryQuote||null,items:rb.items||[],payments:rb.payments||[],refunds:rb.refunds||[]});
       }else if(pending?.status==="paid")setMessage("پرداخت این سفارش قبلاً تأیید شده است.");
      }
     }
@@ -75,7 +75,7 @@ function CheckoutContent(){
    const b=await r.json();if(!r.ok)throw new Error(b.error||"بررسی وضعیت پرداخت ناموفق بود");
    if(["paid","failed"].includes(b.status)){setPendingPaymentId("");setPaymentAttemptKey("");}
    setMessage(b.status==="paid"?"پرداخت با تأیید درگاه نهایی شد.":b.status==="failed"?"درگاه پرداخت را ناموفق اعلام کرد؛ برای تلاش تازه دوباره پرداخت را آغاز کنید.":"درگاه هنوز پرداخت را تأیید نکرده است.");
-   if(orderId){const or=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});const ob=await or.json();if(or.ok)setOrder({...ob.order,items:ob.items||[],payments:ob.payments||[],refunds:ob.refunds||[]});}
+   if(orderId){const or=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});const ob=await or.json();if(or.ok)setOrder({...ob.order,deliveryQuote:ob.deliveryQuote||null,items:ob.items||[],payments:ob.payments||[],refunds:ob.refunds||[]});}
   }catch(e){setError(e instanceof Error?e.message:"خطا در بررسی پرداخت");}
   finally{setBusy(false);}
  }
@@ -87,7 +87,7 @@ function CheckoutContent(){
    const b=await r.json();if(!r.ok)throw new Error(b.error||"تأیید پیش‌فاکتور حمل ناموفق بود");
    const refreshed=await fetch("/api/marketplace/orders/"+encodeURIComponent(orderId),{credentials:"include"});
    const ob=await refreshed.json();if(!refreshed.ok)throw new Error(ob.error||"بازخوانی سفارش ناموفق بود");
-   setOrder({...ob.order,items:ob.items||[],payments:ob.payments||[],refunds:ob.refunds||[]});
+   setOrder({...ob.order,deliveryQuote:ob.deliveryQuote||null,items:ob.items||[],payments:ob.payments||[],refunds:ob.refunds||[]});
    setMessage("هزینه ارسال تأیید شد. اکنون می‌توانید پرداخت مبلغ نهایی را انجام دهید.");
   }catch(e){setError(e instanceof Error?e.message:"تأیید هزینه ارسال ناموفق بود.");}
   finally{setBusy(false);}
@@ -142,9 +142,11 @@ const ar=await fetch("/api/marketplace/orders/"+encodeURIComponent(oid)+"/shippi
     </>:<>
      <h3>در انتظار استعلام هزینه ارسال</h3>
      <p>پس از ثبت پیش‌فاکتور توسط واحد لجستیک، جزئیات هزینه در همین بخش نمایش داده می‌شود. پرداخت تا آن زمان غیرفعال است.</p>
-     {order.delivery_quote_id&&<p>پیش‌فاکتور ثبت شده و آماده بررسی است.</p>}
+     {order.deliveryQuote&&<div className="module-row"><strong>{order.deliveryQuote.carrier_name||"شرکت حمل"} · {order.deliveryQuote.service_name||"سرویس حمل"}</strong><span>{Number(order.deliveryQuote.customer_charge||0).toLocaleString("fa-IR")} {order.deliveryQuote.currency}</span></div>}
+     {order.deliveryQuote&&<p>هزینه اعلامی شرکت حمل: {Number(order.deliveryQuote.carrier_cost||0).toLocaleString("fa-IR")} {order.deliveryQuote.currency}</p>}
+     {order.deliveryQuote?.expires_at&&<p>اعتبار پیش‌فاکتور تا: {new Date(order.deliveryQuote.expires_at).toLocaleString("fa-IR")}</p>}
     </>}
-    {order.delivery_quote_id&&order.delivery_quote_snapshot?.status!=="accepted"&&<button type="button" className="sk-checkout-secondary" disabled={busy} onClick={()=>void acceptDeliveryQuote()}>تأیید هزینه ارسال</button>}
+    {order.deliveryQuote?.status==="offered"&&<button type="button" className="sk-checkout-secondary" disabled={busy} onClick={()=>void acceptDeliveryQuote()}>تأیید هزینه ارسال</button>}
    </article>}
    {loading?<div className="product-card sk-checkout-loading" role="status"><span className="sk-checkout-spinner" aria-hidden="true" />در حال دریافت سبد و بررسی وضعیت سفارش…</div>:cartId==="history"&&order?<article className="product-card sk-checkout-order-status"><span>پیگیری سفارش</span><h2>{order.order_no||order.id}</h2><p>وضعیت سفارش: {order.status}</p><p>وضعیت پرداخت: {order.payments?.[0]?.status||"ثبت نشده"}</p><p>مبلغ: {Number(order.total_amount||0).toLocaleString("fa-IR")} {order.currency||"IRR"}</p>{(order.items||[]).map((item:any)=><div className="module-row" key={item.id}><strong>{item.title}</strong><span>{Number(item.quantity).toLocaleString("fa-IR")} عدد</span></div>)}{pendingPaymentId&&<button type="button" className="sk-checkout-secondary" disabled={busy} onClick={verifyPendingPayment}>بررسی مجدد وضعیت پرداخت</button>}<Link href="/account/orders">بازگشت به سفارش‌های من</Link></article>:items.length===0?<div className="product-card sk-checkout-empty"><h2>سبد قابل تسویه نیست</h2><p>این سبد خالی است یا قبلاً تسویه شده. برای ثبت سفارش جدید، به فروشگاه برگردید.</p><Link className="sk-checkout-primary" href="/store/shop">مرور کالاها</Link></div>:<div className="plan-grid sk-checkout-grid">
     <article className="product-card sk-checkout-card sk-delivery-address"><span>اطلاعات تحویل</span><h3>نشانی دریافت سفارش</h3><p>این نشانی همراه سفارش ذخیره می‌شود و مبنای تحویل مرسوله خواهد بود.</p><div className="sk-delivery-address-grid"><label>نام گیرنده<input required value={shippingAddress.recipientName} onChange={e=>setShippingAddress(p=>({...p,recipientName:e.target.value}))} placeholder="نام و نام خانوادگی"/></label><label>شماره همراه گیرنده<input required inputMode="tel" value={shippingAddress.recipientPhone} onChange={e=>setShippingAddress(p=>({...p,recipientPhone:e.target.value}))} placeholder="09…"/></label><label>استان<input required value={shippingAddress.province} onChange={e=>setShippingAddress(p=>({...p,province:e.target.value}))} placeholder="استان"/></label><label>شهر<input required value={shippingAddress.city} onChange={e=>setShippingAddress(p=>({...p,city:e.target.value}))} placeholder="شهر"/></label><label className="wide">نشانی دقیق<input required value={shippingAddress.addressLine} onChange={e=>setShippingAddress(p=>({...p,addressLine:e.target.value}))} placeholder="خیابان، کوچه، پلاک، طبقه"/></label><label>کدپستی<input required inputMode="numeric" value={shippingAddress.postalCode} onChange={e=>setShippingAddress(p=>({...p,postalCode:e.target.value}))} placeholder="۱۰ رقم"/></label><label>واحد / پلاک تکمیلی<input value={shippingAddress.unit} onChange={e=>setShippingAddress(p=>({...p,unit:e.target.value}))} placeholder="اختیاری"/></label></div></article>
