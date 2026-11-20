@@ -1,4 +1,4 @@
--- 125: inspected marketplace returns can restock only accepted quantities.
+-- Inspected marketplace returns can restock only accepted quantities.
 begin;
 
 create unique index if not exists marketplace_return_requests_tenant_id_uq
