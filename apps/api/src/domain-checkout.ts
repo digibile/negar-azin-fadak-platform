@@ -287,7 +287,7 @@ checkoutRouter.post("/api/storefront/checkout",requireAuth,asyncHandler(async(re
  const b=req.body||{},storeId=s(b.storeId,100),addressId=s(b.addressId,100),key=s(b.idempotencyKey,160);
  const requested=Array.isArray(b.items)?b.items:[];
  if(!storeId||!addressId||!key||requested.length<1||requested.length>50)return res.status(400).json({error:"فروشگاه، نشانی، شناسه یکتای درخواست و اقلام سبد الزامی هستند"});
- const normalized=requested.map((x:any)=>({productId:s(x?.productId,100),quantity:n(x?.quantity)}));
+ const normalized:Array<{productId:string;quantity:number|null}>=requested.map((x:any)=>({productId:s(x?.productId,100),quantity:n(x?.quantity)}));
  if(normalized.some(x=>!x.productId||x.quantity===null||!Number.isInteger(x.quantity)||x.quantity<=0||x.quantity>99)||new Set(normalized.map(x=>x.productId)).size!==normalized.length)return res.status(400).json({error:"شناسه یا تعداد کالاها معتبر نیست"});
  const client=await pool.connect();
  try{
