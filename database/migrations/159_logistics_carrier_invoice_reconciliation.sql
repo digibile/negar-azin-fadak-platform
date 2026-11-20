@@ -15,7 +15,7 @@ create table if not exists logistics_carrier_invoices (
  quoted_cost numeric(20,2) not null check(quoted_cost >= 0),
  invoice_amount numeric(20,2) not null check(invoice_amount >= 0),
  variance_amount numeric(20,2) not null,
- status text not null default 'submitted' check(status in ('matched','disputed','approved','void')),
+ status text not null check(status in ('matched','disputed','approved','void')),
  notes text,
  resolution_note text,
  created_by uuid references users(id) on delete set null,
