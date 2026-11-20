@@ -13,7 +13,7 @@ async function event(t:string,type:string,id:string,from:string|null,to:string,e
 const transitions:Record<string,string[]>={draft:["submitted","cancelled"],submitted:["approved","rejected","cancelled"],approved:["rfq","cancelled"],rfq:["ordered","closed"],ordered:["closed"],closed:[],cancelled:[],rejected:[]};
 router.get("/api/purchasing/overview",requireAuth,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const [suppliers,requests,rfqs,quotes,orders,receipts,invoices,payments,returns,evaluations,contracts,events]=await Promise.all([
+ const [suppliers,requests,rfqs,quotes,orders,receipts,invoices,payments,returns,evaluations,contracts,events,financialEvents]=await Promise.all([
   query("select * from purchase_suppliers where tenant_id=$1 order by created_at desc limit 500",[t.id]),
   query("select * from purchase_requests where tenant_id=$1 order by created_at desc limit 500",[t.id]),
   query("select r.*,s.request_no from purchase_rfqs r join purchase_requests s on s.id=r.request_id where r.tenant_id=$1 order by r.created_at desc limit 300",[t.id]),
