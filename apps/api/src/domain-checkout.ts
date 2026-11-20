@@ -173,7 +173,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
   const order=o.rows[0];
   const linkedSupply=(await client.query("select * from logistics_supply_orders where tenant_id=$1 and marketplace_order_id=$2 for update",[t.id,order.id])).rows[0];
   if(linkedSupply){
-   const activeShipment=await client.query("select id,status from logistics_shipments where tenant_id=$1 and supply_order_id=$2 and status in ('planned','assigned','picked_up','in_transit') limit 1 for update",[t.id,linkedSupply.id]);
+   const activeShipment=await client.query("select id,status from logistics_shipments where tenant_id=$1 and supply_order_id=$2 and status in ('planned','assigned','picked_up','in_transit','failed') limit 1 for update",[t.id,linkedSupply.id]);
    if(activeShipment.rowCount){await client.query("rollback");return res.status(409).json({error:"پیش از بازپرداخت، مرسوله فعال باید از مسیر حمل تعیین تکلیف شود"});}
   }
   if(!["paid","processing","delivered","returned"].includes(order.status)){await client.query("rollback");return res.status(409).json({error:"فقط سفارش پرداخت‌شده قابل بازگشت وجه است"});}
