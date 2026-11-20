@@ -57,3 +57,11 @@ test("logistics storefront fulfillment queue lists only paid tenant orders and e
  assert.ok(source.includes("so.marketplace_order_id=o.id"));
  assert.ok(source.includes("as supply_order_id"));
 });
+
+
+test("marketplace fulfillment requires an active warehouse in the same tenant",()=>{
+ assert.ok(source.includes('sourceWarehouseId=String(req.body?.sourceWarehouseId??"").trim()'));
+ assert.ok(source.includes("from inventory_warehouses where id=$1 and tenant_id=$2 and status='active'"));
+ assert.ok(source.includes("source_warehouse_id,origin,destination"));
+ assert.ok(source.includes("warehouse.id,origin,destination"));
+});
