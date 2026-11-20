@@ -101,7 +101,7 @@ if(!checkoutPage.includes('cartId==="history"')||!checkoutPage.includes('order?.
 console.log("COMMERCE_STOREFRONT_INTEGRITY_OK");
 
 
-const reservationMigration=read("database/migrations/132_marketplace_reservation_expiry.sql");
+const reservationMigration=read("database/migrations/140_marketplace_reservation_expiry.sql");
 const notificationWorker=read("apps/api/src/notification-worker.ts");
 if(!reservationMigration.includes("reservation_expires_at")||!reservationMigration.includes("reservation_released_at"))throw new Error("Marketplace reservation expiry must be persisted on the canonical order");
 if(!checkoutApi.includes("MARKETPLACE_RESERVATION_TTL_MINUTES")||!checkoutApi.includes("reservation_expires_at"))throw new Error("New marketplace orders must receive a bounded stock reservation expiry");
@@ -124,7 +124,7 @@ if(!refundRoute.includes("status='reversed'"))throw new Error("Empty pending sel
 const settlementApi=read("apps/api/src/domain-settlement.ts");
 const ledgerApi=read("apps/api/src/ledger.ts");
 const settlementPageCurrency=read("apps/web/app/marketplace/settlements/page.tsx");
-const settlementCurrencyMigration=read("database/migrations/133_marketplace_settlement_currency.sql");
+const settlementCurrencyMigration=read("database/migrations/141_marketplace_settlement_currency.sql");
 if(!settlementCurrencyMigration.includes("seller_settlements")||!settlementCurrencyMigration.includes("ledger_entries")||!settlementCurrencyMigration.includes("MIXED"))throw new Error("Marketplace settlement and ledger currency migration is incomplete");
 if(!settlementApi.includes("bySellerCurrency")||!settlementApi.includes("status,currency)")||!settlementApi.includes('settlement.currency==="MIXED"'))throw new Error("Seller settlements must be grouped and paid in one currency");
 if(!ledgerApi.includes("currency?:string")||!ledgerApi.includes('args.currency||"IRR"'))throw new Error("Ledger entries must persist the currency of commerce transactions");
