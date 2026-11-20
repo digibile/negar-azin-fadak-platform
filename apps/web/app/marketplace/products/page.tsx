@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../../lib/api";
+import { ManagementDialog, ManagementToolbar } from "../../components/ManagementWorkspaceTools";
 import "./products-workspace.css";
 
 type Seller = { id: string; display_name: string; status: string };
@@ -64,6 +65,7 @@ export default function ProductsPage() {
   const [syncingSources, setSyncingSources] = useState(false);
   const [importingDemo, setImportingDemo] = useState(false);
   const [importingFullCatalog, setImportingFullCatalog] = useState(false);
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
 
   async function load() {
     setError("");
@@ -478,6 +480,7 @@ export default function ProductsPage() {
       <a className="mp-back-link" href="/platform">بازگشت به مرکز عملیات <span>←</span></a>
     </header>
 
+    <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-products" onCreate={() => { setTab("manual"); document.querySelector(".mp-workspace")?.scrollIntoView({behavior:"smooth",block:"start"}); }} createLabel="ثبت محصول جدید"/>
     <section className="mp-metrics" aria-label="خلاصه کاتالوگ">
       <article><span>کل محصولات</span><strong>{items.length.toLocaleString("fa-IR")}</strong><small>رکوردهای کاتالوگ داخلی</small></article>
       <article><span>منتشرشده</span><strong>{items.filter(item => item.status === "active").length.toLocaleString("fa-IR")}</strong><small>قابل نمایش در ویترین</small></article>
@@ -585,7 +588,7 @@ export default function ProductsPage() {
       })}</div> : <div className="mp-inventory-empty">{items.length ? "محصولی با این فیلتر پیدا نشد." : "هنوز محصولی در کاتالوگ داخلی ثبت نشده است."}</div>}
     </section>
 
-    <section className="mp-inventory mp-source-sync">
+    {viewingProduct && <ManagementDialog title={"جزئیات محصول "+viewingProduct.title} onClose={() => setViewingProduct(null)}><dl className="management-detail-grid">{Object.entries(viewingProduct).filter(([key])=>key!=="id").map(([key,value])=><div key={key}><dt>{key}</dt><dd>{value===null||value===undefined?"—":typeof value==="object"?JSON.stringify(value):String(value)}</dd></div>)}</dl></ManagementDialog>}\n\n    <section className="mp-inventory mp-source-sync">
       <div className="mp-inventory-head">
         <div><h2>تأمین و همگام‌سازی مرجع</h2><p>قیمت مرجع و وضعیت اعلام‌شدهٔ تأمین‌کننده جدا از قیمت فروش و موجودی انبار خودت ذخیره می‌شود.</p></div>
         <button type="button" className="mp-refresh" onClick={syncReferenceProducts} disabled={syncingSources || !sourceLinks.length}>{syncingSources ? "در حال همگام‌سازی…" : `به‌روزرسانی ${Math.min(50,sourceLinks.length).toLocaleString("fa-IR")} مورد اول`}</button>
