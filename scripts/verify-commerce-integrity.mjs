@@ -162,3 +162,19 @@ if(!orderPage.includes('next==="return_request"')||!orderPage.includes('return_a
 if(!orderPage.includes('paid:[{status:"processing",label:"شروع آماده‌سازی"},{status:"return_request"'))throw new Error("Paid orders must allow a formal return request");
 
 if(!api.includes("if(r.status===next){await client.query(\"commit\");return res.json({return:r,idempotent:true});}"))throw new Error("Repeated return inspection transitions must be idempotent");
+
+
+const logisticsApi=read("apps/api/src/logistics.ts");
+const logisticsMigration=read("database/migrations/153_marketplace_logistics_bridge.sql");
+const logisticsWorkspace=read("apps/web/app/marketplace/shipping/page.tsx");
+const customerTracking=read("apps/web/app/account/orders/[id]/tracking/page.tsx");
+const customerOrdersPage=read("apps/web/app/account/orders/page.tsx");
+const orderLifecycle=api.slice(api.indexOf('domainMarketplaceRouter.patch("/api/marketplace/orders/:id/status"'));
+if(!logisticsMigration.includes("marketplace_order_id")||!logisticsMigration.includes("uq_logistics_marketplace_order_shipment"))throw new Error("Marketplace logistics bridge must enforce one shipment per order");
+if(!logisticsApi.includes('/api/logistics/marketplace-orders/:orderId/shipments')||!logisticsApi.includes('/api/marketplace/orders/:orderId/shipment'))throw new Error("Marketplace shipment creation and customer tracking endpoints are required");
+if(!logisticsApi.includes("for update")||!logisticsApi.includes("marketplace.order_shipped")||!logisticsApi.includes("marketplace.order_delivered"))throw new Error("Shipment lifecycle must lock rows and synchronize order shipping and delivery events");
+if(!logisticsApi.includes('s.marketplace_order_id&&b.status==="cancelled"'))throw new Error("Marketplace shipment cancellation must not orphan an order");
+if(!logisticsWorkspace.includes("/api/logistics/marketplace-orders/")||!logisticsWorkspace.includes("ایجاد مرسوله")||!logisticsWorkspace.includes("ثبت تحویل"))throw new Error("Marketplace logistics workspace must create and manage shipments");
+if(!customerTracking.includes("/api/marketplace/orders/")||!customerTracking.includes("تاریخچه جابه‌جایی"))throw new Error("Customer order tracking must display shipment event history");
+if(!customerOrdersPage.includes("latest_shipment_id")||!customerOrdersPage.includes("/tracking"))throw new Error("Customer order history must link to shipment tracking when a shipment exists");
+if(orderLifecycle.includes('processing:["shipped"]')&&!orderLifecycle.includes("ثبت ارسال سفارش فقط پس از شروع حرکت مرسوله"))throw new Error("Marketplace order shipping must be controlled by logistics events");
