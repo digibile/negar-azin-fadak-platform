@@ -338,13 +338,19 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
   const rr=await client.query("insert into marketplace_refunds(tenant_id,order_id,payment_id,refund_no,amount,reason,status,provider_code,provider_transaction_id,provider_refund_transaction_id,provider_payload,created_by) values($1,$2,$3,$4,$5,$6,'refunded',$7,$8,$9,$10,$11) returning *",[t.id,order.id,payment.rows[0].id,refundNo,Number(payment.rows[0].amount),s(req.body?.reason,500)||null,refundProviderCode,payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref,refundProviderTransactionId,JSON.stringify(refundProviderPayload),(req as any).user.id]);
   await client.query("update marketplace_payments set status='refunded',updated_at=now() where id=$1 and tenant_id=$2 and status='paid'",[payment.rows[0].id,t.id]);
   await client.query("update marketplace_orders set status='refunded',updated_at=now() where id=$1 and tenant_id=$2",[order.id,t.id]);
-  await postLedgerEntry(client,{tenantId:t.id,entryNo:"REF-"+rr.rows[0].refund_no,sourceType:"marketplace_refund",sourceId:rr.rows[0].id,description:"معکوس‌سازی پرداخت سفارش "+order.order_no,createdBy:(req as any).user.id,currency:order.currency||"IRR",lines:[
+  const refundCarrierCost=Math.max(0,Number(order.delivery_quote_snapshot?.carrierCost||0));
+  const refundCustomerShipping=Math.max(0,Number(order.shipping_amount||0));
+  const refundLedgerLines:any[]=[
    {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",debit:Number(order.seller_payable)},
-   {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",debit:Number(order.commission_amount)},
-   payment.rows[0].provider_code==="credit_facility"
-    ? {accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",credit:Number(order.total_amount)}
-    : {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:Number(order.total_amount)}
-  ]});
+   {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",debit:Number(order.commission_amount)}
+  ];
+  if(refundCarrierCost>0)refundLedgerLines.push({accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",debit:refundCarrierCost});
+  if(refundCustomerShipping>refundCarrierCost)refundLedgerLines.push({accountCode:"4201",accountName:"درآمد خدمات حمل",accountType:"revenue",debit:refundCustomerShipping-refundCarrierCost});
+  if(refundCarrierCost>refundCustomerShipping)refundLedgerLines.push({accountCode:"5201",accountName:"هزینه مازاد حمل سفارش",accountType:"expense",credit:refundCarrierCost-refundCustomerShipping});
+  refundLedgerLines.push(payment.rows[0].provider_code==="credit_facility"
+   ? {accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",credit:Number(order.total_amount)}
+   : {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:Number(order.total_amount)});
+  await postLedgerEntry(client,{tenantId:t.id,entryNo:"REF-"+rr.rows[0].refund_no,sourceType:"marketplace_refund",sourceId:rr.rows[0].id,description:"معکوس‌سازی پرداخت سفارش "+order.order_no,createdBy:(req as any).user.id,currency:order.currency||"IRR",lines:refundLedgerLines});
   const paidSettlement=settlementLink.rows.find((x:any)=>x.status==="paid");
   if(paidSettlement&&Number(order.seller_payable)>0){
    const claim=await client.query("insert into marketplace_seller_recovery_claims(tenant_id,seller_id,settlement_id,order_id,refund_id,amount,currency,status,reason,created_by) values($1,$2,$3,$4,$5,$6,$7,'open',$8,$9) on conflict(tenant_id,order_id) do nothing returning *",[t.id,paidSettlement.seller_id,paidSettlement.id,order.id,rr.rows[0].id,Number(order.seller_payable),order.currency||"IRR","بازپرداخت سفارش پس از پرداخت تسویه فروشنده",(req as any).user.id]);
