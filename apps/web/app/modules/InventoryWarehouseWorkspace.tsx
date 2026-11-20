@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useState} from "react";
 import styles from "./InventoryWarehouseWorkspace.module.css";
+import {ManagementDialog,ManagementToolbar} from "../components/ManagementWorkspaceTools";
 type W=Record<string,any>;
 const api=async(path:string,init?:RequestInit)=>{const r=await fetch(path,{credentials:"include",...init,headers:{"Content-Type":"application/json",...(init?.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"خطا در ارتباط با سامانه");return d};
 export default function InventoryWarehouseWorkspace(){
@@ -19,8 +20,11 @@ export default function InventoryWarehouseWorkspace(){
  const post=async(id:string)=>{try{await api("/api/inventory/documents/"+id+"/post",{method:"POST",body:"{}"});await load()}catch(e:any){setError(e.message)}};
  const createCount=async()=>{try{await api("/api/inventory/counts",{method:"POST",body:JSON.stringify(count)});setCount({countNo:"",warehouseId:""});await load()}catch(e:any){setError(e.message)}};
  const tabs=[["dashboard","داشبورد"],["warehouses","انبارها"],["categories","دسته‌بندی"],["units","واحدها"],["products","کالاها"],["documents","رسید و حواله"],["stock","موجودی لحظه‌ای"],["counts","انبارگردانی"],["reports","گزارش انبار"]];
+ const exportRows:W[]=tab==="warehouses"?warehouses:tab==="categories"?categories:tab==="units"?units:tab==="products"?products:tab==="documents"?docs:tab==="stock"?stock:tab==="counts"?counts:tab==="reports"?stock.filter(x=>Number(x.quantity)<=Number(x.reorder_point)):[...warehouses,...products,...stock];
  return <main className={styles.page} dir="rtl"><header><div><span>هسته مرکزی کسب‌وکار · منوی ۱۱</span><h1>انبار</h1><p>کنترل واقعی موجودی، رسید، حواله، انتقال و انبارگردانی</p></div><button onClick={load}>بازخوانی</button></header>
- {error&&<div className={styles.error}>{error}</div>}<nav>{tabs.map(([k,t])=><button key={k} className={tab===k?styles.active:""} onClick={()=>setTab(k)}>{t}</button>)}</nav>
+ {error&&<div className={styles.error}>{error}</div>}
+ <ManagementToolbar rows={exportRows} filename={"inventory-"+tab} onCreate={()=>document.querySelector(`.${styles.panel} .${styles.form}`)?.scrollIntoView({behavior:"smooth",block:"center"})}/>
+ <nav>{tabs.map(([k,t])=><button key={k} className={tab===k?styles.active:""} onClick={()=>setTab(k)}>{t}</button>)}</nav>
  {tab==="dashboard"&&<section className={styles.cards}>{[["انبارها",overview.warehouses?.total],["کالاهای فعال",overview.products?.active],["موجودی",overview.stock?.total],["اسناد پیش‌نویس",overview.documents?.draft]].map(([a,b])=><article key={String(a)}><small>{a}</small><strong>{b??0}</strong></article>)}</section>}
  {tab==="warehouses"&&<section className={styles.panel}><h2>مدیریت انبارها</h2><div className={styles.form}><input placeholder="کد انبار" value={w.code} onChange={e=>setW({...w,code:e.target.value})}/><input placeholder="نام انبار" value={w.name} onChange={e=>setW({...w,name:e.target.value})}/><input placeholder="نشانی" value={w.address} onChange={e=>setW({...w,address:e.target.value})}/><button onClick={createWarehouse}>ثبت انبار</button></div><Table rows={warehouses} cols={["code","name","status","address"]}/></section>}
  {tab==="categories"&&<section className={styles.panel}><h2>دسته‌بندی کالا</h2><div className={styles.form}><input placeholder="کد دسته‌بندی" value={cat.code} onChange={e=>setCat({...cat,code:e.target.value})}/><input placeholder="نام دسته‌بندی" value={cat.name} onChange={e=>setCat({...cat,name:e.target.value})}/><button onClick={createCategory}>ثبت دسته‌بندی</button></div><Table rows={categories} cols={["code","name"]}/></section>}
@@ -32,4 +36,7 @@ export default function InventoryWarehouseWorkspace(){
  {tab==="reports"&&<section className={styles.panel}><h2>گزارش انبار</h2><Table rows={stock.filter(x=>Number(x.quantity)<=Number(x.reorder_point))} cols={["warehouse_name","sku","product_name","quantity","reorder_point"]}/></section>}
  </main>
 }
-function Table({rows,cols,action}:{rows:W[];cols:string[];action?:(x:W)=>any}){return <div className={styles.table}>{rows.map(x=><div className={styles.row} key={x.id||x.document_no||x.sku}>{cols.map(c=><span key={c}><b>{c.replaceAll("_"," ")}</b>{String(x[c]??"")}</span>)}{action&&<span>{action(x)}</span>}</div>)}{!rows.length&&<div className={styles.empty}>داده‌ای ثبت نشده است.</div>}</div>}
+function Table({rows,cols,action}:{rows:W[];cols:string[];action?:(x:W)=>any}){
+ const [selected,setSelected]=useState<W|null>(null);
+ return <><div className={styles.table}>{rows.map(x=><div className={styles.row} key={x.id||x.document_no||x.sku}>{cols.map(c=><span key={c}><b>{c.replaceAll("_"," ")}</b>{String(x[c]??"")}</span>)}<span><button type="button" onClick={()=>setSelected(x)}>مشاهده</button>{action&&action(x)}</span></div>)}{!rows.length&&<div className={styles.empty}>داده‌ای ثبت نشده است.</div>}</div>{selected&&<ManagementDialog title="جزئیات رکورد انبار" onClose={()=>setSelected(null)}><dl className="management-detail-grid">{Object.entries(selected).map(([key,value])=><div key={key}><dt>{key.replaceAll("_"," ")}</dt><dd>{value===null||value===undefined?"—":typeof value==="object"?JSON.stringify(value):String(value)}</dd></div>)}</dl></ManagementDialog>}</>;
+}
