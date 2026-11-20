@@ -84,3 +84,17 @@ test("sales invoice payments lock the invoice, validate outstanding balance and 
  assert.ok(sales.includes("update sales_invoices set paid_total=$1,status=$2,updated_at=now() where id=$3 and tenant_id=$4 returning id"));
  assert.ok(sales.includes("if(!updated.rowCount){await c.query(\"rollback\")"));
 });
+
+test("sales return requests reserve only paid invoice balance under an invoice lock",()=>{
+ assert.ok(sales.includes("select * from sales_invoices where id=$1 and tenant_id=$2 for update"));
+ assert.ok(sales.includes("select coalesce(sum(amount),0)::numeric amount from sales_returns where tenant_id=$1 and invoice_id=$2 and status not in ('rejected','cancelled')"));
+ assert.ok(sales.includes("amount+reservedAmount>paid+0.000001"));
+});
+
+test("sales refunds update invoice net receipts and create a financial refund event atomically",()=>{
+ assert.ok(sales.includes("update sales_returns set status=$1 where id=$2 and tenant_id=$3 returning *"));
+ assert.ok(sales.includes("update sales_invoices set paid_total=$1,status=$2,updated_at=now() where id=$3 and tenant_id=$4"));
+ assert.ok(sales.includes("'customer_refund'"));
+ assert.ok(sales.includes('await c.query("commit")'));
+ assert.ok(sales.includes('await c.query("rollback")'));
+});
