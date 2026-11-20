@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect,useMemo,useState} from "react";
+import {ManagementToolbar} from "../components/ManagementWorkspaceTools";
 
 type Mode="commerce"|"domains"|"sellers"|"payments";
 type PanelTab="domains"|"sellers"|"payments";
@@ -97,6 +98,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
 
  const productItems=(rows.find(x=>x.kind==="products")?.items||[]) as Row[];
  const orderItems=(rows.find(x=>x.kind==="orders")?.items||[]) as Row[];
+ const exportRows:Row[]=mode==="domains"?domains:mode==="sellers"?rows:mode==="payments"?settlements:tab==="products"?productItems:tab==="orders"?orderItems:tab==="stores"?stores:sellers;
 
  return <main className="module-runtime canonical-module" dir="rtl">
   <header className="page-head">
@@ -104,6 +106,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
    <a className="back-link" href="/admin">مرکز مدیریت</a>
   </header>
   {error&&<div className="error runtime-error">{error}</div>}
+  <ManagementToolbar rows={exportRows} filename={"commerce-"+mode+"-"+tab} onCreate={()=>document.querySelector(".runtime-panel .control-grid")?.scrollIntoView({behavior:"smooth",block:"center"})}/>
   <nav className="module-subnav">
    {(mode==="commerce"?["sellers","stores","products","orders"]:mode==="domains"?["domains"]:mode==="sellers"?["sellers"]:["payments"]).map(x=><button type="button" className={tab===x?"active":""} key={x} onClick={()=>setTab(x)}>{({sellers:"فروشندگان",stores:"فروشگاه‌ها",products:"محصولات",orders:"سفارش‌ها",domains:"دامنه‌ها",payments:"تسویه‌ها"} as any)[x]}</button>)}
   </nav>
