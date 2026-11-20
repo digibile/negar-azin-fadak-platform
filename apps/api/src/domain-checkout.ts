@@ -113,7 +113,7 @@ checkoutRouter.get("/api/marketplace/orders/:id",requireAuth,asyncHandler(async(
  const o=await query("select * from marketplace_orders where id=$1 and tenant_id=$2",[req.params.id,t.id]);
  if(!o.rowCount)return res.status(404).json({error:"سفارش پیدا نشد"});
  if(!(await canAccessCustomer(req,o.rows[0].customer_ref,"order:manage")))return res.status(403).json({error:"دسترسی به این سفارش مجاز نیست"});
- const [items,payment,refund]=await Promise.all([
+ const [items,payment,refund,deliveryQuote]=await Promise.all([
   query("select oi.*,p.sku,p.title from marketplace_order_items oi join products p on p.id=oi.product_id where oi.order_id=$1 order by oi.created_at",[req.params.id]),
   query("select id,payment_no,amount,method,status,provider_code,paid_at,created_at from marketplace_payments where order_id=$1 and tenant_id=$2 order by created_at desc",[req.params.id,t.id]),
   query("select refund_no,amount,reason,status,created_at from marketplace_refunds where order_id=$1 and tenant_id=$2 order by created_at desc",[req.params.id,t.id]),
@@ -345,7 +345,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
    {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",debit:Number(order.commission_amount)}
   ];
   if(refundCustomerShipping>refundCarrierCost)refundLedgerLines.push({accountCode:"4201",accountName:"درآمد خدمات حمل",accountType:"revenue",debit:refundCustomerShipping-refundCarrierCost});
-  if(refundCustomerShipping>0)refundLedgerLines.push({accountCode:"5202",accountName:"هزینه بازپرداخت وجه حمل به مشتری",accountType:"expense",debit:refundCustomerShipping});
+  if(refundCustomerShipping>0)refundLedgerLines.push({accountCode:"5202",accountName:"هزینه بازپرداخت وجه حمل به مشتری",accountType:"expense",debit:Math.min(refundCustomerShipping,refundCarrierCost)});
   refundLedgerLines.push(payment.rows[0].provider_code==="credit_facility"
    ? {accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",credit:Number(order.total_amount)}
    : {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:Number(order.total_amount)});
