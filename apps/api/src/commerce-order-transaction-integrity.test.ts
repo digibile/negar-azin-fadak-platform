@@ -68,6 +68,8 @@ test("purchase order creation validates each line and locks tenant-owned supplie
  assert.ok(purchasing.includes("select id,status from purchase_requests where id=$1 and tenant_id=$2 for update"));
  assert.ok(purchasing.includes("where q.id=$1 and r.tenant_id=$2 for update of q,r"));
  assert.ok(purchasing.includes("quote.rows[0].supplier_id!==b.supplierId"));
+ assert.ok(purchasing.includes("linkedRequestId!==quote.rows[0].request_id"));
+ assert.ok(purchasing.includes("linkedRequestId=quote.rows[0].request_id"));
  assert.ok(purchasing.includes("x.quantity<=0||x.unitPrice<0||x.taxRate<0||x.taxRate>100"));
 });
 
