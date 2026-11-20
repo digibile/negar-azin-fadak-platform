@@ -95,6 +95,16 @@ test("customer order history exposes payment verification and safe cancellation 
  assert.ok(customerOrders.includes("بررسی نتیجه پرداخت"));
 });
 
+test("customer order history exposes only tenant- and owner-scoped logistics shipment events",()=>{
+ assert.ok(checkout.includes("logistics_supply_orders so join logistics_shipments ls"));
+ assert.ok(checkout.includes("so.tenant_id=o.tenant_id and so.order_no=o.order_no"));
+ assert.ok(checkout.includes("de.tenant_id=ls.tenant_id and de.shipment_id=ls.id"));
+ assert.ok(checkout.includes("as shipments"));
+ assert.ok(customerOrders.includes("o.shipments"));
+ assert.ok(customerOrders.includes("shipment.events.map"));
+ assert.ok(customerOrders.includes("trackingCode"));
+});
+
 
 test("canonical product detail supports selected quantity before adding to the shared cart",()=>{
  assert.ok(productPage.includes('import ProductPurchaseControls from "./ProductPurchaseControls"'));
