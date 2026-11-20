@@ -151,7 +151,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/delivery-quote/accept",requireA
   if(!Number.isFinite(customerCharge)||customerCharge<0||!Number.isFinite(carrierCost)||carrierCost<0){await client.query("rollback");return res.status(409).json({error:"مبالغ پیش‌فاکتور معتبر نیستند"});}
   const snapshot={id:quote.id,version:quote.version,currency:quote.currency,carrierCost:String(quote.carrier_cost),customerCharge:String(quote.customer_charge),carrierName:quote.carrier_name,serviceName:quote.service_name,estimatedBusinessDaysMin:quote.estimated_business_days_min,estimatedBusinessDaysMax:quote.estimated_business_days_max,notes:quote.notes,expiresAt:quote.expires_at,acceptedAt:new Date().toISOString(),status:"accepted"};
   await client.query("update marketplace_delivery_quotes set status='accepted',accepted_by=$2,accepted_at=now(),updated_at=now() where id=$1",[quote.id,(req as any).user.id]);
-  const updated=(await client.query("update marketplace_orders set shipping_amount=$1,total_amount=subtotal+$1,delivery_quote_id=$2,delivery_quote_snapshot=$3::jsonb,updated_at=now() where id=$4 and tenant_id=$5 returning *",[customerCharge,quote.id,JSON.stringify(snapshot),order.id,t.id])).rows[0];
+  const updated=(await client.query("update marketplace_orders set shipping_amount=$1,total_amount=subtotal-discount_amount+$1,delivery_quote_id=$2,delivery_quote_snapshot=$3::jsonb,updated_at=now() where id=$4 and tenant_id=$5 returning *",[customerCharge,quote.id,JSON.stringify(snapshot),order.id,t.id])).rows[0];
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.delivery_quote_accepted','marketplace_order',$3,$4)",[t.id,(req as any).user.id,order.id,JSON.stringify({quoteId:quote.id,version:quote.version,shippingAmount:customerCharge,totalAmount:updated.total_amount,currency:quote.currency})]);
   await client.query("commit");
   res.json({order:updated,quote});
@@ -170,7 +170,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandl
   if(o.rows[0].reservation_expires_at&&new Date(o.rows[0].reservation_expires_at).getTime()<=Date.now()){await client.query("rollback");return res.status(409).json({error:"مهلت رزرو موجودی این سفارش پایان یافته است"});}
   if(o.rows[0].delivery_quote_required){
    const quote=await client.query("select id,status,expires_at from marketplace_delivery_quotes where id=$1 and tenant_id=$2 and order_id=$3 for update",[o.rows[0].delivery_quote_id,t.id,o.rows[0].id]);
-   if(!quote.rowCount||quote.rows[0].status!=="accepted"||(quote.rows[0].expires_at&&new Date(quote.rows[0].expires_at).getTime()<=Date.now())){
+   if(!quote.rowCount||quote.rows[0].status!=="accepted"){
     await client.query("rollback");return res.status(409).json({error:"پیش از پرداخت باید پیش‌فاکتور هزینه ارسال توسط مشتری تأیید شود"});
    }
   }
