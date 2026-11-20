@@ -6,8 +6,9 @@ import { ManagementDialog, ManagementToolbar } from "../../components/Management
 import "./products-workspace.css";
 
 type Seller = { id: string; display_name: string; status: string };
+type InventoryProduct = { id:string; sku:string; name:string; status:string };
 type Category = { id: string; code: string; name: string; status: string; sort_order: number };
-type Product = { id: string; sku: string; title: string; description?: string | null; price: string | number; currency: string; status: string; seller_id: string; image_url?: string | null; category?: string | null; attributes?: Record<string, unknown> | null };
+type Product = { id: string; sku: string; title: string; inventory_product_id?: string | null; inventory_sku?: string | null; inventory_product_name?: string | null; description?: string | null; price: string | number; currency: string; status: string; seller_id: string; image_url?: string | null; category?: string | null; attributes?: Record<string, unknown> | null };
 type SourceProduct = { id: string; sku: string; title: string; price: string; currency: string; category: string; image_url: string; brand: string | null; source_name: string };
 type SourceCatalog = { products: SourceProduct[]; categories: string[]; sourceStatus: "live" | "unavailable"; fetchedAt: string | null };
 type SourceLink = { id:string; product_id:string; source_name:string; source_product_id:string; source_sku:string|null; source_url:string|null; source_currency:string; source_price:string|number|null; source_available:boolean|null; price_policy:"manual"; last_checked_at:string|null; last_success_at:string|null; last_error:string|null; sku:string; title:string; sale_price:string|number; product_status:string };
@@ -18,6 +19,9 @@ const money = (value: string | number, currency = "IRR") => `${Number(value).toL
 
 export default function ProductsPage() {
   const [items, setItems] = useState<Product[]>([]);
+  const [inventoryProducts, setInventoryProducts] = useState<InventoryProduct[]>([]);
+  const [mappingEditingId, setMappingEditingId] = useState("");
+  const [selectedInventoryProductId, setSelectedInventoryProductId] = useState("");
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [sellerId, setSellerId] = useState("");
@@ -71,13 +75,14 @@ export default function ProductsPage() {
   async function load() {
     setError("");
     try {
-      const [productResult, sellerResult, categoryResult, sourceResult] = await Promise.all([
+      const [productResult, sellerResult, categoryResult, sourceResult, inventoryResult] = await Promise.all([
         api<{items:Product[]}>("/api/marketplace/products"),
         api<{items:Seller[]}>("/api/marketplace/sellers"),
         api<{items:Category[]}>("/api/marketplace/categories"),
         api<SourceSyncResult>("/api/marketplace/products/source-sync")
       ]);
       setItems(productResult.items || []);
+      setInventoryProducts((inventoryResult || []).filter(item => item.status === "active"));
       setSellers(sellerResult.items || []);
       setCategories((categoryResult.items || []).filter(item => item.status === "active"));
       setSourceLinks(sourceResult.items || []);
@@ -429,6 +434,21 @@ export default function ProductsPage() {
     setError(""); setNotice("");
   }
 
+
+  async function saveInventoryLink(item: Product) {
+    setError(""); setNotice(""); setSavingId(item.id);
+    try {
+      const result = await api<{linked:boolean;message:string}>(`/api/marketplace/products/${encodeURIComponent(item.id)}/inventory-link`, {
+        method: "PUT", body: JSON.stringify({ inventoryProductId: selectedInventoryProductId || null })
+      });
+      setNotice(result.message);
+      setMappingEditingId("");
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "ذخیره اتصال کالای انبار ناموفق بود.");
+    } finally { setSavingId(""); }
+  }
+
   async function saveInventory(item: Product) {
     const quantity = Number(inventoryQuantity);
     if (!Number.isInteger(quantity) || quantity < 0) { setError("موجودی باید عدد صحیح و صفر یا بیشتر باشد."); return; }
@@ -557,19 +577,27 @@ export default function ProductsPage() {
         const canPublish = seller?.status === "active" && !needsPriceReview;
         return <article className="mp-product-row" key={item.id}>
           <div className="mp-product-thumb">{item.image_url ? <img src={item.image_url} alt="" loading="lazy" /> : <span>◇</span>}</div>
-          <div className="mp-product-name"><b>{item.title}</b><small>{item.sku} · {seller?.display_name || "فروشنده"}{item.category ? " · " + item.category : ""}</small></div>
+          <div className="mp-product-name"><b>{item.title}</b><small>{item.sku} · {seller?.display_name || "فروشنده"}{item.category ? " · " + item.category : ""}</small>
+            {item.inventory_product_id ? <small>کالای انبار: {item.inventory_sku} · {item.inventory_product_name}</small> : <small>هنوز به کالای انبار متصل نشده</small>}</div>
           <strong className="mp-product-price">{needsPriceReview ? "نیازمند قیمت‌گذاری" : money(item.price, item.currency)}</strong>
           <span className={"mp-status status-" + item.status}><i />{statusLabel[item.status] || item.status}</span>
           <div className="mp-row-actions">
             <button type="button" onClick={() => setViewingProduct(item)}>مشاهده</button>
             <button type="button" onClick={() => startEdit(item)} disabled={savingId === item.id}>ویرایش قیمت و مشخصات</button>
             <button type="button" onClick={() => inventoryEditingId === item.id ? setInventoryEditingId("") : startInventoryEdit(item)} disabled={savingId === item.id}>ثبت / ویرایش موجودی</button>
+            <button type="button" onClick={() => { setMappingEditingId(mappingEditingId === item.id ? "" : item.id); setSelectedInventoryProductId(item.inventory_product_id || ""); }} disabled={savingId === item.id}>اتصال به کالای انبار</button>
             {item.status === "active"
               ? <button type="button" onClick={() => changeStatus(item, "draft")} disabled={savingId === item.id}>{savingId === item.id ? "در حال ذخیره…" : "برداشتن از ویترین"}</button>
               : <button type="button" onClick={() => changeStatus(item, "active")} disabled={savingId === item.id || !canPublish} title={needsPriceReview ? "ابتدا قیمت فروش خودتان را ثبت و ذخیره کنید" : !canPublish ? "ابتدا فروشنده را فعال کنید" : ""}>{savingId === item.id ? "در حال ذخیره…" : "انتشار محصول"}</button>}
             {needsPriceReview && <small>قیمت منبع فقط برای مرجع است؛ قیمت فروش خودتان را وارد کنید.</small>}
             {!seller || seller.status !== "active" ? <small>فعال‌سازی فروشنده لازم است</small> : null}
           </div>
+          {mappingEditingId === item.id && <div className="mp-product-edit-form">
+            <h3>اتصال محصول فروشگاه به کالای انبار</h3>
+            <p>این اتصال فقط شناسه کالای متناظر را ثبت می‌کند. تا زمان تکمیل کنترل موجودی و رزرو، هیچ مقدار موجودی تغییر نمی‌کند.</p>
+            <label>کالای انبار<select value={selectedInventoryProductId} onChange={event => setSelectedInventoryProductId(event.target.value)}><option value="">بدون اتصال</option>{inventoryProducts.map(stockProduct => <option key={stockProduct.id} value={stockProduct.id}>{stockProduct.sku} · {stockProduct.name}</option>)}</select></label>
+            <div className="mp-edit-actions"><button type="button" onClick={() => void saveInventoryLink(item)} disabled={savingId === item.id}>{savingId === item.id ? "در حال ذخیره…" : "ذخیره اتصال"}</button><button type="button" onClick={() => setMappingEditingId("")} disabled={savingId === item.id}>انصراف</button></div>
+          </div>}
           {inventoryEditingId === item.id && <div className="mp-product-edit-form">
             <h3>موجودی قابل فروش</h3>
             <p>فقط موجودی واقعی و قابل تحویل را ثبت کنید. بدون تأیید موجودی، محصول در کاتالوگ عمومی نمایش داده نمی‌شود.</p>
