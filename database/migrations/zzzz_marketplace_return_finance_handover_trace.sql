@@ -18,9 +18,14 @@ begin
  end if;
 end $$;
 
-alter table marketplace_return_quarantine
- add constraint marketplace_return_quarantine_finance_quantity_check
- check(finance_quantity is null or finance_quantity>0);
+do $
+begin
+ if not exists(select 1 from pg_constraint where conname='marketplace_return_quarantine_finance_quantity_check') then
+  alter table marketplace_return_quarantine
+   add constraint marketplace_return_quarantine_finance_quantity_check
+   check(finance_quantity is null or finance_quantity>0);
+ end if;
+end $;
 
 create index if not exists marketplace_return_quarantine_purchase_product_idx
  on marketplace_return_quarantine(tenant_id,source_purchase_id,finance_product_id,status);
