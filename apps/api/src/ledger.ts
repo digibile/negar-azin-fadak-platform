@@ -7,13 +7,13 @@ export async function ensureLedgerAccount(client:PoolClient,tenantId:string,line
  return r.rows[0].id as string;
 }
 
-export async function postLedgerEntry(client:PoolClient,args:{tenantId:string;entryNo:string;sourceType:string;sourceId:string;description:string;createdBy?:string|null;lines:Line[]}){
+export async function postLedgerEntry(client:PoolClient,args:{tenantId:string;entryNo:string;sourceType:string;sourceId:string;description:string;createdBy?:string|null;currency?:string;lines:Line[]}){
  const totalDebit=args.lines.reduce((s,x)=>s+Number(x.debit||0),0);
  const totalCredit=args.lines.reduce((s,x)=>s+Number(x.credit||0),0);
  if(totalDebit<=0||Math.abs(totalDebit-totalCredit)>0.005) throw new Error("ثبت دفترکل نامتوازن است");
  const existing=await client.query("select id from ledger_entries where tenant_id=$1 and source_type=$2 and source_id=$3",[args.tenantId,args.sourceType,args.sourceId]);
  if(existing.rowCount) return existing.rows[0].id as string;
- const entry=await client.query("insert into ledger_entries(tenant_id,entry_no,source_type,source_id,description,status,created_by) values($1,$2,$3,$4,$5,'posted',$6) returning id",[args.tenantId,args.entryNo,args.sourceType,args.sourceId,args.description,args.createdBy||null]);
+ const entry=await client.query("insert into ledger_entries(tenant_id,entry_no,source_type,source_id,description,status,created_by,currency) values($1,$2,$3,$4,$5,'posted',$6,$7) returning id",[args.tenantId,args.entryNo,args.sourceType,args.sourceId,args.description,args.createdBy||null,(args.currency||"IRR").toUpperCase()]);
  for(const line of args.lines){
   const accountId=await ensureLedgerAccount(client,args.tenantId,line);
   const debit=Number(line.debit||0),credit=Number(line.credit||0);
