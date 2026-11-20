@@ -351,6 +351,43 @@ logisticsRouter.patch("/api/logistics/drivers/:id/status",requireAuth,asyncHandl
 }));
 
 
+
+logisticsRouter.get("/api/logistics/marketplace-delivery-quotes",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const rows=await query("select q.*,o.order_no,o.status as order_status,o.currency,o.total_amount,o.shipping_address,dm.title as delivery_method_title from marketplace_delivery_quotes q join marketplace_orders o on o.id=q.order_id and o.tenant_id=q.tenant_id left join commerce_delivery_methods dm on dm.id=o.delivery_method_id where q.tenant_id=$1 order by q.created_at desc limit 250",[t.id]);
+  res.json(rows.rows);
+}));
+logisticsRouter.post("/api/logistics/marketplace-orders/:orderId/delivery-quotes",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const carrierCost=Number(b.carrierCost),customerCharge=Number(b.customerCharge);
+  const minDays=b.estimatedBusinessDaysMin==null?null:Number(b.estimatedBusinessDaysMin),maxDays=b.estimatedBusinessDaysMax==null?null:Number(b.estimatedBusinessDaysMax);
+  const currency=String(b.currency||"").trim().toUpperCase();
+  const carrierName=String(b.carrierName||"").trim().slice(0,120),serviceName=String(b.serviceName||"").trim().slice(0,120);
+  const notes=String(b.notes||"").trim().slice(0,1000);
+  if(!Number.isFinite(carrierCost)||carrierCost<0||!Number.isFinite(customerCharge)||customerCharge<0)return fail(res,400,"هزینه شرکت حمل و مبلغ مشتری باید عدد معتبر و غیرمنفی باشند");
+  if((minDays!==null&&!Number.isInteger(minDays))||(maxDays!==null&&!Number.isInteger(maxDays))||(minDays!==null&&minDays<0)||(maxDays!==null&&maxDays<0)||(minDays!==null&&maxDays!==null&&maxDays<minDays))return fail(res,400,"بازه زمان تحویل معتبر نیست");
+  if(!/^[A-Z]{3}$/.test(currency))return fail(res,400,"واحد پول پیش‌فاکتور معتبر نیست");
+  const expiresAt=b.expiresAt?new Date(b.expiresAt):null;
+  if(expiresAt&&(!Number.isFinite(expiresAt.getTime())||expiresAt.getTime()<=Date.now()))return fail(res,400,"زمان اعتبار پیش‌فاکتور باید در آینده باشد");
+  const c=await pool.connect();
+  try{
+    await c.query("begin");
+    const order=(await c.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.orderId,t.id])).rows[0];
+    if(!order){await c.query("rollback");return fail(res,404,"سفارش فروشگاه پیدا نشد");}
+    if(!["pending","confirmed"].includes(order.status)){await c.query("rollback");return fail(res,409,"برای سفارش پرداخت‌شده یا در حال پردازش نمی‌توان پیش‌فاکتور حمل صادر کرد");}
+    if(!order.delivery_method_id){await c.query("rollback");return fail(res,409,"روش ارسال سفارش ثبت نشده است");}
+    if(String(order.currency||"IRR").toUpperCase()!==currency){await c.query("rollback");return fail(res,409,"واحد پول پیش‌فاکتور با سفارش یکسان نیست");}
+    const paid=(await c.query("select id from marketplace_payments where tenant_id=$1 and order_id=$2 and status in ('paid','pending','authorized') limit 1 for update",[t.id,order.id])).rowCount;
+    if(paid){await c.query("rollback");return fail(res,409,"برای سفارش دارای پرداخت موفق یا در انتظار، پیش‌فاکتور جدید صادر نمی‌شود");}
+    await c.query("update marketplace_delivery_quotes set status='superseded',updated_at=now() where tenant_id=$1 and order_id=$2 and status='offered'",[t.id,order.id]);
+    const versionRow=(await c.query("select coalesce(max(version),0)+1 as version from marketplace_delivery_quotes where tenant_id=$1 and order_id=$2",[t.id,order.id])).rows[0];
+    const quote=(await c.query("insert into marketplace_delivery_quotes(tenant_id,order_id,version,currency,carrier_cost,customer_charge,carrier_name,service_name,estimated_business_days_min,estimated_business_days_max,notes,expires_at,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning *",[t.id,order.id,versionRow.version,currency,carrierCost,customerCharge,carrierName||null,serviceName||null,minDays,maxDays,notes||null,expiresAt?.toISOString()||null,(req as any).user.id])).rows[0];
+    await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.delivery_quote_offered','marketplace_order',$3,$4)",[t.id,(req as any).user.id,order.id,JSON.stringify({quoteId:quote.id,version:quote.version,carrierCost,customerCharge,currency,expiresAt:quote.expires_at})]);
+    await c.query("commit");
+    res.status(201).json({quote});
+  }catch(e){await c.query("rollback");throw e;}finally{c.release();}
+}));
+
 logisticsRouter.get("/api/logistics/delivery-methods",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   const rows=await query("select id,code,title,carrier_type,business_days_min,business_days_max,cutoff_hour_local,cost,currency,enabled,rules,created_at from commerce_delivery_methods where tenant_id=$1 order by enabled desc,title",[t.id]);
