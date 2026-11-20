@@ -279,4 +279,14 @@ if(!deliveryQuoteApi.includes("order.status")||!deliveryQuoteApi.includes("marke
 if(!deliveryQuotePage.includes("carrierCost")||!deliveryQuotePage.includes("customerCharge")||!deliveryQuotePage.includes("/api/logistics/marketplace-delivery-quotes")||!deliveryQuotePage.includes("تا پیش از مرحله تأیید مشتری"))throw new Error("Delivery quote workspace must expose separate carrier and customer amounts and clearly mark offers as unaccepted");
 if(!deliveryQuoteCss.includes(".delivery-quotes-form")||!deliveryShippingPage.includes("/marketplace/shipping/delivery-quotes"))throw new Error("Shipping operations must link to the delivery quote workspace and provide responsive styling");
 console.log("MARKETPLACE_DELIVERY_QUOTE_DRAFT_INTEGRITY_OK");
+const deliveryQuoteCheckoutApi=read("apps/api/src/domain-checkout.ts");
+const deliveryQuoteCheckoutPage=read("apps/web/app/store/checkout/page.tsx");
+if(!deliveryQuoteMigration.includes("delivery_quote_required boolean not null default false")||!deliveryQuoteMigration.includes("alter column delivery_quote_required set default true"))throw new Error("Only newly created marketplace orders should require a customer-approved delivery quote");
+if(!deliveryQuoteCheckoutApi.includes("/api/marketplace/orders/:id/delivery-quote/accept")||!deliveryQuoteCheckoutApi.includes("marketplace.delivery_quote_accepted")||!deliveryQuoteCheckoutApi.includes("total_amount=subtotal+$1"))throw new Error("Customer quote acceptance must atomically snapshot the accepted charge and recalculate the order total");
+if(!deliveryQuoteCheckoutApi.includes("پیش از پرداخت باید پیش‌فاکتور هزینه ارسال توسط مشتری تأیید شود"))throw new Error("Marketplace payment must be blocked until the delivery quote is accepted");
+if(!deliveryQuoteCheckoutApi.includes("2201")||!deliveryQuoteCheckoutApi.includes("4201")||!deliveryQuoteCheckoutApi.includes("5201")||!deliveryQuoteCheckoutApi.includes("lines:paymentLedgerLines")||!deliveryQuoteCheckoutApi.includes("lines:verifiedLedgerLines"))throw new Error("Payment ledger must separate carrier payable, delivery margin and delivery shortfall for both direct and verified payments");
+if(!deliveryQuoteCheckoutApi.includes("deliveryQuote:deliveryQuote.rows[0]||null"))throw new Error("Customer order detail must expose the current offered delivery quote");
+if(!deliveryQuoteCheckoutPage.includes("/delivery-quote/accept")||!deliveryQuoteCheckoutPage.includes("تأیید هزینه ارسال")||!deliveryQuoteCheckoutPage.includes("ثبت سفارش و درخواست استعلام ارسال")||!deliveryQuoteCheckoutPage.includes("پیش‌فاکتور هزینه ارسال"))throw new Error("Checkout must create an unpaid order, show the offered delivery quote and collect customer approval before payment");
+console.log("MARKETPLACE_DELIVERY_QUOTE_ACCEPTANCE_AND_PAYMENT_INTEGRITY_OK");
+
 
