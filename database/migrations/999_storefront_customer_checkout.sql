@@ -45,3 +45,30 @@ CREATE TABLE IF NOT EXISTS marketplace_checkout_requests (
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT marketplace_checkout_requests_owner_key UNIQUE(tenant_id,user_id,idempotency_key)
 );
+
+
+-- Shipping charges are tenant-configured. No default tariff is invented.
+CREATE TABLE IF NOT EXISTS marketplace_shipping_rates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  store_id uuid REFERENCES stores(id) ON DELETE CASCADE,
+  province varchar(100),
+  city varchar(100),
+  base_amount numeric(18,2) NOT NULL DEFAULT 0,
+  per_item_amount numeric(18,2) NOT NULL DEFAULT 0,
+  free_shipping_threshold numeric(18,2),
+  currency varchar(10) NOT NULL DEFAULT 'IRR',
+  priority integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT marketplace_shipping_rates_base_check CHECK (base_amount >= 0),
+  CONSTRAINT marketplace_shipping_rates_item_check CHECK (per_item_amount >= 0),
+  CONSTRAINT marketplace_shipping_rates_threshold_check CHECK (free_shipping_threshold IS NULL OR free_shipping_threshold >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS marketplace_shipping_rates_lookup_idx
+  ON marketplace_shipping_rates(tenant_id,is_active,store_id,province,city,priority DESC);
+
+ALTER TABLE marketplace_orders
+  ADD COLUMN IF NOT EXISTS shipping_rate_id uuid REFERENCES marketplace_shipping_rates(id) ON DELETE SET NULL;
