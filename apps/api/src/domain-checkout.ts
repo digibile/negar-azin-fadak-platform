@@ -321,3 +321,42 @@ checkoutRouter.post("/api/storefront/checkout",requireAuth,asyncHandler(async(re
   res.status(201).json({order:order.rows[0]});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
+
+
+checkoutRouter.post("/api/storefront/orders/:id/verify-payment",requireAuth,asyncHandler(async(req,res)=>{
+ const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const order=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 and customer_ref=$3 for update",[req.params.id,t.id,(req as any).user.id]);
+  if(!order.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش متعلق به این حساب پیدا نشد"});}
+  const payment=await client.query("select * from marketplace_payments where tenant_id=$1 and order_id=$2 order by created_at desc limit 1 for update",[t.id,order.rows[0].id]);
+  if(!payment.rowCount){await client.query("rollback");return res.status(404).json({error:"تراکنش پرداخت پیدا نشد"});}
+  if(payment.rows[0].status==="paid"){await client.query("rollback");return res.json({status:"paid",orderId:order.rows[0].id});}
+  if(!["pending","authorized"].includes(payment.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"این تراکنش در وضعیت قابل تأیید نیست",status:payment.rows[0].status});}
+  const provider=getPaymentProvider(payment.rows[0].provider_code);
+  const verified=await provider.verifyPayment({providerTransactionId:payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref||"",amount:Number(payment.rows[0].amount),metadata:{orderId:order.rows[0].id,orderNo:order.rows[0].order_no,paymentId:payment.rows[0].id}});
+  if(verified.status!=="paid"){
+   await client.query("update marketplace_payments set status=$1,provider_payload=$2,updated_at=now() where id=$3 and tenant_id=$4",[verified.status,JSON.stringify(verified.providerPayload),payment.rows[0].id,t.id]);
+   await client.query("commit");
+   return res.status(202).json({status:verified.status,orderId:order.rows[0].id});
+  }
+  await client.query("update marketplace_payments set status='paid',provider_payload=$1,paid_at=coalesce(paid_at,now()),updated_at=now() where id=$2 and tenant_id=$3",[JSON.stringify(verified.providerPayload),payment.rows[0].id,t.id]);
+  await client.query("update marketplace_orders set status='paid',paid_at=coalesce(paid_at,now()),updated_at=now() where id=$1 and tenant_id=$2",[order.rows[0].id,t.id]);
+  await postLedgerEntry(client,{tenantId:t.id,entryNo:"PAY-"+payment.rows[0].payment_no,sourceType:"marketplace_payment",sourceId:payment.rows[0].id,description:"ثبت پرداخت سفارش "+order.rows[0].order_no,createdBy:(req as any).user.id,lines:[
+   {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",debit:Number(order.rows[0].total_amount)},
+   {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",credit:Number(order.rows[0].seller_payable)},
+   {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",credit:Number(order.rows[0].commission_amount)}
+  ]});
+  const items=await client.query("select * from marketplace_order_items where order_id=$1",[order.rows[0].id]);
+  for(const item of items.rows){
+   const updated=await client.query("update product_inventory set quantity=quantity-$1,reserved_quantity=greatest(0,reserved_quantity-$1),updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4 and quantity >= $1 and reserved_quantity >= $1 returning id",[item.quantity,t.id,item.product_id,order.rows[0].store_id]);
+   if(!updated.rowCount)throw new Error("رزرو موجودی برای تکمیل پرداخت سفارش کافی نیست");
+   await client.query("insert into inventory_movements(tenant_id,product_id,store_id,movement_type,quantity,reference_type,reference_id,created_by) values($1,$2,$3,'sale',$4,'marketplace_order',$5,$6)",[t.id,item.product_id,order.rows[0].store_id,-Number(item.quantity),order.rows[0].id,(req as any).user.id]);
+  }
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'storefront.payment.verified','marketplace_order',$3,$4)",[t.id,(req as any).user.id,order.rows[0].id,JSON.stringify({paymentId:payment.rows[0].id,amount:payment.rows[0].amount,provider:provider.code})]);
+  await client.query("commit");
+  await emitBusinessEvent({tenantId:t.id,eventKey:"payment.paid",subjectType:"marketplace_order",subjectId:order.rows[0].id,userId:(req as any).user.id,input:{orderId:order.rows[0].id,amount:Number(order.rows[0].total_amount),paymentId:payment.rows[0].id}});
+  res.json({status:"paid",orderId:order.rows[0].id});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
