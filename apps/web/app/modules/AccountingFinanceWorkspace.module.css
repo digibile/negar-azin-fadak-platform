@@ -7,3 +7,19 @@
 .previewLine{display:grid;grid-template-columns:.45fr .8fr 1.2fr 1.5fr 1fr 1fr;gap:8px;min-width:760px;padding:12px 9px;border-bottom:1px solid #e8edf2;font-size:11px;align-items:center}
 .previewTotals{display:flex;justify-content:flex-end;gap:24px;padding:18px 0;border-top:2px solid #172333;margin-top:12px;font-size:13px}
 @media print{body *{visibility:hidden!important}.printLayer,.printLayer *{visibility:visible!important}.printLayer{position:absolute;inset:0;display:block;padding:0;background:#fff;overflow:visible}.documentPreview{width:100%;max-height:none;overflow:visible;padding:12mm;border-radius:0;box-shadow:none}.previewActions{display:none!important}.previewLine{break-inside:avoid}@page{size:A4 landscape;margin:10mm}}
+
+.actionToolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0 16px;padding:12px;background:#fff;border:1px solid #dce3ea;border-radius:13px;box-shadow:0 3px 12px rgba(20,40,60,.045)}
+.actionGroup{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.actionToolbar button{min-width:88px;min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:9px 14px;border:1px solid transparent;border-radius:9px;color:#fff;font-size:11px;font-weight:800;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,filter .15s ease}
+.actionToolbar button:hover{transform:translateY(-1px);filter:brightness(1.03);box-shadow:0 5px 12px rgba(20,35,55,.14)}
+.actionToolbar button:focus-visible{outline:3px solid rgba(23,112,190,.25);outline-offset:2px}
+.actionToolbar button span{font-weight:700}
+.actionSave{background:linear-gradient(135deg,#2778dc,#1760bd)!important}
+.actionPublish{background:linear-gradient(135deg,#39bd70,#168b50)!important}
+.actionEdit{background:linear-gradient(135deg,#27b7c4,#168c9d)!important}
+.actionNew{background:linear-gradient(135deg,#ffad35,#ed820b)!important}
+.actionDelete{background:linear-gradient(135deg,#f05a62,#d93643)!important}
+.actionCancel{background:linear-gradient(135deg,#9299a3,#69717d)!important}
+.actionUtility{background:#fff!important;color:#354052!important;border-color:#e0e5eb!important;box-shadow:0 2px 7px rgba(20,40,60,.06)}
+@media(max-width:700px){.actionToolbar{align-items:stretch}.actionGroup{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}.actionToolbar button{min-width:0;width:100%;padding:9px 6px}.actionToolbar button span{font-size:10px}}
+@media print{.actionToolbar{display:none!important}}
