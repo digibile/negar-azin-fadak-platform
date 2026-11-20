@@ -159,7 +159,7 @@ logisticsRouter.patch("/api/logistics/drivers/:id",requireAuth,requirePermission
   const old=(await query("select * from logistics_drivers where id=$1 and tenant_id=$2",[req.params.id,t.id])).rows[0];if(!old)return fail(res,404,"راننده پیدا نشد");
   const name=String(b.name??old.name).trim(),status=b.status??old.status,expiry=b.licenseExpiry===undefined?old.license_expiry:(b.licenseExpiry||null);
   if(!name||!["active","inactive","suspended"].includes(status))return fail(res,400,"اطلاعات راننده معتبر نیست");
-  if(expiry!==null&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(expiry)))return fail(res,400,"تاریخ اعتبار گواهینامه معتبر نیست");
+  if(expiry!==null&&!/^\d{4}-\d{2}-\d{2}$/.test(String(expiry)))return fail(res,400,"تاریخ اعتبار گواهینامه معتبر نیست");
   const r=await query("update logistics_drivers set name=$1,mobile=$2,license_no=$3,license_expiry=$4,status=$5 where id=$6 and tenant_id=$7 returning *",[name,b.mobile??old.mobile,b.licenseNo??old.license_no,expiry,status,old.id,t.id]);await audit(t.id,"driver",old.id,"updated",old.status,r.rows[0].status,(req as any).user.id);res.json(r.rows[0]);
 }));
 logisticsRouter.patch("/api/logistics/routes/:id",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
