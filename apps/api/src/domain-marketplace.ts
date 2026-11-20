@@ -280,7 +280,7 @@ domainMarketplaceRouter.get("/api/marketplace/orders",requireAuth,asyncHandler(a
   let where="o.tenant_id=$1";
   if(!permission.rowCount&&user.role!=="admin"){params.push(user.id);where+=" and o.customer_ref=$2";}
   const r=await query(
-   "select o.id,o.order_no,o.store_id,o.seller_id,o.customer_ref,o.status,o.currency,o.subtotal,o.discount_amount,o.shipping_amount,o.total_amount,o.commission_amount,o.seller_payable,o.payment_method,o.delivery_due_at,o.created_at,o.updated_at,sl.display_name as seller_name,(select p.status from marketplace_payments p where p.order_id=o.id and p.tenant_id=o.tenant_id order by p.created_at desc limit 1) as latest_payment_status,(select p.payment_no from marketplace_payments p where p.order_id=o.id and p.tenant_id=o.tenant_id order by p.created_at desc limit 1) as latest_payment_no,(select rf.status from marketplace_refunds rf where rf.order_id=o.id and rf.tenant_id=o.tenant_id order by rf.created_at desc limit 1) as latest_refund_status from marketplace_orders o left join sellers sl on sl.id=o.seller_id where "+where+" order by o.created_at desc",
+   "select o.id,o.order_no,o.store_id,o.seller_id,o.customer_ref,o.status,o.currency,o.subtotal,o.discount_amount,o.shipping_amount,o.total_amount,o.commission_amount,o.seller_payable,o.payment_method,o.delivery_due_at,o.created_at,o.updated_at,sl.display_name as seller_name,(select p.status from marketplace_payments p where p.order_id=o.id and p.tenant_id=o.tenant_id order by p.created_at desc limit 1) as latest_payment_status,(select p.payment_no from marketplace_payments p where p.order_id=o.id and p.tenant_id=o.tenant_id order by p.created_at desc limit 1) as latest_payment_no,(select rf.status from marketplace_refunds rf where rf.order_id=o.id and rf.tenant_id=o.tenant_id order by rf.created_at desc limit 1) as latest_refund_status,(select rt.id from marketplace_order_returns rt where rt.order_id=o.id and rt.tenant_id=o.tenant_id limit 1) as latest_return_id,(select rt.status from marketplace_order_returns rt where rt.order_id=o.id and rt.tenant_id=o.tenant_id limit 1) as latest_return_status from marketplace_orders o left join sellers sl on sl.id=o.seller_id where "+where+" order by o.created_at desc",
    params
   );
   res.json({tenant:ctx,items:r.rows,total:r.rowCount,scope:permission.rowCount||user.role==="admin"?"tenant":"customer"});
@@ -305,11 +305,69 @@ domainMarketplaceRouter.post("/api/marketplace/orders",requireAuth,requirePermis
   res.status(201).json(r.rows[0]);
 }));
 
+
+domainMarketplaceRouter.post("/api/marketplace/orders/:id/returns",requireAuth,asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);
+ if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const reason=bodyString(req.body?.reason,500);
+ if(!reason)return res.status(400).json({error:"علت درخواست مرجوعی الزامی است"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const order=(await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.id,ctx.id])).rows[0];
+  if(!order){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}
+  const user=(req as any).user;
+  const access=await client.query("select 1 from role_permissions where role=$1 and permission=any($2::text[]) limit 1",[user.role,["order:manage","order:lifecycle"]]);
+  if(order.customer_ref!==user.id&&user.role!=="admin"&&!access.rowCount){await client.query("rollback");return res.status(403).json({error:"دسترسی ثبت درخواست مرجوعی مجاز نیست"});}
+  if(!["paid","processing","shipped","delivered"].includes(order.status)){await client.query("rollback");return res.status(409).json({error:"این سفارش در وضعیت مجاز برای درخواست مرجوعی نیست"});}
+  const existing=await client.query("select * from marketplace_order_returns where tenant_id=$1 and order_id=$2 for update",[ctx.id,order.id]);
+  if(existing.rowCount){await client.query("commit");return res.json({return:existing.rows[0],idempotent:true});}
+  const created=await client.query("insert into marketplace_order_returns(tenant_id,order_id,customer_ref,reason,status,created_by) values($1,$2,$3,$4,'requested',$5) returning *",[ctx.id,order.id,order.customer_ref,reason,user.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'order.return_requested','marketplace_order_return',$3,$4)",[ctx.id,user.id,created.rows[0].id,JSON.stringify({orderId:order.id,reason})]);
+  await client.query("commit");
+  await emitBusinessEvent({tenantId:ctx.id,eventKey:"order.return_requested",subjectType:"marketplace_order",subjectId:order.id,userId:user.id,input:{orderId:order.id,returnId:created.rows[0].id,reason}});
+  res.status(201).json({return:created.rows[0]});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
+domainMarketplaceRouter.patch("/api/marketplace/returns/:id/status",requireAuth,requirePermission("order:lifecycle"),asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);
+ if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const next=bodyString(req.body?.status,30),reason=bodyString(req.body?.reason,500)||null;
+ if(!["approved","received","accepted","rejected"].includes(next))return res.status(400).json({error:"وضعیت مرجوعی معتبر نیست"});
+ if(next==="rejected"&&!reason)return res.status(400).json({error:"علت رد مرجوعی الزامی است"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const r=(await client.query("select * from marketplace_order_returns where id=$1 and tenant_id=$2 for update",[req.params.id,ctx.id])).rows[0];
+  if(!r){await client.query("rollback");return res.status(404).json({error:"درخواست مرجوعی پیدا نشد"});}
+  const transitions:Record<string,string[]>={requested:["approved","rejected"],approved:["received","rejected"],received:["accepted","rejected"],accepted:[],rejected:[]};
+  if(!transitions[r.status]?.includes(next)){await client.query("rollback");return res.status(409).json({error:"تغییر وضعیت مرجوعی مجاز نیست",from:r.status,to:next});}
+  const order=(await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[r.order_id,ctx.id])).rows[0];
+  if(!order){await client.query("rollback");return res.status(404).json({error:"سفارش مرجوعی پیدا نشد"});}
+  if(next==="accepted"){
+   const items=await client.query("select * from marketplace_order_items where order_id=$1",[order.id]);
+   for(const item of items.rows){
+    const stock=await client.query("update product_inventory set quantity=quantity+$1,updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4 returning product_id",[item.quantity,ctx.id,item.product_id,order.store_id]);
+    if(!stock.rowCount){await client.query("rollback");return res.status(409).json({error:"رکورد موجودی فروشگاه برای کالای مرجوعی پیدا نشد"});}
+    await client.query("insert into inventory_movements(tenant_id,product_id,store_id,movement_type,quantity,reference_type,reference_id,note,created_by) values($1,$2,$3,'return',$4,'marketplace_order_return',$5,$6,$7)",[ctx.id,item.product_id,order.store_id,Number(item.quantity),r.id,"بازگشت پس از بازرسی و تأیید مرجوعی",(req as any).user.id]);
+   }
+   await client.query("update marketplace_orders set status='returned',updated_at=now() where id=$1 and tenant_id=$2",[order.id,ctx.id]);
+  }
+  const updated=await client.query("update marketplace_order_returns set status=$1,rejection_reason=$2,received_at=case when $1='received' then now() else received_at end,inspected_at=case when $1 in ('accepted','rejected') then now() else inspected_at end,inspected_by=case when $1 in ('accepted','rejected') then $3 else inspected_by end,updated_at=now() where id=$4 and tenant_id=$5 returning *",[next,next==="rejected"?reason:null,(req as any).user.id,r.id,ctx.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,$3,'marketplace_order_return',$4,$5,$6)",[ctx.id,(req as any).user.id,"order.return."+next,r.id,JSON.stringify({status:r.status}),JSON.stringify({status:next,reason})]);
+  await client.query("commit");
+  await emitBusinessEvent({tenantId:ctx.id,eventKey:"order.return."+next,subjectType:"marketplace_order",subjectId:order.id,userId:(req as any).user.id,input:{orderId:order.id,returnId:r.id,status:next,reason}});
+  res.json({return:updated.rows[0],order:{id:order.id,status:next==="accepted"?"returned":order.status}});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
 domainMarketplaceRouter.patch("/api/marketplace/orders/:id/status",requireAuth,requirePermission("order:lifecycle"),asyncHandler(async(req,res)=>{
  const ctx=await tenantContext(req,(req as any).user);
  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const next=bodyString(req.body?.status,30);
  const reason=bodyString(req.body?.reason,500)||null;
+ if(next==="returned")return res.status(409).json({error:"ثبت مرجوعی باید از مسیر درخواست، دریافت و بازرسی کالا انجام شود"});
  // This endpoint is only for fulfillment lifecycle changes.
  // Payment/refund status is owned by domain-checkout payment/refund transactions.
  // Cancellation must use /cancel so reserved inventory is released atomically.
@@ -317,9 +375,9 @@ domainMarketplaceRouter.patch("/api/marketplace/orders/:id/status",requireAuth,r
   pending:["confirmed"],
   confirmed:[],
   paid:["processing"],
-  processing:["shipped","returned"],
-  shipped:["delivered","returned"],
-  delivered:["returned"],
+  processing:["shipped"],
+  shipped:["delivered"],
+  delivered:[],
   returned:[],
   cancelled:[],
   refunded:[]
