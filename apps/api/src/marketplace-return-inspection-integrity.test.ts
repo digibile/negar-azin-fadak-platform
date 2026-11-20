@@ -362,5 +362,5 @@ test("refund retry is disabled unless the provider explicitly guarantees idempot
  assert.ok(provider.includes("PAYMENT_PROVIDER_"+normalized.toUpperCase()+"_IDEMPOTENT_REFUNDS"));
  assert.ok(route.includes("Number(refund.provider_attempt_count)>1&&provider.supportsIdempotentRefunds!==true"));
  assert.ok(route.includes("manualReconciliationRequired:true"));
- assert.ok(route.includes("metadata.idempotencyKey"));
+ assert.ok(route.includes("idempotencyKey:refund.provider_idempotency_key"));
 });
