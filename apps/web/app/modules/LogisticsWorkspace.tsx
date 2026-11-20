@@ -17,7 +17,7 @@ const labels:Record<string,string>={
 const statusLabels:Record<string,string>={
   draft:"پیش‌نویس",approved:"تأییدشده",released:"آزادشده",closed:"بسته",cancelled:"لغوشده",
   submitted:"ثبت‌شده",assigned:"اختصاص‌یافته",shipped:"ارسال‌شده",delivered:"تحویل‌شده",
-  planned:"برنامه‌ریزی‌شده",picked_up:"دریافت‌شده",in_transit:"در حال حمل",failed:"ناموفق"
+  planned:"برنامه‌ریزی‌شده",picked_up:"دریافت‌شده",in_transit:"در حال حمل",failed:"ناموفق",reserved:"رزروشده",consumed:"کسرشده از انبار",released:"آزادشده"
 };
 const api=async(path:string,init:RequestInit={})=>{
   const method=(init.method||"GET").toUpperCase();
@@ -64,7 +64,12 @@ export default function LogisticsWorkspace(){
     try{await api(path,{method,body:JSON.stringify(body)});setCreateOpen(false);setEditing(null);await load()}
     catch(e:any){setError(e.message)}
   };
-  const linkMarketplaceOrder=async()=>{\n    if(!fulfillment)return;\n    try{await api("/api/logistics/orders/from-marketplace/"+encodeURIComponent(fulfillment.id),{method:"POST",body:JSON.stringify({sourceWarehouseId:fulfillment.sourceWarehouseId})});setFulfillment(null);await load()}\n    catch(e:any){setError(e.message)}\n  };\n  const patch=async(path:string,body:any)=>{
+  const linkMarketplaceOrder=async()=>{
+    if(!fulfillment)return;
+    try{await api("/api/logistics/orders/from-marketplace/"+encodeURIComponent(fulfillment.id),{method:"POST",body:JSON.stringify({sourceWarehouseId:fulfillment.sourceWarehouseId})});setFulfillment(null);await load()}
+    catch(e:any){setError(e.message)}
+  };
+  const patch=async(path:string,body:any)=>{
     try{await api(path,{method:"PATCH",body:JSON.stringify(body)});await load()}
     catch(e:any){setError(e.message)}
   };
@@ -154,6 +159,7 @@ export default function LogisticsWorkspace(){
         <span><b>مبلغ</b>{x.total_amount??"—"} {x.currency||""}</span>
         <span><b>اقلام</b>{(x.items||[]).map((it:R)=>String(it.title)+" × "+String(it.quantity)).join("، ")||"—"}</span>
         <span><b>وضعیت تأمین</b>{x.supply_order_id?fmt(x.supply_status):"ارجاع نشده"}</span>
+        <span><b>رزرو انبار</b>{(x.inventory_reservations||[]).length?(x.inventory_reservations||[]).map((r:R)=>fmt(r.status)).join("، "):"رزرو نشده"}</span>
         <span>{x.supply_order_id?<span>درخواست تأمین ثبت شده</span>:<button onClick={()=>setFulfillment({id:x.id,orderNo:x.order_no,sourceWarehouseId:""})}>ارجاع به لجستیک</button>}</span>
       </div>)}{!marketOrders.length&&<div className={styles.empty}>سفارش پرداخت‌شده‌ای برای ارجاع وجود ندارد.</div>}</div>
     </section>}
