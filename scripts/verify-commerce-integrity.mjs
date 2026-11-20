@@ -246,3 +246,13 @@ if(!checkoutPaymentAttempt.includes("idempotencyKey:attemptKey"))throw new Error
 if(!checkoutPaymentAttempt.includes('disabled={busy||!!pendingPaymentId||!items.length'))throw new Error("Checkout must prevent a second payment while an earlier attempt is pending");
 if(!checkoutPaymentAttempt.includes('pb.status||pb.payment?.status||"pending"'))throw new Error("Checkout must interpret idempotent responses using the persisted payment status");
 if(!checkoutPaymentAttempt.includes('setPaymentAttemptKey("")'))throw new Error("Checkout must release the idempotency key after a definitive paid or failed result");
+
+
+const deliveryCheckoutApi=read("apps/api/src/domain-checkout.ts");
+const deliveryCheckoutPage=read("apps/web/app/store/checkout/page.tsx");
+const deliveryOrderMigration=read("database/migrations/157_marketplace_order_delivery_method.sql");
+if(!deliveryCheckoutApi.includes("/api/checkout/carts/:id/delivery-methods")||!deliveryCheckoutApi.includes("product_delivery_rules")||!deliveryCheckoutApi.includes("dm.enabled=true"))throw new Error("Checkout must list only enabled delivery methods assigned to every cart product");
+if(!deliveryCheckoutApi.includes("deliveryMethodId=s(req.body?.deliveryMethodId")||!deliveryCheckoutApi.includes("delivery_method_snapshot")||!deliveryCheckoutApi.includes("base_tariff_not_a_customer_quote"))throw new Error("Checkout must validate and snapshot the selected delivery method without charging an unquoted base tariff");
+if(!deliveryCheckoutPage.includes("deliveryMethodId")||!deliveryCheckoutPage.includes("/delivery-methods")||!deliveryCheckoutPage.includes("انتخاب روش تحویل"))throw new Error("Storefront checkout must display and submit an eligible delivery method");
+if(!deliveryOrderMigration.includes("delivery_method_id")||!deliveryOrderMigration.includes("delivery_method_snapshot"))throw new Error("Marketplace orders must persist delivery method identity and snapshot");
+console.log("CHECKOUT_DELIVERY_METHOD_INTEGRITY_OK");
