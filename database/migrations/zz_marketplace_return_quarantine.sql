@@ -29,7 +29,6 @@ create table if not exists marketplace_return_quarantine(
 create index if not exists marketplace_return_quarantine_tenant_status_idx
  on marketplace_return_quarantine(tenant_id,status,created_at desc);
 
-commit;
 
 create unique index if not exists accounting_parties_tenant_id_uq
  on accounting_parties(tenant_id,id);
@@ -58,3 +57,5 @@ end $$;
 
 create index if not exists marketplace_return_quarantine_supplier_idx
  on marketplace_return_quarantine(tenant_id,supplier_party_id,status);
+
+commit;
