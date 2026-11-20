@@ -11,8 +11,8 @@ const empty:Draft={code:"",title:"",carrierType:"courier",businessDaysMin:"1",bu
 const carrierLabel:Record<string,string>={courier:"پیک",post:"پست",pickup:"دریافت حضوری",freight:"باربری",digital:"تحویل دیجیتال"};
 const money=(value:number|string,currency:string)=>Number(value).toLocaleString("fa-IR")+" "+(currency==="IRR"?"ریال":currency);
 export default function DeliveryMethodsPage(){
- const [items,setItems]=useState<DeliveryMethod[]>([]),[draft,setDraft]=useState<Draft>(empty),[editingId,setEditingId]=useState(""),[open,setOpen]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState("");
- async function load(){try{const d=await api<{items:DeliveryMethod[]}>("/api/commerce/delivery-methods");setItems(d.items||[]);}catch(e){setError(e instanceof Error?e.message:"دریافت روش‌های تحویل ناموفق بود");}}
+ const [items,setItems]=useState<DeliveryMethod[]>([]),[draft,setDraft]=useState<Draft>(empty),[editingId,setEditingId]=useState(""),[open,setOpen]=useState(false),[saving,setSaving]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState("");
+ async function load(){setLoading(true);try{const d=await api<{items:DeliveryMethod[]}>("/api/commerce/delivery-methods");setItems(d.items||[]);setError("");}catch(e){setError(e instanceof Error?e.message:"دریافت روش‌های تحویل ناموفق بود");}finally{setLoading(false);}}
  useEffect(()=>{void load()},[]);
  function create(){setEditingId("");setDraft(empty);setError("");setOpen(true);}
  function edit(item:DeliveryMethod){setEditingId(item.id);setDraft({code:item.code,title:item.title,carrierType:item.carrier_type,businessDaysMin:String(item.business_days_min),businessDaysMax:String(item.business_days_max),cutoffHourLocal:String(item.cutoff_hour_local),cost:String(item.cost),currency:item.currency,enabled:item.enabled});setError("");setOpen(true);}
@@ -30,7 +30,7 @@ export default function DeliveryMethodsPage(){
     <div className="sk-delivery-card-data"><div><small>تعرفه</small><strong>{money(item.cost,item.currency)}</strong></div><div><small>زمان تحویل</small><strong>{Number(item.business_days_min).toLocaleString("fa-IR")} تا {Number(item.business_days_max).toLocaleString("fa-IR")} روز کاری</strong></div><div><small>ساعت برش</small><strong>{Number(item.cutoff_hour_local).toLocaleString("fa-IR")}:۰۰</strong></div></div>
     <div className="sk-delivery-card-actions"><button type="button" onClick={()=>edit(item)}>ویرایش تعرفه</button><button type="button" onClick={()=>toggle(item)}>{item.enabled?"غیرفعال‌سازی":"فعال‌سازی"}</button></div>
    </article>)}</div>
-   {!items.length&&<div className="enterprise-loading">هنوز روش تحویلی ثبت نشده است. برای نمایش گزینه ارسال در تسویه مشتری، ابتدا یک تعرفه معتبر ایجاد کنید.</div>}
+   {!items.length&&<div className="enterprise-loading">{loading?"در حال دریافت روش‌های تحویل…":"هنوز روش تحویلی ثبت نشده است. برای نمایش گزینه ارسال در تسویه مشتری، ابتدا یک تعرفه معتبر ایجاد کنید."}</div>}
   </section>
   {open&&<ManagementDialog title={editingId?"ویرایش روش تحویل":"افزودن روش تحویل"} onClose={()=>setOpen(false)}>
    <div className="sk-delivery-form">
