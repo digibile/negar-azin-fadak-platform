@@ -417,3 +417,16 @@ test("returns workspace presents the refund reconciliation queue as manual and r
  assert.ok(page.includes("شناسه پرداخت درگاه"));
  assert.ok(page.includes("کلید یکتای پیگیری"));
 });
+
+test("refund reconciliation queue is read-only and strictly tenant scoped",()=>{
+ const route=checkout.indexOf('checkoutRouter.get("/api/marketplace/returns/refund-reconciliation"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/returns/:id/inspect"',route);
+ const block=checkout.slice(route,end);
+ assert.ok(route>=0&&end>route);
+ assert.ok(block.includes('requirePermission("order:manage")'));
+ assert.ok(block.includes('requirePermission("payment:refund")'));
+ assert.ok(block.includes("mr.tenant_id=$1"));
+ assert.ok(block.includes("mr.status in ('pending','failed')"));
+ assert.ok(block.includes("automaticProviderRefundLookup:false"));
+ assert.ok(!/\b(insert into|update\s+marketplace_refunds|delete from)\b/i.test(block));
+});
