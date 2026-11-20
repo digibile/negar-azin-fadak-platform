@@ -3,7 +3,7 @@
 import {useCallback,useEffect,useState} from "react";
 import Link from "next/link";
 import {api} from "../../../../lib/api";
-import "../shipping/shipping-workspace.css";
+import "../shipping-workspace.css";
 import "./delivery-methods.css";
 
 type Method={id:string;code:string;title:string;carrier_type:"courier"|"post"|"pickup"|"freight"|"digital";business_days_min:number;business_days_max:number;cutoff_hour_local:number;cost:string|number;currency:string;enabled:boolean};
