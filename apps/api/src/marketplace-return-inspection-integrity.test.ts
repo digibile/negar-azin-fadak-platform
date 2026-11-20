@@ -251,6 +251,8 @@ test("financial handover readiness report is tenant-scoped, read-only and fails 
  assert.ok(route.includes('requirePermission("accounting-finance.read")'));
  assert.ok(route.includes("where q.tenant_id=$1"));
  assert.ok(route.includes("marketplace_finance_warehouse_links"));
+ assert.ok(route.includes('iw.status inventory_warehouse_status'));
+ assert.ok(route.includes('item.inventory_warehouse_status!=="active"'));
  assert.ok(route.includes("finance_purchase_lines"));
  assert.ok(route.includes("finance_quantity"));
  assert.ok(route.includes("purchase_supplier_id!==item.supplier_party_id"));
