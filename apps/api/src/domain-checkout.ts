@@ -263,6 +263,8 @@ checkoutRouter.patch("/api/storefront/addresses/:id",requireAuth,asyncHandler(as
  const client=await pool.connect();
  try{
   await client.query("begin");
+  const used=await client.query("select 1 from marketplace_orders where delivery_address_id=$1 and tenant_id=$2 limit 1",[req.params.id,t.id]);
+  if(used.rowCount){await client.query("rollback");return res.status(409).json({error:"نشانی متصل به سفارش ثبت‌شده قابل ویرایش نیست؛ نشانی جدیدی ثبت کنید"});}
   if(Boolean(b.isDefault))await client.query("update marketplace_customer_addresses set is_default=false,updated_at=now() where tenant_id=$1 and user_id=$2",[t.id,(req as any).user.id]);
   const r=await client.query("update marketplace_customer_addresses set recipient_name=$1,mobile=$2,province=$3,city=$4,address_line=$5,postal_code=$6,is_default=$7,updated_at=now() where id=$8 and tenant_id=$9 and user_id=$10 returning id,recipient_name,mobile,province,city,address_line,postal_code,is_default,updated_at",[recipient,mobile,province,city,line,postal,Boolean(b.isDefault),req.params.id,t.id,(req as any).user.id]);
   if(!r.rowCount){await client.query("rollback");return res.status(404).json({error:"نشانی پیدا نشد"});}
@@ -293,8 +295,8 @@ checkoutRouter.post("/api/storefront/orders/:id/cancel",requireAuth,asyncHandler
   if(!order.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش متعلق به این حساب پیدا نشد"});}
   if(order.rows[0].status==="cancelled"){await client.query("commit");return res.json({order:order.rows[0],alreadyCancelled:true});}
   if(!["pending","confirmed"].includes(order.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"لغو سفارش پس از شروع پردازش یا پرداخت از این مسیر مجاز نیست"});}
-  const paid=await client.query("select 1 from marketplace_payments where tenant_id=$1 and order_id=$2 and status='paid' limit 1",[t.id,order.rows[0].id]);
-  if(paid.rowCount){await client.query("rollback");return res.status(409).json({error:"سفارش دارای پرداخت موفق است و باید از مسیر بازپرداخت پیگیری شود"});}
+  const paid=await client.query("select 1 from marketplace_payments where tenant_id=$1 and order_id=$2 and status in ('paid','authorized') limit 1",[t.id,order.rows[0].id]);
+  if(paid.rowCount){await client.query("rollback");return res.status(409).json({error:"سفارش دارای پرداخت موفق یا مجازشده است و باید از مسیر بررسی/بازپرداخت پرداخت پیگیری شود"});}
   const items=await client.query("select product_id,quantity from marketplace_order_items where order_id=$1",[order.rows[0].id]);
   for(const item of items.rows){
    await client.query("update product_inventory set reserved_quantity=greatest(0,reserved_quantity-$1),updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[Number(item.quantity),t.id,item.product_id,order.rows[0].store_id]);
