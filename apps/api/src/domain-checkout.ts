@@ -1,6 +1,6 @@
 import {Router} from "express";
 import {pool,query} from "./db.js";
-import {requireAuth,requirePermission} from "./auth.js";
+import {requireAuth,requireCsrf,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
 import {randomUUID} from "node:crypto";
@@ -292,7 +292,7 @@ checkoutRouter.get("/api/storefront/returns",requireAuth,asyncHandler(async(req,
  res.json({items:r.rows,total:r.rowCount});
 }));
 
-checkoutRouter.post("/api/storefront/orders/:id/returns",requireAuth,asyncHandler(async(req,res)=>{
+checkoutRouter.post("/api/storefront/orders/:id/returns",requireAuth,requireCsrf,asyncHandler(async(req,res)=>{
  const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
  const itemId=s(req.body?.orderItemId,100),quantity=n(req.body?.quantity),reason=s(req.body?.reasonCode,40),description=s(req.body?.description,2000);
  const reasons=["damaged","defective","wrong_item","not_as_described","missing_parts","changed_mind","other"];
@@ -317,7 +317,7 @@ checkoutRouter.post("/api/storefront/orders/:id/returns",requireAuth,asyncHandle
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
-checkoutRouter.post("/api/storefront/returns/:id/cancel",requireAuth,asyncHandler(async(req,res)=>{
+checkoutRouter.post("/api/storefront/returns/:id/cancel",requireAuth,requireCsrf,asyncHandler(async(req,res)=>{
  const t=await storefrontContext(req);if(!t)return res.status(404).json({error:"فروشگاه فعال پیدا نشد"});
  const client=await pool.connect();
  try{
@@ -339,7 +339,7 @@ checkoutRouter.get("/api/marketplace/returns",requireAuth,requirePermission("ord
  res.json({items:r.rows,total:r.rowCount});
 }));
 
-checkoutRouter.patch("/api/marketplace/returns/:id/status",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
+checkoutRouter.patch("/api/marketplace/returns/:id/status",requireAuth,requirePermission("order:manage"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const target=s(req.body?.status,24),reason=s(req.body?.decisionReason,1000);
  const client=await pool.connect();
