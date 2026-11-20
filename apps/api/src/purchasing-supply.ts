@@ -296,9 +296,57 @@ router.post("/api/purchasing/invoices/:id/payments",requireAuth,requirePermissio
  }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/purchasing/returns",requireAuth,requirePermission("modules:21-purchasing-supply:return"),async(req,res)=>{
- const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");if(!b.orderId||n(b.amount)<=0)return deny(res,400,"سفارش و مبلغ برگشت الزامی است");const r=await query("insert into purchase_returns(tenant_id,return_no,order_id,amount,reason,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,b.returnNo||"PRET-"+Date.now(),b.orderId,n(b.amount),b.reason||null,(req as any).user.id]);res.status(201).json(r.rows[0]);
+ const t=await tenantOf(req),b=req.body||{},amount=n(b.amount);
+ if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ if(!b.orderId||!Number.isFinite(amount)||amount<=0)return deny(res,400,"سفارش و مبلغ مثبت و معتبر برگشت الزامی است");
+ const no=String(b.returnNo||"PRET-"+Date.now()).trim();
+ if(!no||no.length>100)return deny(res,400,"شماره برگشت معتبر نیست");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const order=await c.query("select * from purchase_orders where id=$1 and tenant_id=$2 for update",[b.orderId,t.id]);
+  if(!order.rowCount){await c.query("rollback");return deny(res,404,"سفارش خرید پیدا نشد");}
+  const old=order.rows[0];
+  if(!["invoiced","paid"].includes(old.status)){await c.query("rollback");return deny(res,409,"برگشت مالی فقط برای سفارش فاکتورشده یا تسویه‌شده مجاز است");}
+  const invoice=await c.query("select * from purchase_invoices where order_id=$1 and tenant_id=$2 for update",[old.id,t.id]);
+  if(!invoice.rowCount){await c.query("rollback");return deny(res,409,"فاکتور معتبر سفارش برای برگشت پیدا نشد");}
+  const reserved=await c.query("select coalesce(sum(amount),0)::numeric amount from purchase_returns where tenant_id=$1 and order_id=$2 and status not in ('rejected','cancelled')",[t.id,old.id]);
+  const already=Number(reserved.rows[0].amount),invoiceTotal=Number(invoice.rows[0].total);
+  if(!Number.isFinite(already)||!Number.isFinite(invoiceTotal)||amount+already>invoiceTotal+0.000001){await c.query("rollback");return deny(res,409,"مبلغ برگشت از مبلغ فاکتور پس از کسر برگشت‌های قبلی و باز بیشتر است");}
+  const r=await c.query("insert into purchase_returns(tenant_id,return_no,order_id,amount,reason,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,no,old.id,amount,String(b.reason||"").trim().slice(0,1000),(req as any).user.id]);
+  await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,to_status,event_type,actor_user_id,reason) values($1,'return',$2,'requested','create',$3,$4)",[t.id,r.rows[0].id,(req as any).user.id,String(b.reason||"").trim().slice(0,500)||null]);
+  await c.query("commit");res.status(201).json(r.rows[0]);
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
-router.patch("/api/purchasing/returns/:id/status",requireAuth,requirePermission("modules:21-purchasing-supply:return"),async(req,res)=>{const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const r=await query("select * from purchase_returns where id=$1 and tenant_id=$2",[req.params.id,t.id]);if(!r.rowCount)return deny(res,404,"برگشت خرید پیدا نشد");const old=r.rows[0],to=String(req.body?.status||""),flow:Record<string,string[]>={requested:["approved","rejected","cancelled"],approved:["shipped","rejected"],shipped:["received"],received:["credited"],credited:[],rejected:[],cancelled:[]};if(!flow[old.status]?.includes(to))return deny(res,409,"تغییر وضعیت برگشت مجاز نیست");await query("update purchase_returns set status=$1 where id=$2",[to,old.id]);await event(t.id,"return",old.id,old.status,to,"status_change",(req as any).user.id,req.body?.reason||null);res.json({...old,status:to})});
+router.patch("/api/purchasing/returns/:id/status",requireAuth,requirePermission("modules:21-purchasing-supply:return"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const to=String(req.body?.status||""),reason=String(req.body?.reason||"").trim().slice(0,500)||null;
+ const flow:Record<string,string[]>={requested:["approved","rejected","cancelled"],approved:["shipped","rejected"],shipped:["received"],received:["credited"],credited:[],rejected:[],cancelled:[]};
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const r=await c.query("select * from purchase_returns where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+  if(!r.rowCount){await c.query("rollback");return deny(res,404,"برگشت خرید پیدا نشد");}
+  const old=r.rows[0];
+  if(!flow[old.status]?.includes(to)){await c.query("rollback");return deny(res,409,"تغییر وضعیت برگشت مجاز نیست");}
+  const order=await c.query("select * from purchase_orders where id=$1 and tenant_id=$2 for update",[old.order_id,t.id]);
+  if(!order.rowCount||!["invoiced","paid"].includes(order.rows[0].status)){await c.query("rollback");return deny(res,409,"سفارش مرتبط برای گردش برگشت معتبر نیست");}
+  if(to==="credited"){
+   const invoice=await c.query("select * from purchase_invoices where order_id=$1 and tenant_id=$2 for update",[old.order_id,t.id]);
+   if(!invoice.rowCount){await c.query("rollback");return deny(res,409,"فاکتور مرتبط با برگشت پیدا نشد");}
+   const prior=await c.query("select coalesce(sum(amount),0)::numeric amount from purchase_returns where tenant_id=$1 and order_id=$2 and id<>$3 and status='credited'",[t.id,old.order_id,old.id]);
+   const credited=Number(prior.rows[0].amount),total=Number(invoice.rows[0].total),amount=Number(old.amount);
+   if(!Number.isFinite(credited)||!Number.isFinite(total)||!Number.isFinite(amount)||amount<=0||credited+amount>total+0.000001){await c.query("rollback");return deny(res,409,"مبلغ بستانکاری از مانده فاکتور بیشتر است");}
+  }
+  const updated=await c.query("update purchase_returns set status=$1 where id=$2 and tenant_id=$3 and status=$4 returning *",[to,old.id,t.id,old.status]);
+  if(!updated.rowCount){await c.query("rollback");return deny(res,409,"برگشت در این فاصله تغییر کرده است");}
+  if(to==="credited"){
+   await c.query("insert into purchase_financial_events(tenant_id,source_type,source_id,event_type,amount,state,reference_no) values($1,'purchase_return',$2,'supplier_credit_note',$3,'pending_accounting',$4)",[t.id,old.id,-Number(old.amount),old.return_no]);
+  }
+  await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,reason,actor_user_id) values($1,'return',$2,$3,$4,'status_change',$5,$6)",[t.id,old.id,old.status,to,reason,(req as any).user.id]);
+  await c.query("commit");res.json(updated.rows[0]);
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
+});
 router.post("/api/purchasing/evaluations",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const total=(n(b.qualityScore)+n(b.deliveryScore)+n(b.priceScore)+n(b.serviceScore))/4;const r=await query("insert into supplier_evaluations(tenant_id,supplier_id,period_start,period_end,quality_score,delivery_score,price_score,service_score,total_score,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,b.supplierId,b.periodStart,b.periodEnd,n(b.qualityScore),n(b.deliveryScore),n(b.priceScore),n(b.serviceScore),total,b.notes||null,(req as any).user.id]);res.status(201).json(r.rows[0])});
 router.post("/api/purchasing/contracts",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const r=await query("insert into supplier_contracts(tenant_id,contract_no,supplier_id,title,status,start_date,end_date,value,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",[t.id,b.contractNo||"SC-"+Date.now(),b.supplierId,b.title,b.status||"draft",b.startDate||null,b.endDate||null,n(b.value),b.notes||null,(req as any).user.id]);res.status(201).json(r.rows[0])});
 export {router as purchasingSupplyRouter};
