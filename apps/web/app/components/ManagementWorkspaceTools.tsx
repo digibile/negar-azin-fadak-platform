@@ -72,10 +72,25 @@ export function ManagementToolbar({rows=[],filename="گزارش",onCreate,onImpo
 export function ManagementDialog({title,children,onClose,dirty=false,initialFullscreen=false}:{title:string;children:ReactNode;onClose:()=>void;dirty?:boolean;initialFullscreen?:boolean}){
   const [fullscreen,setFullscreen]=useState(initialFullscreen);
   const closeRef=useRef(onClose);closeRef.current=onClose;
-  useEffect(()=>{const key=(event:KeyboardEvent)=>{if(event.key==="Escape"){if(dirty&&!window.confirm("تغییرات ذخیره‌نشده هستند. پنجره بسته شود؟"))return;closeRef.current();}};window.addEventListener("keydown",key);return()=>window.removeEventListener("keydown",key);},[dirty]);
+  const dialogRef=useRef<HTMLElement>(null);
+  useEffect(()=>{
+    const previous=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    dialogRef.current?.focus();
+    const key=(event:KeyboardEvent)=>{
+      if(event.key==="Escape"){if(dirty&&!window.confirm("تغییرات ذخیره‌نشده هستند. پنجره بسته شود؟"))return;closeRef.current();return;}
+      if(event.key!=="Tab")return;
+      const items=Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')??[]).filter(item=>item.getAttribute("aria-hidden")!=="true");
+      if(!items.length){event.preventDefault();dialogRef.current?.focus();return;}
+      const first=items[0],last=items[items.length-1],active=document.activeElement;
+      if(event.shiftKey&&(active===first||!dialogRef.current?.contains(active))){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&active===last){event.preventDefault();first.focus();}
+    };
+    document.addEventListener("keydown",key);
+    return()=>{document.removeEventListener("keydown",key);previous?.focus();};
+  },[dirty]);
   function close(){if(dirty&&!window.confirm("تغییرات ذخیره‌نشده هستند. پنجره بسته شود؟"))return;onClose();}
   return <div className={styles.backdrop} role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)close();}}>
-    <section className={fullscreen?styles.dialogFull:styles.dialog} role="dialog" aria-modal="true" aria-label={title} dir="rtl">
+    <section ref={dialogRef} tabIndex={-1} className={fullscreen?styles.dialogFull:styles.dialog} role="dialog" aria-modal="true" aria-label={title} dir="rtl">
       <header className={styles.dialogHeader}><strong>{title}</strong><div><button type="button" onClick={()=>setFullscreen(v=>!v)} aria-label={fullscreen?"بازگشت به اندازه پنجره":"تمام‌صفحه"}>{fullscreen?"❐":"□"} {fullscreen?"بازگشت":"تمام‌صفحه"}</button><button type="button" onClick={close} aria-label="بستن پنجره">×</button></div></header>
       <div className={styles.dialogBody}>{children}</div>
     </section>
