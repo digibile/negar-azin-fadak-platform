@@ -92,7 +92,7 @@ settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,require
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const bankAccountId=s(req.body?.bankAccountId,80),referenceNo=s(req.body?.referenceNo,120),idempotencyKey=s(req.body?.idempotencyKey,160);
  const paymentDate=s(req.body?.paymentDate,10)||new Date().toISOString().slice(0,10),amount=Number(req.body?.amount);
- if(!bankAccountId||!referenceNo||!idempotencyKey||!/^\\d{4}-\\d{2}-\\d{2}$/.test(paymentDate)||!Number.isFinite(amount)||amount<=0)return res.status(400).json({error:"حساب بانکی، مبلغ، تاریخ، مرجع پرداخت و کلید یکتا الزامی است"});
+ if(!bankAccountId||!referenceNo||!idempotencyKey||!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)||!Number.isFinite(amount)||amount<=0)return res.status(400).json({error:"حساب بانکی، مبلغ، تاریخ، مرجع پرداخت و کلید یکتا الزامی است"});
  const client=await pool.connect();
  try{
   await client.query("begin");
