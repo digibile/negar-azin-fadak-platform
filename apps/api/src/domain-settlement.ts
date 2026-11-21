@@ -124,7 +124,7 @@ settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,require
   await client.query("commit");
   await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.paid",subjectType:"seller_settlement",subjectId:row.id,userId:(req as any).user.id,input:{settlementId:row.id,amount,currency:row.rp_currency,ledgerEntryId,paymentId:payment.id,fullySettled}});
   res.status(201).json({settlement:updated,payment:{...payment,ledger_entry_id:ledgerEntryId},ledgerEntryId,settledAmount:settled,outstandingAmount:Math.max(0,Number(row.original_amount)-settled)});
- }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+ }catch(e:any){await client.query("rollback");if(e?.code==="23505")return res.status(409).json({error:"شماره مرجع پرداخت قبلاً در این سازمان ثبت شده است"});throw e;}finally{client.release();}
 }));
 
 settlementRouter.get("/api/marketplace/seller-recoveries",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
