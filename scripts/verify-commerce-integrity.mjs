@@ -344,5 +344,6 @@ if(!carrierInvoiceApi.includes("payment_history")||!carrierInvoiceApi.includes("
 
 if(!carrierInvoicePage.includes("ثبت پرداخت انجام‌شده")||!carrierInvoicePage.includes("شماره مرجع انتقال")||!carrierInvoicePage.includes("data.bankAccounts"))throw new Error("Carrier invoice workspace must support documented payment from mapped bank accounts");
 if(!carrierInvoiceCss.includes(".carrier-invoice-payment"))throw new Error("Carrier invoice settlement controls must have responsive styling");
+if(!carrierInvoiceApi.includes("approved_payable_total")||!carrierInvoiceApi.includes("outstanding_total")||!carrierInvoiceApi.includes("group by i.currency")||!carrierInvoicePage.includes("خلاصه مالی شرکت‌های حمل")||!carrierInvoicePage.includes("row.outstanding_total")||!carrierInvoiceCss.includes(".carrier-invoice-summary-grid"))throw new Error("Carrier invoice financial summary must be currency-scoped and visible in the workspace");
 console.log("MARKETPLACE_CARRIER_INVOICE_SETTLEMENT_INTEGRITY_OK");
 
