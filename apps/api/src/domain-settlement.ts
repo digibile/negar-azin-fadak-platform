@@ -63,7 +63,7 @@ settlementRouter.post("/api/marketplace/settlements/generate",requireAuth,requir
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
-settlementRouter.patch("/api/marketplace/settlements/:id/approve",requireAuth,requirePermission("settlement:manage"),asyncHandler(async(req,res)=>{
+settlementRouter.patch("/api/marketplace/settlements/:id/approve",requireAuth,requirePermission("settlement:manage"),requirePermission("accounting-finance.write"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const client=await pool.connect();
  try{
