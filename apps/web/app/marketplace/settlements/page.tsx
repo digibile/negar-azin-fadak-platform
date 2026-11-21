@@ -100,6 +100,7 @@ export default function SettlementsPage(){
     {x.status==="pending"&&<button type="button" className="settlement-approve" disabled={actionBusy===x.id} onClick={()=>approve(x.id)}>{actionBusy===x.id?"در حال ثبت…":"تأیید و ایجاد بدهی مالی"}</button>}
     {["approved","partially_paid"].includes(x.status)&&<section className="seller-settlement-payment">
      <b>پرداخت از حساب بانکی سازمان</b>
+     <small className="seller-settlement-payment-note">این بخش ثبت پرداخت انجام‌شده و سند دفترکل را انجام می‌دهد؛ انتقال وجه در درگاه بانک انجام نمی‌شود.</small>
      <small>مانده بدهی: {amount(Math.max(0,Number(x.payable_amount||x.net_amount)-Number(x.payable_settled_amount||0)))} {x.currency||"IRR"}</small>
      <div className="seller-settlement-payment-fields">
       <label>حساب بانکی<select value={paymentForms[x.id]?.bankAccountId||""} onChange={e=>updatePaymentForm(x.id,{bankAccountId:e.target.value})}><option value="">انتخاب حساب</option>{bankAccounts.filter(b=>b.currency=== (x.currency||"IRR")).map(b=><option key={b.id} value={b.id}>{b.bank_name} · {b.code} · مانده {amount(b.current_balance)} {b.currency}</option>)}</select></label>
