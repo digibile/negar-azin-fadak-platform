@@ -367,7 +367,7 @@ if(!treasuryBankPage.includes("تطبیق با پرداخت ثبت‌شده")||!
 const canonicalBankLinkMigration=read("database/migrations/164_treasury_accounting_bank_account_link.sql");
 if(!canonicalBankLinkMigration.includes("accounting_bank_account_id")||!canonicalBankLinkMigration.includes("having count(distinct ab.id)=1")||!canonicalBankLinkMigration.includes("uq_treasury_bank_account_accounting_link"))throw new Error("Treasury accounts must link only to one exact, currency-matched accounting bank account");
 for(const marker of ["accounting_bank_account_id","accounting_bank_accounts ab","upper(trim(ab.currency))","matches.rowCount===1"])if(!treasuryBankApi.includes(marker))throw new Error("Treasury account creation or overview is missing canonical accounting-bank linking: "+marker);
-for(const marker of ["accounting_code","ledger_code","اتصال حسابداری","حساب متناظر حسابداری یافت نشد"])if(!treasuryBankPage.includes(marker))throw new Error("Treasury account workspace must show canonical accounting-bank linkage state: "+marker);
+for(const marker of ["accounting_code","ledger_code","accounting_current_balance","اتصال حسابداری","حساب متناظر حسابداری یافت نشد","مانده حساب خزانه"])if(!treasuryBankPage.includes(marker))throw new Error("Treasury account workspace must show canonical accounting-bank linkage and balance state: "+marker);
 console.log("TREASURY_CANONICAL_ACCOUNTING_BANK_LINK_INTEGRITY_OK");
 console.log("MARKETPLACE_SELLER_SETTLEMENT_BANK_PAYMENT_INTEGRITY_OK");
 console.log("TREASURY_CARRIER_PAYABLE_BANK_RECONCILIATION_INTEGRITY_OK");
