@@ -482,6 +482,38 @@ logisticsRouter.post("/api/logistics/carrier-invoices/:id/approve",requireAuth,r
   }catch(e){await c.query("rollback");throw e;}finally{c.release();}
 }));
 
+
+logisticsRouter.post("/api/logistics/carrier-invoices/:id/pay",requireAuth,requirePermission("modules:12-logistics-supply:write"),requirePermission("accounting-finance.write"),asyncHandler(async(req,res)=>{
+ const t=await tenantOf(req),b=req.body||{};if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+ const bankAccountId=String(b.bankAccountId||"").trim(),referenceNo=String(b.referenceNo||"").trim().slice(0,120),idempotencyKey=String(b.idempotencyKey||"").trim().slice(0,160);
+ const paymentDate=String(b.paymentDate||new Date().toISOString().slice(0,10)),amount=Number(b.amount);
+ if(!bankAccountId||!referenceNo||!idempotencyKey||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(paymentDate)||!Number.isFinite(amount)||amount<=0)return fail(res,400,"حساب بانکی، مبلغ، تاریخ، مرجع پرداخت و کلید یکتا الزامی است");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const prior=(await c.query("select * from accounting_rp_settlements where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey])).rows[0];
+  if(prior){await c.query("commit");return res.json({settlement:prior,idempotent:true});}
+  const invoice=(await c.query("select i.id,i.invoice_no,i.status,i.payable_id,r.id rp_id,r.direction,r.original_amount,r.settled_amount,r.currency,r.status payable_status from logistics_carrier_invoices i join accounting_receivable_payables r on r.id=i.payable_id and r.tenant_id=i.tenant_id where i.id=$1 and i.tenant_id=$2 for update of i,r",[req.params.id,t.id])).rows[0];
+  if(!invoice){await c.query("rollback");return fail(res,404,"بدهی ثبت‌شده این صورتحساب پیدا نشد");}
+  if(invoice.status!=="approved"||invoice.direction!=="payable"||invoice.payable_status==="cancelled"){await c.query("rollback");return fail(res,409,"صورتحساب یا بدهی برای پرداخت آماده نیست");}
+  const outstanding=Number(invoice.original_amount)-Number(invoice.settled_amount);
+  if(amount>outstanding+0.005){await c.query("rollback");return fail(res,409,"مبلغ پرداخت از مانده بدهی بیشتر است");}
+  const bank=(await c.query("select b.id,b.code,b.bank_name,b.currency,b.current_balance,l.code ledger_code,l.name ledger_name,l.account_type from accounting_bank_accounts b join ledger_accounts l on l.id=b.ledger_account_id and l.tenant_id=b.tenant_id where b.id=$1 and b.tenant_id=$2 and b.status='active' and l.is_active=true and l.is_postable=true for update of b,l",[bankAccountId,t.id])).rows[0];
+  if(!bank){await c.query("rollback");return fail(res,400,"حساب بانکی فعال با حساب دفترکل قابل ثبت انتخاب نشده است");}
+  if(String(bank.currency).toUpperCase()!==String(invoice.currency).toUpperCase()){await c.query("rollback");return fail(res,409,"ارز حساب بانکی با ارز بدهی یکسان نیست");}
+  if(Number(bank.current_balance)+0.005<amount){await c.query("rollback");return fail(res,409,"موجودی ثبت‌شده حساب بانکی برای این پرداخت کافی نیست");}
+  const settlement=(await c.query("insert into accounting_rp_settlements(tenant_id,receivable_payable_id,bank_account_id,amount,currency,payment_date,reference_no,idempotency_key,metadata,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",[t.id,invoice.payable_id,bank.id,amount,invoice.currency,paymentDate,referenceNo,idempotencyKey,JSON.stringify({sourceModule:"logistics",sourceType:"carrier_invoice",sourceId:invoice.id,invoiceNo:invoice.invoice_no}),(req as any).user.id])).rows[0];
+  const ledgerEntryId=await postLedgerEntry(c,{tenantId:t.id,entryNo:"CINV-PAY-"+String(settlement.id).slice(0,12),sourceType:"accounting_rp_settlement",sourceId:settlement.id,description:"پرداخت بدهی صورتحساب حمل "+invoice.invoice_no,createdBy:(req as any).user.id,currency:invoice.currency,lines:[{accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",debit:amount},{accountCode:bank.ledger_code,accountName:bank.ledger_name,accountType:bank.account_type,credit:amount}]});
+  await c.query("update accounting_rp_settlements set ledger_entry_id=$1 where id=$2 and tenant_id=$3",[ledgerEntryId,settlement.id,t.id]);
+  const settled=Number(invoice.settled_amount)+amount;
+  await c.query("update accounting_receivable_payables set settled_amount=$1,status=case when $1>=original_amount-0.005 then 'settled' else 'partially_settled' end,updated_at=now() where id=$2 and tenant_id=$3",[settled,invoice.payable_id,t.id]);
+  await c.query("update accounting_bank_accounts set current_balance=current_balance-$1,updated_at=now() where id=$2 and tenant_id=$3",[amount,bank.id,t.id]);
+  await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'logistics.carrier_invoice_paid','logistics_carrier_invoice',$3,$4)",[t.id,(req as any).user.id,invoice.id,JSON.stringify({settlementId:settlement.id,amount,currency:invoice.currency,bankAccountId:bank.id,referenceNo,ledgerEntryId,settledAmount:settled,outstandingAmount:Math.max(0,Number(invoice.original_amount)-settled)})]);
+  await c.query("commit");
+  res.status(201).json({settlement:{...settlement,ledger_entry_id:ledgerEntryId},ledgerEntryId,settledAmount:settled,outstandingAmount:Math.max(0,Number(invoice.original_amount)-settled)});
+ }catch(e){await c.query("rollback");throw e;}finally{c.release();}
+}));
+
 logisticsRouter.get("/api/logistics/delivery-methods",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   const rows=await query("select id,code,title,carrier_type,business_days_min,business_days_max,cutoff_hour_local,cost,currency,enabled,rules,created_at from commerce_delivery_methods where tenant_id=$1 order by enabled desc,title",[t.id]);
