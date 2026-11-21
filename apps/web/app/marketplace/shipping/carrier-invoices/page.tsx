@@ -5,21 +5,26 @@ import {api} from "../../../../lib/api";
 import "./carrier-invoices.css";
 
 type Candidate={shipment_id:string;shipment_no:string;delivered_at?:string|null;order_id:string;order_no:string;currency:string;quote_id:string;carrier_name?:string|null;service_name?:string|null;carrier_cost:string|number;quote_currency:string};
-type Invoice={id:string;shipment_id:string;shipment_no:string;order_id:string;order_no:string;invoice_no:string;carrier_name:string;currency:string;quoted_cost:string|number;invoice_amount:string|number;variance_amount:string|number;status:string;notes?:string|null;resolution_note?:string|null;created_at:string;reviewed_at?:string|null;supplier_name?:string|null;payable_status?:string|null;};
+type Invoice={id:string;shipment_id:string;shipment_no:string;order_id:string;order_no:string;invoice_no:string;carrier_name:string;currency:string;quoted_cost:string|number;invoice_amount:string|number;variance_amount:string|number;status:string;notes?:string|null;resolution_note?:string|null;created_at:string;reviewed_at?:string|null;supplier_name?:string|null;payable_status?:string|null;payable_id?:string|null;payable_amount?:string|number|null;payable_settled_amount?:string|number|null;};
 type Supplier={id:string;party_code:string;title:string};
-type Data={items:Invoice[];candidates:Candidate[];suppliers:Supplier[]};
+type BankAccount={id:string;code:string;bank_name:string;currency:string;current_balance:string|number;ledger_code:string;ledger_name:string};
+type Data={items:Invoice[];candidates:Candidate[];suppliers:Supplier[];bankAccounts:BankAccount[]};
 const labels:Record<string,string>={matched:"منطبق با پیش‌فاکتور",disputed:"دارای اختلاف",approved:"تأیید عملیاتی",void:"باطل‌شده"};
 const amount=(v:unknown)=>Number(v||0).toLocaleString("fa-IR");
 const date=(v?:string|null)=>v?new Date(v).toLocaleString("fa-IR"):"—";
 
 export default function CarrierInvoicesPage(){
- const [data,setData]=useState<Data>({items:[],candidates:[],suppliers:[]});
+ const [data,setData]=useState<Data>({items:[],candidates:[],suppliers:[],bankAccounts:[]});
  const [shipmentId,setShipmentId]=useState("");
  const [invoiceNo,setInvoiceNo]=useState("");
  const [invoiceAmount,setInvoiceAmount]=useState("");
  const [notes,setNotes]=useState("");
  const [resolution,setResolution]=useState<Record<string,string>>({});
  const [supplierByInvoice,setSupplierByInvoice]=useState<Record<string,string>>({});
+ const [bankByInvoice,setBankByInvoice]=useState<Record<string,string>>({});
+ const [payAmountByInvoice,setPayAmountByInvoice]=useState<Record<string,string>>({});
+ const [payReferenceByInvoice,setPayReferenceByInvoice]=useState<Record<string,string>>({});
+ const [paymentKeys,setPaymentKeys]=useState<Record<string,string>>({});
  const [busy,setBusy]=useState("");
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
