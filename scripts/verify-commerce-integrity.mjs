@@ -384,6 +384,12 @@ for(const marker of ["/api/treasury-bank/statement-imports","router.get(\"/api/t
 for(const marker of ["/bank-fees/draft-document","bank_fee_import","fee_journal_document_id is null","bank_ledger_account_id",'status:"draft"'])if(!accountingFeeDraftApi.includes(marker))throw new Error("Bank fee draft journal API must remain reviewable and idempotent: "+marker);
 for(const marker of ["parseStatementCsv","activeImportId","/api/treasury-bank/statement-imports","fee_candidate","ایجاد پیش‌نویس سند","CSV"])if(!treasuryImportPage.includes(marker))throw new Error("Treasury UI is missing statement import or fee review workflow: "+marker);
 for(const marker of [".importSummary",".feeFlag",".feeSelect"])if(!treasuryImportCss.includes(marker))throw new Error("Treasury statement import styles are missing: "+marker);
+const bankBalanceAnomalyMigration=read("database/migrations/167_treasury_statement_balance_anomaly_review.sql");
+if(!bankBalanceAnomalyMigration.includes("balance_anomaly boolean")||!bankBalanceAnomalyMigration.includes("balance_anomaly_reason"))throw new Error("Statement balance anomaly review columns are missing");
+for(const marker of ["balanceAnomalyReason","balance_anomaly_reason","balance_anomaly_count","monotonic&&i<validRows.length"])if(!treasuryImportApi.includes(marker))throw new Error("Statement import must detect sequential running-balance inconsistencies safely: "+marker);
+if(!treasuryImportPage.includes("balance_anomaly")||!treasuryImportPage.includes("اختلاف مانده"))throw new Error("Treasury workspace must display imported running-balance anomalies");
+if(!treasuryImportCss.includes(".balanceFlag"))throw new Error("Statement balance anomaly warning style is missing");
+console.log("TREASURY_BANK_STATEMENT_BALANCE_ANOMALY_INTEGRITY_OK");
 console.log("TREASURY_BANK_STATEMENT_IMPORT_AND_FEE_REVIEW_INTEGRITY_OK");
 console.log("ACCOUNTING_BANK_STATEMENT_LINE_RECONCILIATION_INTEGRITY_OK");
 console.log("TREASURY_CANONICAL_ACCOUNTING_BANK_LINK_INTEGRITY_OK");
