@@ -49,3 +49,5 @@
 .seller-settlement-summary small{font-size:10px;color:#718092}
 .seller-settlement-summary strong{font-size:13px;color:#1d3044}
 .seller-settlement-summary-counts{grid-column:1/-1;padding-top:8px;border-top:1px solid #edf1f4}
+
+.seller-settlement-payment .seller-settlement-payment-note{padding:7px 9px;border-radius:6px;background:#fff8e9;color:#805b16;line-height:1.8}
