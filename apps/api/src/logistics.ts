@@ -491,8 +491,8 @@ logisticsRouter.post("/api/logistics/carrier-invoices/:id/pay",requireAuth,requi
  const c=await pool.connect();
  try{
   await c.query("begin");
-  const prior=(await c.query("select * from accounting_rp_settlements where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey])).rows[0];
-  if(prior){await c.query("commit");return res.json({settlement:prior,idempotent:true});}
+  const prior=(await c.query("select *,metadata->>'sourceId' source_id from accounting_rp_settlements where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey])).rows[0];
+  if(prior){if(prior.source_id!==req.params.id){await c.query("rollback");return fail(res,409,"کلید یکتای پرداخت قبلاً برای صورتحساب دیگری استفاده شده است");}await c.query("commit");return res.json({settlement:prior,idempotent:true});}
   const invoice=(await c.query("select i.id,i.invoice_no,i.status,i.payable_id,r.id rp_id,r.direction,r.original_amount,r.settled_amount,r.currency,r.status payable_status from logistics_carrier_invoices i join accounting_receivable_payables r on r.id=i.payable_id and r.tenant_id=i.tenant_id where i.id=$1 and i.tenant_id=$2 for update of i,r",[req.params.id,t.id])).rows[0];
   if(!invoice){await c.query("rollback");return fail(res,404,"بدهی ثبت‌شده این صورتحساب پیدا نشد");}
   if(invoice.status!=="approved"||invoice.direction!=="payable"||invoice.payable_status==="cancelled"){await c.query("rollback");return fail(res,409,"صورتحساب یا بدهی برای پرداخت آماده نیست");}
@@ -502,7 +502,9 @@ logisticsRouter.post("/api/logistics/carrier-invoices/:id/pay",requireAuth,requi
   if(!bank){await c.query("rollback");return fail(res,400,"حساب بانکی فعال با حساب دفترکل قابل ثبت انتخاب نشده است");}
   if(String(bank.currency).toUpperCase()!==String(invoice.currency).toUpperCase()){await c.query("rollback");return fail(res,409,"ارز حساب بانکی با ارز بدهی یکسان نیست");}
   if(Number(bank.current_balance)+0.005<amount){await c.query("rollback");return fail(res,409,"موجودی ثبت‌شده حساب بانکی برای این پرداخت کافی نیست");}
-  const settlement=(await c.query("insert into accounting_rp_settlements(tenant_id,receivable_payable_id,bank_account_id,amount,currency,payment_date,reference_no,idempotency_key,metadata,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",[t.id,invoice.payable_id,bank.id,amount,invoice.currency,paymentDate,referenceNo,idempotencyKey,JSON.stringify({sourceModule:"logistics",sourceType:"carrier_invoice",sourceId:invoice.id,invoiceNo:invoice.invoice_no}),(req as any).user.id])).rows[0];
+  const settlementInsert=await c.query("insert into accounting_rp_settlements(tenant_id,receivable_payable_id,bank_account_id,amount,currency,payment_date,reference_no,idempotency_key,metadata,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) on conflict(tenant_id,idempotency_key) do nothing returning *",[t.id,invoice.payable_id,bank.id,amount,invoice.currency,paymentDate,referenceNo,idempotencyKey,JSON.stringify({sourceModule:"logistics",sourceType:"carrier_invoice",sourceId:invoice.id,invoiceNo:invoice.invoice_no}),(req as any).user.id]);
+  if(!settlementInsert.rowCount){const raced=(await c.query("select *,metadata->>'sourceId' source_id from accounting_rp_settlements where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey])).rows[0];if(!raced||raced.source_id!==invoice.id){await c.query("rollback");return fail(res,409,"کلید یکتای پرداخت هم‌زمان برای عملیات دیگری ثبت شده است");}await c.query("commit");return res.json({settlement:raced,idempotent:true});}
+  const settlement=settlementInsert.rows[0];
   const ledgerEntryId=await postLedgerEntry(c,{tenantId:t.id,entryNo:"CINV-PAY-"+String(settlement.id).slice(0,12),sourceType:"accounting_rp_settlement",sourceId:settlement.id,description:"پرداخت بدهی صورتحساب حمل "+invoice.invoice_no,createdBy:(req as any).user.id,currency:invoice.currency,lines:[{accountCode:"2201",accountName:"بستانکاران شرکت‌های حمل",accountType:"liability",debit:amount},{accountCode:bank.ledger_code,accountName:bank.ledger_name,accountType:bank.account_type,credit:amount}]});
   await c.query("update accounting_rp_settlements set ledger_entry_id=$1 where id=$2 and tenant_id=$3",[ledgerEntryId,settlement.id,t.id]);
   const settled=Number(invoice.settled_amount)+amount;
