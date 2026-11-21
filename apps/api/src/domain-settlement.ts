@@ -12,8 +12,11 @@ const tenant=async(req:any)=>resolveTenant(req,req.user);
 
 settlementRouter.get("/api/marketplace/settlements",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const r=await query("select ss.*,s.display_name as seller_name,(select count(*)::int from seller_settlement_items si where si.settlement_id=ss.id and si.tenant_id=ss.tenant_id) as order_count,(select coalesce(sum(si.shipping_amount),0) from seller_settlement_items si where si.settlement_id=ss.id and si.tenant_id=ss.tenant_id) as shipping_amount_total from seller_settlements ss join sellers s on s.id=ss.seller_id where ss.tenant_id=$1 order by ss.created_at desc",[t.id]);
- res.json(r.rows);
+ const [r,banks]=await Promise.all([
+  query("select ss.*,s.display_name as seller_name,r.id payable_id,r.original_amount payable_amount,r.settled_amount payable_settled_amount,r.status payable_status,(select count(*)::int from seller_settlement_items si where si.settlement_id=ss.id and si.tenant_id=ss.tenant_id) as order_count,(select coalesce(sum(si.shipping_amount),0) from seller_settlement_items si where si.settlement_id=ss.id and si.tenant_id=ss.tenant_id) as shipping_amount_total,coalesce((select json_agg(json_build_object('id',ps.id,'amount',ps.amount,'currency',ps.currency,'payment_date',ps.payment_date,'reference_no',ps.reference_no,'ledger_entry_id',ps.ledger_entry_id) order by ps.payment_date desc,ps.created_at desc) from accounting_rp_settlements ps where ps.tenant_id=ss.tenant_id and ps.receivable_payable_id=r.id),'[]'::json) payment_history from seller_settlements ss join sellers s on s.id=ss.seller_id left join accounting_receivable_payables r on r.id=ss.payable_id and r.tenant_id=ss.tenant_id where ss.tenant_id=$1 order by ss.created_at desc",[t.id]),
+  query("select b.id,b.code,b.bank_name,b.currency,b.current_balance,l.code ledger_code,l.name ledger_name from accounting_bank_accounts b join ledger_accounts l on l.id=b.ledger_account_id and l.tenant_id=b.tenant_id where b.tenant_id=$1 and b.status='active' and l.status='active' order by b.bank_name,b.code",[t.id])
+ ]);
+ res.json({items:r.rows,bankAccounts:banks.rows});
 }));
 
 settlementRouter.get("/api/marketplace/settlements/:id",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
@@ -64,35 +67,63 @@ settlementRouter.patch("/api/marketplace/settlements/:id/approve",requireAuth,re
  const client=await pool.connect();
  try{
   await client.query("begin");
-  const r=await client.query("update seller_settlements set status='approved',updated_at=now() where id=$1 and tenant_id=$2 and status='pending' returning *",[req.params.id,t.id]);
-  if(!r.rowCount){await client.query("rollback");return res.status(409).json({error:"تسویه در وضعیت قابل تأیید نیست"});}
-  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.approved','seller_settlement',$3,$4)",[t.id,(req as any).user.id,r.rows[0].id,JSON.stringify(r.rows[0])]);
+  const locked=await client.query("select ss.*,s.accounting_party_id,s.display_name from seller_settlements ss join sellers s on s.id=ss.seller_id and s.tenant_id=ss.tenant_id where ss.id=$1 and ss.tenant_id=$2 for update of ss,s",[req.params.id,t.id]);
+  if(!locked.rowCount){await client.query("rollback");return res.status(404).json({error:"تسویه فروشنده پیدا نشد"});}
+  const current=locked.rows[0];
+  if(!["pending","approved"].includes(current.status)){await client.query("rollback");return res.status(409).json({error:"تسویه در وضعیت قابل تأیید نیست"});}
+  if(current.currency==="MIXED"||Number(current.net_amount)<=0){await client.query("rollback");return res.status(409).json({error:"واحد پول یا مبلغ خالص تسویه برای ایجاد بدهی معتبر نیست"});}
+  const partyId=current.accounting_party_id;
+  const party=partyId?(await client.query("select id from accounting_parties where id=$1 and tenant_id=$2 and party_type='supplier' and status='active' for share",[partyId,t.id])).rows[0]:null;
+  if(!party){await client.query("rollback");return res.status(409).json({error:"طرف حساب مالی فعال فروشنده تعریف نشده است"});}
+  let payableId=current.payable_id;
+  if(!payableId){
+   const payable=await client.query("insert into accounting_receivable_payables(tenant_id,party_id,direction,reference_no,issue_date,original_amount,currency,description,created_by,metadata) values($1,$2,'payable',$3,current_date,$4,$5,$6,$7,$8) returning id",[t.id,party.id,current.settlement_no,Number(current.net_amount),String(current.currency||"IRR").toUpperCase(),"تسویه فروشنده "+current.settlement_no,(req as any).user.id,JSON.stringify({sourceModule:"marketplace",sourceType:"seller_settlement",sourceId:current.id,settlementNo:current.settlement_no})]);
+   payableId=payable.rows[0].id;
+  }
+  const r=await client.query("update seller_settlements set status='approved',payable_id=$3,updated_at=now() where id=$1 and tenant_id=$2 returning *",[req.params.id,t.id,payableId]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.approved','seller_settlement',$3,$4)",[t.id,(req as any).user.id,r.rows[0].id,JSON.stringify({...r.rows[0],payableId})]);
   await client.query("commit");
-  await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.approved",subjectType:"seller_settlement",subjectId:r.rows[0].id,userId:(req as any).user.id,input:{settlementId:r.rows[0].id,netAmount:Number(r.rows[0].net_amount),currency:r.rows[0].currency||"IRR"}});
-  res.json(r.rows[0]);
+  if(current.status!=="approved")await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.approved",subjectType:"seller_settlement",subjectId:r.rows[0].id,userId:(req as any).user.id,input:{settlementId:r.rows[0].id,netAmount:Number(r.rows[0].net_amount),currency:r.rows[0].currency||"IRR",payableId}});
+  res.json({...r.rows[0],payable_id:payableId});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
-settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,requirePermission("settlement:manage"),asyncHandler(async(req,res)=>{
+settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,requirePermission("settlement:manage"),requirePermission("accounting-finance.write"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const bankAccountId=s(req.body?.bankAccountId,80),referenceNo=s(req.body?.referenceNo,120),idempotencyKey=s(req.body?.idempotencyKey,160);
+ const paymentDate=s(req.body?.paymentDate,10)||new Date().toISOString().slice(0,10),amount=Number(req.body?.amount);
+ if(!bankAccountId||!referenceNo||!idempotencyKey||!/^\\d{4}-\\d{2}-\\d{2}$/.test(paymentDate)||!Number.isFinite(amount)||amount<=0)return res.status(400).json({error:"حساب بانکی، مبلغ، تاریخ، مرجع پرداخت و کلید یکتا الزامی است"});
  const client=await pool.connect();
  try{
   await client.query("begin");
-  const r=await client.query("select * from seller_settlements where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
-  if(!r.rowCount)return res.status(404).json({error:"تسویه پیدا نشد"});
-  const settlement=r.rows[0];
-  if(settlement.status!=="approved")return res.status(409).json({error:"فقط تسویه تأییدشده قابل پرداخت است"});
-  if(settlement.currency==="MIXED")return res.status(409).json({error:"واحد پول این تسویه قدیمی ترکیبی است و پیش از پرداخت باید جداگانه تطبیق شود"});
-  const entryId=await postLedgerEntry(client,{tenantId:t.id,entryNo:"SET-"+settlement.settlement_no,sourceType:"seller_settlement",sourceId:settlement.id,description:"پرداخت تسویه فروشنده "+settlement.settlement_no,createdBy:(req as any).user.id,currency:settlement.currency||"IRR",lines:[
-   {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",debit:Number(settlement.net_amount)},
-   {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:Number(settlement.net_amount)}
+  const prior=(await client.query("select *,metadata->>'sourceId' source_id from accounting_rp_settlements where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey])).rows[0];
+  if(prior){if(prior.source_id!==req.params.id){await client.query("rollback");return res.status(409).json({error:"کلید یکتای پرداخت برای تسویه دیگری استفاده شده است"});}await client.query("commit");return res.json({settlement:prior,idempotent:true});}
+  const row=(await client.query("select ss.*,r.id rp_id,r.direction,r.original_amount,r.settled_amount,r.currency rp_currency,r.status payable_status from seller_settlements ss left join accounting_receivable_payables r on r.id=ss.payable_id and r.tenant_id=ss.tenant_id where ss.id=$1 and ss.tenant_id=$2 for update of ss,r",[req.params.id,t.id])).rows[0];
+  if(!row){await client.query("rollback");return res.status(404).json({error:"تسویه پیدا نشد"});}
+  if(!["approved","partially_paid"].includes(row.status)||!row.rp_id||row.direction!=="payable"||row.payable_status==="cancelled"){await client.query("rollback");return res.status(409).json({error:"تسویه تأییدشده با بدهی مالی متناظر برای پرداخت آماده نیست"});}
+  if(row.currency==="MIXED"){await client.query("rollback");return res.status(409).json({error:"واحد پول تسویه قدیمی ترکیبی است و قابل پرداخت نیست"});}
+  const outstanding=Number(row.original_amount)-Number(row.settled_amount);
+  if(amount>outstanding+0.005){await client.query("rollback");return res.status(409).json({error:"مبلغ پرداخت از مانده تسویه بیشتر است"});}
+  const bank=(await client.query("select b.id,b.code,b.bank_name,b.currency,b.current_balance,l.code ledger_code,l.name ledger_name,l.account_type from accounting_bank_accounts b join ledger_accounts l on l.id=b.ledger_account_id and l.tenant_id=b.tenant_id where b.id=$1 and b.tenant_id=$2 and b.status='active' and l.status='active' for update of b,l",[bankAccountId,t.id])).rows[0];
+  if(!bank){await client.query("rollback");return res.status(400).json({error:"حساب بانکی فعال با حساب دفترکل متصل انتخاب نشده است"});}
+  if(String(bank.currency).toUpperCase()!==String(row.rp_currency).toUpperCase()){await client.query("rollback");return res.status(409).json({error:"ارز حساب بانکی با ارز تسویه یکسان نیست"});}
+  if(Number(bank.current_balance)+0.005<amount){await client.query("rollback");return res.status(409).json({error:"موجودی ثبت‌شده حساب بانکی کافی نیست"});}
+  const inserted=await client.query("insert into accounting_rp_settlements(tenant_id,receivable_payable_id,bank_account_id,amount,currency,payment_date,reference_no,idempotency_key,metadata,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) on conflict(tenant_id,idempotency_key) do nothing returning *",[t.id,row.rp_id,bank.id,amount,row.rp_currency,paymentDate,referenceNo,idempotencyKey,JSON.stringify({sourceModule:"marketplace",sourceType:"seller_settlement",sourceId:row.id,settlementNo:row.settlement_no}), (req as any).user.id]);
+  if(!inserted.rowCount){const raced=(await client.query("select *,metadata->>'sourceId' source_id from accounting_rp_settlements where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey])).rows[0];if(!raced||raced.source_id!==row.id){await client.query("rollback");return res.status(409).json({error:"کلید یکتای پرداخت هم‌زمان برای عملیات دیگری ثبت شده است"});}await client.query("commit");return res.json({settlement:raced,idempotent:true});}
+  const payment=inserted.rows[0];
+  const ledgerEntryId=await postLedgerEntry(client,{tenantId:t.id,entryNo:"SELLER-PAY-"+String(payment.id).slice(0,12),sourceType:"accounting_rp_settlement",sourceId:payment.id,description:"پرداخت تسویه فروشنده "+row.settlement_no,createdBy:(req as any).user.id,currency:row.rp_currency,lines:[
+   {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",debit:amount},
+   {accountCode:bank.ledger_code,accountName:bank.ledger_name,accountType:bank.account_type,credit:amount}
   ]});
-  const paidRef=s(req.body?.paymentRef,160)||null;
-  const u=await client.query("update seller_settlements set status='paid',updated_at=now() where id=$1 and tenant_id=$2 and status='approved' returning *",[settlement.id,t.id]);
-  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.paid','seller_settlement',$3,$4)",[t.id,(req as any).user.id,settlement.id,JSON.stringify({settlement:u.rows[0],ledgerEntryId:entryId,paymentRef:paidRef})]);
+  await client.query("update accounting_rp_settlements set ledger_entry_id=$1 where id=$2 and tenant_id=$3",[ledgerEntryId,payment.id,t.id]);
+  const settled=Number(row.settled_amount)+amount,fullySettled=settled>=Number(row.original_amount)-0.005;
+  await client.query("update accounting_receivable_payables set settled_amount=$1,status=case when $2 then 'settled' else 'partially_settled' end,updated_at=now() where id=$3 and tenant_id=$4",[settled,fullySettled,row.rp_id,t.id]);
+  const updated=(await client.query("update seller_settlements set status=$1,updated_at=now() where id=$2 and tenant_id=$3 returning *",[fullySettled?"paid":"partially_paid",row.id,t.id])).rows[0];
+  await client.query("update accounting_bank_accounts set current_balance=current_balance-$1,updated_at=now() where id=$2 and tenant_id=$3",[amount,bank.id,t.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.payment_recorded','seller_settlement',$3,$4)",[t.id,(req as any).user.id,row.id,JSON.stringify({settlementId:row.id,paymentId:payment.id,amount,currency:row.rp_currency,bankAccountId:bank.id,referenceNo,ledgerEntryId,settledAmount:settled,outstandingAmount:Math.max(0,Number(row.original_amount)-settled)})]);
   await client.query("commit");
-  await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.paid",subjectType:"seller_settlement",subjectId:u.rows[0].id,userId:(req as any).user.id,input:{settlementId:u.rows[0].id,netAmount:Number(u.rows[0].net_amount),currency:u.rows[0].currency||"IRR",ledgerEntryId:entryId}});
-  res.json({settlement:u.rows[0],ledgerEntryId:entryId,paymentRef:paidRef});
+  await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.paid",subjectType:"seller_settlement",subjectId:row.id,userId:(req as any).user.id,input:{settlementId:row.id,amount,currency:row.rp_currency,ledgerEntryId,paymentId:payment.id,fullySettled}});
+  res.status(201).json({settlement:updated,payment:{...payment,ledger_entry_id:ledgerEntryId},ledgerEntryId,settledAmount:settled,outstandingAmount:Math.max(0,Number(row.original_amount)-settled)});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
