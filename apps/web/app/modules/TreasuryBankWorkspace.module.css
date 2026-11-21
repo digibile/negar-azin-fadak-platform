@@ -2,3 +2,10 @@
 .settlementCandidate{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:7px;padding:8px;border:1px solid #dce6ef;border-radius:7px;background:#f7fafc;font-size:10px}
 .settlementCandidate button{border:1px solid #b9d6eb;border-radius:6px;background:#fff;color:#075f98;padding:6px 9px;font-size:10px;font-weight:800;cursor:pointer}
 .settlementCandidate button:disabled{opacity:.55;cursor:wait}
+
+.importSummary{display:flex;flex-direction:column;gap:6px;margin-top:12px;padding:11px;border:1px solid #b9d9c9;border-radius:8px;background:#f3faf6;color:#245b3d;font-size:11px}
+.feeFlag{color:#95600a!important;font-weight:800}
+.feeSelect{display:flex!important;flex-direction:row!important;align-items:center;gap:9px;padding:9px;border:1px solid #e3e8ed;border-radius:7px;margin:6px 0;color:#334155!important}
+.feeSelect input{width:auto!important}
+.feeSelect span{font-size:10px}
+.feeSelect:has(input:disabled){opacity:.45}
