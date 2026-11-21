@@ -3,7 +3,8 @@ import {useEffect,useState} from "react";
 import {api} from "../../../lib/api";
 import "./settlements-workspace.css";
 
-type BankAccount={id:string;code:string;bank_name:string;currency:string;current_balance:string|number};\ntype SettlementSummary={currency:string;settlement_count:number;gross_total:string|number;commission_total:string|number;net_total:string|number;paid_total:string|number;outstanding_total:string|number;pending_count:number;approved_count:number;partially_paid_count:number;paid_count:number};
+type BankAccount={id:string;code:string;bank_name:string;currency:string;current_balance:string|number};
+type SettlementSummary={currency:string;settlement_count:number;gross_total:string|number;commission_total:string|number;net_total:string|number;paid_total:string|number;outstanding_total:string|number;pending_count:number;approved_count:number;partially_paid_count:number;paid_count:number};
 type PaymentHistory={id:string;amount:string|number;currency:string;payment_date:string;reference_no:string;ledger_entry_id?:string|null};
 type RecoveryClaim={id:string;seller_name?:string;settlement_no:string;order_no:string;refund_no:string;amount:string|number;currency?:string;status:string;created_at?:string;payment_ref?:string};
 type Settlement={
@@ -16,7 +17,12 @@ const amount=(value:unknown)=>Number(value||0).toLocaleString("fa-IR");
 const date=(value?:string)=>value?new Date(value).toLocaleDateString("fa-IR"):"—";
 
 export default function SettlementsPage(){
- const [items,setItems]=useState<Settlement[]>([]);\n const [bankAccounts,setBankAccounts]=useState<BankAccount[]>([]);\n const [summary,setSummary]=useState<SettlementSummary[]>([]);\n const [paymentForms,setPaymentForms]=useState<Record<string,{bankAccountId:string;amount:string;referenceNo:string;paymentDate:string}>>({});\n const [paymentKeys,setPaymentKeys]=useState<Record<string,string>>({});\n const [actionBusy,setActionBusy]=useState("");
+ const [items,setItems]=useState<Settlement[]>([]);
+ const [bankAccounts,setBankAccounts]=useState<BankAccount[]>([]);
+ const [summary,setSummary]=useState<SettlementSummary[]>([]);
+ const [paymentForms,setPaymentForms]=useState<Record<string,{bankAccountId:string;amount:string;referenceNo:string;paymentDate:string}>>({});
+ const [paymentKeys,setPaymentKeys]=useState<Record<string,string>>({});
+ const [actionBusy,setActionBusy]=useState("");
  const [error,setError]=useState("");
  const [claims,setClaims]=useState<RecoveryClaim[]>([]);
  const [claimError,setClaimError]=useState("");
