@@ -115,6 +115,31 @@ router.post("/api/accounting-finance/bank-reconciliations/from-treasury",require
  res.status(201).json({...created.rows[0],bank_code:bank.bank_code,treasury_bank_name:bank.treasury_bank_name,account_title:bank.account_title});
 });
 
+router.post("/api/accounting-finance/bank-fees/draft-document",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const b=req.body||{},ids=Array.isArray(b.transactionIds)?[...new Set(b.transactionIds.map(String))]:[];
+ if(ids.length<1||ids.length>500||typeof b.expenseAccountId!=="string"||typeof b.bookId!=="string"||typeof b.documentNo!=="string"||!date(b.documentDate))return deny(res,400,"گردش‌های کارمزد، حساب هزینه، دفتر، شماره و تاریخ سند الزامی است");
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const rows=await client.query("select tx.*,tb.currency,ab.ledger_account_id bank_ledger_account_id,ab.id accounting_bank_account_id from treasury_bank_transactions tx join treasury_bank_accounts tb on tb.id=tx.bank_account_id and tb.tenant_id=tx.tenant_id join accounting_bank_accounts ab on ab.id=tb.accounting_bank_account_id and ab.tenant_id=tb.tenant_id where tx.tenant_id=$1 and tx.id=any($2::uuid[]) and tx.fee_candidate=true and tx.fee_journal_document_id is null and tx.direction='debit' and ab.status='active' for update of tx",[t.id,ids]);
+  if(rows.rowCount!==ids.length){await client.query("rollback");return deny(res,409,"برخی گردش‌ها دیگر نامزد کارمزد نیستند یا قبلاً برایشان سند ساخته شده است");}
+  const bank=rows.rows[0];if(rows.rows.some((x:any)=>x.bank_account_id!==bank.bank_account_id||x.bank_ledger_account_id!==bank.bank_ledger_account_id||x.currency!==bank.currency)){await client.query("rollback");return deny(res,409,"گردش‌های انتخابی باید متعلق به یک حساب بانکی و یک ارز باشند");}
+  if(!bank.bank_ledger_account_id){await client.query("rollback");return deny(res,409,"حساب بانکی به حساب دفترکل متصل نیست");}
+  const expense=await client.query("select id,account_type,status from ledger_accounts where id=$1 and tenant_id=$2",[b.expenseAccountId,t.id]);
+  if(!expense.rowCount||!["expense","cost"].includes(expense.rows[0].account_type)||expense.rows[0].status!=="active"){await client.query("rollback");return deny(res,400,"حساب انتخابی باید حساب هزینه فعال باشد");}
+  const book=await client.query("select id from accounting_books where id=$1 and tenant_id=$2",[b.bookId,t.id]);if(!book.rowCount){await client.query("rollback");return deny(res,404,"دفتر حسابداری پیدا نشد");}
+  let periodId=b.periodId||null;
+  if(periodId){const period=await client.query("select id,status,book_id,starts_on,ends_on from accounting_fiscal_periods where id=$1 and tenant_id=$2",[periodId,t.id]);if(!period.rowCount||period.rows[0].status!=="open"||period.rows[0].book_id!==b.bookId||b.documentDate<period.rows[0].starts_on||b.documentDate>period.rows[0].ends_on){await client.query("rollback");return deny(res,409,"دوره مالی انتخابی باز نیست یا تاریخ سند در محدوده آن قرار ندارد");}}
+  const total=rows.rows.reduce((n:number,x:any)=>n+Number(x.amount),0);
+  const document=(await client.query("insert into accounting_documents(tenant_id,book_id,period_id,document_no,document_date,document_type,description,source_type,source_id,created_by) values($1,$2,$3,$4,$5,'journal',$6,'bank_fee_import',$7,$8) returning *",[t.id,b.bookId,periodId,b.documentNo.trim(),b.documentDate,"پیش‌نویس ثبت کارمزدهای بانکی از صورت‌حساب واردشده",bank.import_batch_id,(req as any).user.id])).rows[0];
+  await client.query("insert into accounting_document_lines(document_id,line_no,account_id,description,debit,credit,dimensions) values($1,1,$2,$3,$4,0,$5),($1,2,$6,$7,0,$4,$8)",[document.id,b.expenseAccountId,"هزینه کارمزد بانکی",total,JSON.stringify({source:"bank_statement_fee_candidates",transactionIds:ids}),bank.bank_ledger_account_id,"کسر کارمزد از حساب بانکی",JSON.stringify({source:"bank_statement_fee_candidates",transactionIds:ids})]);
+  await client.query("update treasury_bank_transactions set fee_journal_document_id=$1 where tenant_id=$2 and id=any($3::uuid[]) and fee_journal_document_id is null",[document.id,t.id,ids]);
+  await client.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,after_data) values($1,'accounting_document',$2,'create_bank_fee_draft',$3,$4)",[t.id,document.id,(req as any).user.id,JSON.stringify({transactionIds:ids,total,currency:bank.currency,status:"draft"})]);
+  await client.query("commit");res.status(201).json({document,total,currency:bank.currency,transactionCount:ids.length,status:"draft"});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+});
+
 router.get("/api/accounting-finance/bank-reconciliations/:id/workspace",requireAuth,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const rec=await query("select r.*,ab.code bank_code,ab.bank_name,ab.currency,ab.ledger_account_id,tb.bank_name treasury_bank_name,tb.account_title from accounting_bank_reconciliations r join accounting_bank_accounts ab on ab.id=r.bank_account_id and ab.tenant_id=r.tenant_id join treasury_bank_accounts tb on tb.id=r.treasury_bank_account_id and tb.tenant_id=r.tenant_id where r.id=$1 and r.tenant_id=$2",[idOf(req,"id"),t.id]);
