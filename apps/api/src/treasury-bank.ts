@@ -89,13 +89,13 @@ router.post("/api/treasury-bank/statement-imports",requireAuth,requirePermission
  });
  if(invalid.length)return res.status(400).json({error:"فایل دارای ردیف نامعتبر است؛ هیچ گردش بانکی وارد نشد",invalid:invalid.slice(0,100),invalidCount:invalid.length});
  const validRows=normalized.filter(Boolean) as any[],ascending=validRows.length<2||validRows[validRows.length-1].transactionDate>=validRows[0].transactionDate;
- let balanceAnomalyCount=0;
- for(let i=1;i<validRows.length;i++){
+ const monotonic=validRows.every((x:any,i:number)=>i===0||(ascending?x.transactionDate>=validRows[i-1].transactionDate:x.transactionDate<=validRows[i-1].transactionDate));
+ for(let i=1;monotonic&&i<validRows.length;i++){
   const previous=validRows[i-1],current=validRows[i];if(previous.statementBalance===null||current.statementBalance===null)continue;
   const signed=(x:any)=>(x.direction==="credit"?1:-1)*x.amount;
   const expectedChange=ascending?signed(current):signed(previous);
   const observedChange=ascending?Number(current.statementBalance)-Number(previous.statementBalance):Number(previous.statementBalance)-Number(current.statementBalance);
-  if(Math.abs(observedChange-expectedChange)>0.01){current.balanceAnomaly=true;current.balanceAnomalyReason="تغییر مانده متوالی با مبلغ و جهت گردش مجاور هم‌خوانی ندارد";balanceAnomalyCount++;}
+  if(Math.abs(observedChange-expectedChange)>0.01){current.balanceAnomaly=true;current.balanceAnomalyReason="تغییر مانده متوالی با مبلغ و جهت گردش مجاور هم‌خوانی ندارد";}
  }
  const client=await pool.connect();
  try{
@@ -105,14 +105,14 @@ router.post("/api/treasury-bank/statement-imports",requireAuth,requirePermission
   const duplicateInFile=prepared.length-uniqueRows.length;
   const dates=uniqueRows.map(x=>x.transactionDate).sort();
   const batch=(await client.query("insert into treasury_bank_statement_imports(tenant_id,bank_account_id,file_name,statement_date_from,statement_date_to,row_count,created_by) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,b.bankAccountId,b.fileName.trim().slice(0,255),dates[0]||null,dates[dates.length-1]||null,prepared.length,(req as any).user.id])).rows[0];
-  let imported=0,duplicates=duplicateInFile,feeCandidates=0,feeAmount=0;
+  let imported=0,duplicates=duplicateInFile,feeCandidates=0,feeAmount=0,balanceAnomalyImportedCount=0;
   for(const x of uniqueRows){
    const inserted=await client.query("insert into treasury_bank_transactions(tenant_id,bank_account_id,transaction_date,value_date,reference_no,description,amount,direction,statement_balance,import_batch_id,import_fingerprint,fee_candidate,fee_candidate_reason,balance_anomaly,balance_anomaly_reason) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) on conflict do nothing returning id",[t.id,b.bankAccountId,x.transactionDate,x.valueDate,x.referenceNo||null,x.description,x.amount,x.direction,x.statementBalance,batch.id,x.fingerprint,x.fee,x.fee?"شرح تراکنش دارای کلیدواژه کارمزد است؛ نیازمند بررسی انسانی":null,!!x.balanceAnomaly,x.balanceAnomalyReason||null]);
-   if(inserted.rowCount){imported++;if(x.fee){feeCandidates++;feeAmount+=x.amount;}}else duplicates++;
+   if(inserted.rowCount){imported++;if(x.fee){feeCandidates++;feeAmount+=x.amount;}if(x.balanceAnomaly)balanceAnomalyImportedCount++;}else duplicates++;
   }
   const updated=(await client.query("update treasury_bank_statement_imports set imported_count=$1,duplicate_count=$2 where id=$3 and tenant_id=$4 returning *",[imported,duplicates,batch.id,t.id])).rows[0];
   await client.query("commit");
-  await audit(t.id,(req as any).user.id,"bank_statement_import",batch.id,"import",null,{...updated,fee_candidate_count:feeCandidates,fee_candidate_amount:feeAmount,balance_anomaly_count:balanceAnomalyCount});
+  await audit(t.id,(req as any).user.id,"bank_statement_import",batch.id,"import",null,{...updated,fee_candidate_count:feeCandidates,fee_candidate_amount:feeAmount,balance_anomaly_count:balanceAnomalyImportedCount});
   res.status(201).json({...updated,fee_candidate_count:feeCandidates,fee_candidate_amount:feeAmount,balance_anomaly_count:balanceAnomalyCount});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 });
