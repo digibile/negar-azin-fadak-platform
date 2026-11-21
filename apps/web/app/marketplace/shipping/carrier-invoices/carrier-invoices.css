@@ -7,3 +7,13 @@
 .carrier-invoice-history{display:grid;gap:8px;margin-top:10px;padding:11px;border-radius:10px;background:var(--surface-subtle,#f8fafc);border:1px solid var(--border,#d9e0e8)}
 .carrier-invoice-history>div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;padding-top:7px;border-top:1px solid var(--border,#e2e8f0);font-size:12px}
 .carrier-invoice-history small{color:var(--muted,#64748b)}
+
+.carrier-invoice-summary{display:grid;gap:12px;margin:16px 0}
+.carrier-invoice-summary>header h2{margin:0 0 5px;font-size:17px}
+.carrier-invoice-summary>header p{margin:0;color:var(--muted,#64748b);font-size:13px}
+.carrier-invoice-summary>article{padding:15px;border:1px solid var(--border,#dbe2ea);border-radius:14px;background:var(--surface,#fff)}
+.carrier-invoice-summary>article>b{display:inline-block;margin-bottom:10px;font-size:14px}
+.carrier-invoice-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.carrier-invoice-summary-grid>span{display:grid;gap:5px;padding:10px;border-radius:9px;background:var(--surface-subtle,#f8fafc);font-size:12px;color:var(--muted,#64748b)}
+.carrier-invoice-summary-grid strong{font-size:15px;color:var(--foreground,#172033);font-variant-numeric:tabular-nums}
+@media(max-width:760px){.carrier-invoice-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
