@@ -5,7 +5,8 @@ import {api} from "../../../../lib/api";
 import "./carrier-invoices.css";
 
 type Candidate={shipment_id:string;shipment_no:string;delivered_at?:string|null;order_id:string;order_no:string;currency:string;quote_id:string;carrier_name?:string|null;service_name?:string|null;carrier_cost:string|number;quote_currency:string};
-type Invoice={id:string;shipment_id:string;shipment_no:string;order_id:string;order_no:string;invoice_no:string;carrier_name:string;currency:string;quoted_cost:string|number;invoice_amount:string|number;variance_amount:string|number;status:string;notes?:string|null;resolution_note?:string|null;created_at:string;reviewed_at?:string|null;supplier_name?:string|null;payable_status?:string|null;payable_id?:string|null;payable_amount?:string|number|null;payable_settled_amount?:string|number|null;};
+type PaymentRecord={id:string;amount:string|number;currency:string;payment_date:string;reference_no:string;ledger_entry_id?:string|null};
+type Invoice={payment_history?:PaymentRecord[];id:string;shipment_id:string;shipment_no:string;order_id:string;order_no:string;invoice_no:string;carrier_name:string;currency:string;quoted_cost:string|number;invoice_amount:string|number;variance_amount:string|number;status:string;notes?:string|null;resolution_note?:string|null;created_at:string;reviewed_at?:string|null;supplier_name?:string|null;payable_status?:string|null;payable_id?:string|null;payable_amount?:string|number|null;payable_settled_amount?:string|number|null;};
 type Supplier={id:string;party_code:string;title:string};
 type BankAccount={id:string;code:string;bank_name:string;currency:string;current_balance:string|number;ledger_code:string;ledger_name:string};
 type Data={items:Invoice[];candidates:Candidate[];suppliers:Supplier[];bankAccounts:BankAccount[]};
@@ -94,7 +95,7 @@ const selected=data.candidates.find(x=>x.shipment_id===shipmentId);
    {!data.candidates.length&&!loading&&<p className="carrier-invoice-empty">در حال حاضر مرسوله تحویل‌شده بدون صورتحساب وجود ندارد.</p>}
   </section>
   <section className="platform-panel carrier-invoice-panel">
-   <div className="carrier-invoice-list-title"><div><h2>سوابق صورتحساب و تطبیق</h2><p>پس از تأیید، بدهی در حساب‌های پرداختنی ثبت می‌شود؛ پرداخت وجه در گردش پرداخت‌های مالی انجام خواهد شد.</p></div><b>{data.items.length.toLocaleString("fa-IR")} مورد</b></div>
+   <div className="carrier-invoice-list-title"><div><h2>سوابق صورتحساب و تطبیق</h2><p>پس از تأیید، بدهی در حساب‌های پرداختنی ثبت می‌شود؛ ثبت پرداخت از حساب بانکی متصل به دفترکل انجام می‌شود؛ ثبت این عملیات به معنی تأیید انتقال وجه توسط بانک نیست.</p></div><b>{data.items.length.toLocaleString("fa-IR")} مورد</b></div>
    {loading?<p className="carrier-invoice-empty">در حال دریافت اطلاعات…</p>:data.items.length?data.items.map(item=><article className="carrier-invoice-row" key={item.id}>
     <div className="carrier-invoice-main"><b>{item.carrier_name} · {item.invoice_no}</b><small>مرسوله {item.shipment_no} · سفارش {item.order_no}</small><small>ثبت: {date(item.created_at)}</small></div>
     <div className="carrier-invoice-amounts"><span>پیش‌فاکتور: {amount(item.quoted_cost)} {item.currency}</span><span>صورتحساب: {amount(item.invoice_amount)} {item.currency}</span><b data-variance={Number(item.variance_amount)===0?"zero":"diff"}>اختلاف: {amount(item.variance_amount)} {item.currency}</b></div>
@@ -103,6 +104,7 @@ const selected=data.candidates.find(x=>x.shipment_id===shipmentId);
      {(item.status==="matched"||item.status==="disputed")&&<label>طرف حساب تأمین‌کننده<select value={supplierByInvoice[item.id]||""} onChange={e=>setSupplierByInvoice(p=>({...p,[item.id]:e.target.value}))}><option value="">انتخاب تأمین‌کننده در حسابداری</option>{data.suppliers.map(p=><option key={p.id} value={p.id}>{p.title} · {p.party_code}</option>)}</select></label>}
      {(item.status==="matched"||item.status==="disputed")&&<button type="button" disabled={busy===item.id||!supplierByInvoice[item.id]||(item.status==="disputed"&&!(resolution[item.id]||"").trim())} onClick={()=>void approve(item)}>{busy===item.id?"در حال ثبت…":"تأیید و ثبت بدهی"}</button>}
      {item.status==="approved"&&<small>طرف حساب: {item.supplier_name||"ثبت‌شده"} · وضعیت بدهی: {item.payable_status||"ثبت شد"}</small>}
+     {item.status==="approved"&&item.payment_history&&item.payment_history.length>0&&<div className="carrier-invoice-history"><b>سوابق پرداخت</b>{item.payment_history.map(p=><div key={p.id}><span>{date(p.payment_date)} · {amount(p.amount)} {p.currency}</span><small>مرجع: {p.reference_no} {p.ledger_entry_id?"· سند دفترکل ثبت شد":""}</small></div>)}</div>}
      {item.status==="approved"&&item.payable_id&&item.payable_status!=="settled"&&<div className="carrier-invoice-payment">
       <small>مانده پرداختنی: {amount(Number(item.payable_amount||0)-Number(item.payable_settled_amount||0))} {item.currency}</small>
       <label>حساب بانکی متصل به دفترکل<select value={bankByInvoice[item.id]||""} onChange={e=>setBankByInvoice(p=>({...p,[item.id]:e.target.value}))}><option value="">انتخاب حساب بانکی</option>{data.bankAccounts.filter(b=>b.currency===item.currency).map(b=><option key={b.id} value={b.id}>{b.bank_name} · {b.code} · موجودی {amount(b.current_balance)}</option>)}</select></label>
