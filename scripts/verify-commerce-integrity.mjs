@@ -374,6 +374,17 @@ const accountingFinancePage=read("apps/web/app/modules/AccountingFinanceWorkspac
 if(!bankStatementMatchMigration.includes("accounting_bank_reconciliation_matches")||!bankStatementMatchMigration.includes("unique(tenant_id,treasury_transaction_id)")||!bankStatementMatchMigration.includes("unique(tenant_id,accounting_document_line_id)"))throw new Error("Bank statement line matching must prevent duplicate transaction and ledger-line matches");
 for(const marker of ["/bank-reconciliations/from-treasury","/bank-reconciliations/:id/workspace","/bank-reconciliations/:id/matches","d.status='posted'","ledger_account_id","treasury_bank_account_id","تا تعیین تکلیف تمام گردش‌های صورت‌حساب","تأیید نهایی فقط پس از تطبیق کامل"])if(!accountingOperationsApi.includes(marker))throw new Error("Accounting bank reconciliation API is missing statement-to-ledger controls: "+marker);
 for(const marker of ["bank-reconciliation","from-treasury","candidate_lines","accountingDocumentLineId","نهایی‌سازی تطبیق","مانده دفترکل از اسناد قطعی"])if(!accountingFinancePage.includes(marker))throw new Error("Accounting finance workspace is missing bank statement matching UI: "+marker);
+const bankStatementImportMigration=read("database/migrations/166_treasury_bank_statement_import_and_fee_review.sql");
+const treasuryImportApi=read("apps/api/src/treasury-bank.ts");
+const accountingFeeDraftApi=read("apps/api/src/accounting-finance-operations.ts");
+const treasuryImportPage=read("apps/web/app/modules/TreasuryBankWorkspace.tsx");
+const treasuryImportCss=read("apps/web/app/modules/TreasuryBankWorkspace.module.css");
+if(!bankStatementImportMigration.includes("treasury_bank_statement_imports")||!bankStatementImportMigration.includes("uq_treasury_bank_transaction_import_fingerprint")||!bankStatementImportMigration.includes("fee_journal_document_id"))throw new Error("Bank statement import migration must track batches, deduplication fingerprints and fee journal links");
+for(const marker of ["/api/treasury-bank/statement-imports","createHash(\"sha256\")","on conflict do nothing","fee_candidate_reason","ردیف نامعتبر است"])if(!treasuryImportApi.includes(marker))throw new Error("Treasury CSV import must validate rows, classify fees and prevent duplicate imports: "+marker);
+for(const marker of ["/bank-fees/draft-document","bank_fee_import","fee_journal_document_id is null","bank_ledger_account_id","status:'draft'"])if(!accountingFeeDraftApi.includes(marker))throw new Error("Bank fee draft journal API must remain reviewable and idempotent: "+marker);
+for(const marker of ["parseStatementCsv","/api/treasury-bank/statement-imports","fee_candidate","ایجاد پیش‌نویس سند","CSV"])if(!treasuryImportPage.includes(marker))throw new Error("Treasury UI is missing statement import or fee review workflow: "+marker);
+for(const marker of [".importSummary",".feeFlag",".feeSelect"])if(!treasuryImportCss.includes(marker))throw new Error("Treasury statement import styles are missing: "+marker);
+console.log("TREASURY_BANK_STATEMENT_IMPORT_AND_FEE_REVIEW_INTEGRITY_OK");
 console.log("ACCOUNTING_BANK_STATEMENT_LINE_RECONCILIATION_INTEGRITY_OK");
 console.log("TREASURY_CANONICAL_ACCOUNTING_BANK_LINK_INTEGRITY_OK");
 console.log("MARKETPLACE_SELLER_SETTLEMENT_BANK_PAYMENT_INTEGRITY_OK");
