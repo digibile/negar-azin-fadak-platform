@@ -332,3 +332,12 @@ if(!carrierInvoiceFinanceMigration.includes("party_id")||!carrierInvoiceFinanceM
 if(!carrierInvoiceApi.includes("party_type='supplier'")||!carrierInvoiceApi.includes("invoice_amount")||!carrierInvoiceApi.includes("variance>0"))throw new Error("Carrier invoice approval must validate a supplier and use actual invoice amount plus signed variance");
 if(!carrierInvoiceApi.includes("revenueReduction")||!carrierInvoiceApi.includes("expenseReduction")||!carrierInvoiceApi.includes("invoiceAmount<=0"))throw new Error("Carrier invoice variance must preserve the original shipping margin and cost split and require a positive invoice");
 console.log("MARKETPLACE_CARRIER_INVOICE_FINANCE_LINK_INTEGRITY_OK");
+
+const carrierInvoiceSettlementMigration=read("database/migrations/161_accounting_payable_settlements.sql");
+if(!carrierInvoiceSettlementMigration.includes("accounting_rp_settlements")||!carrierInvoiceSettlementMigration.includes("idempotency_key")||!carrierInvoiceSettlementMigration.includes("ledger_entry_id"))throw new Error("Payable settlements must be auditable and idempotent in the existing accounting subledger");
+if(!carrierInvoiceApi.includes("/api/logistics/carrier-invoices/:id/pay")||!carrierInvoiceApi.includes("accounting_rp_settlements")||!carrierInvoiceApi.includes("accounting_bank_accounts")||!carrierInvoiceApi.includes("accounting_rp_settlement"))throw new Error("Carrier payable payments must use mapped accounting bank accounts and post a balanced ledger entry");
+if(!carrierInvoiceApi.includes("settled_amount")||!carrierInvoiceApi.includes("current_balance=current_balance-$1")||!carrierInvoiceApi.includes("ledger_code"))throw new Error("Carrier payable settlement must update the payable balance and mapped bank balance");
+if(!carrierInvoicePage.includes("ثبت پرداخت انجام‌شده")||!carrierInvoicePage.includes("شماره مرجع انتقال")||!carrierInvoicePage.includes("data.bankAccounts"))throw new Error("Carrier invoice workspace must support documented payment from mapped bank accounts");
+if(!carrierInvoiceCss.includes(".carrier-invoice-payment"))throw new Error("Carrier invoice settlement controls must have responsive styling");
+console.log("MARKETPLACE_CARRIER_INVOICE_SETTLEMENT_INTEGRITY_OK");
+
