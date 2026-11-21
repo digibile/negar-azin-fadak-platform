@@ -59,7 +59,7 @@ export default function SettlementsPage(){
   const f=paymentForms[id];if(!f?.bankAccountId||!f.referenceNo.trim()||!(Number(f.amount)>0)){setError("حساب بانکی، مبلغ و شماره مرجع پرداخت را کامل کنید");return;}
   setActionBusy(id);setError("");
   const idempotencyKey=paymentKeys[id]||crypto.randomUUID();setPaymentKeys(old=>({...old,[id]:idempotencyKey}));
-  try{await api<any>(`/api/marketplace/settlements/${id}/pay`,{method:"POST",body:JSON.stringify({...f,referenceNo:f.referenceNo.trim(),idempotencyKey})});setPaymentKeys(old=>{const next={...old};delete next[id];return next;});const x=await api<any>("/api/marketplace/settlements");setItems(x?.items||[]);setBankAccounts(x?.bankAccounts||[]);}
+  try{await api<any>(`/api/marketplace/settlements/${id}/pay`,{method:"POST",body:JSON.stringify({...f,referenceNo:f.referenceNo.trim(),idempotencyKey})});setPaymentKeys(old=>{const next={...old};delete next[id];return next;});const x=await api<any>("/api/marketplace/settlements");setItems(x?.items||[]);setBankAccounts(x?.bankAccounts||[]);setSummary(x?.summary||[]);const updated=(x?.items||[]).find((row:Settlement)=>row.id===id);if(updated)setPaymentForms(old=>({...old,[id]:{...(old[id]||f),amount:String(Math.max(0,Number(updated.payable_amount||updated.net_amount)-Number(updated.payable_settled_amount||0)))}}));}
   catch(e:any){setError(e.message||"ثبت پرداخت تسویه ناموفق بود");}
   finally{setActionBusy("");}
  };
