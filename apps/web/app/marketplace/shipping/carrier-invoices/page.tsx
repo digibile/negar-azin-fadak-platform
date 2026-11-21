@@ -67,7 +67,7 @@ export default function CarrierInvoicesPage(){
  if(!bankAccountId||!referenceNo||!Number.isFinite(amountValue)||amountValue<=0){setError("حساب بانکی، مبلغ و شماره مرجع پرداخت الزامی است.");return;}
  const key=paymentKeys[item.id]||crypto.randomUUID();setPaymentKeys(p=>({...p,[item.id]:key}));setBusy("pay-"+item.id);setError("");setNotice("");
  try{
-  const result=await api("/api/logistics/carrier-invoices/"+encodeURIComponent(item.id)+"/pay",{method:"POST",body:JSON.stringify({bankAccountId,amount:amountValue,referenceNo,paymentDate:new Date().toISOString().slice(0,10),idempotencyKey:key})});
+  const result=await api<{outstandingAmount:number}>("/api/logistics/carrier-invoices/"+encodeURIComponent(item.id)+"/pay",{method:"POST",body:JSON.stringify({bankAccountId,amount:amountValue,referenceNo,paymentDate:new Date().toISOString().slice(0,10),idempotencyKey:key})});
   setPaymentKeys(p=>{const n={...p};delete n[item.id];return n;});setPayReferenceByInvoice(p=>({...p,[item.id]:""}));
   setNotice("پرداخت "+amount(amountValue)+" "+item.currency+" ثبت شد. مانده بدهی: "+amount(result.outstandingAmount));await load();
  }catch(e){setError(e instanceof Error?e.message:"ثبت پرداخت شرکت حمل ناموفق بود.");}finally{setBusy("");}
