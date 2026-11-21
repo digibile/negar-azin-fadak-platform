@@ -11,14 +11,15 @@ const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL
 const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
 async function req(path:string,opt:RequestInit={}){const r=await fetch(api+path,{credentials:"include",...opt,headers:{"Content-Type":"application/json","X-CSRF-Token":csrf(),...(opt.headers||{})}});const b=await r.json().catch(()=>null);if(!r.ok)throw Error(b?.error||"عملیات ناموفق بود");return b}
 function parseStatementCsv(source:string){
- const first=source.replace(/^\uFEFF/,"").split(/\r?\n/,1)[0]||"",delimiter=(first.match(/;/g)||[]).length>(first.match(/,/g)||[]).length?";":",";
+ source=source.replace(/^\uFEFF/,"");
+ const first=source.split(/\r?\n/,1)[0]||"",delimiter=(first.match(/;/g)||[]).length>(first.match(/,/g)||[]).length?";":",";
  const rows:string[][]=[];let row:string[]=[],cell="",quoted=false;
  for(let i=0;i<source.length;i++){const ch=source[i];if(ch==='"'){if(quoted&&source[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}else if(ch===delimiter&&!quoted){row.push(cell);cell="";}else if((ch==="\n"||ch==="\r")&&!quoted){if(ch==="\r"&&source[i+1]==="\n")i++;row.push(cell);if(row.some(x=>x.trim()))rows.push(row);row=[];cell="";}else cell+=ch;}
  row.push(cell);if(row.some(x=>x.trim()))rows.push(row);
  if(rows.length<2)throw Error("فایل CSV باید یک سطر عنوان و دست‌کم یک گردش داشته باشد");
  const norm=(x:string)=>x.trim().toLowerCase().replace(/[\s_\-]+/g,"").replace(/[آأإ]/g,"ا");
  const headers=rows[0].map(norm),find=(names:string[])=>headers.findIndex(h=>names.map(norm).includes(h));
- const ix={date:find(["date","transactiondate","تاریخ","تاریخگردش","تاریختراکنش"]),amount:find(["amount","مبلغ","مبلغتراکنش"]),direction:find(["direction","type","نوع","جهت","برداشت/واریز"]),debit:find(["debit","برداشت","بدهکار"]),credit:find(["credit","واریز","بستانکار"]),reference:find(["reference","referenceno","ref","شمارهپیگیری","شمارهمرجع","شناسه"]),description:find(["description","شرح","توضیحات"]),valueDate:find(["valuedate","تاریخموثر"]),balance:find(["balance","مانده","ماندهپسازتراکنش"])};
+ const ix={date:find(["date","transactiondate","تاریخ","تاریخگردش","تاریختراکنش"]),amount:find(["amount","مبلغ","مبلغتراکنش","مبلغریال","مبلغتومان"]),direction:find(["direction","type","نوع","نوعتراکنش","جهت","برداشت/واریز"]),debit:find(["debit","برداشت","بدهکار"]),credit:find(["credit","واریز","بستانکار"]),reference:find(["reference","referenceno","ref","شمارهپیگیری","شمارهمرجع","شناسه"]),description:find(["description","شرح","توضیحات","توضیحاتتراکنش","شرح‌تراکنش"]),valueDate:find(["valuedate","تاریخموثر"]),balance:find(["balance","مانده","ماندهپسازتراکنش"])};
  if(ix.date<0||ix.amount<0&&ix.debit<0&&ix.credit<0)throw Error("ستون‌های تاریخ و مبلغ (یا برداشت و واریز) در فایل پیدا نشد");
  const digits=(v:string)=>v.replace(/[۰-۹٠-٩]/g,c=>String("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩".indexOf(c)%10)).replace(/[,٬\s]/g,"");
  const get=(r:string[],i:number)=>i<0?"":String(r[i]??"").trim();
