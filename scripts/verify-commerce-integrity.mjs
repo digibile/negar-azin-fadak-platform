@@ -368,6 +368,13 @@ const canonicalBankLinkMigration=read("database/migrations/164_treasury_accounti
 if(!canonicalBankLinkMigration.includes("accounting_bank_account_id")||!canonicalBankLinkMigration.includes("having count(distinct ab.id)=1")||!canonicalBankLinkMigration.includes("uq_treasury_bank_account_accounting_link"))throw new Error("Treasury accounts must link only to one exact, currency-matched accounting bank account");
 for(const marker of ["accounting_bank_account_id","accounting_bank_accounts ab","upper(trim(ab.currency))","matches.rowCount===1"])if(!treasuryBankApi.includes(marker))throw new Error("Treasury account creation or overview is missing canonical accounting-bank linking: "+marker);
 for(const marker of ["accounting_code","ledger_code","accounting_current_balance","اتصال حسابداری","حساب متناظر حسابداری یافت نشد","مانده حساب خزانه"])if(!treasuryBankPage.includes(marker))throw new Error("Treasury account workspace must show canonical accounting-bank linkage and balance state: "+marker);
+const bankStatementMatchMigration=read("database/migrations/165_accounting_bank_statement_line_reconciliation.sql");
+const accountingOperationsApi=read("apps/api/src/accounting-finance-operations.ts");
+const accountingFinancePage=read("apps/web/app/modules/AccountingFinanceWorkspace.tsx");
+if(!bankStatementMatchMigration.includes("accounting_bank_reconciliation_matches")||!bankStatementMatchMigration.includes("unique(tenant_id,treasury_transaction_id)")||!bankStatementMatchMigration.includes("unique(tenant_id,accounting_document_line_id)"))throw new Error("Bank statement line matching must prevent duplicate transaction and ledger-line matches");
+for(const marker of ["/bank-reconciliations/from-treasury","/bank-reconciliations/:id/workspace","/bank-reconciliations/:id/matches","d.status='posted'","ledger_account_id","treasury_bank_account_id","تا تعیین تکلیف تمام گردش‌های صورت‌حساب","تأیید نهایی فقط پس از تطبیق کامل"])if(!accountingOperationsApi.includes(marker))throw new Error("Accounting bank reconciliation API is missing statement-to-ledger controls: "+marker);
+for(const marker of ["bank-reconciliation","from-treasury","candidate_lines","accountingDocumentLineId","نهایی‌سازی تطبیق","مانده دفترکل از اسناد قطعی"])if(!accountingFinancePage.includes(marker))throw new Error("Accounting finance workspace is missing bank statement matching UI: "+marker);
+console.log("ACCOUNTING_BANK_STATEMENT_LINE_RECONCILIATION_INTEGRITY_OK");
 console.log("TREASURY_CANONICAL_ACCOUNTING_BANK_LINK_INTEGRITY_OK");
 console.log("MARKETPLACE_SELLER_SETTLEMENT_BANK_PAYMENT_INTEGRITY_OK");
 console.log("TREASURY_CARRIER_PAYABLE_BANK_RECONCILIATION_INTEGRITY_OK");
