@@ -25,3 +25,19 @@
 .commerce-settlements .settlement-order-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px;border-radius:10px;background:var(--surface-muted,#f8fafc);font-size:13px}
 .commerce-settlements .settlement-order-row strong{margin-inline-start:auto}
 @media(max-width:600px){.commerce-settlements .settlement-order-row{display:grid;grid-template-columns:1fr 1fr}.commerce-settlements .settlement-order-row strong{margin:0}}
+
+.seller-settlement-payment{grid-column:1/-1;margin-top:12px;padding:14px;border:1px solid #d9e4ed;border-radius:10px;background:#f8fafc}
+.seller-settlement-payment>b,.seller-settlement-history>b{display:block;margin-bottom:8px;font-size:12px}
+.seller-settlement-payment>small{display:block;color:#536579;margin-bottom:10px}
+.seller-settlement-payment-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.seller-settlement-payment-fields label{display:flex;flex-direction:column;gap:5px;font-size:10px;color:#536274}
+.seller-settlement-payment-fields input,.seller-settlement-payment-fields select{min-width:0;width:100%;box-sizing:border-box;border:1px solid #d4dce5;border-radius:7px;padding:9px;background:#fff;color:#172333;font-size:11px}
+.settlement-approve,.settlement-pay{border:0;border-radius:7px;padding:9px 13px;background:#087dcc;color:#fff;font-size:11px;font-weight:800;cursor:pointer}
+.settlement-pay{margin-top:10px}
+.settlement-approve:disabled,.settlement-pay:disabled{opacity:.5;cursor:not-allowed}
+.seller-settlement-history{grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:1px solid #e7edf2}
+.seller-settlement-history>div{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid #edf1f4;font-size:10px}
+.seller-settlement-history>div small{color:#6c7a88}
+.settlements-action-error{margin:8px 0 0;color:#a12626;font-size:11px}
+@media(max-width:760px){.seller-settlement-payment-fields{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.seller-settlement-payment-fields{grid-template-columns:1fr}}
