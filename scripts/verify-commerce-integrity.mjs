@@ -345,5 +345,14 @@ if(!carrierInvoiceApi.includes("payment_history")||!carrierInvoiceApi.includes("
 if(!carrierInvoicePage.includes("ثبت پرداخت انجام‌شده")||!carrierInvoicePage.includes("شماره مرجع انتقال")||!carrierInvoicePage.includes("data.bankAccounts"))throw new Error("Carrier invoice workspace must support documented payment from mapped bank accounts");
 if(!carrierInvoiceCss.includes(".carrier-invoice-payment"))throw new Error("Carrier invoice settlement controls must have responsive styling");
 if(!carrierInvoiceApi.includes("approved_payable_total")||!carrierInvoiceApi.includes("outstanding_total")||!carrierInvoiceApi.includes("group by i.currency")||!carrierInvoicePage.includes("خلاصه مالی شرکت‌های حمل")||!carrierInvoicePage.includes("row.outstanding_total")||!carrierInvoiceCss.includes(".carrier-invoice-summary-grid"))throw new Error("Carrier invoice financial summary must be currency-scoped and visible in the workspace");
+const treasurySettlementMigration=read("database/migrations/162_treasury_carrier_settlement_reconciliation.sql");
+const treasuryBankApi=read("apps/api/src/treasury-bank.ts");
+const treasuryBankPage=read("apps/web/app/modules/TreasuryBankWorkspace.tsx");
+const treasuryBankCss=read("apps/web/app/modules/TreasuryBankWorkspace.module.css");
+if(!treasurySettlementMigration.includes("payable_settlement_id")||!treasurySettlementMigration.includes("uq_treasury_bank_transaction_payable_settlement"))throw new Error("Treasury statement settlement link migration is missing its unique tenant-scoped link");
+for(const marker of ["carrier_settlement_candidates","s.metadata->>'sourceType'='carrier_invoice'","s.reference_no=x.reference_no","s.amount=x.amount","s.currency=b.currency","payable_settlement_id=$1"])if(!treasuryBankApi.includes(marker))throw new Error("Treasury reconciliation is missing strict carrier payment match validation: "+marker);
+for(const marker of ["carrier_settlement_candidates","payableSettlementId","تطبیق با پرداخت حمل"])if(!treasuryBankPage.includes(marker))throw new Error("Treasury workspace is missing carrier settlement reconciliation controls: "+marker);
+if(!treasuryBankCss.includes(".settlementCandidate"))throw new Error("Treasury carrier settlement match styling is missing");
+console.log("TREASURY_CARRIER_PAYABLE_BANK_RECONCILIATION_INTEGRITY_OK");
 console.log("MARKETPLACE_CARRIER_INVOICE_SETTLEMENT_INTEGRITY_OK");
 
