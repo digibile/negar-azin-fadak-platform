@@ -3,3 +3,7 @@
 .carrier-invoice-payment label{display:grid;gap:5px;font-size:12px}
 .carrier-invoice-payment input,.carrier-invoice-payment select{width:100%;min-width:0}
 .carrier-invoice-payment button{justify-self:start}
+
+.carrier-invoice-history{display:grid;gap:8px;margin-top:10px;padding:11px;border-radius:10px;background:var(--surface-subtle,#f8fafc);border:1px solid var(--border,#d9e0e8)}
+.carrier-invoice-history>div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;padding-top:7px;border-top:1px solid var(--border,#e2e8f0);font-size:12px}
+.carrier-invoice-history small{color:var(--muted,#64748b)}
