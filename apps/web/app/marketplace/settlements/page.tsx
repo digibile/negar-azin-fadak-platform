@@ -3,7 +3,7 @@ import {useEffect,useState} from "react";
 import {api} from "../../../lib/api";
 import "./settlements-workspace.css";
 
-type BankAccount={id:string;code:string;bank_name:string;currency:string;current_balance:string|number};
+type BankAccount={id:string;code:string;bank_name:string;currency:string;current_balance:string|number};\ntype SettlementSummary={currency:string;settlement_count:number;gross_total:string|number;commission_total:string|number;net_total:string|number;paid_total:string|number;outstanding_total:string|number;pending_count:number;approved_count:number;partially_paid_count:number;paid_count:number};
 type PaymentHistory={id:string;amount:string|number;currency:string;payment_date:string;reference_no:string;ledger_entry_id?:string|null};
 type RecoveryClaim={id:string;seller_name?:string;settlement_no:string;order_no:string;refund_no:string;amount:string|number;currency?:string;status:string;created_at?:string;payment_ref?:string};
 type Settlement={
@@ -16,7 +16,7 @@ const amount=(value:unknown)=>Number(value||0).toLocaleString("fa-IR");
 const date=(value?:string)=>value?new Date(value).toLocaleDateString("fa-IR"):"—";
 
 export default function SettlementsPage(){
- const [items,setItems]=useState<Settlement[]>([]);\n const [bankAccounts,setBankAccounts]=useState<BankAccount[]>([]);\n const [paymentForms,setPaymentForms]=useState<Record<string,{bankAccountId:string;amount:string;referenceNo:string;paymentDate:string}>>({});\n const [paymentKeys,setPaymentKeys]=useState<Record<string,string>>({});\n const [actionBusy,setActionBusy]=useState("");
+ const [items,setItems]=useState<Settlement[]>([]);\n const [bankAccounts,setBankAccounts]=useState<BankAccount[]>([]);\n const [summary,setSummary]=useState<SettlementSummary[]>([]);\n const [paymentForms,setPaymentForms]=useState<Record<string,{bankAccountId:string;amount:string;referenceNo:string;paymentDate:string}>>({});\n const [paymentKeys,setPaymentKeys]=useState<Record<string,string>>({});\n const [actionBusy,setActionBusy]=useState("");
  const [error,setError]=useState("");
  const [claims,setClaims]=useState<RecoveryClaim[]>([]);
  const [claimError,setClaimError]=useState("");
@@ -30,7 +30,7 @@ export default function SettlementsPage(){
  useEffect(()=>{
   let active=true;
   api<any>("/api/marketplace/settlements")
-   .then(x=>{if(active){const rows=Array.isArray(x)?x:Array.isArray(x?.items)?x.items:[];setItems(rows);setBankAccounts(x?.bankAccounts||[]);setPaymentForms(old=>{const next={...old};for(const row of rows){if(!next[row.id])next[row.id]={bankAccountId:x?.bankAccounts?.[0]?.id||"",amount:String(Math.max(0,Number(row.payable_amount||row.net_amount)-Number(row.payable_settled_amount||0))),referenceNo:"",paymentDate:new Date().toISOString().slice(0,10)};}return next;});}})
+   .then(x=>{if(active){const rows=Array.isArray(x)?x:Array.isArray(x?.items)?x.items:[];setItems(rows);setBankAccounts(x?.bankAccounts||[]);setSummary(x?.summary||[]);setPaymentForms(old=>{const next={...old};for(const row of rows){if(!next[row.id])next[row.id]={bankAccountId:x?.bankAccounts?.[0]?.id||"",amount:String(Math.max(0,Number(row.payable_amount||row.net_amount)-Number(row.payable_settled_amount||0))),referenceNo:"",paymentDate:new Date().toISOString().slice(0,10)};}return next;});}})
    .catch(e=>{if(active)setError(e.message||"دریافت فهرست تسویه‌ها ناموفق بود");})
    .finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;};
@@ -45,7 +45,7 @@ export default function SettlementsPage(){
  const updatePaymentForm=(id:string,patch:Partial<{bankAccountId:string;amount:string;referenceNo:string;paymentDate:string}>)=>setPaymentForms(old=>({...old,[id]:{...(old[id]||{bankAccountId:bankAccounts[0]?.id||"",amount:"",referenceNo:"",paymentDate:new Date().toISOString().slice(0,10)}),...patch}}));
  const approve=async(id:string)=>{
   setActionBusy(id);setError("");
-  try{await api<any>(`/api/marketplace/settlements/${id}/approve`,{method:"PATCH"});const x=await api<any>("/api/marketplace/settlements");setItems(x?.items||[]);setBankAccounts(x?.bankAccounts||[]);}
+  try{await api<any>(`/api/marketplace/settlements/${id}/approve`,{method:"PATCH"});const x=await api<any>("/api/marketplace/settlements");setItems(x?.items||[]);setBankAccounts(x?.bankAccounts||[]);setSummary(x?.summary||[]);}
   catch(e:any){setError(e.message||"تأیید تسویه ناموفق بود");}
   finally{setActionBusy("");}
  };
@@ -70,6 +70,17 @@ export default function SettlementsPage(){
    <div className="settlements-count"><strong>{items.length.toLocaleString("fa-IR")}</strong><span>پرونده تسویه</span></div>
    <a href="/platform">مرکز عملیات</a>
   </header>
+  {!!summary.length&&<section className="seller-settlement-summary" aria-label="خلاصه مالی تسویه فروشندگان">
+   {summary.map(row=><article key={row.currency}>
+    <div><b>{row.currency}</b><small>{Number(row.settlement_count||0).toLocaleString("fa-IR")} پرونده</small></div>
+    <div><small>ناخالص</small><strong>{amount(row.gross_total)}</strong></div>
+    <div><small>کارمزد</small><strong>{amount(row.commission_total)}</strong></div>
+    <div><small>خالص فروشندگان</small><strong>{amount(row.net_total)}</strong></div>
+    <div><small>پرداخت‌شده</small><strong>{amount(row.paid_total)}</strong></div>
+    <div><small>مانده بدهی تأییدشده</small><strong>{amount(row.outstanding_total)}</strong></div>
+    <div className="seller-settlement-summary-counts"><small>در انتظار {Number(row.pending_count||0).toLocaleString("fa-IR")} · تأیید {Number(row.approved_count||0).toLocaleString("fa-IR")} · پرداخت بخشی {Number(row.partially_paid_count||0).toLocaleString("fa-IR")} · تسویه‌شده {Number(row.paid_count||0).toLocaleString("fa-IR")}</small></div>
+   </article>)}
+  </section>}
   <section className="platform-panel settlements-list" aria-live="polite">
    {loading&&<p className="settlements-state">در حال دریافت اطلاعات تسویه…</p>}
    {!loading&&error&&<p className="settlements-state error" role="alert">{error}</p>}
