@@ -9,3 +9,5 @@
 .feeSelect input{width:auto!important}
 .feeSelect span{font-size:10px}
 .feeSelect:has(input:disabled){opacity:.45}
+
+.balanceFlag{color:#a13b32!important;font-weight:800}
