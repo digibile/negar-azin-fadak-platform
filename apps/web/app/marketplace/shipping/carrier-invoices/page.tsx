@@ -60,7 +60,19 @@ export default function CarrierInvoicesPage(){
   finally{setBusy("");}
  }
 
- const selected=data.candidates.find(x=>x.shipment_id===shipmentId);
+ async function pay(item:Invoice){
+ const remaining=Number(item.payable_amount||0)-Number(item.payable_settled_amount||0);
+ const amountValue=Number(payAmountByInvoice[item.id]||remaining),bankAccountId=bankByInvoice[item.id]||"",referenceNo=(payReferenceByInvoice[item.id]||"").trim();
+ if(!bankAccountId||!referenceNo||!Number.isFinite(amountValue)||amountValue<=0){setError("حساب بانکی، مبلغ و شماره مرجع پرداخت الزامی است.");return;}
+ const key=paymentKeys[item.id]||crypto.randomUUID();setPaymentKeys(p=>({...p,[item.id]:key}));setBusy("pay-"+item.id);setError("");setNotice("");
+ try{
+  const result=await api("/api/logistics/carrier-invoices/"+encodeURIComponent(item.id)+"/pay",{method:"POST",body:JSON.stringify({bankAccountId,amount:amountValue,referenceNo,paymentDate:new Date().toISOString().slice(0,10),idempotencyKey:key})});
+  setPaymentKeys(p=>{const n={...p};delete n[item.id];return n;});setPayReferenceByInvoice(p=>({...p,[item.id]:""}));
+  setNotice("پرداخت "+amount(amountValue)+" "+item.currency+" ثبت شد. مانده بدهی: "+amount(result.outstandingAmount));await load();
+ }catch(e){setError(e instanceof Error?e.message:"ثبت پرداخت شرکت حمل ناموفق بود.");}finally{setBusy("");}
+}
+
+const selected=data.candidates.find(x=>x.shipment_id===shipmentId);
  return <main className="enterprise-main carrier-invoices-page" dir="rtl">
   <header className="platform-header">
    <div><span className="section-kicker">تجارت · لجستیک · تطبیق هزینه</span><h1>صورتحساب شرکت‌های حمل</h1><p>تطبیق صورتحساب واقعی، ثبت بدهی تأمین‌کننده و تعدیل اختلاف در دفترکل</p></div>
