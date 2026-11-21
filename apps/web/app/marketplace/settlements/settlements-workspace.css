@@ -41,3 +41,11 @@
 .settlements-action-error{margin:8px 0 0;color:#a12626;font-size:11px}
 @media(max-width:760px){.seller-settlement-payment-fields{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.seller-settlement-payment-fields{grid-template-columns:1fr}}
+
+.seller-settlement-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin:0 0 14px}
+.seller-settlement-summary article{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:14px;border:1px solid #dce5ed;border-radius:10px;background:#fff}
+.seller-settlement-summary article>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.seller-settlement-summary article>div:first-child{grid-column:1/-1;flex-direction:row;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid #edf1f4}
+.seller-settlement-summary small{font-size:10px;color:#718092}
+.seller-settlement-summary strong{font-size:13px;color:#1d3044}
+.seller-settlement-summary-counts{grid-column:1/-1;padding-top:8px;border-top:1px solid #edf1f4}
