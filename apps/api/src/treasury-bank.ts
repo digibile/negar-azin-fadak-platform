@@ -1,4 +1,5 @@
 import {Router,type Request,type Response} from "express";
+import {createHash} from "node:crypto";
 import {query,pool} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {resolveTenant} from "./tenant-context.js";
@@ -61,6 +62,43 @@ router.patch("/api/treasury-bank/payments/:id/status",requireAuth,requirePermiss
  const c=await pool.connect();try{await c.query("begin");const r=await c.query("update treasury_payments set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,paid_at=case when $1='paid' then now() else paid_at end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[s,(req as any).user.id,String(String(req.params.id)),t.id]);if(s==="paid")await c.query("update treasury_bank_accounts set current_balance=current_balance-$1,updated_at=now() where id=$2 and tenant_id=$3",[old.rows[0].amount,old.rows[0].bank_account_id,t.id]);await c.query("commit");await audit(t.id,(req as any).user.id,"payment",String(String(req.params.id)),"status",old.rows[0],r.rows[0]);res.json(r.rows[0]);}catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
 
+router.post("/api/treasury-bank/statement-imports",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const b=req.body||{},rows=Array.isArray(b.rows)?b.rows:[];
+ if(typeof b.bankAccountId!=="string"||!b.bankAccountId||typeof b.fileName!=="string"||!b.fileName.trim()||!rows.length||rows.length>3000)return deny(res,400,"حساب، نام فایل و حداکثر ۳۰۰۰ ردیف معتبر الزامی است");
+ const account=await query("select id,currency from treasury_bank_accounts where id=$1 and tenant_id=$2 and status='active'",[b.bankAccountId,t.id]);
+ if(!account.rowCount)return deny(res,404,"حساب بانکی فعال پیدا نشد");
+ const invalid:any[]=[];
+ const normalized=rows.map((x:any,index:number)=>{
+  const transactionDate=String(x.transactionDate||"").trim(),direction=String(x.direction||"").trim().toLowerCase(),amount=Number(x.amount);
+  if(!date(transactionDate)||!["credit","debit"].includes(direction)||!Number.isFinite(amount)||amount<=0){invalid.push({row:index+2,reason:"تاریخ، جهت یا مبلغ نامعتبر است"});return null;}
+  const referenceNo=String(x.referenceNo||"").trim().slice(0,160),description=String(x.description||"").trim().slice(0,1000),valueDate=x.valueDate?String(x.valueDate).trim():null,statementBalance=x.statementBalance===""||x.statementBalance==null?null:Number(x.statementBalance);
+  if(valueDate&&!date(valueDate)){invalid.push({row:index+2,reason:"تاریخ مؤثر نامعتبر است"});return null;}
+  if(statementBalance!==null&&!Number.isFinite(statementBalance)){invalid.push({row:index+2,reason:"مانده پس از تراکنش نامعتبر است"});return null;}
+  const fee=direction==="debit"&&/(کارمزد|هزینه\s*(?:خدمات|بانک|انتقال|پیامک)|commission|\bfee\b|bank\s*charge|service\s*charge|transaction\s*charge)/i.test(description);
+  const fingerprint=createHash("sha256").update([transactionDate,valueDate||"",direction,amount.toFixed(2),referenceNo,description].join("|")).digest("hex");
+  return {transactionDate,direction,amount,referenceNo,description,valueDate,statementBalance,fee,fingerprint};
+ });
+ if(invalid.length)return res.status(400).json({error:"فایل دارای ردیف نامعتبر است؛ هیچ گردش بانکی وارد نشد",invalid:invalid.slice(0,100),invalidCount:invalid.length});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const unique=new Set<string>(),prepared=normalized.filter(Boolean) as any[];
+  const uniqueRows=prepared.filter(x=>{if(unique.has(x.fingerprint))return false;unique.add(x.fingerprint);return true;});
+  const duplicateInFile=prepared.length-uniqueRows.length;
+  const dates=uniqueRows.map(x=>x.transactionDate).sort();
+  const batch=(await client.query("insert into treasury_bank_statement_imports(tenant_id,bank_account_id,file_name,statement_date_from,statement_date_to,row_count,created_by) values($1,$2,$3,$4,$5,$6,$7) returning *",[t.id,b.bankAccountId,b.fileName.trim().slice(0,255),dates[0]||null,dates[dates.length-1]||null,prepared.length,(req as any).user.id])).rows[0];
+  let imported=0,duplicates=duplicateInFile,feeCandidates=0,feeAmount=0;
+  for(const x of uniqueRows){
+   const inserted=await client.query("insert into treasury_bank_transactions(tenant_id,bank_account_id,transaction_date,value_date,reference_no,description,amount,direction,statement_balance,import_batch_id,import_fingerprint,fee_candidate,fee_candidate_reason) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) on conflict do nothing returning id",[t.id,b.bankAccountId,x.transactionDate,x.valueDate,x.referenceNo||null,x.description,x.amount,x.direction,x.statementBalance,batch.id,x.fingerprint,x.fee,x.fee?"شرح تراکنش دارای کلیدواژه کارمزد است؛ نیازمند بررسی انسانی":null]);
+   if(inserted.rowCount){imported++;if(x.fee){feeCandidates++;feeAmount+=x.amount;}}else duplicates++;
+  }
+  const updated=(await client.query("update treasury_bank_statement_imports set imported_count=$1,duplicate_count=$2 where id=$3 and tenant_id=$4 returning *",[imported,duplicates,batch.id,t.id])).rows[0];
+  await client.query("commit");
+  await audit(t.id,(req as any).user.id,"bank_statement_import",batch.id,"import",null,{...updated,fee_candidate_count:feeCandidates,fee_candidate_amount:feeAmount});
+  res.status(201).json({...updated,fee_candidate_count:feeCandidates,fee_candidate_amount:feeAmount});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+});
 router.post("/api/treasury-bank/transactions",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};
  if(!b.bankAccountId||!date(b.transactionDate)||!["credit","debit"].includes(b.direction)||!Number(b.amount))return deny(res,400,"تراکنش بانکی نامعتبر است");
