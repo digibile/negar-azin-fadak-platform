@@ -364,6 +364,12 @@ for(const marker of ["group by upper(coalesce(nullif(trim(ss.currency)","outstan
 for(const marker of [".seller-settlement-payment",".seller-settlement-history",".settlement-pay"])if(!sellerSettlementCss.includes(marker))throw new Error("Seller settlement payment styles are missing: "+marker);
 for(const marker of ["s.metadata->>'sourceType' in ('carrier_invoice','seller_settlement')","s.reference_no=x.reference_no","s.amount=x.amount","s.currency=b.currency"])if(!treasuryBankApi.includes(marker))throw new Error("Treasury statement reconciliation must validate seller settlement reference, amount and currency: "+marker);
 if(!treasuryBankPage.includes("تطبیق با پرداخت ثبت‌شده")||!treasuryBankPage.includes("seller_name"))throw new Error("Treasury reconciliation UI must identify seller payment candidates");
+const canonicalBankLinkMigration=read("database/migrations/164_treasury_accounting_bank_account_link.sql");
+const treasuryBankPage=read("apps/web/app/modules/TreasuryBankWorkspace.tsx");
+if(!canonicalBankLinkMigration.includes("accounting_bank_account_id")||!canonicalBankLinkMigration.includes("having count(distinct ab.id)=1")||!canonicalBankLinkMigration.includes("uq_treasury_bank_account_accounting_link"))throw new Error("Treasury accounts must link only to one exact, currency-matched accounting bank account");
+for(const marker of ["accounting_bank_account_id","accounting_bank_accounts ab","upper(trim(ab.currency))","matches.rowCount===1"])if(!treasuryBankApi.includes(marker))throw new Error("Treasury account creation or overview is missing canonical accounting-bank linking: "+marker);
+for(const marker of ["accounting_code","ledger_code","اتصال حسابداری","حساب متناظر حسابداری یافت نشد"])if(!treasuryBankPage.includes(marker))throw new Error("Treasury account workspace must show canonical accounting-bank linkage state: "+marker);
+console.log("TREASURY_CANONICAL_ACCOUNTING_BANK_LINK_INTEGRITY_OK");
 console.log("MARKETPLACE_SELLER_SETTLEMENT_BANK_PAYMENT_INTEGRITY_OK");
 console.log("TREASURY_CARRIER_PAYABLE_BANK_RECONCILIATION_INTEGRITY_OK");
 console.log("MARKETPLACE_CARRIER_INVOICE_SETTLEMENT_INTEGRITY_OK");
