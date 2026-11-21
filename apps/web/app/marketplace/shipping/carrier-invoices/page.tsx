@@ -103,10 +103,18 @@ const selected=data.candidates.find(x=>x.shipment_id===shipmentId);
      {(item.status==="matched"||item.status==="disputed")&&<label>طرف حساب تأمین‌کننده<select value={supplierByInvoice[item.id]||""} onChange={e=>setSupplierByInvoice(p=>({...p,[item.id]:e.target.value}))}><option value="">انتخاب تأمین‌کننده در حسابداری</option>{data.suppliers.map(p=><option key={p.id} value={p.id}>{p.title} · {p.party_code}</option>)}</select></label>}
      {(item.status==="matched"||item.status==="disputed")&&<button type="button" disabled={busy===item.id||!supplierByInvoice[item.id]||(item.status==="disputed"&&!(resolution[item.id]||"").trim())} onClick={()=>void approve(item)}>{busy===item.id?"در حال ثبت…":"تأیید و ثبت بدهی"}</button>}
      {item.status==="approved"&&<small>طرف حساب: {item.supplier_name||"ثبت‌شده"} · وضعیت بدهی: {item.payable_status||"ثبت شد"}</small>}
+     {item.status==="approved"&&item.payable_id&&item.payable_status!=="settled"&&<div className="carrier-invoice-payment">
+      <small>مانده پرداختنی: {amount(Number(item.payable_amount||0)-Number(item.payable_settled_amount||0))} {item.currency}</small>
+      <label>حساب بانکی متصل به دفترکل<select value={bankByInvoice[item.id]||""} onChange={e=>setBankByInvoice(p=>({...p,[item.id]:e.target.value}))}><option value="">انتخاب حساب بانکی</option>{data.bankAccounts.filter(b=>b.currency===item.currency).map(b=><option key={b.id} value={b.id}>{b.bank_name} · {b.code} · موجودی {amount(b.current_balance)}</option>)}</select></label>
+      <label>مبلغ پرداخت<input type="number" min="0.01" max={Number(item.payable_amount||0)-Number(item.payable_settled_amount||0)} value={payAmountByInvoice[item.id]??""} onChange={e=>setPayAmountByInvoice(p=>({...p,[item.id]:e.target.value}))} placeholder={String(Number(item.payable_amount||0)-Number(item.payable_settled_amount||0))}/></label>
+      <label>شماره مرجع انتقال<input value={payReferenceByInvoice[item.id]||""} onChange={e=>setPayReferenceByInvoice(p=>({...p,[item.id]:e.target.value}))} placeholder="شماره پیگیری بانکی"/></label>
+      <button type="button" disabled={busy==="pay-"+item.id||!bankByInvoice[item.id]||!(payReferenceByInvoice[item.id]||"").trim()} onClick={()=>void pay(item)}>{busy==="pay-"+item.id?"در حال ثبت پرداخت…":"ثبت پرداخت انجام‌شده"}</button>
+     </div>}
+     {item.status==="approved"&&item.payable_status==="settled"&&<small>این بدهی به‌طور کامل تسویه شده است.</small>}
      {item.resolution_note&&<small>توضیح تأیید: {item.resolution_note}</small>}
     </div>
    </article>):<p className="carrier-invoice-empty">هنوز صورتحسابی برای شرکت‌های حمل ثبت نشده است.</p>}
   </section>
-  <p className="carrier-invoice-footnote">تأیید صورتحساب، بدهی شرکت حمل را در حساب‌های پرداختنی ثبت می‌کند و اختلاف پیش‌فاکتور با صورتحساب را روی حساب‌های موجود ۲۲۰۱ و ۵۲۰۱ تعدیل می‌کند. پرداخت واقعی باید از گردش پرداخت‌های مالی انجام شود.</p>
+  <p className="carrier-invoice-footnote">تأیید صورتحساب، بدهی شرکت حمل را در حساب‌های پرداختنی ثبت می‌کند و اختلاف پیش‌فاکتور با صورتحساب را روی حساب‌های موجود ۲۲۰۱ و ۵۲۰۱ تعدیل می‌کند. ثبت پرداخت از حساب بانکی متصل به دفترکل انجام می‌شود؛ ثبت این عملیات به معنی تأیید انتقال وجه توسط بانک نیست و شماره مرجع بانکی باید توسط اپراتور وارد شود.</p>
  </main>;
 }
