@@ -13,7 +13,7 @@ router.get("/api/treasury-bank/overview",requireAuth,async(req,res)=>{
   query("select * from treasury_bank_accounts where tenant_id=$1 order by bank_name,account_title",[t.id]),
   query("select r.*,b.bank_name,b.account_title from treasury_receipts r join treasury_bank_accounts b on b.id=r.bank_account_id where r.tenant_id=$1 order by r.receipt_date desc limit 200",[t.id]),
   query("select p.*,b.bank_name,b.account_title from treasury_payments p join treasury_bank_accounts b on b.id=p.bank_account_id where p.tenant_id=$1 order by p.payment_date desc limit 200",[t.id]),
-  query("select x.*,b.bank_name,b.account_title from treasury_bank_transactions x join treasury_bank_accounts b on b.id=x.bank_account_id where x.tenant_id=$1 order by x.transaction_date desc limit 300",[t.id]),
+  query("select x.*,b.bank_name,b.account_title,b.currency bank_currency,linked.reference_no linked_reference_no,linked.amount linked_amount,linked.currency linked_currency,linked.payment_date linked_payment_date,coalesce(candidates.items,'[]'::json) carrier_settlement_candidates from treasury_bank_transactions x join treasury_bank_accounts b on b.id=x.bank_account_id left join accounting_rp_settlements linked on linked.id=x.payable_settlement_id and linked.tenant_id=x.tenant_id left join lateral (select json_agg(json_build_object('id',s.id,'amount',s.amount,'currency',s.currency,'payment_date',s.payment_date,'reference_no',s.reference_no,'invoice_no',i.invoice_no,'carrier_name',i.carrier_name,'ledger_entry_id',s.ledger_entry_id) order by s.payment_date desc) items from accounting_rp_settlements s join accounting_bank_accounts ab on ab.id=s.bank_account_id and ab.tenant_id=s.tenant_id join accounting_receivable_payables rp on rp.id=s.receivable_payable_id and rp.tenant_id=s.tenant_id join logistics_carrier_invoices i on i.payable_id=rp.id and i.tenant_id=rp.tenant_id where s.tenant_id=x.tenant_id and x.direction='debit' and x.payable_settlement_id is null and x.reference_no is not null and s.reference_no=x.reference_no and s.amount=x.amount and s.currency=b.currency and s.metadata->>'sourceType'='carrier_invoice') candidates on true where x.tenant_id=$1 order by x.transaction_date desc limit 300",[t.id]),
   query("select c.*,u.full_name custodian_name from treasury_cashboxes c left join users u on u.id=c.custodian_user_id where c.tenant_id=$1 order by c.code",[t.id]),
   query("select m.*,c.title cashbox_title from treasury_cash_movements m join treasury_cashboxes c on c.id=m.cashbox_id where m.tenant_id=$1 order by m.movement_date desc limit 200",[t.id])
  ]);
@@ -64,9 +64,22 @@ router.post("/api/treasury-bank/transactions",requireAuth,requirePermission("tre
  await audit(t.id,(req as any).user.id,"bank_transaction",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
 });
 router.patch("/api/treasury-bank/transactions/:id/reconcile",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
- const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const s=req.body?.status;if(!["matched","ignored","unmatched"].includes(s))return deny(res,400,"وضعیت مغایرت نامعتبر است");
- const old=await query("select * from treasury_bank_transactions where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!old.rowCount)return deny(res,404,"تراکنش پیدا نشد");
- const r=await query("update treasury_bank_transactions set reconciliation_status=$1 where id=$2 and tenant_id=$3 returning *",[s,String(String(req.params.id)),t.id]);await query("update treasury_bank_accounts set last_reconciled_at=case when $1='matched' then now() else last_reconciled_at end where id=$2 and tenant_id=$3",[s,old.rows[0].bank_account_id,t.id]);await audit(t.id,(req as any).user.id,"bank_transaction",String(String(req.params.id)),"reconcile",old.rows[0],r.rows[0]);res.json(r.rows[0]);
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const status=req.body?.status,settlementId=typeof req.body?.payableSettlementId==="string"?req.body.payableSettlementId:"";
+ if(!["matched","ignored","unmatched"].includes(status))return deny(res,400,"وضعیت مغایرت نامعتبر است");
+ const old=await query("select x.*,b.currency bank_currency from treasury_bank_transactions x join treasury_bank_accounts b on b.id=x.bank_account_id and b.tenant_id=x.tenant_id where x.id=$1 and x.tenant_id=$2",[String(req.params.id),t.id]);if(!old.rowCount)return deny(res,404,"تراکنش پیدا نشد");
+ if(old.rows[0].payable_settlement_id&&status!=="matched")return deny(res,409,"برای تغییر وضعیت، ابتدا پیوند تسویه باید از مسیر اصلاح حسابرسی‌شده آزاد شود");
+ let updated;
+ if(settlementId){
+  const tx=old.rows[0];if(status!=="matched"||tx.direction!=="debit"||!tx.reference_no)return deny(res,400,"فقط گردش بدهکار دارای شماره مرجع قابل تطبیق با پرداخت حمل است");
+  const candidate=await query("select s.* from accounting_rp_settlements s join accounting_bank_accounts ab on ab.id=s.bank_account_id and ab.tenant_id=s.tenant_id join accounting_receivable_payables rp on rp.id=s.receivable_payable_id and rp.tenant_id=s.tenant_id join logistics_carrier_invoices i on i.payable_id=rp.id and i.tenant_id=rp.tenant_id where s.id=$1 and s.tenant_id=$2 and s.metadata->>'sourceType'='carrier_invoice' and s.reference_no=$3 and s.amount=$4 and s.currency=$5",[settlementId,t.id,tx.reference_no,tx.amount,tx.bank_currency]);
+  if(!candidate.rowCount)return deny(res,409,"تطبیق مجاز نیست؛ شماره مرجع، مبلغ، ارز یا صورتحساب حمل با گردش بانکی یکسان نیست");
+  const result=await query("update treasury_bank_transactions set reconciliation_status='matched',payable_settlement_id=$1 where id=$2 and tenant_id=$3 and payable_settlement_id is null returning *",[settlementId,String(req.params.id),t.id]);
+  if(!result.rowCount)return deny(res,409,"این گردش بانکی قبلاً به یک پرداخت متصل شده است");updated=result.rows[0];
+ }else{
+  const result=await query("update treasury_bank_transactions set reconciliation_status=$1 where id=$2 and tenant_id=$3 returning *",[status,String(req.params.id),t.id]);updated=result.rows[0];
+ }
+ await query("update treasury_bank_accounts set last_reconciled_at=case when $1='matched' then now() else last_reconciled_at end where id=$2 and tenant_id=$3",[status,old.rows[0].bank_account_id,t.id]);
+ await audit(t.id,(req as any).user.id,"bank_transaction",String(req.params.id),"reconcile",old.rows[0],updated);res.json(updated);
 });
 
 router.post("/api/treasury-bank/cashboxes",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
