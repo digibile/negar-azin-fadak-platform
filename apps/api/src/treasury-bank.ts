@@ -113,7 +113,7 @@ router.post("/api/treasury-bank/statement-imports",requireAuth,requirePermission
   const updated=(await client.query("update treasury_bank_statement_imports set imported_count=$1,duplicate_count=$2 where id=$3 and tenant_id=$4 returning *",[imported,duplicates,batch.id,t.id])).rows[0];
   await client.query("commit");
   await audit(t.id,(req as any).user.id,"bank_statement_import",batch.id,"import",null,{...updated,fee_candidate_count:feeCandidates,fee_candidate_amount:feeAmount,balance_anomaly_count:balanceAnomalyImportedCount});
-  res.status(201).json({...updated,fee_candidate_count:feeCandidates,fee_candidate_amount:feeAmount,balance_anomaly_count:balanceAnomalyCount});
+  res.status(201).json({...updated,fee_candidate_count:feeCandidates,fee_candidate_amount:feeAmount,balance_anomaly_count:balanceAnomalyImportedCount});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 });
 router.post("/api/treasury-bank/transactions",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
