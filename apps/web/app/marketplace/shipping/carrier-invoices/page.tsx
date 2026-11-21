@@ -9,13 +9,14 @@ type PaymentRecord={id:string;amount:string|number;currency:string;payment_date:
 type Invoice={payment_history?:PaymentRecord[];id:string;shipment_id:string;shipment_no:string;order_id:string;order_no:string;invoice_no:string;carrier_name:string;currency:string;quoted_cost:string|number;invoice_amount:string|number;variance_amount:string|number;status:string;notes?:string|null;resolution_note?:string|null;created_at:string;reviewed_at?:string|null;supplier_name?:string|null;payable_status?:string|null;payable_id?:string|null;payable_amount?:string|number|null;payable_settled_amount?:string|number|null;};
 type Supplier={id:string;party_code:string;title:string};
 type BankAccount={id:string;code:string;bank_name:string;currency:string;current_balance:string|number;ledger_code:string;ledger_name:string};
-type Data={items:Invoice[];candidates:Candidate[];suppliers:Supplier[];bankAccounts:BankAccount[]};
+type Summary={currency:string;invoice_count:number;quoted_total:string|number;invoiced_total:string|number;variance_total:string|number;approved_payable_total:string|number;settled_total:string|number;outstanding_total:string|number;disputed_count:number;approved_count:number};
+type Data={items:Invoice[];candidates:Candidate[];suppliers:Supplier[];bankAccounts:BankAccount[];summary:Summary[]};
 const labels:Record<string,string>={matched:"منطبق با پیش‌فاکتور",disputed:"دارای اختلاف",approved:"تأیید عملیاتی",void:"باطل‌شده"};
 const amount=(v:unknown)=>Number(v||0).toLocaleString("fa-IR");
 const date=(v?:string|null)=>v?new Date(v).toLocaleString("fa-IR"):"—";
 
 export default function CarrierInvoicesPage(){
- const [data,setData]=useState<Data>({items:[],candidates:[],suppliers:[],bankAccounts:[]});
+ const [data,setData]=useState<Data>({items:[],candidates:[],suppliers:[],bankAccounts:[],summary:[]});
  const [shipmentId,setShipmentId]=useState("");
  const [invoiceNo,setInvoiceNo]=useState("");
  const [invoiceAmount,setInvoiceAmount]=useState("");
@@ -81,6 +82,21 @@ const selected=data.candidates.find(x=>x.shipment_id===shipmentId);
   </header>
   {error&&<p className="carrier-invoice-message error" role="alert">{error}</p>}
   {notice&&<p className="carrier-invoice-message success" role="status">{notice}</p>}
+  <section className="carrier-invoice-summary" aria-label="خلاصه تطبیق صورتحساب‌های حمل">
+   <header><div><h2>خلاصه مالی شرکت‌های حمل</h2><p>تجمیع صورتحساب، اختلاف، بدهی تأییدشده و پرداخت‌های ثبت‌شده به تفکیک ارز</p></div></header>
+   {data.summary.length?data.summary.map(row=><article key={row.currency}>
+    <b>{row.currency}</b><div className="carrier-invoice-summary-grid">
+     <span>تعداد صورتحساب <strong>{Number(row.invoice_count).toLocaleString("fa-IR")}</strong></span>
+     <span>مبلغ پیش‌فاکتور <strong>{amount(row.quoted_total)}</strong></span>
+     <span>مبلغ صورتحساب <strong>{amount(row.invoiced_total)}</strong></span>
+     <span>اختلاف کل <strong>{amount(row.variance_total)}</strong></span>
+     <span>بدهی تأییدشده <strong>{amount(row.approved_payable_total)}</strong></span>
+     <span>پرداخت‌شده <strong>{amount(row.settled_total)}</strong></span>
+     <span>مانده پرداختنی <strong>{amount(row.outstanding_total)}</strong></span>
+     <span>در انتظار رفع اختلاف <strong>{Number(row.disputed_count).toLocaleString("fa-IR")}</strong></span>
+    </div>
+   </article>):<p className="carrier-invoice-empty">هنوز صورتحسابی برای گزارش وجود ندارد.</p>}
+  </section>
   <section className="platform-panel carrier-invoice-panel">
    <h2>ثبت صورتحساب شرکت حمل</h2>
    <p>فقط مرسوله تحویل‌شده با پیش‌فاکتور پذیرفته‌شده در این فهرست قرار می‌گیرد. اختلاف مبلغ به‌صورت خودکار مشخص می‌شود.</p>
