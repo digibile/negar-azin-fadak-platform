@@ -339,6 +339,7 @@ if(!carrierInvoiceApi.includes("/api/logistics/carrier-invoices/:id/pay")||!carr
 if(carrierInvoiceApi.includes("l.is_active=true")||carrierInvoiceApi.includes("l.is_postable=true")||!carrierInvoiceApi.includes("l.status='active'"))throw new Error("Carrier payment bank mapping must use the existing ledger account status schema");
 
 if(!carrierInvoiceApi.includes("settled_amount")||!carrierInvoiceApi.includes("current_balance=current_balance-$1")||!carrierInvoiceApi.includes("ledger_code"))throw new Error("Carrier payable settlement must update the payable balance and mapped bank balance");
+if(!carrierInvoiceApi.includes("on conflict(tenant_id,idempotency_key) do nothing returning *")||!carrierInvoiceApi.includes("metadata->>'sourceId' source_id")||!carrierInvoiceApi.includes("کلید یکتای پرداخت قبلاً برای صورتحساب دیگری استفاده شده است"))throw new Error("Carrier payment retries must be concurrency-safe and scoped to the original invoice");
 if(!carrierInvoiceApi.includes("payment_history")||!carrierInvoiceApi.includes("accounting_rp_settlements rs")||!carrierInvoicePage.includes("سوابق پرداخت")||!carrierInvoicePage.includes("payment_history.map"))throw new Error("Carrier invoice workspace must expose auditable partial payment history");
 
 if(!carrierInvoicePage.includes("ثبت پرداخت انجام‌شده")||!carrierInvoicePage.includes("شماره مرجع انتقال")||!carrierInvoicePage.includes("data.bankAccounts"))throw new Error("Carrier invoice workspace must support documented payment from mapped bank accounts");
