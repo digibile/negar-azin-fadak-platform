@@ -351,7 +351,7 @@ const treasuryBankPage=read("apps/web/app/modules/TreasuryBankWorkspace.tsx");
 const treasuryBankCss=read("apps/web/app/modules/TreasuryBankWorkspace.module.css");
 if(!treasurySettlementMigration.includes("payable_settlement_id")||!treasurySettlementMigration.includes("uq_treasury_bank_transaction_payable_settlement"))throw new Error("Treasury statement settlement link migration is missing its unique tenant-scoped link");
 for(const marker of ["carrier_settlement_candidates","s.metadata->>'sourceType'='carrier_invoice'","s.reference_no=x.reference_no","s.amount=x.amount","s.currency=b.currency","payable_settlement_id=$1"])if(!treasuryBankApi.includes(marker))throw new Error("Treasury reconciliation is missing strict carrier payment match validation: "+marker);
-for(const marker of ["carrier_settlement_candidates","payableSettlementId","تطبیق با پرداخت حمل"])if(!treasuryBankPage.includes(marker))throw new Error("Treasury workspace is missing carrier settlement reconciliation controls: "+marker);
+for(const marker of ["carrier_settlement_candidates","payableSettlementId","تطبیق با پرداخت ثبت‌شده"])if(!treasuryBankPage.includes(marker))throw new Error("Treasury workspace is missing carrier settlement reconciliation controls: "+marker);
 if(!treasuryBankCss.includes(".settlementCandidate"))throw new Error("Treasury carrier settlement match styling is missing");
 const sellerSettlementPayablesMigration=read("database/migrations/163_marketplace_seller_settlement_payables.sql");
 const sellerSettlementApi=read("apps/api/src/domain-settlement.ts");
