@@ -336,6 +336,8 @@ console.log("MARKETPLACE_CARRIER_INVOICE_FINANCE_LINK_INTEGRITY_OK");
 const carrierInvoiceSettlementMigration=read("database/migrations/161_accounting_payable_settlements.sql");
 if(!carrierInvoiceSettlementMigration.includes("accounting_rp_settlements")||!carrierInvoiceSettlementMigration.includes("idempotency_key")||!carrierInvoiceSettlementMigration.includes("ledger_entry_id"))throw new Error("Payable settlements must be auditable and idempotent in the existing accounting subledger");
 if(!carrierInvoiceApi.includes("/api/logistics/carrier-invoices/:id/pay")||!carrierInvoiceApi.includes("accounting_rp_settlements")||!carrierInvoiceApi.includes("accounting_bank_accounts")||!carrierInvoiceApi.includes("accounting_rp_settlement"))throw new Error("Carrier payable payments must use mapped accounting bank accounts and post a balanced ledger entry");
+if(carrierInvoiceApi.includes("l.is_active=true")||carrierInvoiceApi.includes("l.is_postable=true")||!carrierInvoiceApi.includes("l.status='active'"))throw new Error("Carrier payment bank mapping must use the existing ledger account status schema");
+
 if(!carrierInvoiceApi.includes("settled_amount")||!carrierInvoiceApi.includes("current_balance=current_balance-$1")||!carrierInvoiceApi.includes("ledger_code"))throw new Error("Carrier payable settlement must update the payable balance and mapped bank balance");
 if(!carrierInvoiceApi.includes("payment_history")||!carrierInvoiceApi.includes("accounting_rp_settlements rs")||!carrierInvoicePage.includes("سوابق پرداخت")||!carrierInvoicePage.includes("payment_history.map"))throw new Error("Carrier invoice workspace must expose auditable partial payment history");
 
