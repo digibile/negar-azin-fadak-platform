@@ -353,6 +353,17 @@ if(!treasurySettlementMigration.includes("payable_settlement_id")||!treasurySett
 for(const marker of ["carrier_settlement_candidates","s.metadata->>'sourceType'='carrier_invoice'","s.reference_no=x.reference_no","s.amount=x.amount","s.currency=b.currency","payable_settlement_id=$1"])if(!treasuryBankApi.includes(marker))throw new Error("Treasury reconciliation is missing strict carrier payment match validation: "+marker);
 for(const marker of ["carrier_settlement_candidates","payableSettlementId","تطبیق با پرداخت حمل"])if(!treasuryBankPage.includes(marker))throw new Error("Treasury workspace is missing carrier settlement reconciliation controls: "+marker);
 if(!treasuryBankCss.includes(".settlementCandidate"))throw new Error("Treasury carrier settlement match styling is missing");
+const sellerSettlementPayablesMigration=read("database/migrations/163_marketplace_seller_settlement_payables.sql");
+const sellerSettlementApi=read("apps/api/src/domain-settlement.ts");
+const sellerSettlementPage=read("apps/web/app/marketplace/settlements/page.tsx");
+const sellerSettlementCss=read("apps/web/app/marketplace/settlements/settlements-workspace.css");
+if(!sellerSettlementPayablesMigration.includes("accounting_party_id")||!sellerSettlementPayablesMigration.includes("payable_id uuid references accounting_receivable_payables")||!sellerSettlementPayablesMigration.includes("'partially_paid'"))throw new Error("Seller settlement payable migration must map sellers to supplier parties and support partial payment");
+for(const marker of ["accounting_rp_settlements","sourceType\\\":\\\"seller_settlement","bank.ledger_code","on conflict(tenant_id,idempotency_key) do nothing","partially_paid","payment_history"])if(!sellerSettlementApi.includes(marker))throw new Error("Seller settlement accounting payment workflow is incomplete: "+marker);
+for(const marker of ["تأیید و ایجاد بدهی مالی","ثبت پرداخت و سند بانکی","payment_history","bankAccounts"])if(!sellerSettlementPage.includes(marker))throw new Error("Seller settlement workspace is missing bank payment operations: "+marker);
+for(const marker of [".seller-settlement-payment",".seller-settlement-history",".settlement-pay"])if(!sellerSettlementCss.includes(marker))throw new Error("Seller settlement payment styles are missing: "+marker);
+for(const marker of ["s.metadata->>'sourceType' in ('carrier_invoice','seller_settlement')","s.reference_no=x.reference_no","s.amount=x.amount","s.currency=b.currency"])if(!treasuryBankApi.includes(marker))throw new Error("Treasury statement reconciliation must validate seller settlement reference, amount and currency: "+marker);
+if(!treasuryBankPage.includes("تطبیق با پرداخت ثبت‌شده")||!treasuryBankPage.includes("seller_name"))throw new Error("Treasury reconciliation UI must identify seller payment candidates");
+console.log("MARKETPLACE_SELLER_SETTLEMENT_BANK_PAYMENT_INTEGRITY_OK");
 console.log("TREASURY_CARRIER_PAYABLE_BANK_RECONCILIATION_INTEGRITY_OK");
 console.log("MARKETPLACE_CARRIER_INVOICE_SETTLEMENT_INTEGRITY_OK");
 
