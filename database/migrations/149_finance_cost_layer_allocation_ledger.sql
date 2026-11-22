@@ -5,6 +5,8 @@ begin;
 
 create unique index if not exists finance_cost_layers_tenant_id_product_uq
  on finance_cost_layers(tenant_id,id,product_id);
+create unique index if not exists finance_warehouses_tenant_id_id_uq
+ on finance_warehouses(tenant_id,id);
 
 create table if not exists finance_cost_layer_allocations(
  id uuid primary key default gen_random_uuid(),
