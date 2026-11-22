@@ -31,7 +31,7 @@ test("financial issue line link requires a consumed reservation and a posted iss
 
 test("financial issue line link validates unit conversion and is immutable",()=>{
  assert.ok(migration.includes("round(v.reservation_quantity*v.quantity_factor,4)"));
- assert.ok(migration.includes("abs(v.issue_quantity-v_expected)>0.0001"));
+ assert.ok(migration.includes("v.issue_quantity<>v_expected"));
  assert.ok(migration.includes("Marketplace financial issue line links are immutable"));
  assert.ok(migration.includes("unique(tenant_id,reservation_id)"));
  assert.ok(migration.includes("unique(tenant_id,issue_document_line_id)"));
