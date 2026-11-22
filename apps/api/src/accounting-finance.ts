@@ -155,6 +155,14 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
   const flow:any={draft:["submitted","void"],submitted:["approved","void"],approved:["posted","void"],posted:["void"],void:[]};
   if(!flow[old.status]?.includes(nextStatus)){await c.query("rollback");return deny(res,409,"تغییر وضعیت مجاز نیست");}
   let carrierInvoice:any=null;
+  let carrierPayment:any=null;
+  if(nextStatus==="void"&&old.source_module==="logistics-carrier-payment"){
+   carrierPayment=(await c.query("select * from logistics_carrier_payments where id=$1 and tenant_id=$2 for update",[old.source_document_id,t.id])).rows[0];
+   if(!carrierPayment||carrierPayment.document_id!==old.id||carrierPayment.status==="posted"){
+    await c.query("rollback");return deny(res,409,"پرداخت قطعی‌شده قابل ابطال مستقیم نیست؛ ابتدا باید سند برگشت ثبت شود");
+   }
+   if(carrierPayment.status!=="draft"){await c.query("rollback");return deny(res,409,"وضعیت پرداخت برای ابطال معتبر نیست");}
+  }
   if(nextStatus==="void"&&old.source_module==="logistics-carrier-invoice"){
    carrierInvoice=(await c.query("select * from logistics_carrier_invoices where id=$1 and tenant_id=$2 for update",[old.source_document_id,t.id])).rows[0];
    if(!carrierInvoice||carrierInvoice.accounting_document_id!==old.id||carrierInvoice.status==="posted"){
@@ -163,6 +171,37 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
    if(carrierInvoice.status!=="verified"){
     await c.query("rollback");return deny(res,409,"وضعیت صورتحساب حمل برای ابطال سند معتبر نیست");
    }
+  }
+  if(nextStatus==="posted"&&old.source_module==="logistics-carrier-payment"){
+   carrierPayment=(await c.query("select * from logistics_carrier_payments where id=$1 and tenant_id=$2 for update",[old.source_document_id,t.id])).rows[0];
+   if(!carrierPayment||carrierPayment.document_id!==old.id||carrierPayment.status!=="draft"){
+    await c.query("rollback");return deny(res,409,"درخواست پرداخت با این سند تطبیق ندارد یا قبلاً قطعی شده است");
+   }
+   const invoice=(await c.query("select * from logistics_carrier_invoices where id=$1 and tenant_id=$2 for share",[carrierPayment.carrier_invoice_id,t.id])).rows[0];
+   const payable=(await c.query("select * from accounting_receivable_payables where id=$1 and tenant_id=$2 and direction='payable' for update",[carrierPayment.payable_id,t.id])).rows[0];
+   if(!invoice||invoice.status!=="posted"||!payable||payable.metadata?.carrierInvoiceId!==invoice.id||payable.status==="cancelled"){
+    await c.query("rollback");return deny(res,409,"صورتحساب یا بدهی متناظر با پرداخت معتبر نیست");
+   }
+   const remaining=Number(payable.original_amount)-Number(payable.settled_amount);
+   if(Number(carrierPayment.amount)>remaining+0.005){await c.query("rollback");return deny(res,409,"مبلغ پرداخت از مانده بدهی بیشتر شده است");}
+   const lines=(await c.query("select account_id,debit,credit from accounting_document_lines where document_id=$1 order by line_no",[old.id])).rows;
+   if(lines.length!==2||Math.abs(Number(lines[0].debit)-Number(carrierPayment.amount))>0.005||Number(lines[0].credit)!==0||Number(lines[1].debit)!==0||Math.abs(Number(lines[1].credit)-Number(carrierPayment.amount))>0.005){
+    await c.query("rollback");return deny(res,409,"ردیف‌های سند پرداخت با مبلغ درخواست پرداخت برابر نیست");
+   }
+   if(carrierPayment.bank_account_id){
+    const bank=(await c.query("select id,ledger_account_id,current_balance,status,currency from accounting_bank_accounts where id=$1 and tenant_id=$2 for update",[carrierPayment.bank_account_id,t.id])).rows[0];
+    if(!bank||bank.status!=="active"||bank.ledger_account_id!==lines[1].account_id||String(bank.currency).toUpperCase()!==String(carrierPayment.currency).toUpperCase()||Number(bank.current_balance)+0.005<Number(carrierPayment.amount)){
+     await c.query("rollback");return deny(res,409,"موجودی یا وضعیت حساب بانکی برای قطعی‌سازی پرداخت معتبر نیست");
+    }
+    carrierPayment.treasuryBalance=Number(bank.current_balance);
+   }else{
+    const cash=(await c.query("select id,ledger_account_id,current_balance,status from accounting_cashboxes where id=$1 and tenant_id=$2 for update",[carrierPayment.cashbox_id,t.id])).rows[0];
+    if(!cash||cash.status!=="active"||cash.ledger_account_id!==lines[1].account_id||String(carrierPayment.currency).toUpperCase()!=="IRR"||Number(cash.current_balance)+0.005<Number(carrierPayment.amount)){
+     await c.query("rollback");return deny(res,409,"موجودی یا وضعیت صندوق برای قطعی‌سازی پرداخت معتبر نیست");
+    }
+    carrierPayment.treasuryBalance=Number(cash.current_balance);
+   }
+   carrierPayment.payable=payable;
   }
   if(nextStatus==="posted"&&old.source_module==="logistics-carrier-invoice"){
    carrierInvoice=(await c.query("select * from logistics_carrier_invoices where id=$1 and tenant_id=$2 for update",[old.source_document_id,t.id])).rows[0];
@@ -185,11 +224,31 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
    }
   }
   const updated=(await c.query("update accounting_documents set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,posted_at=case when $1='posted' then now() else posted_at end,posted_by=case when $1='posted' then $2 else posted_by end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[nextStatus,(req as any).user.id,old.id,t.id])).rows[0];
+  if(nextStatus==="void"&&carrierPayment){
+   await c.query("update logistics_carrier_payments set status='void',updated_at=now() where id=$1 and tenant_id=$2 and status='draft'",[carrierPayment.id,t.id]);
+   await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'logistics.carrier_payment_voided','logistics_carrier_payment',$3,$4,$5)",[t.id,(req as any).user.id,carrierPayment.id,JSON.stringify({status:"draft"}),JSON.stringify({status:"void",documentId:old.id})]);
+  }
   if(nextStatus==="void"&&carrierInvoice){
    const invoiceVoid=await c.query("update logistics_carrier_invoices set status='void',updated_at=now() where id=$1 and tenant_id=$2 and status='verified' and accounting_document_id=$3",[carrierInvoice.id,t.id,old.id]);
    if(!invoiceVoid.rowCount){await c.query("rollback");return deny(res,409,"ابطال صورتحساب حمل انجام نشد");}
    await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,actor_user_id,reason) values($1,'carrier_invoice',$2,'carrier_invoice_voided','verified','void',$3,$4)",[t.id,carrierInvoice.id,(req as any).user.id,"سند حسابداری "+old.document_no+" ابطال شد"]);
    await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'logistics.carrier_invoice_voided','logistics_carrier_invoice',$3,$4,$5)",[t.id,(req as any).user.id,carrierInvoice.id,JSON.stringify({status:"verified",accountingDocumentId:old.id}),JSON.stringify({status:"void",accountingDocumentId:old.id})]);
+  }
+  if(nextStatus==="posted"&&carrierPayment){
+   const amount=Number(carrierPayment.amount);
+   const updatedPayable=(await c.query("update accounting_receivable_payables set settled_amount=settled_amount+$1,status=case when settled_amount+$1>=original_amount-0.005 then 'settled' else 'partially_settled' end,updated_at=now() where id=$2 and tenant_id=$3 and direction='payable' and settled_amount+$1<=original_amount+0.005 returning *",[amount,carrierPayment.payable_id,t.id])).rows[0];
+   if(!updatedPayable){await c.query("rollback");return deny(res,409,"به‌روزرسانی مانده بدهی انجام نشد؛ احتمالاً پرداخت هم‌زمان دیگری ثبت شده است");}
+   if(carrierPayment.bank_account_id){
+    const balance=await c.query("update accounting_bank_accounts set current_balance=current_balance-$1,updated_at=now() where id=$2 and tenant_id=$3 and status='active' and current_balance >= $1 returning current_balance",[amount,carrierPayment.bank_account_id,t.id]);
+    if(!balance.rowCount){await c.query("rollback");return deny(res,409,"کاهش موجودی بانک انجام نشد");}
+   }else{
+    const balance=await c.query("update accounting_cashboxes set current_balance=current_balance-$1,updated_at=now() where id=$2 and tenant_id=$3 and status='active' and current_balance >= $1 returning current_balance",[amount,carrierPayment.cashbox_id,t.id]);
+    if(!balance.rowCount){await c.query("rollback");return deny(res,409,"کاهش موجودی صندوق انجام نشد");}
+   }
+   const postedPayment=(await c.query("update logistics_carrier_payments set status='posted',posted_by=$1,posted_at=now(),updated_at=now() where id=$2 and tenant_id=$3 and status='draft' returning *",[(req as any).user.id,carrierPayment.id,t.id])).rows[0];
+   if(!postedPayment){await c.query("rollback");return deny(res,409,"تغییر وضعیت پرداخت انجام نشد");}
+   await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,actor_user_id,reason) values($1,'carrier_payment',$2,'carrier_payment_posted','draft','posted',$3,$4)",[t.id,carrierPayment.id,(req as any).user.id,"پرداخت صورتحساب حمل به مبلغ "+amount+" قطعی شد"]);
+   await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'logistics.carrier_payment_posted','logistics_carrier_payment',$3,$4,$5)",[t.id,(req as any).user.id,carrierPayment.id,JSON.stringify({status:"draft",payableSettledAmount:carrierPayment.payable.settled_amount}),JSON.stringify({status:"posted",payableSettledAmount:updatedPayable.settled_amount,payableStatus:updatedPayable.status,amount,treasuryBalance:carrierPayment.treasuryBalance-amount})]);
   }
   let payable:any=null;
   if(nextStatus==="posted"&&carrierInvoice){
@@ -204,7 +263,7 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
   }
   await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,before_data,after_data) values($1,'accounting_document',$2,$3,$4,$5,$6)",[t.id,old.id,"status", (req as any).user.id,JSON.stringify(old),JSON.stringify(updated)]);
   await c.query("commit");
-  res.json({document:updated,payable,carrierInvoiceStatus:carrierInvoice&&nextStatus==="posted"?"posted":undefined});
+  res.json({document:updated,payable,carrierInvoiceStatus:carrierInvoice&&nextStatus==="posted"?"posted":undefined,carrierPaymentStatus:carrierPayment&&nextStatus==="posted"?"posted":undefined});
  }catch(e:any){
   await c.query("rollback");
   if(e?.code==="23505")return deny(res,409,"برای این صورتحساب بدهی قبلاً ثبت شده است");
