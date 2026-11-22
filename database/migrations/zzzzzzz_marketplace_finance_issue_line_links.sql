@@ -89,7 +89,7 @@ begin
  end if;
 
  v_expected:=round(v.reservation_quantity*v.quantity_factor,4);
- if abs(v.issue_quantity-v_expected)>0.0001 then
+ if v.issue_quantity<>v_expected then
   raise exception 'Financial issue line quantity does not exactly match the consumed reservation after unit conversion';
  end if;
 
