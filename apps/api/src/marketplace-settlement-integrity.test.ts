@@ -95,3 +95,20 @@ test("financial cost layer allocation rejects over-consumption and non-posted do
  assert.ok(allocationMigration.includes("before insert or update or delete"));
  assert.ok(allocationMigration.includes("allocations are immutable"));
 });
+
+test("cost layer allocation preview is read-only, tenant-scoped and requires a posted issue document",()=>{
+ assert.ok(source.includes("cost-layer-allocation-preview"));
+ assert.ok(source.includes('requirePermission("settlement:view")'));
+ assert.ok(source.includes("issueDocumentId"));
+ assert.ok(source.includes("finance_inventory_documents d"));
+ assert.ok(source.includes("d.tenant_id=$1 and d.id=$2"));
+ assert.ok(source.includes('doc.document_type!=="issue"||doc.status!=="posted"'));
+ assert.ok(source.includes("finance_cost_layer_allocations"));
+ assert.ok(source.includes("source_doc.status='posted'"));
+ assert.ok(source.includes("source_doc.document_type in ('receipt','return_receipt','adjustment')"));
+ assert.ok(source.includes("layer.quantity>coalesce(la2.allocated_quantity,0)"));
+ assert.ok(source.includes("issue_quantity-coalesce(ia.allocated_quantity,0)"));
+ assert.ok(source.includes("policyDecision"));
+ assert.ok(source.includes("allocationEnabled:false"));
+ assert.ok(source.includes("automaticSelection:false"));
+});
