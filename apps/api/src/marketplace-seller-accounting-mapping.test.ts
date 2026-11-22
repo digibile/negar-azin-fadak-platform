@@ -91,6 +91,7 @@ test("seller refund receivable reclassification posts a balanced idempotent jour
  assert.ok(route.includes("'marketplace_refund'"));
  assert.ok(route.includes("on conflict(tenant_id,source_module,source_document_id)"));
  assert.ok(route.includes("refund_receivables.reclassified"));
+ assert.ok(route.includes('requirePermission("ledger:manage")'));
 });
 
 test("seller page requires explicit receivable account mapping before reclassification",()=>{
