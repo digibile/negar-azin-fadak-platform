@@ -200,6 +200,74 @@ settlementRouter.get("/api/marketplace/settlements/order-cost-analysis",requireA
  });
 }));
 
+
+settlementRouter.get("/api/marketplace/settlements/financial-issue-link-audit",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const validDate=(v:unknown)=>typeof v==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(v)&&!Number.isNaN(new Date(v+"T00:00:00Z").getTime())&&new Date(v+"T00:00:00Z").toISOString().slice(0,10)===v;
+ if(req.query.from&&!validDate(req.query.from))return res.status(400).json({error:"تاریخ شروع گزارش معتبر نیست"});
+ if(req.query.to&&!validDate(req.query.to))return res.status(400).json({error:"تاریخ پایان گزارش معتبر نیست"});
+ const from=req.query.from?String(req.query.from):"1900-01-01";
+ const to=req.query.to?String(req.query.to):"2999-12-31";
+ if(from>to)return res.status(400).json({error:"بازه تاریخ گزارش معتبر نیست"});
+ const params=[t.id,from,to];
+ const [reservations,documents,sourceTypes]=await Promise.all([
+  query(`
+   select o.id order_id,o.order_no,mir.supply_order_id,mir.marketplace_product_id,
+    p.sku marketplace_sku,p.title marketplace_product_title,mir.inventory_product_id,
+    ip.sku inventory_sku,mir.warehouse_id operational_warehouse_id,
+    mir.quantity::text consumed_quantity,count(*)::int reservation_count
+   from marketplace_inventory_reservations mir
+   join marketplace_orders o on o.id=mir.marketplace_order_id and o.tenant_id=mir.tenant_id
+   join products p on p.id=mir.marketplace_product_id and p.tenant_id=mir.tenant_id
+   join inventory_products ip on ip.id=mir.inventory_product_id and ip.tenant_id=mir.tenant_id
+   where mir.tenant_id=$1 and mir.status='consumed'
+    and o.created_at >= $2::date and o.created_at < ($3::date + interval '1 day')
+   group by o.id,o.order_no,mir.supply_order_id,mir.marketplace_product_id,p.sku,p.title,
+    mir.inventory_product_id,ip.sku,mir.warehouse_id,mir.quantity
+   order by o.created_at desc,o.order_no,mir.marketplace_product_id,mir.warehouse_id
+   limit 2000
+  `,params),
+  query(`
+   with allocation_totals as (
+    select a.tenant_id,il.document_id,count(*)::int allocation_count,
+     sum(a.total_cost)::numeric allocated_cost,
+     array_agg(distinct a.valuation_method order by a.valuation_method) valuation_methods
+    from finance_cost_layer_allocations a
+    join finance_inventory_lines il on il.id=a.issue_document_line_id
+    where a.tenant_id=$1 group by a.tenant_id,il.document_id
+   )
+   select d.id document_id,d.document_no,d.document_date,d.posted_at,d.warehouse_id,
+    w.code warehouse_code,w.title warehouse_title,d.source_type,d.source_id,
+    mo.id source_id_order_match,mo.order_no matched_order_no,
+    count(distinct il.id)::int line_count,count(distinct il.product_id)::int product_count,
+    coalesce(at.allocation_count,0)::int allocation_count,
+    coalesce(at.allocated_cost,0)::text allocated_cost,
+    coalesce(at.valuation_methods,'{}'::text[]) valuation_methods
+   from finance_inventory_documents d
+   join finance_warehouses w on w.id=d.warehouse_id and w.tenant_id=d.tenant_id
+   left join finance_inventory_lines il on il.document_id=d.id
+   left join allocation_totals at on at.tenant_id=d.tenant_id and at.document_id=d.id
+   left join marketplace_orders mo on mo.tenant_id=d.tenant_id and mo.id=d.source_id
+   where d.tenant_id=$1 and d.document_type='issue' and d.status='posted'
+    and d.document_date between $2::date and $3::date
+   group by d.id,d.document_no,d.document_date,d.posted_at,d.warehouse_id,w.code,w.title,
+    d.source_type,d.source_id,mo.id,mo.order_no,at.allocation_count,at.allocated_cost,at.valuation_methods
+   order by d.posted_at desc nulls last,d.document_date desc,d.document_no desc limit 500
+  `,params),
+  query(`
+   select coalesce(d.source_type,'(بدون نوع منبع)') source_type,count(*)::int document_count,
+    count(*) filter(where d.source_id is null)::int missing_source_id_count
+   from finance_inventory_documents d
+   where d.tenant_id=$1 and d.document_type='issue' and d.status='posted'
+    and d.document_date between $2::date and $3::date
+   group by d.source_type order by document_count desc,d.source_type
+  `,params)
+ ]);
+ res.json({from,to,reservations:reservations.rows,documents:documents.rows,sourceTypes:sourceTypes.rows,
+  limits:{reservationRows:2000,issueDocuments:500},readOnly:true,
+  interpretation:"source_id_order_match فقط برابری شناسه منبع با شناسه سفارش را نشان می‌دهد و به‌تنهایی رابطه تجاری معتبر را اثبات نمی‌کند. تا زمانی که نوع منبع و رابطه قلم سفارش/رزرو/قلم خروج به‌صورت صریح تأیید نشوند، بهای تمام‌شده به سفارش نسبت داده نمی‌شود."});
+}));
+
 settlementRouter.get("/api/marketplace/settlements/posted-issue-documents",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const result=await query(`
