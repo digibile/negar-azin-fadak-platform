@@ -84,8 +84,47 @@ domainMarketplaceRouter.post("/api/tenancy/tenants",requireAuth,requirePermissio
 domainMarketplaceRouter.get("/api/marketplace/sellers",requireAuth,requirePermission("seller:view"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
-  const r=await query("select id,legal_name,display_name,status,commission_rate,created_at,updated_at from sellers where tenant_id=$1 order by created_at desc",[ctx.id]);
+  const r=await query("select s.id,s.legal_name,s.display_name,s.status,s.commission_rate,s.accounting_party_id,ap.party_code as accounting_party_code,ap.title as accounting_party_title,ap.default_account_id,la.code as payable_account_code,la.name as payable_account_name,la.status as payable_account_status,s.created_at,s.updated_at from sellers s left join accounting_parties ap on ap.id=s.accounting_party_id and ap.tenant_id=s.tenant_id left join ledger_accounts la on la.id=ap.default_account_id and la.tenant_id=ap.tenant_id where s.tenant_id=$1 order by s.created_at desc",[ctx.id]);
   res.json({tenant:ctx,items:r.rows,total:r.rowCount});
+}));
+
+domainMarketplaceRouter.get("/api/marketplace/seller-accounting/options",requireAuth,requirePermission("seller:view"),asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query(`
+  select p.id,p.party_code,p.title,p.default_account_id,a.code account_code,a.name account_name
+  from accounting_parties p
+  join ledger_accounts a on a.id=p.default_account_id and a.tenant_id=p.tenant_id
+  where p.tenant_id=$1 and p.party_type='supplier' and p.status='active'
+   and a.status='active' and a.account_type='liability'
+  order by p.title,p.party_code
+ `,[ctx.id]);
+ res.json({items:r.rows});
+}));
+
+domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/accounting",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const partyId=req.body?.accountingPartyId===null||req.body?.accountingPartyId===""?null:bodyString(req.body?.accountingPartyId,80);
+ if(req.body?.accountingPartyId!==null&&req.body?.accountingPartyId!==""&&!partyId)return res.status(400).json({error:"شناسه طرف حساب نامعتبر است"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const seller=await client.query("select id,accounting_party_id from sellers where id=$1 and tenant_id=$2 for update",[req.params.id,ctx.id]);
+  if(!seller.rowCount){await client.query("rollback");return res.status(404).json({error:"فروشنده پیدا نشد"});}
+  if(partyId){
+   const party=await client.query(`
+    select p.id from accounting_parties p
+    join ledger_accounts a on a.id=p.default_account_id and a.tenant_id=p.tenant_id
+    where p.id=$1 and p.tenant_id=$2 and p.party_type='supplier' and p.status='active'
+     and a.status='active' and a.account_type='liability'
+    for update of p,a
+   `,[partyId,ctx.id]);
+   if(!party.rowCount){await client.query("rollback");return res.status(409).json({error:"طرف حساب باید تأمین‌کننده فعال با حساب معین بدهی فعال باشد"});}
+  }
+  const updated=await client.query("update sellers set accounting_party_id=$1,updated_at=now() where id=$2 and tenant_id=$3 returning id,display_name,accounting_party_id",[partyId,req.params.id,ctx.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'seller.accounting_mapping.updated','seller',$3,$4,$5)",[ctx.id,(req as any).user.id,req.params.id,JSON.stringify({accountingPartyId:seller.rows[0].accounting_party_id}),JSON.stringify({accountingPartyId:partyId})]);
+  await client.query("commit");
+  res.json({item:updated.rows[0]});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
 domainMarketplaceRouter.post("/api/marketplace/sellers",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
