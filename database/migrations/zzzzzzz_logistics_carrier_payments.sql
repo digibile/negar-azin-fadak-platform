@@ -1,6 +1,8 @@
 begin;
 
 -- Extend the existing treasury payment register; do not create a parallel payment ledger.
+create unique index if not exists logistics_carrier_invoices_tenant_id_uq
+  on logistics_carrier_invoices(tenant_id,id);
 create unique index if not exists accounting_receivable_payables_tenant_id_uq
   on accounting_receivable_payables(tenant_id,id);
 create unique index if not exists accounting_documents_tenant_id_uq
@@ -38,6 +40,8 @@ alter table treasury_payments
   check ((bank_account_id is not null)::int + (cashbox_id is not null)::int = 1);
 
 alter table treasury_payments
+  add constraint treasury_payment_bank_tenant_fk
+  foreign key(tenant_id,bank_account_id) references treasury_bank_accounts(tenant_id,id) on delete restrict,
   add constraint treasury_payment_cashbox_tenant_fk
   foreign key(tenant_id,cashbox_id) references treasury_cashboxes(tenant_id,id) on delete restrict,
   add constraint treasury_payment_invoice_tenant_fk
