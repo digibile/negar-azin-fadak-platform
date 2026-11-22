@@ -38,7 +38,10 @@ settlementRouter.post("/api/marketplace/settlements/generate",requireAuth,requir
  const client=await pool.connect();
  try{
   await client.query("begin");
-  const orders=await client.query("select o.* from marketplace_orders o where o.tenant_id=$1 and o.status='paid' and o.created_at>=$2 and o.created_at<$3 and not exists(select 1 from seller_settlement_items si where si.tenant_id=o.tenant_id and si.order_id=o.id) order by o.created_at for update",[t.id,periodStart.toISOString(),periodEnd.toISOString()]);
+  const orders=await client.query("select o.* from marketplace_orders o where o.tenant_id=$1 and o.status='paid' and o.created_at>=$2 and o.created_at<$3 and not exists(select 1 from seller_settlement_items si where si.tenant_id=o.tenant_id and si.order_id=o.id)
+   and not exists(select 1 from marketplace_refunds mr where mr.tenant_id=o.tenant_id and mr.order_id=o.id)
+   and not exists(select 1 from marketplace_return_requests rr where rr.tenant_id=o.tenant_id and rr.order_id=o.id and rr.status not in ('rejected','cancelled'))
+  order by o.created_at for update",[t.id,periodStart.toISOString(),periodEnd.toISOString()]);
   if(!orders.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش تسویه‌نشده‌ای در این بازه پیدا نشد"});}
   const itemTotals=await client.query(
    "select order_id,sum(line_total)::text as item_gross,count(*)::int as item_count from marketplace_order_items where order_id=any($1::uuid[]) group by order_id",
@@ -88,6 +91,19 @@ settlementRouter.patch("/api/marketplace/settlements/:id/approve",requireAuth,re
  const client=await pool.connect();
  try{
   await client.query("begin");
+  const blockers=await client.query(`
+   select o.order_no,o.id order_id
+   from seller_settlement_items si
+   join marketplace_orders o on o.id=si.order_id and o.tenant_id=si.tenant_id
+   where si.tenant_id=$1 and si.settlement_id=$2
+    and (
+     exists(select 1 from marketplace_refunds mr where mr.tenant_id=o.tenant_id and mr.order_id=o.id)
+     or exists(select 1 from marketplace_return_requests rr where rr.tenant_id=o.tenant_id and rr.order_id=o.id and rr.status not in ('rejected','cancelled'))
+    )
+   order by o.order_no
+   limit 50
+  `,[t.id,req.params.id]);
+  if(blockers.rowCount){await client.query("rollback");return res.status(409).json({error:"این تسویه شامل سفارش دارای سابقه بازپرداخت یا پرونده مرجوعی است؛ ابتدا تطبیق مالی مرجوعی را تکمیل کنید",blockedOrders:blockers.rows});}
   const r=await client.query("update seller_settlements set status='approved',updated_at=now() where id=$1 and tenant_id=$2 and status='pending' returning *",[req.params.id,t.id]);
   if(!r.rowCount){await client.query("rollback");return res.status(409).json({error:"تسویه در وضعیت قابل تأیید نیست"});}
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.approved','seller_settlement',$3,$4)",[t.id,(req as any).user.id,r.rows[0].id,JSON.stringify(r.rows[0])]);
@@ -106,6 +122,29 @@ settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,require
   if(!r.rowCount){await client.query("rollback");return res.status(404).json({error:"تسویه پیدا نشد"});}
   const settlement=r.rows[0];
   if(settlement.status!=="approved"){await client.query("rollback");return res.status(409).json({error:"فقط تسویه تأییدشده قابل پرداخت است"});}
+  const settlementOrders=await client.query(`
+   select o.id,o.order_no
+   from seller_settlement_items si
+   join marketplace_orders o on o.id=si.order_id and o.tenant_id=si.tenant_id
+   where si.tenant_id=$1 and si.settlement_id=$2
+   order by o.id
+   for update of o
+  `,[t.id,settlement.id]);
+  if(!settlementOrders.rowCount){await client.query("rollback");return res.status(409).json({error:"تسویه فاقد اقلام سفارش معتبر است؛ پرداخت متوقف شد"});}
+  const blockers=await client.query(`
+   select o.id order_id,o.order_no,
+    exists(select 1 from marketplace_refunds mr where mr.tenant_id=o.tenant_id and mr.order_id=o.id) refund_exists,
+    exists(select 1 from marketplace_return_requests rr where rr.tenant_id=o.tenant_id and rr.order_id=o.id and rr.status not in ('rejected','cancelled')) return_exists
+   from marketplace_orders o
+   where o.tenant_id=$1 and o.id=any($2::uuid[])
+    and (
+     exists(select 1 from marketplace_refunds mr where mr.tenant_id=o.tenant_id and mr.order_id=o.id)
+     or exists(select 1 from marketplace_return_requests rr where rr.tenant_id=o.tenant_id and rr.order_id=o.id and rr.status not in ('rejected','cancelled'))
+    )
+   order by o.order_no
+   limit 50
+  `,[t.id,settlementOrders.rows.map((x:any)=>x.id)]);
+  if(blockers.rowCount){await client.query("rollback");return res.status(409).json({error:"پرداخت متوقف شد؛ یکی از سفارش‌های تسویه دارای سابقه بازپرداخت یا پرونده مرجوعی است",blockedOrders:blockers.rows});}
   const bankAccountId=s(req.body?.bankAccountId,80);
   const paidRef=s(req.body?.paymentRef,160);
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(bankAccountId)||!paidRef){await client.query("rollback");return res.status(400).json({error:"شناسه حساب بانکی و شماره پیگیری پرداخت معتبر و الزامی است"});}
@@ -201,6 +240,42 @@ settlementRouter.get("/api/marketplace/settlements/delivery-reconciliation",requ
  res.json({items:r.rows,limit:200,readOnly:true});
 }));
 
+
+settlementRouter.get("/api/marketplace/settlements/return-refund-exposure",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query(`
+  select ss.id settlement_id,ss.settlement_no,ss.status settlement_status,ss.net_amount settlement_net_amount,
+   s.id seller_id,s.display_name seller_name,count(distinct o.id)::int order_count,
+   count(distinct o.id) filter(where coalesce(rf.refund_count,0)>0 or coalesce(rt.return_count,0)>0)::int affected_order_count,
+   coalesce(sum(rf.refunded_amount),0)::numeric refunded_amount,
+   coalesce(sum(rf.pending_or_failed_count),0)::int pending_or_failed_refund_count,
+   coalesce(sum(rt.return_count),0)::int return_request_count,
+   coalesce(sum(rt.received_quantity),0)::numeric received_return_quantity,
+   coalesce(sum(rt.open_return_count),0)::int open_return_count
+  from seller_settlements ss
+  join sellers s on s.id=ss.seller_id and s.tenant_id=ss.tenant_id
+  join seller_settlement_items si on si.settlement_id=ss.id and si.tenant_id=ss.tenant_id
+  join marketplace_orders o on o.id=si.order_id and o.tenant_id=si.tenant_id
+  left join lateral (
+   select coalesce(sum(mr.amount) filter(where mr.status='refunded'),0)::numeric refunded_amount,
+    count(*) filter(where mr.status in ('pending','failed'))::int pending_or_failed_count,
+    count(*)::int refund_count
+   from marketplace_refunds mr where mr.tenant_id=o.tenant_id and mr.order_id=o.id
+  ) rf on true
+  left join lateral (
+   select count(*) filter(where rr.status not in ('rejected','cancelled'))::int return_count,
+    count(*) filter(where rr.status in ('submitted','approved','received','inspected'))::int open_return_count,
+    coalesce(sum(rr.received_quantity),0)::numeric received_quantity
+   from marketplace_return_requests rr where rr.tenant_id=o.tenant_id and rr.order_id=o.id
+  ) rt on true
+  where ss.tenant_id=$1
+  group by ss.id,ss.settlement_no,ss.status,ss.net_amount,s.id,s.display_name
+  having bool_or(coalesce(rf.refund_count,0)>0 or coalesce(rt.return_count,0)>0)
+  order by ss.created_at desc,ss.settlement_no
+  limit 500
+ `,[t.id]);
+ res.json({items:r.rows,limit:500,readOnly:true,warning:"مبلغ قابل‌بازیافت پس از مرجوعی در این گزارش محاسبه نمی‌شود؛ این فهرست فقط پرونده‌های نیازمند تطبیق مالی را مشخص می‌کند"});
+}));
 
 settlementRouter.get("/api/marketplace/settlements/order-integrity-audit",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
