@@ -344,8 +344,17 @@ logisticsRouter.patch("/api/logistics/shipments/:id/status",requireAuth,asyncHan
   let shipmentId="";
   try{
     await c.query("begin");
+    // Keep the lock order consistent with supply-order cancellation:
+    // supply order first, then shipment. This prevents a shipment/order cancellation deadlock.
+    const shipmentRef=(await c.query("select id,supply_order_id from logistics_shipments where id=$1 and tenant_id=$2",[req.params.id,t.id])).rows[0];
+    if(!shipmentRef){await c.query("rollback");return fail(res,404,"مرسوله پیدا نشد");}
+    if(shipmentRef.supply_order_id){
+      const supplyRef=(await c.query("select id from logistics_supply_orders where id=$1 and tenant_id=$2 for update",[shipmentRef.supply_order_id,t.id])).rows[0];
+      if(!supplyRef){await c.query("rollback");return fail(res,409,"سفارش تأمین مرتبط با مرسوله پیدا نشد");}
+    }
     const shipment=(await c.query("select * from logistics_shipments where id=$1 and tenant_id=$2 for update",[req.params.id,t.id])).rows[0];
     if(!shipment){await c.query("rollback");return fail(res,404,"مرسوله پیدا نشد");}
+    if(shipment.supply_order_id!==shipmentRef.supply_order_id){await c.query("rollback");return fail(res,409,"ارتباط سفارش و مرسوله هم‌زمان تغییر کرده است؛ دوباره تلاش کنید");}
     shipmentId=shipment.id;beforeStatus=shipment.status;
     const isDelivery=["delivered","failed"].includes(b.status);
     const permission=isDelivery?"modules:12-logistics-supply:deliver":"modules:12-logistics-supply:dispatch";
