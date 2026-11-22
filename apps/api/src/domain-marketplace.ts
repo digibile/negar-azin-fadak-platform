@@ -198,7 +198,9 @@ domainMarketplaceRouter.post("/api/marketplace/sellers/:id/refund-receivables/re
    order by mr.created_at,mr.id
    limit 100
   `,[ctx.id,req.params.id]);
-  const control=(await client.query("select id,code,name,account_type from ledger_accounts where tenant_id=$1 and code='2101' and status='active' and is_active=true and is_postable=true for update",[ctx.id])).rows[0];
+  const unsupportedCurrency=refunds.rows.find((item:any)=>String(item.currency||"IRR").toUpperCase()!=="IRR");
+  if(unsupportedCurrency){await client.query("rollback");return res.status(409).json({error:"انتقال خودکار مطالبه فقط برای ارز پایه IRR فعال است؛ سفارش "+unsupportedCurrency.order_no+" با ارز "+unsupportedCurrency.currency+" نیازمند گردش چندارزی مصوب است"});}
+  const control=(await client.query("select id,code,name,account_type from ledger_accounts where tenant_id=$1 and code='2101' and status='active' and is_active=true and is_postable=true and account_type='liability' for update",[ctx.id])).rows[0];
   if(refunds.rowCount&&!control){await client.query("rollback");return res.status(409).json({error:"حساب کنترل بستانکاران فروشندگان با کد 2101 فعال و قابل ثبت نیست"});}
   const created:any[]=[];
   for(const refund of refunds.rows){
