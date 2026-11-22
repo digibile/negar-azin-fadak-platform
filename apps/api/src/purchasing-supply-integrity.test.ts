@@ -91,3 +91,20 @@ test("RFQ creation locks the approved request and atomically records invitations
  assert.ok(r.body.includes("rollback"));
  assert.ok(r.body.includes("finally{c.release()}"));
 });
+
+test("supplier quote selection serializes on the RFQ and permits one terminal selection",()=>{
+ const r=route('router.patch("/api/purchasing/rfqs/:id/select"','router.post("/api/purchasing/orders"');
+ assert.ok(r.start>=0);
+ assert.match(r.body,/for update of q,r/);
+ assert.match(r.body,/selected\.status!=="received"/);
+ assert.match(r.body,/\["sent","quoting","compared"\]\.includes\(selected\.rfq_status\)/);
+ assert.match(r.body,/update purchase_rfqs set status='selected' where id=\$1 and tenant_id=\$2 and status in \('sent','quoting','compared'\) returning id/);
+ assert.ok(r.body.indexOf("update purchase_rfqs set status='selected'")<r.body.indexOf("update purchase_supplier_quotes set status='rejected'"));
+ assert.match(r.body,/status='rejected' where rfq_id=\$1 and id<>\$2 and status='received'/);
+ assert.match(r.body,/set status='selected' where id=\$1 and rfq_id=\$2 and status='received' returning \*/);
+ assert.match(r.body,/insert into purchase_events/);
+ assert.match(r.body,/begin/);
+ assert.match(r.body,/commit/);
+ assert.match(r.body,/rollback/);
+ assert.match(r.body,/finally\{c\.release\(\)\}/);
+});
