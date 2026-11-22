@@ -13,7 +13,7 @@ const tenant=async(req:any)=>resolveTenant(req,req.user);
 settlementRouter.get("/api/marketplace/settlements/payout-bank-accounts",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const r=await query(`
-  select ba.id,ba.code,ba.bank_name,ba.branch_name,ba.account_no,ba.iban,ba.currency,
+  select ba.id,ba.code,ba.bank_name,ba.currency,
    la.code as ledger_account_code,la.name as ledger_account_name
   from accounting_bank_accounts ba
   join ledger_accounts la on la.id=ba.ledger_account_id and la.tenant_id=ba.tenant_id and la.status='active' and la.is_active=true and la.is_postable=true
