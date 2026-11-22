@@ -78,6 +78,7 @@ test("settlement schema migration preserves unmapped sellers and requires eviden
  const migration=fs.readFileSync(new URL("../../../database/migrations/151_marketplace_seller_accounting_payout_binding.sql",import.meta.url),"utf8");
  assert.ok(migration.includes("add column if not exists accounting_party_id"));
  assert.ok(migration.includes("add column if not exists payout_bank_account_id"));
- assert.ok(migration.includes("not valid"));
- assert.ok(migration.includes("payout_ledger_entry_id is not null"));
+ assert.ok(migration.includes("payout_ledger_entry_id uuid"));
+ assert.ok(!migration.includes("update seller_settlements"));
+ assert.ok(migration.includes("existing sellers remain unmapped"));
 });
