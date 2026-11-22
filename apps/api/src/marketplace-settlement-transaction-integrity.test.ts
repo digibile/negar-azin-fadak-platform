@@ -53,6 +53,10 @@ test("settlement payout uses the seller supplier account and selected tenant ban
  assert.ok(payout.includes("ap.default_account_id"));
  assert.ok(payout.includes("ba.id=$3 and ba.tenant_id=s.tenant_id"));
  assert.ok(payout.includes("ap.status party_status"));
+ assert.ok(payout.includes("payable.is_active payable_is_active"));
+ assert.ok(payout.includes("payable.is_postable payable_is_postable"));
+ assert.ok(payout.includes("payable.is_postable=true"));
+ assert.ok(payout.includes("bank.is_postable=true"));
  assert.ok(payout.includes("bank.code bank_code"));
  assert.ok(payout.includes("accountCode:mapping.bank_code,accountName:mapping.bank_name"));
  assert.ok(payout.includes("payout_bank_account_id=$3,payout_ledger_entry_id=$4,payout_reference=$5"));
@@ -66,6 +70,8 @@ test("payout bank account choices are tenant-scoped and require an active ledger
  assert.ok(route.includes("ba.tenant_id=$1"));
  assert.ok(route.includes("ba.status='active'"));
  assert.ok(route.includes("la.status='active'"));
+ assert.ok(route.includes("la.is_active=true"));
+ assert.ok(route.includes("la.is_postable=true"));
 });
 
 test("payout validates bank UUID and locks supplier and bank ledger accounts before posting",()=>{
