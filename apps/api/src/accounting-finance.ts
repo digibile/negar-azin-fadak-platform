@@ -100,6 +100,15 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
   const flow:any={draft:["submitted","void"],submitted:["approved","void"],approved:["posted","void"],posted:["void"],void:[]};
   if(!flow[old.status]?.includes(nextStatus)){await c.query("rollback");return deny(res,409,"تغییر وضعیت مجاز نیست");}
   let carrierInvoice:any=null;
+  if(nextStatus==="void"&&old.source_module==="logistics-carrier-invoice"){
+   carrierInvoice=(await c.query("select * from logistics_carrier_invoices where id=$1 and tenant_id=$2 for update",[old.source_document_id,t.id])).rows[0];
+   if(!carrierInvoice||carrierInvoice.accounting_document_id!==old.id||carrierInvoice.status==="posted"){
+    await c.query("rollback");return deny(res,409,"صورتحساب قطعی‌شده قابل ابطال مستقیم نیست؛ ابتدا باید سند برگشت ثبت شود");
+   }
+   if(carrierInvoice.status!=="verified"){
+    await c.query("rollback");return deny(res,409,"وضعیت صورتحساب حمل برای ابطال سند معتبر نیست");
+   }
+  }
   if(nextStatus==="posted"&&old.source_module==="logistics-carrier-invoice"){
    carrierInvoice=(await c.query("select * from logistics_carrier_invoices where id=$1 and tenant_id=$2 for update",[old.source_document_id,t.id])).rows[0];
    if(!carrierInvoice||carrierInvoice.accounting_document_id!==old.id||carrierInvoice.status!=="verified"){
@@ -121,6 +130,12 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
    }
   }
   const updated=(await c.query("update accounting_documents set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,posted_at=case when $1='posted' then now() else posted_at end,posted_by=case when $1='posted' then $2 else posted_by end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[nextStatus,(req as any).user.id,old.id,t.id])).rows[0];
+  if(nextStatus==="void"&&carrierInvoice){
+   const invoiceVoid=await c.query("update logistics_carrier_invoices set status='void',updated_at=now() where id=$1 and tenant_id=$2 and status='verified' and accounting_document_id=$3",[carrierInvoice.id,t.id,old.id]);
+   if(!invoiceVoid.rowCount){await c.query("rollback");return deny(res,409,"ابطال صورتحساب حمل انجام نشد");}
+   await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,actor_user_id,reason) values($1,'carrier_invoice',$2,'carrier_invoice_voided','verified','void',$3,$4)",[t.id,carrierInvoice.id,(req as any).user.id,"سند حسابداری "+old.document_no+" ابطال شد"]);
+   await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'logistics.carrier_invoice_voided','logistics_carrier_invoice',$3,$4,$5)",[t.id,(req as any).user.id,carrierInvoice.id,JSON.stringify({status:"verified",accountingDocumentId:old.id}),JSON.stringify({status:"void",accountingDocumentId:old.id})]);
+  }
   let payable:any=null;
   if(nextStatus==="posted"&&carrierInvoice){
    payable=(await c.query(
