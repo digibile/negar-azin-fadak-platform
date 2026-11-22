@@ -3,7 +3,7 @@ import {pool,query} from "./db.js";
 import {requireAuth,requirePermission} from "./auth.js";
 import {asyncHandler} from "./http.js";
 import {resolveTenant} from "./tenant-context.js";
-import {postLedgerEntry} from "./ledger.js";
+import {moneyToMinorUnits,minorUnitsToMoney,postLedgerEntry} from "./ledger.js";
 import {emitBusinessEvent} from "./business-events.js";
 
 export const settlementRouter=Router();
@@ -31,9 +31,9 @@ settlementRouter.post("/api/marketplace/settlements/generate",requireAuth,requir
   for(const o of orders.rows){const list=bySeller.get(o.seller_id)||[];list.push(o);bySeller.set(o.seller_id,list);}
   const created=[];
   for(const [sellerId,rows] of bySeller){
-   const gross=rows.reduce((a,o)=>a+Number(o.total_amount),0);
-   const commission=rows.reduce((a,o)=>a+Number(o.commission_amount),0);
-   const net=rows.reduce((a,o)=>a+Number(o.seller_payable),0);
+   const gross=minorUnitsToMoney(rows.reduce((sum,o)=>sum+moneyToMinorUnits(String(o.total_amount)),0n));
+   const commission=minorUnitsToMoney(rows.reduce((sum,o)=>sum+moneyToMinorUnits(String(o.commission_amount)),0n));
+   const net=minorUnitsToMoney(rows.reduce((sum,o)=>sum+moneyToMinorUnits(String(o.seller_payable)),0n));
    const requestedSettlementNo=s(req.body?.settlementNo,100);
    const settlementNo=requestedSettlementNo?(bySeller.size>1?requestedSettlementNo+"-"+sellerId:requestedSettlementNo):("SET-"+Date.now()+"-"+sellerId);
    const sr=await client.query("insert into seller_settlements(tenant_id,seller_id,settlement_no,period_start,period_end,gross_amount,commission_amount,adjustment_amount,net_amount,status) values($1,$2,$3,$4,$5,$6,$7,0,$8,'pending') returning *",[t.id,sellerId,settlementNo,periodStart.toISOString(),periodEnd.toISOString(),gross,commission,net]);
@@ -42,7 +42,7 @@ settlementRouter.post("/api/marketplace/settlements/generate",requireAuth,requir
   }
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,after_data) values($1,$2,'settlement.generated','seller_settlement',$3)",[t.id,(req as any).user.id,JSON.stringify({count:created.length,periodStart:periodStart.toISOString(),periodEnd:periodEnd.toISOString()})]);
   await client.query("commit");
-  for(const item of created)await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.generated",subjectType:"seller_settlement",subjectId:item.id,userId:(req as any).user.id,input:{settlementId:item.id,sellerId:item.seller_id,netAmount:Number(item.net_amount)}});
+  for(const item of created)await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.generated",subjectType:"seller_settlement",subjectId:item.id,userId:(req as any).user.id,input:{settlementId:item.id,sellerId:item.seller_id,netAmount:String(item.net_amount)}});
   res.status(201).json({items:created,total:created.length});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
@@ -56,7 +56,7 @@ settlementRouter.patch("/api/marketplace/settlements/:id/approve",requireAuth,re
   if(!r.rowCount){await client.query("rollback");return res.status(409).json({error:"تسویه در وضعیت قابل تأیید نیست"});}
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.approved','seller_settlement',$3,$4)",[t.id,(req as any).user.id,r.rows[0].id,JSON.stringify(r.rows[0])]);
   await client.query("commit");
-  await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.approved",subjectType:"seller_settlement",subjectId:r.rows[0].id,userId:(req as any).user.id,input:{settlementId:r.rows[0].id,netAmount:Number(r.rows[0].net_amount)}});
+  await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.approved",subjectType:"seller_settlement",subjectId:r.rows[0].id,userId:(req as any).user.id,input:{settlementId:r.rows[0].id,netAmount:String(r.rows[0].net_amount)}});
   res.json(r.rows[0]);
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
@@ -71,14 +71,14 @@ settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,require
   const settlement=r.rows[0];
   if(settlement.status!=="approved"){await client.query("rollback");return res.status(409).json({error:"فقط تسویه تأییدشده قابل پرداخت است"});}
   const entryId=await postLedgerEntry(client,{tenantId:t.id,entryNo:"SET-"+settlement.settlement_no,sourceType:"seller_settlement",sourceId:settlement.id,description:"پرداخت تسویه فروشنده "+settlement.settlement_no,createdBy:(req as any).user.id,lines:[
-   {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",debit:Number(settlement.net_amount)},
-   {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:Number(settlement.net_amount)}
+   {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",debit:String(settlement.net_amount)},
+   {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:String(settlement.net_amount)}
   ]});
   const paidRef=s(req.body?.paymentRef,160)||null;
   const u=await client.query("update seller_settlements set status='paid',updated_at=now() where id=$1 and tenant_id=$2 and status='approved' returning *",[settlement.id,t.id]);
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'settlement.paid','seller_settlement',$3,$4)",[t.id,(req as any).user.id,settlement.id,JSON.stringify({settlement:u.rows[0],ledgerEntryId:entryId,paymentRef:paidRef})]);
   await client.query("commit");
-  await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.paid",subjectType:"seller_settlement",subjectId:u.rows[0].id,userId:(req as any).user.id,input:{settlementId:u.rows[0].id,netAmount:Number(u.rows[0].net_amount),ledgerEntryId:entryId}});
+  await emitBusinessEvent({tenantId:t.id,eventKey:"settlement.paid",subjectType:"seller_settlement",subjectId:u.rows[0].id,userId:(req as any).user.id,input:{settlementId:u.rows[0].id,netAmount:String(u.rows[0].net_amount),ledgerEntryId:entryId}});
   res.json({settlement:u.rows[0],ledgerEntryId:entryId,paymentRef:paidRef});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
