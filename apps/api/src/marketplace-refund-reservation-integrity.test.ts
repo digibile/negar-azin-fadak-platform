@@ -108,3 +108,24 @@ test("repeated full-refund requests reuse the existing payment-scoped refund rec
  assert.ok(route.includes('if(full?.status==="refunded")'));
  assert.ok(route.includes('const idempotencyKey=refund.provider_idempotency_key||("order-full-refund-"+payment.id)'));
 });
+
+
+test("confirmed provider refund can resume local finalization without a second gateway request",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"');
+ const end=checkout.indexOf('checkoutRouter.get("/api/marketplace/refunds/reconciliation"',start);
+ const route=checkout.slice(start,end);
+ const confirmed=route.indexOf('refund.provider_last_status==="refunded"&&providerRefundId');
+ const retryGuard=route.indexOf("Number(refund.provider_attempt_count||0)>0");
+ const providerCall=route.indexOf("provider.refundPayment");
+ const finalization=route.indexOf("const finalize=await pool.connect()");
+ assert.ok(confirmed>=0&&retryGuard>confirmed&&providerCall>retryGuard&&finalization>providerCall);
+});
+
+test("reconciliation and manual confirmation can hand a confirmed refund back to the same finalization route",()=>{
+ const reconciliation=checkout.slice(checkout.indexOf('checkoutRouter.post("/api/marketplace/refunds/:id/reconcile"'),checkout.indexOf('checkoutRouter.post("/api/marketplace/refunds/:id/confirm-manual"'));
+ const manual=checkout.slice(checkout.indexOf('checkoutRouter.post("/api/marketplace/refunds/:id/confirm-manual"'),checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"'));
+ assert.ok(reconciliation.includes("finalizationRequired:true"));
+ assert.ok(reconciliation.includes('provider_last_status==="refunded"&&refund.provider_refund_transaction_id'));
+ assert.ok(manual.includes("finalizationRequired:true"));
+ assert.ok(manual.includes("providerRefundReference"));
+});
