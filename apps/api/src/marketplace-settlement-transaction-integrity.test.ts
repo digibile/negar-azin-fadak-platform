@@ -96,3 +96,19 @@ test("seller payout workspace selects a real bank account and requires a payment
  assert.ok(ui.includes("ثبت پرداخت و سند مالی"));
  assert.ok(ui.includes("شماره پیگیری پرداخت"));
 });
+
+test("payout migration enforces tenant-bound foreign keys for accounting references",()=>{
+ const migration=fs.readFileSync(new URL("../../../database/migrations/151_marketplace_seller_accounting_payout_binding.sql",import.meta.url),"utf8");
+ assert.ok(migration.includes("foreign key(tenant_id,accounting_party_id) references accounting_parties(tenant_id,id)"));
+ assert.ok(migration.includes("foreign key(tenant_id,payout_bank_account_id) references accounting_bank_accounts(tenant_id,id)"));
+ assert.ok(migration.includes("foreign key(tenant_id,payout_ledger_entry_id) references ledger_entries(tenant_id,id)"));
+ assert.ok(migration.includes("uq_accounting_parties_tenant_id_id"));
+});
+
+test("payout bank options do not expose full bank account or IBAN values",()=>{
+ const start=source.indexOf('settlementRouter.get("/api/marketplace/settlements/payout-bank-accounts"');
+ const end=source.indexOf('settlementRouter.get("/api/marketplace/settlements"',start);
+ const route=source.slice(start,end);
+ assert.ok(!route.includes("ba.account_no"));
+ assert.ok(!route.includes("ba.iban"));
+});
