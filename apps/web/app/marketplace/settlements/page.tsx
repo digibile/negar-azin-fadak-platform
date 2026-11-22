@@ -16,6 +16,8 @@ export default function SettlementsPage(){
  const [costingReadiness,setCostingReadiness]=useState<any>(null);
  const [issueLinkAudit,setIssueLinkAudit]=useState<any>(null);
  const [issueLinkAuditBusy,setIssueLinkAuditBusy]=useState(false);
+ const [cogsReadiness,setCogsReadiness]=useState<any>(null);
+ const [cogsReadinessBusy,setCogsReadinessBusy]=useState(false);
  const [readinessBusy,setReadinessBusy]=useState(false);
  const [reportBusy,setReportBusy]=useState(false);
  const [issueDocuments,setIssueDocuments]=useState<any[]>([]);
@@ -56,6 +58,7 @@ export default function SettlementsPage(){
   finally{setBusy("");}
  }
  const loadCostingReadiness=async()=>{setReadinessBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/costing-readiness?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setCostingReadiness(result);}catch(e){setError(e instanceof Error?e.message:"گزارش آمادگی بهای تمام‌شده دریافت نشد.");}finally{setReadinessBusy(false)}};
+ const loadCogsReadiness=async()=>{if(!selectedIssueDocumentId)return;setCogsReadinessBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/cogs-accounting-readiness?issueDocumentId="+encodeURIComponent(selectedIssueDocumentId));setCogsReadiness(result);}catch(e){setCogsReadiness(null);setError(e instanceof Error?e.message:"کنترل آمادگی سند حسابداری بهای کالا دریافت نشد.");}finally{setCogsReadinessBusy(false)}};
  const loadIssueLinkAudit=async()=>{setIssueLinkAuditBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/financial-issue-link-audit?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setIssueLinkAudit(result);}catch(e){setError(e instanceof Error?e.message:"ممیزی اتصال اسناد خروج مالی دریافت نشد.");}finally{setIssueLinkAuditBusy(false)}};
  const loadOrderCostReport=async()=>{setReportBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/order-cost-analysis?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setOrderCostReport(result);}catch(e){setError(e instanceof Error?e.message:"گزارش بهای سفارش دریافت نشد.");}finally{setReportBusy(false)}};
  const loadPostedIssueDocuments=async()=>{setIssueDocumentsBusy(true);setError("");try{const result=await api<{items:any[]}>("/api/marketplace/settlements/posted-issue-documents");const rows=result.items||[];setIssueDocuments(rows);setSelectedIssueDocumentId(current=>rows.some(x=>x.id===current)?current:rows[0]?.id||"");setAllocationPreview(null);}catch(e){setError(e instanceof Error?e.message:"فهرست اسناد خروج قطعی دریافت نشد.");}finally{setIssueDocumentsBusy(false)}};
@@ -153,6 +156,29 @@ export default function SettlementsPage(){
     <p className="empty">{allocationPreview.limitation}</p>
    </>}
    <p className="empty">فهرست اسناد به ۱۰۰ سند خروج قطعی اخیر محدود است. تخصیص خودکار در این مرحله فقط برای سیاست FIFO فعال و در صورت کفایت کامل لایه‌های ورودی قابل اجراست؛ روش‌های دیگر فقط پیش‌نمایش می‌شوند.</p>
+  </section>
+  <section className="platform-panel">
+   <div className="panel-title"><div><h2>کنترل آمادگی سند حسابداری بهای کالا</h2><span>بررسی تخصیص کامل، دوره مالی، دفتر و حساب‌های قابل ثبت</span></div><button type="button" disabled={!selectedIssueDocumentId||cogsReadinessBusy} onClick={()=>void loadCogsReadiness()}>{cogsReadinessBusy?"در حال کنترل…":"کنترل آمادگی سند"}</button></div>
+   <p className="empty">این بخش فقط کنترل می‌کند آیا زیرساخت لازم برای ثبت سند وجود دارد یا خیر. هیچ سند حسابداری ایجاد یا قطعی نمی‌شود و حساب موجودی یا بهای کالا به‌صورت حدسی انتخاب نمی‌شود.</p>
+   {cogsReadiness&&<>
+    <article className="platform-row"><strong>{cogsReadiness.document?.document_no}</strong><span>{cogsReadiness.document?.document_date}</span><span>{cogsReadiness.document?.warehouse_code} · {cogsReadiness.document?.warehouse_title}</span><span>منبع: {cogsReadiness.document?.source_type||"نامشخص"}</span><span>سفارش: {cogsReadiness.document?.matched_order_no||"تطبیق نشد"}</span></article>
+    <h3>وضعیت تخصیص بهای تمام‌شده</h3>
+    <article className="platform-row"><span>اقلام سند: {Number(cogsReadiness.allocation?.line_count||0).toLocaleString("fa-IR")}</span><span>اقلام کامل: {Number(cogsReadiness.allocation?.fully_allocated_line_count||0).toLocaleString("fa-IR")}</span><span>اقلام ناقص: {Number(cogsReadiness.allocation?.incomplete_line_count||0).toLocaleString("fa-IR")}</span><span>مقدار خروج: {String(cogsReadiness.allocation?.issue_quantity||"0")}</span><span>مقدار تخصیص: {String(cogsReadiness.allocation?.allocated_quantity||"0")}</span><span>بهای تخصیص‌یافته: {String(cogsReadiness.allocation?.allocated_cost||"0")} ریال</span></article>
+    <h3>دفاتر و دوره‌های مالی منطبق با تاریخ سند</h3>
+    <div style={{overflowX:"auto"}}><table><thead><tr><th>دفتر</th><th>ارز</th><th>وضعیت دفتر</th><th>دوره منطبق</th><th>وضعیت دوره</th><th>پیش‌فرض</th></tr></thead><tbody>
+    {cogsReadiness.books?.map((x:any)=><tr key={x.id}><td>{x.code} · {x.title}</td><td>{x.currency}</td><td>فعال</td><td>{x.period_title||"دوره منطبق ندارد"}</td><td>{x.period_status||"—"}</td><td>{x.is_default?"بله":"خیر"}</td></tr>)}
+    </tbody></table></div>
+    <h3>حساب‌های کاندیدا، بدون انتخاب خودکار</h3>
+    <div style={{overflowX:"auto"}}><table><thead><tr><th>کد</th><th>عنوان</th><th>ماهیت</th><th>مانده عادی</th><th>دفتر</th><th>روش حساب</th></tr></thead><tbody>
+    {cogsReadiness.accountCandidates?.map((x:any)=><tr key={x.id}><td>{x.code}</td><td>{x.name}</td><td>{x.account_nature}</td><td>{x.normal_balance}</td><td>{x.book_id||"عمومی"}</td><td>{x.account_mode}</td></tr>)}
+    </tbody></table></div>
+    <h3>سندهای خودکار قبلی برای همین سند خروج</h3>
+    {cogsReadiness.existingCogsDocuments?.length?cogsReadiness.existingCogsDocuments.map((x:any)=><article className="platform-row" key={x.id}><strong>{x.document_no}</strong><span>{x.document_date}</span><span>{x.status}</span><span>{x.posted_at||"قطعی نشده"}</span></article>):<p className="empty">سند خودکار ثبت‌شده‌ای با شناسه منبع مورد انتظار پیدا نشد.</p>}
+    <h3>موارد مسدودکننده</h3>
+    {cogsReadiness.readiness?.blockedReasons?.map((x:string,i:number)=><article className="platform-row" key={i}><strong>{x}</strong></article>)}
+    <p className="empty">{cogsReadiness.limitations}</p>
+    <p className="empty">وضعیت فعلی: {cogsReadiness.readiness?.draftCreationAllowed?"پیش‌نویس مجاز":"ایجاد پیش‌نویس مجاز نیست"} · {cogsReadiness.readiness?.postingAllowed?"قطعی‌سازی مجاز":"قطعی‌سازی مجاز نیست"}</p>
+   </>}
   </section>
   <section className="platform-panel">
    <div className="panel-title"><div><h2>تحلیل اجزای مالی سفارش‌ها</h2><span>فقط داده‌های ثبت‌شده و اسناد قطعی</span></div><button type="button" disabled={reportBusy||!periodStart||!periodEnd||periodEnd<periodStart} onClick={()=>void loadOrderCostReport()}>{reportBusy?"در حال دریافت…":"دریافت گزارش"}</button></div>
