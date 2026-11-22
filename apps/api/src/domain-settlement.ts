@@ -811,6 +811,86 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
 
 // Read-only discovery for consumed reservations and their exact posted financial issue candidates.
 // This endpoint never creates or posts inventory or accounting documents.
+
+/**
+ * Build a finance-side draft issue document from already-consumed marketplace reservations.
+ * This is a mirror document only: operational stock is not touched and the draft is not posted.
+ */
+settlementRouter.post("/api/marketplace/settlements/financial-issue-documents/drafts",requireAuth,requirePermission("accounting-finance.write"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const orderId=s(req.body?.marketplaceOrderId,64);
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ if(!uuid.test(orderId))return res.status(400).json({error:"شناسه سفارش باید UUID معتبر باشد"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))",[t.id+":marketplace-finance-issue:"+orderId]);
+  const supply=(await client.query(
+   "select so.*,o.order_no marketplace_order_no from logistics_supply_orders so join marketplace_orders o on o.id=so.marketplace_order_id and o.tenant_id=so.tenant_id where so.tenant_id=$1 and so.marketplace_order_id=$2 for update of so",
+   [t.id,orderId]
+  )).rows[0];
+  if(!supply){await client.query("rollback");return res.status(404).json({error:"سفارش بازارگاه متصل به لجستیک پیدا نشد"});}
+  if(!["shipped","delivered"].includes(supply.status)){await client.query("rollback");return res.status(409).json({error:"ساخت سند مالی فقط پس از ارسال قطعی سفارش مجاز است"});}
+  const existing=await client.query(
+   "select id,document_no,status,warehouse_id from finance_inventory_documents where tenant_id=$1 and source_type='marketplace_order' and source_id=$2 and document_type='issue' order by created_at",
+   [t.id,orderId]
+  );
+  if(existing.rowCount){
+   if(existing.rowCount>1){await client.query("rollback");return res.status(409).json({error:"برای این سفارش بیش از یک سند خروج مالی وجود دارد؛ بررسی دستی لازم است"});}
+   await client.query("commit");
+   return res.json({document:existing.rows[0],idempotent:true,posted:existing.rows[0].status==="posted",operationalStockChanged:false});
+  }
+  const reservations=(await client.query(
+   "select r.*,mil.status operational_mapping_status,mil.inventory_product_id mapped_inventory_product_id,"+
+   "fpl.finance_product_id,fpl.quantity_factor finance_quantity_factor,fpl.status finance_product_mapping_status,"+
+   "fwl.finance_warehouse_id,fwl.status finance_warehouse_mapping_status "+
+   "from marketplace_inventory_reservations r "+
+   "left join marketplace_inventory_product_links mil on mil.tenant_id=r.tenant_id and mil.product_id=r.marketplace_product_id and mil.inventory_product_id=r.inventory_product_id "+
+   "left join marketplace_finance_product_links fpl on fpl.tenant_id=r.tenant_id and fpl.inventory_product_id=r.inventory_product_id "+
+   "left join marketplace_finance_warehouse_links fwl on fwl.tenant_id=r.tenant_id and fwl.inventory_warehouse_id=r.warehouse_id "+
+   "where r.tenant_id=$1 and r.supply_order_id=$2 order by r.id for update of r",
+   [t.id,supply.id]
+  )).rows;
+  if(!reservations.length){await client.query("rollback");return res.status(409).json({error:"برای سفارش هیچ رزرو انباری ثبت نشده است"});}
+  if(reservations.some((r:any)=>r.status!=="consumed")){await client.query("rollback");return res.status(409).json({error:"تمام رزروهای سفارش باید مصرف‌شده باشند؛ سند ناقص ساخته نمی‌شود"});}
+  const invalid=reservations.find((r:any)=>r.operational_mapping_status!=="active"||r.mapped_inventory_product_id!==r.inventory_product_id||
+   r.finance_product_mapping_status!=="active"||!r.finance_product_id||!(Number(r.finance_quantity_factor)>0)||
+   r.finance_warehouse_mapping_status!=="active"||!r.finance_warehouse_id);
+  if(invalid){await client.query("rollback");return res.status(409).json({error:"نگاشت فعال و کامل کالای عملیاتی، کالای مالی و انبار مالی برای همه رزروها الزامی است",reservationId:invalid.id});}
+  const financeWarehouses=new Set(reservations.map((r:any)=>r.finance_warehouse_id));
+  if(financeWarehouses.size!==1){await client.query("rollback");return res.status(409).json({error:"رزروهای این سفارش به بیش از یک انبار مالی نگاشت شده‌اند؛ سند باید پس از تعیین سیاست چندانباره ساخته شود"});}
+  const financeWarehouseId=reservations[0].finance_warehouse_id;
+  const documentNo="MKT-ISSUE-"+orderId;
+  const consumedIds=reservations.map((r:any)=>r.id);
+  const documentDate=(await client.query(
+   "select coalesce(min(created_at)::date,current_date)::text document_date from inventory_events where tenant_id=$1 and entity_type='marketplace_reservation' and entity_id=any($2::uuid[]) and event_type='consumed'",
+   [t.id,consumedIds]
+  )).rows[0].document_date;
+  const doc=(await client.query(
+   "insert into finance_inventory_documents(tenant_id,warehouse_id,document_no,document_type,document_date,status,source_type,source_id,description,created_by) values($1,$2,$3,'issue',$4,'draft','marketplace_order',$5,$6,$7) returning *",
+   [t.id,financeWarehouseId,documentNo,documentDate,orderId,"پیش‌نویس سند خروج مالی سفارش "+supply.marketplace_order_no,(req as any).user.id]
+  )).rows[0];
+  for(const reservation of reservations){
+   const quantity=Number(reservation.quantity)*Number(reservation.finance_quantity_factor);
+   if(!Number.isFinite(quantity)||quantity<=0){throw new Error("مقدار تبدیل‌شده رزرو معتبر نیست");}
+   await client.query(
+    "insert into finance_inventory_lines(document_id,product_id,quantity,unit_cost) values($1,$2,$3,0)",
+    [doc.id,reservation.finance_product_id,quantity]
+   );
+  }
+  await client.query(
+   "insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.finance_issue_draft_created','finance_inventory_document',$3,$4)",
+   [t.id,(req as any).user.id,doc.id,JSON.stringify({marketplaceOrderId:orderId,supplyOrderId:supply.id,reservationIds:consumedIds,lineCount:reservations.length,warehouseId:financeWarehouseId,documentNo})]
+  );
+  await client.query("commit");
+  res.status(201).json({document:doc,lineCount:reservations.length,status:"draft",posted:false,operationalStockChanged:false,costPostingCreated:false,requiresFinancialReview:true});
+ }catch(e:any){
+  await client.query("rollback");
+  if(e?.code==="23505")return res.status(409).json({error:"شماره سند خروج مالی تکراری است؛ سند موجود را بررسی کنید"});
+  throw e;
+ }finally{client.release();}
+}));
+
 settlementRouter.get("/api/marketplace/settlements/financial-issue-line-link-readiness",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const result=await query(`
