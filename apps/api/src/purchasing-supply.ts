@@ -170,11 +170,11 @@ router.patch("/api/purchasing/rfqs/:id/select",requireAuth,requirePermission("mo
   if(selected.status!=="received"||!["sent","quoting","compared"].includes(selected.rfq_status)){await c.query("rollback");return deny(res,409,"این پیشنهاد یا استعلام در وضعیت قابل انتخاب نیست");}
   const supplier=await c.query("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active' for update",[selected.supplier_id,t.id]);
   if(!supplier.rowCount){await c.query("rollback");return deny(res,409,"تأمین‌کننده پیشنهاد دیگر فعال یا متعلق به سازمان نیست");}
-  await c.query("update purchase_supplier_quotes set status='rejected' where rfq_id=$1 and id<>$2",[selected.rfq_id,selected.id]);
-  const chosen=await c.query("update purchase_supplier_quotes set status='selected' where id=$1 and rfq_id=$2 and status='received' returning *",[selected.id,selected.rfq_id]);
-  if(!chosen.rowCount){await c.query("rollback");return deny(res,409,"پیشنهاد هنگام انتخاب تغییر کرده است");}
   const rfq=await c.query("update purchase_rfqs set status='selected' where id=$1 and tenant_id=$2 and status in ('sent','quoting','compared') returning id",[selected.rfq_id,t.id]);
   if(!rfq.rowCount){await c.query("rollback");return deny(res,409,"استعلام هنگام انتخاب تغییر کرده است");}
+  await c.query("update purchase_supplier_quotes set status='rejected' where rfq_id=$1 and id<>$2 and status='received'",[selected.rfq_id,selected.id]);
+  const chosen=await c.query("update purchase_supplier_quotes set status='selected' where id=$1 and rfq_id=$2 and status='received' returning *",[selected.id,selected.rfq_id]);
+  if(!chosen.rowCount){await c.query("rollback");return deny(res,409,"پیشنهاد هنگام انتخاب تغییر کرده است");}
   const request=await c.query("select id,status from purchase_requests where id=$1 and tenant_id=$2 for update",[selected.request_id,t.id]);
   if(!request.rowCount||request.rows[0].status!=="rfq"){await c.query("rollback");return deny(res,409,"درخواست خرید مرتبط دیگر در مرحله استعلام نیست");}
   const approvedRequest=await c.query("update purchase_requests set status='approved',updated_at=now() where id=$1 and tenant_id=$2 and status='rfq' returning id",[selected.request_id,t.id]);
