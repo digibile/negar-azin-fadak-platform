@@ -216,7 +216,8 @@ test("financial issue linkage audit is tenant-scoped, read-only and does not inf
 test("COGS accounting readiness is read-only and requires explicit order-line reconciliation",()=>{
  assert.ok(source.includes("/cogs-accounting-readiness"));
  assert.ok(source.includes('requirePermission("accounting-finance.read")'));
- assert.ok(source.includes("source_module='marketplace-cogs-issue'"));
+ assert.ok(source.includes("source_type='marketplace-cogs-issue'"));
+ assert.ok(source.includes("source_id=$2::text"));
  assert.ok(source.includes("accounting_fiscal_periods"));
  assert.ok(source.includes("period_status"));
  assert.ok(source.includes("account_nature in ('asset','expense')"));
