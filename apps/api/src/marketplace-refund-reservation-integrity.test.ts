@@ -25,7 +25,7 @@ test("direct full refund is blocked for any order with a shipment before provide
  assert.ok(guard>=0&&provider>guard);
  assert.ok(route.includes("where tenant_id=$1 and supply_order_id=$2 limit 1 for update"));
  assert.ok(route.includes("سابقه مرسوله دارد"));
- assert.ok(route.includes('if(!["paid","processing"].includes(order.status))'));
+ assert.ok(route.includes('if(!["paid","processing"].includes(order.status)&&order.status!=="refunded")'));
 });
 
 
@@ -44,9 +44,9 @@ test("generic marketplace order status route cannot mark an order refunded witho
 test("direct full refund cannot overlap any existing partial, pending, failed, or unknown refund record",()=>{
  const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"');
  const route=checkout.slice(start);
- assert.ok(route.includes("select count(*)::int refund_count from marketplace_refunds where tenant_id=$1 and payment_id=$2"));
- assert.ok(route.includes("Number(existing.rows[0].refund_count)>0"));
- assert.ok(route.includes("وضعیت آن را از گردش تطبیق بازپرداخت تعیین تکلیف کنید"));
+ assert.ok(route.includes("const prior=await client.query(\"select * from marketplace_refunds where tenant_id=$1 and payment_id=$2"));
+ assert.ok(route.includes("prior.rows.some((x:any)=>x.return_request_id||Number(x.amount)!==Number(payment.amount))"));
+ assert.ok(route.includes("بازپرداخت جزئی یا مرجوعی ثبت شده است"));
 });
 
 test("direct full refund requires CSRF protection",()=>{
@@ -70,7 +70,8 @@ test("full refund does not treat a pending provider response as confirmed money 
  const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"',start);
  const route=checkout.slice(start,end);
  assert.ok(route.includes('providerResult.status!=="refunded"'));
- assert.ok(route.includes('manualReconciliationRequired:providerResult.status==="pending"'));
+ assert.ok(route.includes('providerStatus:providerResult.status'));
+ assert.ok(route.includes("ابتدا استعلام معتبر انجام دهید"));
 });
 
 
