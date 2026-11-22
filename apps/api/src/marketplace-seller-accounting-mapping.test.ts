@@ -110,3 +110,26 @@ test("seller refund receivable migration keeps existing mappings null and makes 
  assert.ok(migration.includes("unique index if not exists uq_accounting_rp_source"));
  assert.ok(migration.includes("references accounting_parties(tenant_id,id)"));
 });
+
+
+test("seller refund receivable subledger listing is tenant-scoped and returns outstanding balances read-only",()=>{
+ const start=receivableRoutes.indexOf('domainMarketplaceRouter.get("/api/marketplace/seller-refund-receivables"');
+ const end=receivableRoutes.indexOf('domainMarketplaceRouter.post("/api/marketplace/sellers"',start);
+ const route=receivableRoutes.slice(start,end);
+ assert.ok(start>=0&&end>start);
+ assert.ok(route.includes('requirePermission("seller:view")'));
+ assert.ok(route.includes("rp.tenant_id=$1"));
+ assert.ok(route.includes("rp.source_module='marketplace_refund'"));
+ assert.ok(route.includes("rp.direction='receivable'"));
+ assert.ok(route.includes("s.id::text=rp.metadata->>'sellerId'"));
+ assert.ok(route.includes("outstanding_amount"));
+ assert.ok(route.includes("limit 500"));
+ assert.ok(!/\b(insert into|update\s+|delete from)\b/i.test(route));
+});
+
+test("seller UI displays outstanding refund receivables by seller",()=>{
+ const ui=fs.readFileSync(new URL("../../web/app/marketplace/sellers/page.tsx",import.meta.url),"utf8");
+ assert.ok(ui.includes("/api/marketplace/seller-refund-receivables"));
+ assert.ok(ui.includes("مطالبات ثبت‌شده این فروشنده"));
+ assert.ok(ui.includes("outstanding_amount"));
+});
