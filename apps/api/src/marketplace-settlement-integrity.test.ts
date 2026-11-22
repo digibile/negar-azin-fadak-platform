@@ -40,6 +40,11 @@ test("costing readiness reconciles marketplace, operational inventory and financ
  assert.ok(source.includes("finance_cost_layers"));
  assert.ok(source.includes("fid.status='posted'"));
  assert.ok(source.includes("cost_layers_present_financial_issue_link_pending"));
+ assert.ok(source.includes("marketplace_finance_warehouse_links"));
+ assert.ok(source.includes("mapped_operational_warehouse_count"));
+ assert.ok(source.includes("missing_finance_warehouse_mapping"));
+ assert.ok(source.includes("posted_layer_methods"));
+ assert.ok(source.includes("mixed_cost_layer_valuation_methods"));
  assert.ok(source.includes("not_calculated"));
 });
 test("costing readiness is tenant scoped, date bounded and explicitly limited",()=>{
