@@ -103,7 +103,7 @@ router.post("/api/accounting-finance/carrier-invoices/:invoiceId/payments",requi
   const payable=(await c.query("select * from accounting_receivable_payables where id=$1 and tenant_id=$2 and direction='payable' for update",[payableId,t.id])).rows[0];
   if(!payable||payable.status==="cancelled"||payable.metadata?.carrierInvoiceId!==invoice.id||payable.party_id!==invoice.carrier_party_id||payable.document_id!==invoice.accounting_document_id||Math.abs(Number(payable.original_amount)-Number(invoice.total_amount))>0.005){await c.query("rollback");return deny(res,404,"بدهی پرداختنی متناظر با این صورتحساب پیدا نشد");}
   const remaining=Number(payable.original_amount)-Number(payable.settled_amount);
-  if(remaining<=0.005||value>remaining+0.005){await c.query("rollback");return deny(res,409,"مبلغ پرداخت از مانده بدهی بیشتر است یا بدهی تسویه شده است");}
+  if(remaining<=0.005||value>remaining+0.000001){await c.query("rollback");return deny(res,409,"مبلغ پرداخت از مانده بدهی بیشتر است یا بدهی تسویه شده است");}
   const book=(await c.query("select id,currency,status from accounting_books where id=$1 and tenant_id=$2 for share",[bookId,t.id])).rows[0];
   if(!book||book.status!=="active"||String(book.currency||"").toUpperCase()!==String(payable.currency).toUpperCase()){await c.query("rollback");return deny(res,409,"دفتر فعال با ارز بدهی انتخاب کنید");}
   const period=(await c.query("select id,book_id,starts_on,ends_on,status from accounting_fiscal_periods where id=$1 and tenant_id=$2 for share",[periodId,t.id])).rows[0];
@@ -184,7 +184,7 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
    }
    carrierPayment.currency=invoice.currency;
    const remaining=Number(payable.original_amount)-Number(payable.settled_amount);
-   if(Number(carrierPayment.amount)>remaining+0.005){await c.query("rollback");return deny(res,409,"مبلغ پرداخت از مانده بدهی بیشتر شده است");}
+   if(Number(carrierPayment.amount)>remaining+0.000001){await c.query("rollback");return deny(res,409,"مبلغ پرداخت از مانده بدهی بیشتر شده است");}
    const lines=(await c.query("select account_id,debit,credit from accounting_document_lines where document_id=$1 order by line_no",[old.id])).rows;
    if(lines.length!==2||Math.abs(Number(lines[0].debit)-Number(carrierPayment.amount))>0.005||Number(lines[0].credit)!==0||Number(lines[1].debit)!==0||Math.abs(Number(lines[1].credit)-Number(carrierPayment.amount))>0.005){
     await c.query("rollback");return deny(res,409,"ردیف‌های سند پرداخت با مبلغ درخواست پرداخت برابر نیست");
@@ -245,7 +245,7 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
   }
   if(nextStatus==="posted"&&carrierPayment){
    const amount=Number(carrierPayment.amount);
-   const updatedPayable=(await c.query("update accounting_receivable_payables set settled_amount=settled_amount+$1,status=case when settled_amount+$1>=original_amount-0.005 then 'settled' else 'partially_settled' end,updated_at=now() where id=$2 and tenant_id=$3 and direction='payable' and settled_amount+$1<=original_amount+0.005 returning *",[amount,carrierPayment.payable_id,t.id])).rows[0];
+   const updatedPayable=(await c.query("update accounting_receivable_payables set settled_amount=settled_amount+$1,status=case when settled_amount+$1>=original_amount-0.005 then 'settled' else 'partially_settled' end,updated_at=now() where id=$2 and tenant_id=$3 and direction='payable' and settled_amount+$1<=original_amount returning *",[amount,carrierPayment.payable_id,t.id])).rows[0];
    if(!updatedPayable){await c.query("rollback");return deny(res,409,"به‌روزرسانی مانده بدهی انجام نشد؛ احتمالاً پرداخت هم‌زمان دیگری ثبت شده است");}
    if(carrierPayment.bank_account_id){
     const balance=await c.query("update treasury_bank_accounts set current_balance=current_balance-$1,updated_at=now() where id=$2 and tenant_id=$3 and status='active' and current_balance >= $1 returning current_balance",[amount,carrierPayment.bank_account_id,t.id]);
