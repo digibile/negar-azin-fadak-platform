@@ -48,4 +48,10 @@ create index if not exists logistics_carrier_invoice_tenant_status_idx
 create index if not exists logistics_carrier_invoice_shipment_idx
   on logistics_carrier_invoice_shipments(tenant_id,shipment_id);
 
+
+alter table logistics_carrier_invoices add column if not exists accounting_document_id uuid;
+create unique index if not exists accounting_documents_tenant_id_uq on accounting_documents(tenant_id,id);
+alter table logistics_carrier_invoices add constraint logistics_carrier_invoice_accounting_document_fk foreign key(tenant_id,accounting_document_id) references accounting_documents(tenant_id,id) on delete restrict;
+create unique index if not exists accounting_documents_carrier_invoice_source_uq on accounting_documents(tenant_id,source_module,source_document_id) where source_module='logistics-carrier-invoice' and source_document_id is not null;
+
 commit;
