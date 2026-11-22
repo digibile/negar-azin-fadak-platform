@@ -42,3 +42,8 @@ test("seller management UI exposes a controlled accounting mapping and save acti
  assert.ok(ui.includes("اتصال به حسابداری"));
  assert.ok(ui.includes("ذخیره اتصال"));
 });
+
+test("seller identifier is validated before opening a database transaction",()=>{
+ assert.ok(mapping.includes("شناسه فروشنده نامعتبر است"));
+ assert.ok(mapping.indexOf("شناسه فروشنده نامعتبر است")<mapping.indexOf('await client.query("begin")'));
+});
