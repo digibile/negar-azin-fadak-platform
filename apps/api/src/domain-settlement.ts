@@ -367,6 +367,7 @@ settlementRouter.post("/api/marketplace/settlements/:issueDocumentId/allocate-co
     and sd.status='posted' and sd.document_type in ('receipt','return_receipt','adjustment')
    order by cl.product_id,cl.created_at,cl.id for update of cl
   `,[t.id,productIds,doc.warehouse_id]);
+  await client.query("select id from finance_cost_valuation_policies where tenant_id=$1 and warehouse_id=$2 and product_id=any($3::uuid[]) and status='active' and effective_from<=now() and (effective_to is null or effective_to>now()) order by product_id for share",[t.id,doc.warehouse_id,productIds]);
   const readiness=await client.query(`
    with demand as (
     select il.product_id,sum(il.quantity-coalesce(a.allocated_quantity,0))::numeric remaining_quantity
