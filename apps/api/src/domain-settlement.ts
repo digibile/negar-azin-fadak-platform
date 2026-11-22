@@ -340,6 +340,146 @@ settlementRouter.get("/api/marketplace/settlements/cost-layer-allocation-preview
   limitation:"این پیش‌نمایش فقط سند خروج مالی را بررسی می‌کند و آن را به سفارش بازارگاه نسبت نمی‌دهد. مقدار قابل تخصیص سقف کنترلی هر جفت قلم/لایه است، نه دستور تخصیص یا ثبت مالی."});
 }));
 
+
+settlementRouter.post("/api/marketplace/settlements/:issueDocumentId/allocate-cost",requireAuth,requirePermission("accounting-finance.write"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const issueDocumentId=s(req.params.issueDocumentId,64);
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(issueDocumentId))
+  return res.status(400).json({error:"شناسه سند خروج مالی معتبر نیست"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const document=await client.query("select id,warehouse_id,document_no,status,document_type from finance_inventory_documents where id=$1 and tenant_id=$2 for update",[issueDocumentId,t.id]);
+  if(!document.rowCount){await client.query("rollback");return res.status(404).json({error:"سند خروج در محدوده سازمانی جاری پیدا نشد"})}
+  const doc=document.rows[0];
+  if(doc.document_type!=="issue"||doc.status!=="posted"){await client.query("rollback");return res.status(409).json({error:"فقط سند خروج قطعی‌شده قابل تخصیص است"})}
+  const issueLines=await client.query("select id,product_id from finance_inventory_lines where document_id=$1 order by product_id,id for update",[issueDocumentId]);
+  if(!issueLines.rowCount){await client.query("rollback");return res.status(409).json({error:"سند خروج قلمی برای تخصیص ندارد"})}
+  const productIds=[...new Set(issueLines.rows.map((x:any)=>String(x.product_id)))].sort();
+  for(const productId of productIds){
+   await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))",[t.id+":"+productId+":"+doc.warehouse_id]);
+  }
+  await client.query(`
+   select cl.id from finance_cost_layers cl
+   join finance_inventory_lines sl on sl.id=cl.inventory_document_line_id
+   join finance_inventory_documents sd on sd.id=sl.document_id and sd.tenant_id=cl.tenant_id
+   where cl.tenant_id=$1 and cl.product_id=any($2::uuid[]) and sd.warehouse_id=$3
+    and sd.status='posted' and sd.document_type in ('receipt','return_receipt','adjustment')
+   order by cl.product_id,cl.created_at,cl.id for update of cl
+  `,[t.id,productIds,doc.warehouse_id]);
+  const readiness=await client.query(`
+   with demand as (
+    select il.product_id,sum(il.quantity-coalesce(a.allocated_quantity,0))::numeric remaining_quantity
+    from finance_inventory_lines il
+    left join lateral(select sum(x.quantity)::numeric allocated_quantity from finance_cost_layer_allocations x
+     where x.tenant_id=$1 and x.issue_document_line_id=il.id) a on true
+    where il.document_id=$2 group by il.product_id
+   ),
+   policies as (
+    select p.product_id,p.valuation_method from finance_cost_valuation_policies p
+    where p.tenant_id=$1 and p.warehouse_id=$3 and p.status='active'
+     and p.effective_from<=now() and (p.effective_to is null or p.effective_to>now())
+   ),
+   supply as (
+    select cl.product_id,sum(cl.quantity-coalesce(a.allocated_quantity,0))::numeric remaining_quantity
+    from finance_cost_layers cl
+    join finance_inventory_lines sl on sl.id=cl.inventory_document_line_id
+    join finance_inventory_documents sd on sd.id=sl.document_id and sd.tenant_id=cl.tenant_id
+    left join lateral(select sum(x.quantity)::numeric allocated_quantity from finance_cost_layer_allocations x
+     where x.tenant_id=$1 and x.cost_layer_id=cl.id) a on true
+    where cl.tenant_id=$1 and cl.product_id=any($4::uuid[]) and cl.method='fifo'
+     and sd.warehouse_id=$3 and sd.status='posted'
+     and sd.document_type in ('receipt','return_receipt','adjustment')
+     and sl.product_id=cl.product_id
+    group by cl.product_id
+   )
+   select d.product_id,d.remaining_quantity::text demand_quantity,p.valuation_method,
+    coalesce(s.remaining_quantity,0)::text supply_quantity,
+    (p.valuation_method='fifo' and coalesce(s.remaining_quantity,0)>=d.remaining_quantity) ready
+   from demand d left join policies p on p.product_id=d.product_id
+   left join supply s on s.product_id=d.product_id
+   where d.remaining_quantity>0
+  `,[t.id,issueDocumentId,doc.warehouse_id,productIds]);
+  const blocked=readiness.rows.filter((x:any)=>!x.ready);
+  if(blocked.length){
+   await client.query("rollback");
+   return res.status(409).json({error:"تخصیص خودکار فعلاً فقط برای روش FIFO و در صورت کفایت کامل لایه‌های ورودی مجاز است؛ برای برخی کالاها سیاست یا موجودی سازگار وجود ندارد",blocked:blocked.map((x:any)=>({productId:x.product_id,method:x.valuation_method||null,demandQuantity:x.demand_quantity,supplyQuantity:x.supply_quantity}))});
+  }
+  if(!readiness.rowCount){
+   const existing=await client.query(`
+    select count(*)::int allocation_count,coalesce(sum(a.total_cost),0)::text total_cost
+    from finance_cost_layer_allocations a
+    join finance_inventory_lines il on il.id=a.issue_document_line_id
+    where a.tenant_id=$1 and il.document_id=$2
+   `,[t.id,issueDocumentId]);
+   await client.query("commit");
+   return res.json({documentId:issueDocumentId,createdCount:0,allocationCount:existing.rows[0].allocation_count,totalCost:existing.rows[0].total_cost,idempotent:true});
+  }
+  const inserted=await client.query(`
+   with issue_rows as (
+    select il.id issue_line_id,il.product_id,
+     (il.quantity-coalesce(sum(a.quantity),0))::numeric remaining_quantity
+    from finance_inventory_lines il
+    left join finance_cost_layer_allocations a on a.tenant_id=$1 and a.issue_document_line_id=il.id
+    where il.document_id=$2
+    group by il.id,il.product_id,il.quantity
+    having il.quantity-coalesce(sum(a.quantity),0)>0
+   ),
+   issue_spans as (
+    select *,sum(remaining_quantity) over(partition by product_id order by issue_line_id rows unbounded preceding) issue_end
+    from issue_rows
+   ),
+   issue_intervals as (
+    select *,issue_end-remaining_quantity issue_start from issue_spans
+   ),
+   layer_rows as (
+    select cl.id cost_layer_id,cl.product_id,cl.unit_cost,cl.created_at,
+     (cl.quantity-coalesce(sum(a.quantity),0))::numeric remaining_quantity
+    from finance_cost_layers cl
+    join finance_inventory_lines sl on sl.id=cl.inventory_document_line_id
+    join finance_inventory_documents sd on sd.id=sl.document_id and sd.tenant_id=cl.tenant_id
+    left join finance_cost_layer_allocations a on a.tenant_id=$1 and a.cost_layer_id=cl.id
+    where cl.tenant_id=$1 and cl.product_id=any($3::uuid[]) and cl.method='fifo'
+     and sd.warehouse_id=$4 and sd.status='posted'
+     and sd.document_type in ('receipt','return_receipt','adjustment')
+     and sl.product_id=cl.product_id
+    group by cl.id,cl.product_id,cl.unit_cost,cl.created_at,cl.quantity
+    having cl.quantity-coalesce(sum(a.quantity),0)>0
+   ),
+   layer_spans as (
+    select *,sum(remaining_quantity) over(partition by product_id order by created_at,cost_layer_id rows unbounded preceding) layer_end
+    from layer_rows
+   ),
+   layer_intervals as (
+    select *,layer_end-remaining_quantity layer_start from layer_spans
+   ),
+   allocation_plan as (
+    select i.issue_line_id,i.product_id,l.cost_layer_id,l.unit_cost,
+     (least(i.issue_end,l.layer_end)-greatest(i.issue_start,l.layer_start))::numeric allocation_quantity
+    from issue_intervals i join layer_intervals l on l.product_id=i.product_id
+     and i.issue_end>l.layer_start and l.layer_end>i.issue_start
+   )
+   insert into finance_cost_layer_allocations
+    (tenant_id,product_id,warehouse_id,cost_layer_id,issue_document_line_id,valuation_method,quantity,unit_cost,total_cost,idempotency_key,created_by)
+   select $1,product_id,$4,cost_layer_id,issue_line_id,'fifo',allocation_quantity,unit_cost,
+    round(allocation_quantity*unit_cost,4),
+    'fifo:'||$2::text||':'||issue_line_id::text||':'||cost_layer_id::text,$5
+   from allocation_plan where allocation_quantity>0
+   order by product_id,issue_line_id,cost_layer_id
+   returning id,product_id,issue_document_line_id,cost_layer_id,quantity,total_cost
+  `,[t.id,issueDocumentId,productIds,doc.warehouse_id,(req as any).user.id]);
+  const total=await client.query("select count(*)::int allocation_count,coalesce(sum(total_cost),0)::text total_cost from finance_cost_layer_allocations where tenant_id=$1 and issue_document_line_id=any($2::uuid[])",[t.id,issueLines.rows.map((x:any)=>x.id)]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'finance.cost_layer_allocated','finance_inventory_document',$3,$4)",[t.id,(req as any).user.id,issueDocumentId,JSON.stringify({createdCount:inserted.rowCount||0,allocationCount:total.rows[0].allocation_count,totalCost:total.rows[0].total_cost,method:"fifo"})]);
+  await client.query("commit");
+  res.status(201).json({documentId:issueDocumentId,createdCount:inserted.rowCount||0,allocationCount:total.rows[0].allocation_count,totalCost:total.rows[0].total_cost,method:"fifo",items:inserted.rows});
+ }catch(e:any){
+  await client.query("rollback");
+  if(e?.code==="23505")return res.status(409).json({error:"برای این سند قبلاً تخصیص ثبت شده یا کلید تکراری وجود دارد؛ دفتر تخصیص غیرقابل‌تغییر است"});
+  if(e?.code==="P0001")return res.status(409).json({error:"کنترل‌های پایگاه داده تخصیص را رد کردند",detail:s(e?.message,300)});
+  throw e;
+ }finally{client.release()}
+}));
+
 settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const validDate=(v:unknown)=>{
