@@ -3,6 +3,7 @@ import test from "node:test";
 import fs from "node:fs";
 
 const source=fs.readFileSync(new URL("./domain-settlement.ts",import.meta.url),"utf8");
+const allocationMigration=fs.readFileSync(new URL("../../../database/migrations/149_finance_cost_layer_allocation_ledger.sql",import.meta.url),"utf8");
 
 test("settlement generation keeps caller reference for a single seller",()=>{
  assert.match(source,/bySeller\.size>1\?requestedSettlementNo\+"-"\+sellerId:requestedSettlementNo/);
@@ -70,4 +71,24 @@ test("costing readiness is tenant scoped, date bounded and explicitly limited",(
  assert.ok(source.includes("limit 500"));
  assert.ok(source.includes("limit 2000"));
  assert.ok(source.includes("does not post a financial issue document linked to each marketplace order"));
+});
+
+
+test("financial cost layer allocation ledger is tenant-scoped and idempotent",()=>{
+ assert.ok(allocationMigration.includes("create table if not exists finance_cost_layer_allocations"));
+ assert.ok(allocationMigration.includes("unique(tenant_id,issue_document_line_id,cost_layer_id)"));
+ assert.ok(allocationMigration.includes("unique(tenant_id,idempotency_key)"));
+ assert.ok(allocationMigration.includes("foreign key(tenant_id,cost_layer_id,product_id)"));
+ assert.ok(allocationMigration.includes("for update of cl"));
+ assert.ok(allocationMigration.includes("for update of issue_line"));
+});
+
+test("financial cost layer allocation rejects over-consumption and non-posted documents",()=>{
+ assert.ok(allocationMigration.includes("v_layer_allocated+new.quantity>v_layer.quantity"));
+ assert.ok(allocationMigration.includes("v_issue_allocated+new.quantity>v_issue.quantity"));
+ assert.ok(allocationMigration.includes("source_document_status<>'posted'"));
+ assert.ok(allocationMigration.includes("v_issue.status<>'posted'"));
+ assert.ok(allocationMigration.includes("v_issue.document_type<>'issue'"));
+ assert.ok(allocationMigration.includes("before insert or update or delete"));
+ assert.ok(allocationMigration.includes("allocations are immutable"));
 });
