@@ -49,7 +49,16 @@ export default function LogisticsWorkspace(){
   const [carrierAllocations,setCarrierAllocations]=useState([{shipmentId:"",amount:""}]);
   const [carrierAccountingForm,setCarrierAccountingForm]=useState({bookId:"",periodId:"",documentNo:"",expenseAccountId:"",payableAccountId:"",inputTaxAccountId:""});
   const [carrierPaymentForm,setCarrierPaymentForm]=useState({amount:"",paymentDate:new Date().toISOString().slice(0,10),bookId:"",periodId:"",documentNo:"",paymentNo:"",bankAccountId:"",cashboxId:"",referenceNo:""});
-  const [loading,setLoading]=useState(false),[carrierCostReport,setCarrierCostReport]=useState<R>({});
+  const [loading,setLoading]=useState(false),[carrierCostReport,setCarrierCostReport]=useState<R>({}),[carrierCostRange,setCarrierCostRange]=useState({from:"",to:""});
+
+  const loadCarrierCostReport=async(range=carrierCostRange)=>{
+    const params=new URLSearchParams();
+    if(range.from)params.set("from",range.from);
+    if(range.to)params.set("to",range.to);
+    const suffix=params.toString();
+    try{setCarrierCostReport(await api("/api/logistics/carrier-cost-reports"+(suffix?"?"+suffix:"")))}
+    catch(e:any){setError(e.message)}
+  };
 
   const load=async()=>{
     setError("");setLoading(true);
@@ -306,6 +315,12 @@ export default function LogisticsWorkspace(){
 
     {tab==="reports"&&<section className={styles.panel}>
       <h2>گزارش لجستیک</h2>
+      <div className={styles.form}>
+        <label>از تاریخ<input type="date" value={carrierCostRange.from} onChange={e=>setCarrierCostRange(v=>({...v,from:e.target.value}))}/></label>
+        <label>تا تاریخ<input type="date" value={carrierCostRange.to} onChange={e=>setCarrierCostRange(v=>({...v,to:e.target.value}))}/></label>
+        <button type="button" onClick={()=>loadCarrierCostReport()}>اعمال بازه گزارش هزینه حمل</button>
+        <button type="button" onClick={()=>{const empty={from:"",to:""};setCarrierCostRange(empty);void loadCarrierCostReport(empty)}}>حذف فیلتر تاریخ</button>
+      </div>
       <h3>وضعیت حمل</h3><Table rows={reports.byShipment||[]} cols={["status","total"]}/>
       <h3>عملکرد ناوگان</h3><Table rows={reports.byVehicle||[]} cols={["plate_no","title","shipments","delivered"]}/>
       <h3>عملکرد مسیرها</h3><Table rows={reports.byRoute||[]} cols={["code","name","shipments","delivered"]}/>
