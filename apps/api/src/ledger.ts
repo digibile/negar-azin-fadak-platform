@@ -20,17 +20,19 @@ export function minorUnitsToMoney(value:bigint):string{
 }
 
 export async function ensureLedgerAccount(client:PoolClient,tenantId:string,line:Pick<Line,"accountCode"|"accountName"|"accountType">){
- const existing=await client.query("select id,status from ledger_accounts where tenant_id=$1 and code=$2 for update",[tenantId,line.accountCode]);
+ const existing=await client.query("select id,status,is_active,is_postable from ledger_accounts where tenant_id=$1 and code=$2 for update",[tenantId,line.accountCode]);
  if(existing.rowCount){
   const account=existing.rows[0];
-  if(account.status!=="active")throw new Error("حساب دفترکل فعال نیست: "+line.accountCode);
+  if(account.status!=="active"||account.is_active===false)throw new Error("حساب دفترکل غیرفعال است: "+line.accountCode);
+  if(account.is_postable===false)throw new Error("ثبت مستقیم در حساب غیرقابل ثبت مجاز نیست: "+line.accountCode);
   return account.id as string;
  }
  const inserted=await client.query("insert into ledger_accounts(tenant_id,code,name,account_type) values($1,$2,$3,$4) on conflict(tenant_id,code) do nothing returning id",[tenantId,line.accountCode,line.accountName,line.accountType]);
  if(inserted.rowCount)return inserted.rows[0].id as string;
- const raced=await client.query("select id,status from ledger_accounts where tenant_id=$1 and code=$2 for update",[tenantId,line.accountCode]);
+ const raced=await client.query("select id,status,is_active,is_postable from ledger_accounts where tenant_id=$1 and code=$2 for update",[tenantId,line.accountCode]);
  if(!raced.rowCount)throw new Error("حساب دفترکل پس از درج همزمان پیدا نشد: "+line.accountCode);
- if(raced.rows[0].status!=="active")throw new Error("حساب دفترکل فعال نیست: "+line.accountCode);
+ if(raced.rows[0].status!=="active"||raced.rows[0].is_active===false)throw new Error("حساب دفترکل غیرفعال است: "+line.accountCode);
+ if(raced.rows[0].is_postable===false)throw new Error("ثبت مستقیم در حساب غیرقابل ثبت مجاز نیست: "+line.accountCode);
  return raced.rows[0].id as string;
 }
 export async function postLedgerEntry(client:PoolClient,args:{tenantId:string;entryNo:string;sourceType:string;sourceId:string;description:string;createdBy?:string|null;lines:Line[]}){
