@@ -26,7 +26,7 @@ test("finance issue draft is idempotent and never posts or changes operational s
  assert.match(route,/pg_advisory_xact_lock/);
  assert.match(route,/source_type='marketplace_order'/);
  assert.match(route,/source_id=\$2/);
- assert.match(route,/document_type,'issue'/);
+ assert.match(route,/values\(\$1,\$2,\$3,'issue',\$4,'draft','marketplace_order',\$5/);
  assert.match(route,/values\(\$1,\$2,\$3,'issue',\$4,'draft'/);
  assert.match(route,/operationalStockChanged:false/);
  assert.match(route,/costPostingCreated:false/);
