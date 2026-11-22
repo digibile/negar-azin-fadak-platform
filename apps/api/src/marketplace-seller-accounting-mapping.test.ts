@@ -30,3 +30,11 @@ test("seller mapping update validates tenant ownership and locks seller and part
  assert.ok(mapping.includes("seller.accounting_mapping.updated"));
  assert.ok(mapping.includes("requirePermission(\"seller:manage\")"));
 });
+
+test("seller management UI exposes a controlled accounting mapping and save action",()=>{
+ const ui=fs.readFileSync(new URL("../../web/app/marketplace/sellers/page.tsx",import.meta.url),"utf8");
+ assert.ok(ui.includes("/api/marketplace/seller-accounting/options"));
+ assert.ok(ui.includes("/accounting"));
+ assert.ok(ui.includes("اتصال به حسابداری"));
+ assert.ok(ui.includes("ذخیره اتصال"));
+});
