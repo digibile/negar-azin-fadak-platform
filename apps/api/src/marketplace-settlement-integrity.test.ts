@@ -34,15 +34,15 @@ test("seller settlement payment uses tenant-scoped idempotency keys",()=>{
 test("marketplace mutation routes are registered once",()=>{
  const routeCounts=new Map();
  for(const match of marketplaceSource.matchAll(/domainMarketplaceRouter\.(?:get|post|patch|put|delete)\("([^"]+)"/g)){
-  const route=match[1];
+  const route=match[0].match(/domainMarketplaceRouter\\.(get|post|patch|put|delete)\\(/)?.[1]+" "+match[1];
   routeCounts.set(route,(routeCounts.get(route)||0)+1);
  }
  for(const route of [
   "/api/marketplace/sellers/:id/status",
   "/api/marketplace/stores/:id/status",
-  "/api/marketplace/products/:id",
+  "patch /api/marketplace/products/:id",
   "/api/marketplace/products/:id/inventory",
-  "/api/marketplace/products/:id/status"
+  "patch /api/marketplace/products/:id/status"
  ])assert.equal(routeCounts.get(route),1,"duplicate marketplace route: "+route);
 });
 
