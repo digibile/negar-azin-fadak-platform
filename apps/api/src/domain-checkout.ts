@@ -331,6 +331,8 @@ checkoutRouter.post("/api/marketplace/refunds/:id/confirm-manual",requireAuth,re
   if(refund.provider_last_status==="refunded"&&refund.provider_refund_transaction_id){
    await client.query("rollback");return res.status(200).json({status:"refunded",refundId:refund.id,finalizationRequired:true,alreadyConfirmed:true});
   }
+  const duplicateReference=await client.query("select id from marketplace_refunds where tenant_id=$1 and provider_code=$2 and provider_refund_transaction_id=$3 and id<>$4 and status='refunded' limit 1",[t.id,refund.provider_code,providerRefundReference,refund.id]);
+  if(duplicateReference.rowCount){await client.query("rollback");return res.status(409).json({error:"این شناسه بازپرداخت در رکورد دیگری ثبت شده است"});}
   const priorStatus=refund.provider_last_status||"unknown";
   const payload={...(refund.provider_payload||{}),manualReconciliation:{confirmedBy:(req as any).user.id,confirmedAt:new Date().toISOString(),providerRefundReference,evidenceReference,confirmationNote,previousProviderStatus:priorStatus}};
   const updated=await client.query("update marketplace_refunds set provider_refund_transaction_id=$1,provider_last_status='refunded',provider_last_error=null,provider_payload=$2,updated_at=now() where id=$3 and tenant_id=$4 and status='pending' returning id,order_id",[providerRefundReference,JSON.stringify(payload),refund.id,t.id]);
