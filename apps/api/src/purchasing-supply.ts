@@ -200,17 +200,27 @@ router.post("/api/purchasing/orders",requireAuth,requirePermission("modules:21-p
   if(!supplier.rowCount){await c.query("rollback");return deny(res,400,"تأمین‌کننده فعال و متعلق به سازمان انتخاب نشده است");}
   let linkedRequestId=b.requestId||null;
   if(b.quoteId){
-   const quote=await c.query("select q.id,q.supplier_id,q.status,r.request_id from purchase_supplier_quotes q join purchase_rfqs r on r.id=q.rfq_id where q.id=$1 and r.tenant_id=$2 for update of q,r",[b.quoteId,t.id]);
+   const quote=await c.query("select q.id,q.rfq_id,q.supplier_id,q.status,r.request_id from purchase_supplier_quotes q join purchase_rfqs r on r.id=q.rfq_id where q.id=$1 and r.tenant_id=$2 for update of q,r",[b.quoteId,t.id]);
    if(!quote.rowCount||quote.rows[0].supplier_id!==b.supplierId||quote.rows[0].status!=="selected"){await c.query("rollback");return deny(res,409,"پیشنهاد انتخاب‌شده متعلق به این تأمین‌کننده و سازمان نیست");}
+   const existing=await c.query("select id,order_no from purchase_orders where tenant_id=$1 and quote_id=$2 limit 1",[t.id,b.quoteId]);
+   if(existing.rowCount){await c.query("rollback");return deny(res,409,"برای این پیشنهاد قبلاً سفارش خرید ثبت شده است");}
    if(linkedRequestId&&linkedRequestId!==quote.rows[0].request_id){await c.query("rollback");return deny(res,409,"درخواست و پیشنهاد انتخاب‌شده به یک استعلام تعلق ندارند");}
    linkedRequestId=quote.rows[0].request_id;
   }
+  let requestStatus:string|null=null;
   if(linkedRequestId){
    const request=await c.query("select id,status from purchase_requests where id=$1 and tenant_id=$2 for update",[linkedRequestId,t.id]);
    if(!request.rowCount||!["approved","rfq","ordered"].includes(request.rows[0].status)){await c.query("rollback");return deny(res,409,"درخواست خرید متعلق به سازمان یا آماده سفارش نیست");}
+   requestStatus=request.rows[0].status;
   }
   const o=await c.query("insert into purchase_orders(tenant_id,order_no,supplier_id,request_id,quote_id,expected_date,subtotal,tax_total,total,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *",[t.id,orderNo,b.supplierId,linkedRequestId,b.quoteId||null,b.expectedDate||null,sub,tax,total,b.notes||null,(req as any).user.id]);
   for(const x of normalized)await c.query("insert into purchase_order_items(order_id,product_name,sku,quantity,unit,unit_price,tax_rate,line_total) values($1,$2,$3,$4,$5,$6,$7,$8)",[o.rows[0].id,x.productName,x.sku,x.quantity,x.unit,x.unitPrice,x.taxRate,x.quantity*x.unitPrice*(1+x.taxRate/100)]);
+  if(linkedRequestId&&requestStatus!=="ordered"){
+   const moved=await c.query("update purchase_requests set status='ordered',updated_at=now() where id=$1 and tenant_id=$2 and status=$3 returning id",[linkedRequestId,t.id,requestStatus]);
+   if(!moved.rowCount){await c.query("rollback");return deny(res,409,"وضعیت درخواست خرید هنگام ثبت سفارش تغییر کرده است");}
+   await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id,reason) values($1,'request',$2,$3,'ordered','purchase_order_created',$4,$5)",[t.id,linkedRequestId,requestStatus,(req as any).user.id,"ایجاد سفارش "+(o.rows[0].order_no||o.rows[0].id)]);
+  }
+  await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,to_status,event_type,actor_user_id,reason) values($1,'order',$2,'draft','purchase_order_created',$3,$4)",[t.id,o.rows[0].id,(req as any).user.id,"ایجاد سفارش خرید"]);
   await c.query("commit");res.status(201).json(o.rows[0]);
  }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
