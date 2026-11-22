@@ -158,7 +158,7 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
   let carrierPayment:any=null;
   if(nextStatus==="void"&&old.source_module==="logistics-carrier-payment"){
    carrierPayment=(await c.query("select * from treasury_payments where id=$1 and tenant_id=$2 for update",[old.source_document_id,t.id])).rows[0];
-   if(!carrierPayment||carrierPayment.document_id!==old.id||carrierPayment.status==="paid"){
+   if(!carrierPayment||carrierPayment.accounting_document_id!==old.id||carrierPayment.status==="paid"){
     await c.query("rollback");return deny(res,409,"پرداخت قطعی‌شده قابل ابطال مستقیم نیست؛ ابتدا باید سند برگشت ثبت شود");
    }
    if(!["pending","approved"].includes(carrierPayment.status)){await c.query("rollback");return deny(res,409,"وضعیت پرداخت برای ابطال معتبر نیست");}
@@ -174,7 +174,7 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
   }
   if(nextStatus==="posted"&&old.source_module==="logistics-carrier-payment"){
    carrierPayment=(await c.query("select * from treasury_payments where id=$1 and tenant_id=$2 for update",[old.source_document_id,t.id])).rows[0];
-   if(!carrierPayment||carrierPayment.document_id!==old.id||carrierPayment.status!=="approved"){
+   if(!carrierPayment||carrierPayment.accounting_document_id!==old.id||carrierPayment.status!=="approved"){
     await c.query("rollback");return deny(res,409,"درخواست پرداخت با این سند تطبیق ندارد یا قبلاً قطعی شده است");
    }
    const invoice=(await c.query("select * from logistics_carrier_invoices where id=$1 and tenant_id=$2 for share",[carrierPayment.carrier_invoice_id,t.id])).rows[0];
