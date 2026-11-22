@@ -202,6 +202,50 @@ settlementRouter.get("/api/marketplace/settlements/delivery-reconciliation",requ
 }));
 
 
+settlementRouter.get("/api/marketplace/settlements/order-integrity-audit",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query(`
+  with item_totals as (
+   select order_id,sum(line_total)::numeric as item_gross,count(*)::int as item_count
+   from marketplace_order_items
+   group by order_id
+  ), checks as (
+   select o.id order_id,o.order_no,o.seller_id,s.display_name seller_name,o.currency,o.created_at,
+    o.status order_status,o.subtotal,o.discount_amount,o.shipping_amount,o.total_amount,
+    o.commission_amount,o.seller_payable,
+    coalesce(it.item_gross,0)::numeric item_gross,coalesce(it.item_count,0)::int item_count,
+    (coalesce(it.item_count,0)>0 and coalesce(it.item_gross,0)=o.subtotal) as items_match_subtotal,
+    (o.total_amount=o.subtotal-o.discount_amount+o.shipping_amount) as total_matches_components,
+    (o.commission_amount+o.seller_payable=o.total_amount) as payout_components_match,
+    ss.id settlement_id,ss.settlement_no,ss.status settlement_status,
+    si.gross_amount settlement_item_gross,si.commission_amount settlement_item_commission,si.net_amount settlement_item_net
+   from marketplace_orders o
+   join sellers s on s.id=o.seller_id and s.tenant_id=o.tenant_id
+   left join item_totals it on it.order_id=o.id
+   left join seller_settlement_items si on si.order_id=o.id and si.tenant_id=o.tenant_id
+   left join seller_settlements ss on ss.id=si.settlement_id and ss.tenant_id=si.tenant_id
+   where o.tenant_id=$1 and o.status='paid'
+  )
+  select *,array_remove(array[
+   case when not items_match_subtotal then 'order_items_vs_subtotal' end,
+   case when not total_matches_components then 'total_vs_subtotal_discount_shipping' end,
+   case when not payout_components_match then 'commission_vs_seller_payable' end,
+   case when settlement_id is not null and (settlement_item_gross<>subtotal or settlement_item_commission<>commission_amount or settlement_item_net<>seller_payable) then 'settlement_item_vs_order' end
+  ],null) as mismatch_codes
+  from checks
+  where not items_match_subtotal or not total_matches_components or not payout_components_match
+   or (settlement_id is not null and (settlement_item_gross<>subtotal or settlement_item_commission<>commission_amount or settlement_item_net<>seller_payable))
+  order by created_at desc,order_no
+  limit 500
+ `,[t.id]);
+ res.json({items:r.rows,limit:500,readOnly:true,basis:{
+  items:"sum(marketplace_order_items.line_total) compared with marketplace_orders.subtotal",
+  total:"subtotal - discount_amount + shipping_amount compared with total_amount",
+  payout:"commission_amount + seller_payable compared with total_amount",
+  settlement:"seller_settlement_items compared with the original paid order"
+ }});
+}));
+
 settlementRouter.get("/api/marketplace/settlements/order-cost-analysis",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const validDate=(v:unknown)=>{
