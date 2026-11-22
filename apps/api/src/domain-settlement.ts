@@ -222,14 +222,21 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
   ),
   consumed as (
    select mir.tenant_id,mir.marketplace_order_id,mir.marketplace_product_id,
-    sum(mir.quantity)::numeric consumed_quantity,count(*)::int consumed_reservation_count
+    sum(mir.quantity)::numeric consumed_quantity,count(*)::int consumed_reservation_count,
+    count(distinct mir.warehouse_id)::int consumed_warehouse_count,
+    count(distinct mir.warehouse_id) filter(where mfw.finance_warehouse_id is not null)::int mapped_operational_warehouse_count,
+    count(distinct mfw.finance_warehouse_id)::int mapped_finance_warehouse_count
    from marketplace_inventory_reservations mir
+   left join marketplace_finance_warehouse_links mfw
+    on mfw.tenant_id=mir.tenant_id and mfw.inventory_warehouse_id=mir.warehouse_id and mfw.status='active'
    where mir.tenant_id=$1 and mir.status='consumed'
    group by mir.tenant_id,mir.marketplace_order_id,mir.marketplace_product_id
   ),
   posted_layers as (
    select cl.tenant_id,cl.product_id,count(*)::int posted_layer_count,
-    sum(cl.quantity)::numeric posted_layer_quantity
+    sum(cl.quantity)::numeric posted_layer_quantity,
+    count(distinct cl.method)::int posted_layer_method_count,
+    array_agg(distinct cl.method order by cl.method) as posted_layer_methods
    from finance_cost_layers cl
    join finance_inventory_lines fil on fil.id=cl.inventory_document_line_id
    join finance_inventory_documents fid on fid.id=fil.document_id
@@ -244,13 +251,20 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
    coalesce(mil.quantity_factor,1)::numeric inventory_quantity_factor,
    coalesce(c.consumed_quantity,0)::numeric consumed_inventory_quantity,
    coalesce(c.consumed_reservation_count,0)::int consumed_reservation_count,
+   coalesce(c.consumed_warehouse_count,0)::int consumed_warehouse_count,
+   coalesce(c.mapped_operational_warehouse_count,0)::int mapped_operational_warehouse_count,
+   coalesce(c.mapped_finance_warehouse_count,0)::int mapped_finance_warehouse_count,
    fpl.finance_product_id,fp.code finance_product_code,fp.title finance_product_title,
    coalesce(pl.posted_layer_count,0)::int posted_cost_layer_count,
    coalesce(pl.posted_layer_quantity,0)::numeric posted_cost_layer_quantity,
+   coalesce(pl.posted_layer_method_count,0)::int posted_cost_layer_method_count,
+   coalesce(pl.posted_layer_methods,'{}'::text[]) posted_cost_layer_methods,
    case when ip.id is null then 'missing_inventory_product_mapping'
     when fpl.finance_product_id is null then 'missing_finance_product_mapping'
     when coalesce(c.consumed_quantity,0)+0.000001 < oi.quantity*coalesce(mil.quantity_factor,1) then 'inventory_not_fully_consumed'
+    when coalesce(c.mapped_operational_warehouse_count,0)<coalesce(c.consumed_warehouse_count,0) then 'missing_finance_warehouse_mapping'
     when coalesce(pl.posted_layer_count,0)=0 then 'missing_posted_finance_cost_layers'
+    when coalesce(pl.posted_layer_method_count,0)>1 then 'mixed_cost_layer_valuation_methods'
     else 'cost_layers_present_financial_issue_link_pending' end as costing_readiness,
    'not_calculated'::text cost_of_goods_status
   from selected_orders so
