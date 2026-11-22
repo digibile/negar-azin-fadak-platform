@@ -249,7 +249,7 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
    select c.tenant_id,c.marketplace_order_id,c.marketplace_product_id,
     count(pl.posted_layer_count)::int posted_layer_count,
     coalesce(sum(pl.posted_layer_quantity),0)::numeric posted_layer_quantity,
-    count(distinct pl.posted_layer_method_count) filter(where pl.posted_layer_count is not null)::int posted_layer_method_count,
+    count(distinct method_name)::int posted_layer_method_count,
     coalesce(array_agg(distinct method_name order by method_name) filter(where method_name is not null),'{}'::text[]) posted_layer_methods
    from consumed c
    left join posted_layers pl on pl.tenant_id=c.tenant_id
