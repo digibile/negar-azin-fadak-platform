@@ -83,6 +83,17 @@ test("supplier payment acquires order lock before invoice lock",()=>{
  assert.match(r.body,/invoiceRef\.rows\[0\]\.order_id/);
 });
 
+test("supplier payments reject terminal invoices and non-invoiced orders before insertion",()=>{
+ const r=route('router.post("/api/purchasing/invoices/:id/payments"','router.post("/api/purchasing/returns"');
+ const invoiceGuard=r.body.indexOf('!["issued","approved","partially_paid"].includes(inv.status)');
+ const orderGuard=r.body.indexOf('order.rows[0].status!=="invoiced"');
+ const paymentInsert=r.body.indexOf("insert into purchase_payments");
+ assert.ok(invoiceGuard>=0&&orderGuard>=0);
+ assert.ok(paymentInsert>invoiceGuard&&paymentInsert>orderGuard);
+ assert.match(r.body,/وضعیت فاکتور برای ثبت پرداخت مجاز نیست/);
+ assert.match(r.body,/پرداخت فقط برای سفارش دارای فاکتور و تسویه‌نشده مجاز است/);
+});
+
 test("purchase request status transitions are tenant-scoped, locked and atomic",()=>{
  const r=route('router.patch("/api/purchasing/requests/:id/status"','router.post("/api/purchasing/rfqs"');
  assert.ok(r.start>=0);
