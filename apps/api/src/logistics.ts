@@ -401,6 +401,32 @@ logisticsRouter.get("/api/logistics/carrier-invoices",requireAuth,asyncHandler(a
   res.json({items:r.rows,limit:200,readOnly:true});
 }));
 
+
+logisticsRouter.post("/api/logistics/carrier-invoices/:id/verify",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const c=await pool.connect();
+  try{
+    await c.query("begin");
+    const invoice=(await c.query("select * from logistics_carrier_invoices where id=$1 and tenant_id=$2 for update",[req.params.id,t.id])).rows[0];
+    if(!invoice){await c.query("rollback");return fail(res,404,"صورتحساب حمل پیدا نشد");}
+    if(invoice.status!=="draft"){await c.query("rollback");return fail(res,409,"فقط صورتحساب پیش‌نویس قابل تأیید است");}
+    const totals=(await c.query(
+      "select count(*)::int allocation_count,coalesce(sum(a.allocated_amount),0)::numeric allocated_total,count(*) filter(where sh.id is null or sh.status in ('failed','cancelled'))::int invalid_shipments from logistics_carrier_invoice_shipments a left join logistics_shipments sh on sh.id=a.shipment_id and sh.tenant_id=a.tenant_id where a.tenant_id=$1 and a.invoice_id=$2",
+      [t.id,invoice.id]
+    )).rows[0];
+    if(!totals.allocation_count||Number(totals.invalid_shipments)>0||Math.abs(Number(totals.allocated_total)-Number(invoice.total_amount))>0.005){
+      await c.query("rollback");return fail(res,409,"تخصیص مرسوله‌ها ناقص است یا با مبلغ صورتحساب تطبیق ندارد");
+    }
+    const carrier=(await c.query("select id from accounting_parties where id=$1 and tenant_id=$2 and party_type='supplier' and status='active'",[invoice.carrier_party_id,t.id])).rowCount;
+    if(!carrier){await c.query("rollback");return fail(res,409,"طرف حساب شرکت حمل دیگر فعال یا معتبر نیست");}
+    const updated=(await c.query("update logistics_carrier_invoices set status='verified',verified_by=$1,verified_at=now(),updated_at=now() where id=$2 and tenant_id=$3 and status='draft' returning *",[(req as any).user.id,invoice.id,t.id])).rows[0];
+    await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,actor_user_id,reason) values($1,'carrier_invoice',$2,'invoice_verified','draft','verified',$3,$4)",[t.id,invoice.id,(req as any).user.id,"تطبیق مبلغ "+String(invoice.total_amount)+" "+invoice.currency+" با "+totals.allocation_count+" مرسوله"]);
+    await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'logistics.carrier_invoice_verified','logistics_carrier_invoice',$3,$4,$5)",[t.id,(req as any).user.id,invoice.id,JSON.stringify({status:invoice.status}),JSON.stringify({status:updated.status,verifiedBy:updated.verified_by,verifiedAt:updated.verified_at,allocationCount:totals.allocation_count,allocatedTotal:totals.allocated_total})]);
+    await c.query("commit");
+    res.json({invoice:updated,accountingStatus:"not_posted"});
+  }catch(e){await c.query("rollback");throw e;}finally{c.release();}
+}));
+
 logisticsRouter.post("/api/logistics/carrier-invoices",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
   const t=await tenantOf(req),b=req.body||{};
   if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
