@@ -203,7 +203,7 @@ settlementRouter.get("/api/marketplace/settlements/order-cost-analysis",requireA
 settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const validDate=(v:unknown)=>{
-  if(typeof v!=="string"||!/^\\d{4}-\\d{2}-\\d{2}$/.test(v))return false;
+  if(typeof v!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;
   const d=new Date(v+"T00:00:00Z");
   return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===v;
  };
