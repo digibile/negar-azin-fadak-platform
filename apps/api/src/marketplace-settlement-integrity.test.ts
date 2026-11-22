@@ -112,3 +112,10 @@ test("cost layer allocation preview is read-only, tenant-scoped and requires a p
  assert.ok(source.includes("allocationEnabled:false"));
  assert.ok(source.includes("automaticSelection:false"));
 });
+
+test("cost layer allocation preview preserves PostgreSQL numeric precision",()=>{
+ assert.ok(source.includes("issueQuantity:row.issue_quantity"));
+ assert.ok(source.includes("unitCost:row.unit_cost"));
+ assert.ok(source.includes("maxAllocatableQuantity:row.max_allocatable_quantity"));
+ assert.ok(!source.includes("unitCost:Number(row.unit_cost)"));
+});
