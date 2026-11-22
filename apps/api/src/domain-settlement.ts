@@ -324,8 +324,8 @@ settlementRouter.get("/api/marketplace/settlements/cogs-accounting-readiness",re
   query(`
    select id,document_no,document_date,status,book_id,period_id,posted_at
    from accounting_documents
-   where tenant_id=$1 and source_type='marketplace-cogs-issue'
-    and source_id=$2::text
+   where tenant_id=$1 and source_module='marketplace-cogs-issue'
+    and source_document_id=$2
    order by created_at desc limit 10
   `,[t.id,issueDocumentId])
  ]);
