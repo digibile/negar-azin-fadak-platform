@@ -47,8 +47,8 @@ test("marketplace mutation routes are registered once",()=>{
 });
 
 test("live and persisted reference catalogs use distinct canonical routes",()=>{
- assert.equal((marketplaceSource.match(/domainMarketplaceRouter\\.get\\("\/api\/marketplace\/digikala-catalog"/g)||[]).length,1);
- assert.equal((marketplaceSource.match(/domainMarketplaceRouter\\.get\\("\/api\/marketplace\/reference-catalog"/g)||[]).length,1);
+ assert.equal(marketplaceSource.split('domainMarketplaceRouter.get("/api/marketplace/digikala-catalog"').length-1,1);
+ assert.equal(marketplaceSource.split('domainMarketplaceRouter.get("/api/marketplace/reference-catalog"').length-1,1);
  assert.ok(marketplaceSource.includes('sourceStatus:catalog.sourceStatus'));
  assert.ok(marketplaceSource.includes('sourceStatus:r.rowCount?"stored":"empty"'));
 });
