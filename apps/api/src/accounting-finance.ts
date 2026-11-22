@@ -80,6 +80,8 @@ router.patch("/api/accounting-finance/cost-valuation-policies/:id/activate",requ
   if(policy.status!=="draft"){await c.query("rollback");return deny(res,409,"فقط پیش‌نویس قابل تأیید است")}
   if(new Date(policy.effective_from).getTime()>Date.now()){await c.query("rollback");return deny(res,409,"سیاست با تاریخ شروع آینده هنوز قابل فعال‌سازی نیست")}
   if(policy.effective_to&&new Date(policy.effective_to).getTime()<=Date.now()){await c.query("rollback");return deny(res,409,"بازه اعتبار سیاست به پایان رسیده است")}
+  const priorMethods=await c.query("select distinct valuation_method from finance_cost_layer_allocations where tenant_id=$1 and product_id=$2 and warehouse_id=$3",[t.id,policy.product_id,policy.warehouse_id]);
+  if(priorMethods.rows.some((x:any)=>x.valuation_method!==policy.valuation_method)){await c.query("rollback");return deny(res,409,"سوابق تخصیص ثبت‌شده روش قبلی را قفل کرده‌اند؛ تغییر روش به گردش مستقل بستن دوره و تجدید ارزیابی نیاز دارد")}
   const active=await c.query("select id from finance_cost_valuation_policies where tenant_id=$1 and product_id=$2 and warehouse_id=$3 and status='active' for update",[t.id,policy.product_id,policy.warehouse_id]);
   if(active.rowCount){await c.query("rollback");return deny(res,409,"برای این کالا و انبار سیاست فعالی وجود دارد؛ ابتدا آن را بازنشسته کنید")}
   const r=await c.query("update finance_cost_valuation_policies set status='active',approved_by=$1,activated_at=now(),updated_at=now() where id=$2 and tenant_id=$3 returning *",[(req as any).user.id,req.params.id,t.id]);
