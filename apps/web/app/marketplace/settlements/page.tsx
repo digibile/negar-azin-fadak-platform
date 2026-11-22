@@ -14,6 +14,8 @@ export default function SettlementsPage(){
  const [generateOpen,setGenerateOpen]=useState(false);
  const [orderCostReport,setOrderCostReport]=useState<any>(null);
  const [costingReadiness,setCostingReadiness]=useState<any>(null);
+ const [issueLinkAudit,setIssueLinkAudit]=useState<any>(null);
+ const [issueLinkAuditBusy,setIssueLinkAuditBusy]=useState(false);
  const [readinessBusy,setReadinessBusy]=useState(false);
  const [reportBusy,setReportBusy]=useState(false);
  const [issueDocuments,setIssueDocuments]=useState<any[]>([]);
@@ -54,6 +56,7 @@ export default function SettlementsPage(){
   finally{setBusy("");}
  }
  const loadCostingReadiness=async()=>{setReadinessBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/costing-readiness?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setCostingReadiness(result);}catch(e){setError(e instanceof Error?e.message:"گزارش آمادگی بهای تمام‌شده دریافت نشد.");}finally{setReadinessBusy(false)}};
+ const loadIssueLinkAudit=async()=>{setIssueLinkAuditBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/financial-issue-link-audit?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setIssueLinkAudit(result);}catch(e){setError(e instanceof Error?e.message:"ممیزی اتصال اسناد خروج مالی دریافت نشد.");}finally{setIssueLinkAuditBusy(false)}};
  const loadOrderCostReport=async()=>{setReportBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/order-cost-analysis?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setOrderCostReport(result);}catch(e){setError(e instanceof Error?e.message:"گزارش بهای سفارش دریافت نشد.");}finally{setReportBusy(false)}};
  const loadPostedIssueDocuments=async()=>{setIssueDocumentsBusy(true);setError("");try{const result=await api<{items:any[]}>("/api/marketplace/settlements/posted-issue-documents");const rows=result.items||[];setIssueDocuments(rows);setSelectedIssueDocumentId(current=>rows.some(x=>x.id===current)?current:rows[0]?.id||"");setAllocationPreview(null);}catch(e){setError(e instanceof Error?e.message:"فهرست اسناد خروج قطعی دریافت نشد.");}finally{setIssueDocumentsBusy(false)}};
  const loadAllocationPreview=async()=>{if(!selectedIssueDocumentId)return;setAllocationPreviewBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/cost-layer-allocation-preview?issueDocumentId="+encodeURIComponent(selectedIssueDocumentId));setAllocationPreview(result);}catch(e){setAllocationPreview(null);setError(e instanceof Error?e.message:"پیش‌نمایش تخصیص لایه‌ها دریافت نشد.");}finally{setAllocationPreviewBusy(false)}};
@@ -100,6 +103,24 @@ export default function SettlementsPage(){
   </section>
 
 
+  <section className="platform-panel">
+   <div className="panel-title"><div><h2>ممیزی ارتباط سفارش و سند خروج مالی</h2><span>مقایسه شناسه منبع اسناد خروج با سفارش‌ها و رزروهای مصرف‌شده</span></div><button type="button" disabled={issueLinkAuditBusy||!periodStart||!periodEnd||periodEnd<periodStart} onClick={()=>void loadIssueLinkAudit()}>{issueLinkAuditBusy?"در حال ممیزی…":"اجرای ممیزی اتصال"}</button></div>
+   <p className="empty">این گزارش فقط داده‌های موجود را کنار هم قرار می‌دهد. برابری source_id با شناسه سفارش، بدون تأیید نوع منبع و ارتباط قلم‌ها، اتصال قطعی محسوب نمی‌شود.</p>
+   {issueLinkAudit&&<>
+    <h3>نوع منبع اسناد خروج قطعی</h3>
+    {issueLinkAudit.sourceTypes?.map((x:any)=><article className="platform-row" key={x.source_type}><strong>{x.source_type}</strong><span>{Number(x.document_count).toLocaleString("fa-IR")} سند</span><span>بدون شناسه منبع: {Number(x.missing_source_id_count).toLocaleString("fa-IR")}</span></article>)}
+    <h3>اسناد خروج مالی قطعی</h3>
+    <div style={{overflowX:"auto"}}><table><thead><tr><th>شماره سند</th><th>تاریخ</th><th>انبار مالی</th><th>نوع منبع</th><th>شناسه منبع</th><th>تطبیق شناسه با سفارش</th><th>ردیف</th><th>تخصیص</th><th>مبلغ تخصیص</th><th>روش‌ها</th></tr></thead><tbody>
+    {issueLinkAudit.documents?.map((x:any)=><tr key={x.document_id}><td>{x.document_no}</td><td>{x.document_date}</td><td>{x.warehouse_code} · {x.warehouse_title}</td><td>{x.source_type||"بدون نوع"}</td><td>{x.source_id||"بدون شناسه"}</td><td>{x.source_id_order_match?("شناسه برابر سفارش "+x.matched_order_no):"تطبیق شناسه پیدا نشد"}</td><td>{Number(x.line_count).toLocaleString("fa-IR")}</td><td>{Number(x.allocation_count).toLocaleString("fa-IR")}</td><td>{String(x.allocated_cost)} ریال</td><td>{(x.valuation_methods||[]).join("، ")||"—"}</td></tr>)}
+    </tbody></table></div>
+    <h3>رزروهای مصرف‌شده مرتبط با سفارش‌ها</h3>
+    <div style={{overflowX:"auto"}}><table><thead><tr><th>شماره سفارش</th><th>شناسه سفارش</th><th>سفارش تأمین</th><th>کالا</th><th>کالای انبار</th><th>شناسه انبار عملیاتی</th><th>مقدار مصرف‌شده</th></tr></thead><tbody>
+    {issueLinkAudit.reservations?.map((x:any,index:number)=><tr key={x.order_id+":"+x.supply_order_id+":"+x.marketplace_product_id+":"+x.operational_warehouse_id+":"+index}><td>{x.order_no}</td><td>{x.order_id}</td><td>{x.supply_order_id}</td><td>{x.marketplace_sku||x.marketplace_product_title}</td><td>{x.inventory_sku}</td><td>{x.operational_warehouse_id}</td><td>{String(x.consumed_quantity)}</td></tr>)}
+    </tbody></table></div>
+    <p className="empty">{issueLinkAudit.interpretation}</p>
+    <p className="empty">سقف نمایش: {Number(issueLinkAudit.limits?.issueDocuments||0).toLocaleString("fa-IR")} سند خروج و {Number(issueLinkAudit.limits?.reservationRows||0).toLocaleString("fa-IR")} رزرو.</p>
+   </>}
+  </section>
   <section className="platform-panel">
    <div className="panel-title"><div><h2>پیش‌نمایش تخصیص لایه‌های بهای تمام‌شده</h2><span>انتخاب سند خروج مالی قطعی و مشاهده مانده قلم‌ها و لایه‌های ورودی</span></div><button type="button" disabled={issueDocumentsBusy} onClick={()=>void loadPostedIssueDocuments()}>{issueDocumentsBusy?"در حال دریافت…":"دریافت اسناد خروج"}</button></div>
    <p className="empty">فقط اسناد خروج مالی قطعی‌شده سازمان جاری نمایش داده می‌شوند. این ابزار پیش‌نمایش خواندنی است؛ ثبت تخصیص فقط برای روش FIFO و با کنترل کامل موجودی، سیاست فعال و دفتر غیرقابل‌تغییر انجام می‌شود. این عملیات سند خروج یا سند حسابداری ایجاد نمی‌کند.</p>
