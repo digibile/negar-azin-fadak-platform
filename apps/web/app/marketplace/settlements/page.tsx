@@ -49,6 +49,16 @@ export default function SettlementsPage(){
  const loadCostingReadiness=async()=>{setReadinessBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/costing-readiness?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setCostingReadiness(result);}catch(e){setError(e instanceof Error?e.message:"گزارش آمادگی بهای تمام‌شده دریافت نشد.");}finally{setReadinessBusy(false)}};
  const loadOrderCostReport=async()=>{setReportBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/order-cost-analysis?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setOrderCostReport(result);}catch(e){setError(e instanceof Error?e.message:"گزارش بهای سفارش دریافت نشد.");}finally{setReportBusy(false)}};
  const money=(v:unknown)=>Number(v||0).toLocaleString("fa-IR")+" ریال";
+ const costingReadinessLabel=(status:string)=>({
+  missing_inventory_product_mapping:"اتصال کالای انبار ناقص است",
+  missing_finance_product_mapping:"اتصال کالای مالی ناقص است",
+  inventory_not_fully_consumed:"مصرف انبار کامل نیست",
+  missing_finance_warehouse_mapping:"اتصال انبار مالی ناقص است",
+  missing_posted_finance_cost_layers:"لایه بهای مالی قطعی پیدا نشد",
+  missing_posted_finance_cost_layers_at_consumed_warehouse:"در انبار مصرف‌شده لایه بهای قطعی وجود ندارد",
+  mixed_cost_layer_valuation_methods:"روش ارزش‌گذاری لایه‌ها یکسان نیست",
+  cost_layers_present_financial_issue_link_pending:"نیازمند اتصال سند خروج مالی به سفارش"
+ } as Record<string,string>)[status]||status;
  return <main className="enterprise-main" dir="rtl">
   <header className="platform-header"><div><span className="section-kicker">تسویه</span><h1>تسویه فروشندگان</h1><p>تولید دوره‌ای، تأیید، ثبت پرداخت و اتصال به دفترکل مالی</p></div><a href="/platform">مرکز عملیات</a></header>
   {error&&<p className="enterprise-loading error" role="alert">{error}</p>}
@@ -60,7 +70,7 @@ export default function SettlementsPage(){
     <p className="empty">این بخش هزینه کالا را محاسبه نمی‌کند. وجود لایه مالی به‌تنهایی اثبات‌کننده ثبت خروج مالی برای همان سفارش نیست.</p>
     {costingReadiness.summary?.map((x:any)=><article className="platform-row" key={x.status}><strong>{x.status}</strong><span>{Number(x.lineCount).toLocaleString("fa-IR")} قلم</span><span>{Number(x.orderCount).toLocaleString("fa-IR")} سفارش</span></article>)}
     <div style={{overflowX:"auto"}}><table><thead><tr><th>سفارش</th><th>کالا</th><th>تعداد سفارش</th><th>کالای انبار</th><th>ضریب</th><th>مصرف‌شده از انبار</th><th>کالای مالی</th><th>انبارهای مالی متصل</th><th>لایه مالی قطعی</th><th>روش لایه‌ها</th><th>وضعیت اتصال</th><th>بهای تمام‌شده</th></tr></thead><tbody>
-    {costingReadiness.items?.map((x:any)=><tr key={x.order_item_id}><td>{x.order_no}</td><td>{x.marketplace_sku||x.marketplace_product_title}</td><td>{Number(x.ordered_quantity).toLocaleString("fa-IR")}</td><td>{x.inventory_sku||"اتصال ندارد"}</td><td>{Number(x.inventory_quantity_factor||1).toLocaleString("fa-IR")}</td><td>{Number(x.consumed_inventory_quantity||0).toLocaleString("fa-IR")}</td><td>{x.finance_product_code||"اتصال ندارد"}</td><td>{Number(x.mapped_operational_warehouse_count||0).toLocaleString("fa-IR")} / {Number(x.consumed_warehouse_count||0).toLocaleString("fa-IR")}</td><td>{Number(x.posted_cost_layer_count||0).toLocaleString("fa-IR")}</td><td>{(x.posted_cost_layer_methods||[]).join("، ")||"ثبت نشده"}</td><td>{x.costing_readiness}</td><td>محاسبه نشده</td></tr>)}
+    {costingReadiness.items?.map((x:any)=><tr key={x.order_item_id}><td>{x.order_no}</td><td>{x.marketplace_sku||x.marketplace_product_title}</td><td>{Number(x.ordered_quantity).toLocaleString("fa-IR")}</td><td>{x.inventory_sku||"اتصال ندارد"}</td><td>{Number(x.inventory_quantity_factor||1).toLocaleString("fa-IR")}</td><td>{Number(x.consumed_inventory_quantity||0).toLocaleString("fa-IR")}</td><td>{x.finance_product_code||"اتصال ندارد"}</td><td>{Number(x.mapped_operational_warehouse_count||0).toLocaleString("fa-IR")} / {Number(x.consumed_warehouse_count||0).toLocaleString("fa-IR")}</td><td>{Number(x.posted_cost_layer_count||0).toLocaleString("fa-IR")}</td><td>{(x.posted_cost_layer_methods||[]).join("، ")||"ثبت نشده"}</td><td>{costingReadinessLabel(x.costing_readiness)}</td><td>محاسبه نشده</td></tr>)}
     </tbody></table></div>
     <p className="empty">سقف بررسی: ۵۰۰ سفارش و ۲٬۰۰۰ قلم. وضعیت هر قلم بر اساس اتصال‌ها و اسناد قطعی موجود تعیین می‌شود.</p>
    </>}
