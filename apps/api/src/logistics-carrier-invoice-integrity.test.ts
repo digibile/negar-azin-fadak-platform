@@ -48,3 +48,39 @@ test("carrier invoice migration stores verification actor and timestamp",()=>{
  assert.match(migration,/verified_by uuid references users\(id\)/);
  assert.match(migration,/verified_at timestamptz/);
 });
+
+test("carrier invoice accounting draft requires a verified invoice and tenant-owned open period",()=>{
+ const start=routeSource.indexOf('logisticsRouter.post("/api/logistics/carrier-invoices/:id/accounting-draft"');
+ const end=routeSource.indexOf('logisticsRouter.get("/api/logistics/carrier-invoices"',start+10);
+ const draft=start<0?"":routeSource.slice(start,end);
+ assert.ok(start>=0);
+ assert.match(draft,/requireAuth,requirePermission\("modules:12-logistics-supply:write"\)/);
+ assert.match(draft,/invoice\.status!=="verified"/);
+ assert.match(draft,/accounting_document_id/);
+ assert.match(draft,/period\.status!=="open"/);
+ assert.match(draft,/period\.book_id!==bookId/);
+ assert.match(draft,/invoice\.invoice_date/);
+ assert.match(draft,/account_nature/);
+ assert.match(draft,/accountingStatus:"draft_not_posted"/);
+ assert.match(draft,/payableStatus:"not_created_until_document_posting"/);
+});
+
+test("carrier invoice accounting draft creates a balanced source-linked journal without posting",()=>{
+ const start=routeSource.indexOf('logisticsRouter.post("/api/logistics/carrier-invoices/:id/accounting-draft"');
+ const end=routeSource.indexOf('logisticsRouter.get("/api/logistics/carrier-invoices"',start+10);
+ const draft=start<0?"":routeSource.slice(start,end);
+ assert.match(draft,/source_module,source_document_id,is_automatic/);
+ assert.match(draft,/accounting_document_lines/);
+ assert.match(draft,/invoice\.subtotal/);
+ assert.match(draft,/invoice\.tax_amount/);
+ assert.match(draft,/invoice\.total_amount/);
+ assert.match(draft,/accounting_finance_audit/);
+ assert.match(draft,/accounting_draft_created/);
+ assert.doesNotMatch(draft,/status='posted'/);
+});
+
+test("carrier invoice accounting document link is tenant-safe and unique by source",()=>{
+ assert.match(migration,/accounting_document_id uuid/);
+ assert.match(migration,/foreign key\(tenant_id,accounting_document_id\)\s+references accounting_documents\(tenant_id,id\)/);
+ assert.match(migration,/accounting_documents_carrier_invoice_source_uq/);
+});
