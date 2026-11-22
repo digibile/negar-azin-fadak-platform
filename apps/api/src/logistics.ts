@@ -156,6 +156,9 @@ logisticsRouter.patch("/api/logistics/orders/:id/status",requireAuth,requirePerm
     beforeStatus=o.status;
     const allowed:any={draft:["submitted","cancelled"],submitted:["approved","cancelled"],approved:["assigned","cancelled"],assigned:["shipped","cancelled"],shipped:["delivered","cancelled"],delivered:[],cancelled:[]};
     if(!allowed[o.status]?.includes(b.status)){await c.query("rollback");return fail(res,409,"تغییر وضعیت سفارش مجاز نیست");}
+    // Marketplace fulfillment status is authoritative only through the linked shipment lifecycle.
+    // Prevent direct API calls from marking a paid storefront order shipped/delivered without shipment events.
+    if(o.marketplace_order_id&&["shipped","delivered"].includes(b.status)){await c.query("rollback");return fail(res,409,"وضعیت ارسال و تحویل سفارش بازارگاه فقط از مسیر گردش وضعیت مرسوله ثبت می‌شود");}
 
     if(b.status==="shipped"){
       const reservations=(await c.query("select * from marketplace_inventory_reservations where tenant_id=$1 and supply_order_id=$2 and status='reserved' order by inventory_product_id for update",[t.id,o.id])).rows;
