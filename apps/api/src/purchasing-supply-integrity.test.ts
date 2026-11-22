@@ -65,6 +65,14 @@ test("supplier payment is locked, tenant-scoped and cannot exceed the invoice ba
 });
 
 
+test("invoice balance excludes pending and reversed supplier payments",()=>{
+ const r=route('router.post("/api/purchasing/invoices/:id/payments"','router.post("/api/purchasing/returns"');
+ assert.ok(r.start>=0);
+ assert.match(r.body,/select coalesce\(sum\(amount\),0\)::numeric total from purchase_payments where tenant_id=\$1 and invoice_id=\$2 and status='confirmed'/);
+ assert.match(r.body,/const paidBefore=n\(confirmedPayments\.rows\[0\]\?\.total\)/);
+ assert.doesNotMatch(r.body,/n\(inv\.paid_total\)/);
+});
+
 test("purchase request status transitions are tenant-scoped, locked and atomic",()=>{
  const r=route('router.patch("/api/purchasing/requests/:id/status"','router.post("/api/purchasing/rfqs"');
  assert.ok(r.start>=0);
