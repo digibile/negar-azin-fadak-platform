@@ -16,7 +16,7 @@ settlementRouter.get("/api/marketplace/settlements/payout-bank-accounts",require
   select ba.id,ba.code,ba.bank_name,ba.branch_name,ba.account_no,ba.iban,ba.currency,
    la.code as ledger_account_code,la.name as ledger_account_name
   from accounting_bank_accounts ba
-  join ledger_accounts la on la.id=ba.ledger_account_id and la.tenant_id=ba.tenant_id and la.status='active'
+  join ledger_accounts la on la.id=ba.ledger_account_id and la.tenant_id=ba.tenant_id and la.status='active' and la.is_active=true and la.is_postable=true
   where ba.tenant_id=$1 and ba.status='active' and ba.ledger_account_id is not null
   order by ba.bank_name,ba.code
  `,[t.id]);
@@ -90,7 +90,7 @@ settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,require
    select s.accounting_party_id,ap.party_type,ap.status party_status,ap.default_account_id,
     payable.code payable_code,payable.name payable_name,payable.account_type payable_type,payable.status payable_status,
     ba.id bank_account_id,ba.ledger_account_id bank_ledger_account_id,
-    bank.code bank_code,bank.name bank_name,bank.account_type bank_type,bank.status bank_status
+    bank.code bank_code,bank.name bank_name,bank.account_type bank_type,bank.status bank_status,bank.is_active bank_is_active,bank.is_postable bank_is_postable
    from sellers s
    left join accounting_parties ap on ap.id=s.accounting_party_id and ap.tenant_id=s.tenant_id
    left join ledger_accounts payable on payable.id=ap.default_account_id and payable.tenant_id=ap.tenant_id
@@ -101,18 +101,18 @@ settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,require
   `,[settlement.seller_id,t.id,bankAccountId]);
   if(!mappings.rowCount){await client.query("rollback");return res.status(409).json({error:"اطلاعات حسابداری فروشنده پیدا نشد"});}
   const mapping=mappings.rows[0];
-  if(!mapping.accounting_party_id||mapping.party_type!=="supplier"||mapping.party_status!=="active"||!mapping.default_account_id||mapping.payable_status!=="active"){
+  if(!mapping.accounting_party_id||mapping.party_type!=="supplier"||mapping.party_status!=="active"||!mapping.default_account_id||mapping.payable_status!=="active"||mapping.payable_is_active!==true||mapping.payable_is_postable!==true){
    await client.query("rollback");return res.status(409).json({error:"برای فروشنده، طرف حساب تأمین‌کننده و حساب معین فعال تنظیم نشده است"});
   }
-  if(!mapping.bank_account_id||!mapping.bank_ledger_account_id||mapping.bank_status!=="active"){
+  if(!mapping.bank_account_id||!mapping.bank_ledger_account_id||mapping.bank_status!=="active"||mapping.bank_is_active!==true||mapping.bank_is_postable!==true){
    await client.query("rollback");return res.status(409).json({error:"حساب بانکی انتخاب‌شده فعال نیست یا به حساب دفترکل متصل نشده است"});
   }
   const locked=await client.query(`
    select ap.id party_id,ba.id bank_account_id,payable.id payable_account_id,bank.id bank_ledger_account_id
    from accounting_parties ap
-   join ledger_accounts payable on payable.id=ap.default_account_id and payable.tenant_id=ap.tenant_id and payable.status='active'
+   join ledger_accounts payable on payable.id=ap.default_account_id and payable.tenant_id=ap.tenant_id and payable.status='active' and payable.is_active=true and payable.is_postable=true
    join accounting_bank_accounts ba on ba.id=$2 and ba.tenant_id=ap.tenant_id and ba.status='active'
-   join ledger_accounts bank on bank.id=ba.ledger_account_id and bank.tenant_id=ba.tenant_id and bank.status='active'
+   join ledger_accounts bank on bank.id=ba.ledger_account_id and bank.tenant_id=ba.tenant_id and bank.status='active' and bank.is_active=true and bank.is_postable=true
    where ap.id=$1 and ap.tenant_id=$3 and ap.party_type='supplier' and ap.status='active'
    for update of ap,ba,payable,bank
   `,[mapping.accounting_party_id,bankAccountId,t.id]);
