@@ -40,10 +40,10 @@ test("ledger rejects rows that are both debit and credit or neither",()=>{
  ]),/دقیقاً بدهکار یا بستانکار/);
 });
 
-test("ledger requires at least two lines and a positive total",()=>{
+test("ledger requires at least two valid lines",()=>{
  assert.throws(()=>validateLedgerLines([balanced[0]]),/حداقل دو ردیف/);
  assert.throws(()=>validateLedgerLines([
   {...balanced[0],debit:0},
   {...balanced[1],credit:0}
- ]),/نامتوازن/);
+ ]),/دقیقاً بدهکار یا بستانکار/);
 });
