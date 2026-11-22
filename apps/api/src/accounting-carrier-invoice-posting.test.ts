@@ -37,6 +37,9 @@ test("carrier invoice posting creates one payable and advances invoice status at
  assert.match(route,/status='posted'.*status='verified'/s);
  assert.match(route,/logistics\.carrier_invoice_posted/);
  assert.match(route,/platform_audit_events/);
+ assert.match(route,/nextStatus==="void"&&old\.source_module==="logistics-carrier-invoice"/);
+ assert.match(route,/صورتحساب قطعی‌شده قابل ابطال مستقیم نیست/);
+ assert.match(route,/status='void'.*status='verified'/s);
 });
 
 test("carrier payable uniqueness is enforced at database level",()=>{
