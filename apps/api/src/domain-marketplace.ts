@@ -95,7 +95,7 @@ domainMarketplaceRouter.get("/api/marketplace/seller-accounting/options",require
   from accounting_parties p
   join ledger_accounts a on a.id=p.default_account_id and a.tenant_id=p.tenant_id
   where p.tenant_id=$1 and p.party_type='supplier' and p.status='active'
-   and a.status='active' and a.account_type='liability'
+   and a.status='active' and a.is_active=true and a.is_postable=true and a.account_type='liability'
   order by p.title,p.party_code
  `,[ctx.id]);
  res.json({items:r.rows});
