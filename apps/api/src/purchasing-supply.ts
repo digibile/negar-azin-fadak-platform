@@ -330,6 +330,8 @@ router.post("/api/purchasing/invoices/:id/payments",requireAuth,requirePermissio
   const invoice=await c.query("select * from purchase_invoices where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
   if(!invoice.rowCount||invoice.rows[0].order_id!==invoiceRef.rows[0].order_id){await c.query("rollback");return deny(res,409,"ارتباط فاکتور و سفارش هنگام ثبت پرداخت تغییر کرده است");}
   const inv=invoice.rows[0],total=n(inv.total);
+  if(!["issued","approved","partially_paid"].includes(inv.status)){await c.query("rollback");return deny(res,409,"وضعیت فاکتور برای ثبت پرداخت مجاز نیست");}
+  if(order.rows[0].status!=="invoiced"){await c.query("rollback");return deny(res,409,"پرداخت فقط برای سفارش دارای فاکتور و تسویه‌نشده مجاز است");}
   const confirmedPayments=await c.query("select coalesce(sum(amount),0)::numeric total from purchase_payments where tenant_id=$1 and invoice_id=$2 and status='confirmed'",[t.id,inv.id]);
   const paidBefore=n(confirmedPayments.rows[0]?.total);
   if(!Number.isFinite(paidBefore)||!Number.isFinite(total)||paidBefore+amount>total+0.000001){await c.query("rollback");return deny(res,400,"مبلغ پرداخت از مانده فاکتور بیشتر است یا اطلاعات فاکتور معتبر نیست");}
@@ -338,7 +340,6 @@ router.post("/api/purchasing/invoices/:id/payments",requireAuth,requirePermissio
   await c.query("update purchase_invoices set paid_total=$1,status=$2 where id=$3 and tenant_id=$4",[paid,nextInvoice,inv.id,t.id]);
   await c.query("insert into purchase_financial_events(tenant_id,source_type,source_id,event_type,amount,state,reference_no) values($1,'purchase_payment',$2,'supplier_payment',$3,'pending_accounting',$4)",[t.id,payment.rows[0].id,amount,req.body?.referenceNo||null]);
   if(nextInvoice==="paid"&&inv.order_id){
-   if(order.rows[0].status!=="invoiced"){await c.query("rollback");return deny(res,409,"وضعیت سفارش برای تسویه این فاکتور معتبر نیست");}
    const updatedOrder=await c.query("update purchase_orders set status='paid',updated_at=now() where id=$1 and tenant_id=$2 and status='invoiced' returning id",[inv.order_id,t.id]);
    if(!updatedOrder.rowCount){await c.query("rollback");return deny(res,409,"سفارش هنگام تسویه تغییر کرده است");}
    await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id,reason) values($1,'order',$2,'invoiced','paid','payment',$3,$4)",[t.id,inv.order_id,(req as any).user.id,"تسویه فاکتور "+inv.invoice_no]);
