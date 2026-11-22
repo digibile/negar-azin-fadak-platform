@@ -67,3 +67,17 @@ test("payout bank account choices are tenant-scoped and require an active ledger
  assert.ok(route.includes("ba.status='active'"));
  assert.ok(route.includes("la.status='active'"));
 });
+
+test("payout validates bank UUID and locks supplier and bank ledger accounts before posting",()=>{
+ assert.ok(payout.includes('if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(bankAccountId)'));
+ assert.ok(payout.includes("for update of ap,ba,payable,bank"));
+ assert.ok(payout.includes("if(!locked.rowCount)"));
+});
+
+test("settlement schema migration preserves unmapped sellers and requires evidence for new paid settlements",()=>{
+ const migration=fs.readFileSync(new URL("../../../database/migrations/151_marketplace_seller_accounting_payout_binding.sql",import.meta.url),"utf8");
+ assert.ok(migration.includes("add column if not exists accounting_party_id"));
+ assert.ok(migration.includes("add column if not exists payout_bank_account_id"));
+ assert.ok(migration.includes("not valid"));
+ assert.ok(migration.includes("payout_ledger_entry_id is not null"));
+});
