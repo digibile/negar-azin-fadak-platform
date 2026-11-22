@@ -15,7 +15,8 @@ test("financial issue link readiness is a tenant-scoped read-only report",()=>{
  assert.match(route,/doc\.source_type='marketplace_order'/);
  assert.match(route,/doc\.source_id=r\.marketplace_order_id/);
  assert.match(route,/doc\.document_type='issue'/);
- assert.match(route,/doc\.status in \('draft','approved','posted'\)/);\n assert.match(route,/financial_issue_document_not_posted/);
+ assert.match(route,/doc\.status in \('draft','approved','posted'\)/);
+ assert.match(route,/financial_issue_document_not_posted/);
  assert.match(route,/marketplace_finance_issue_line_links/);
  assert.match(route,/readOnly:true/);
  assert.doesNotMatch(route,/insert into|update\s+finance_inventory|postLedgerEntry/i);
