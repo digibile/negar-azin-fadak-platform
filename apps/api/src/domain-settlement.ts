@@ -200,6 +200,24 @@ settlementRouter.get("/api/marketplace/settlements/order-cost-analysis",requireA
  });
 }));
 
+settlementRouter.get("/api/marketplace/settlements/posted-issue-documents",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const result=await query(`
+  select d.id,d.document_no,d.document_date,d.posted_at,d.warehouse_id,
+   w.code warehouse_code,w.title warehouse_title,
+   count(il.id)::int line_count,count(distinct il.product_id)::int product_count,
+   coalesce(sum(il.quantity),0)::numeric total_quantity
+  from finance_inventory_documents d
+  join finance_warehouses w on w.id=d.warehouse_id and w.tenant_id=d.tenant_id
+  left join finance_inventory_lines il on il.document_id=d.id
+  where d.tenant_id=$1 and d.document_type='issue' and d.status='posted'
+  group by d.id,w.code,w.title
+  order by d.posted_at desc nulls last,d.document_date desc,d.document_no desc
+  limit 100
+ `,[t.id]);
+ res.json({items:result.rows,total:result.rowCount||0,limit:100,readOnly:true});
+}));
+
 settlementRouter.get("/api/marketplace/settlements/cost-layer-allocation-preview",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const issueDocumentId=typeof req.query.issueDocumentId==="string"?req.query.issueDocumentId.trim():"";
