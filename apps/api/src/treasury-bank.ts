@@ -12,7 +12,7 @@ router.get("/api/treasury-bank/overview",requireAuth,async(req,res)=>{
  const [banks,receipts,payments,transactions,cashboxes,movements]=await Promise.all([
   query("select * from treasury_bank_accounts where tenant_id=$1 order by bank_name,account_title",[t.id]),
   query("select r.*,b.bank_name,b.account_title from treasury_receipts r join treasury_bank_accounts b on b.id=r.bank_account_id where r.tenant_id=$1 order by r.receipt_date desc limit 200",[t.id]),
-  query("select p.*,b.bank_name,b.account_title from treasury_payments p join treasury_bank_accounts b on b.id=p.bank_account_id where p.tenant_id=$1 order by p.payment_date desc limit 200",[t.id]),
+  query("select p.*,b.bank_name,b.account_title,c.title cashbox_title from treasury_payments p left join treasury_bank_accounts b on b.id=p.bank_account_id and b.tenant_id=p.tenant_id left join treasury_cashboxes c on c.id=p.cashbox_id and c.tenant_id=p.tenant_id where p.tenant_id=$1 order by p.payment_date desc limit 200",[t.id]),
   query("select x.*,b.bank_name,b.account_title from treasury_bank_transactions x join treasury_bank_accounts b on b.id=x.bank_account_id where x.tenant_id=$1 order by x.transaction_date desc limit 300",[t.id]),
   query("select c.*,u.full_name custodian_name from treasury_cashboxes c left join users u on u.id=c.custodian_user_id where c.tenant_id=$1 order by c.code",[t.id]),
   query("select m.*,c.title cashbox_title from treasury_cash_movements m join treasury_cashboxes c on c.id=m.cashbox_id where m.tenant_id=$1 order by m.movement_date desc limit 200",[t.id])
@@ -23,13 +23,13 @@ router.get("/api/treasury-bank/overview",requireAuth,async(req,res)=>{
 router.post("/api/treasury-bank/accounts",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};
  if(typeof b.bankName!=="string"||typeof b.accountTitle!=="string"||typeof b.accountNumber!=="string")return deny(res,400,"اطلاعات حساب بانکی ناقص است");
- const r=await query("insert into treasury_bank_accounts(tenant_id,bank_name,account_title,account_number,iban,currency,account_type,branch_name,opening_balance,current_balance) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$9) returning *",[t.id,b.bankName.trim(),b.accountTitle.trim(),b.accountNumber.trim(),b.iban||null,b.currency||"IRR",b.accountType||"current",b.branchName||null,Number(b.openingBalance||0)]);
+ const r=await query("insert into treasury_bank_accounts(tenant_id,bank_name,account_title,account_number,iban,currency,account_type,branch_name,opening_balance,current_balance,ledger_account_id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10) returning *",[t.id,b.bankName.trim(),b.accountTitle.trim(),b.accountNumber.trim(),b.iban||null,b.currency||"IRR",b.accountType||"current",b.branchName||null,Number(b.openingBalance||0),b.ledgerAccountId||null]);
  await audit(t.id,(req as any).user.id,"bank_account",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
 });
 router.patch("/api/treasury-bank/accounts/:id",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const old=await query("select * from treasury_bank_accounts where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!old.rowCount)return deny(res,404,"حساب بانکی پیدا نشد");
- const {accountTitle,iban,branchName,status}=req.body||{};if(status&&!["active","blocked","closed"].includes(status))return deny(res,400,"وضعیت حساب نامعتبر است");
- const r=await query("update treasury_bank_accounts set account_title=coalesce($1,account_title),iban=coalesce($2,iban),branch_name=coalesce($3,branch_name),status=coalesce($4,status),updated_at=now() where id=$5 and tenant_id=$6 returning *",[accountTitle||null,iban??null,branchName??null,status||null,String(String(req.params.id)),t.id]);
+ const {accountTitle,iban,branchName,status,ledgerAccountId}=req.body||{};if(status&&!["active","blocked","closed"].includes(status))return deny(res,400,"وضعیت حساب نامعتبر است");
+ const r=await query("update treasury_bank_accounts set account_title=coalesce($1,account_title),iban=coalesce($2,iban),branch_name=coalesce($3,branch_name),status=coalesce($4,status),ledger_account_id=coalesce($5,ledger_account_id),updated_at=now() where id=$6 and tenant_id=$7 returning *",[accountTitle||null,iban??null,branchName??null,status||null,ledgerAccountId||null,String(String(req.params.id)),t.id]);
  await audit(t.id,(req as any).user.id,"bank_account",String(String(req.params.id)),"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 
@@ -52,7 +52,7 @@ router.post("/api/treasury-bank/payments",requireAuth,requirePermission("treasur
 });
 router.patch("/api/treasury-bank/payments/:id/status",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const s=req.body?.status;if(!["approved","paid","cancelled"].includes(s))return deny(res,400,"وضعیت پرداخت نامعتبر است");
- const old=await query("select * from treasury_payments where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!old.rowCount)return deny(res,404,"پرداخت پیدا نشد");const cur=old.rows[0].status;
+ const old=await query("select * from treasury_payments where id=$1 and tenant_id=$2",[String(String(req.params.id)),t.id]);if(!old.rowCount)return deny(res,404,"پرداخت پیدا نشد");if(old.rows[0].accounting_document_id)return deny(res,409,"پرداخت متصل به سند حسابداری فقط از گردش تأیید و قطعی‌سازی سند قابل تغییر است");const cur=old.rows[0].status;
  const flow:any={pending:["approved","cancelled"],approved:["paid","cancelled"],paid:[],cancelled:[]};if(!flow[cur]?.includes(s))return deny(res,409,"تغییر وضعیت پرداخت مجاز نیست");
  const c=await pool.connect();try{await c.query("begin");const r=await c.query("update treasury_payments set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,paid_at=case when $1='paid' then now() else paid_at end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[s,(req as any).user.id,String(String(req.params.id)),t.id]);if(s==="paid")await c.query("update treasury_bank_accounts set current_balance=current_balance-$1,updated_at=now() where id=$2 and tenant_id=$3",[old.rows[0].amount,old.rows[0].bank_account_id,t.id]);await c.query("commit");await audit(t.id,(req as any).user.id,"payment",String(String(req.params.id)),"status",old.rows[0],r.rows[0]);res.json(r.rows[0]);}catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
@@ -71,7 +71,14 @@ router.patch("/api/treasury-bank/transactions/:id/reconcile",requireAuth,require
 
 router.post("/api/treasury-bank/cashboxes",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};if(typeof b.code!=="string"||typeof b.title!=="string")return deny(res,400,"اطلاعات تنخواه ناقص است");
- const r=await query("insert into treasury_cashboxes(tenant_id,code,title,custodian_user_id,opening_balance,current_balance,max_balance) values($1,$2,$3,$4,$5,$5,$6) returning *",[t.id,b.code.trim(),b.title.trim(),b.custodianUserId||null,Number(b.openingBalance||0),b.maxBalance?Number(b.maxBalance):null]);await audit(t.id,(req as any).user.id,"cashbox",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
+ const r=await query("insert into treasury_cashboxes(tenant_id,code,title,custodian_user_id,opening_balance,current_balance,max_balance,ledger_account_id) values($1,$2,$3,$4,$5,$5,$6,$7) returning *",[t.id,b.code.trim(),b.title.trim(),b.custodianUserId||null,Number(b.openingBalance||0),b.maxBalance?Number(b.maxBalance):null,b.ledgerAccountId||null]);await audit(t.id,(req as any).user.id,"cashbox",r.rows[0].id,"create",null,r.rows[0]);res.status(201).json(r.rows[0]);
+});
+router.patch("/api/treasury-bank/cashboxes/:id",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const old=await query("select * from treasury_cashboxes where id=$1 and tenant_id=$2",[String(req.params.id),t.id]);if(!old.rowCount)return deny(res,404,"صندوق پیدا نشد");
+ const {title,status,ledgerAccountId}=req.body||{};if(status&&!["active","suspended","closed"].includes(status))return deny(res,400,"وضعیت صندوق نامعتبر است");
+ const r=await query("update treasury_cashboxes set title=coalesce($1,title),status=coalesce($2,status),ledger_account_id=coalesce($3,ledger_account_id),updated_at=now() where id=$4 and tenant_id=$5 returning *",[title||null,status||null,ledgerAccountId||null,String(req.params.id),t.id]);
+ await audit(t.id,(req as any).user.id,"cashbox",String(req.params.id),"update",old.rows[0],r.rows[0]);res.json(r.rows[0]);
 });
 router.post("/api/treasury-bank/cashboxes/:id/movements",requireAuth,requirePermission("treasury-bank.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const b=req.body||{};if(!date(b.movementDate)||!(Number(b.amount)>0)||!["in","out"].includes(b.direction))return deny(res,400,"گردش تنخواه نامعتبر است");
