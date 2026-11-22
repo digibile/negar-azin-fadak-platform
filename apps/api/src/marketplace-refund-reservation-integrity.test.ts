@@ -53,3 +53,22 @@ test("direct full refund requires CSRF protection",()=>{
  const route=checkout.slice(checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"'));
  assert.ok(route.startsWith('checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePermission("payment:refund"),requireCsrf'));
 });
+
+
+test("full gateway refund requires provider-declared idempotency and sends a stable payment-scoped key",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes("provider.supportsIdempotentRefunds!==true"));
+ assert.ok(route.includes('const refundIdempotencyKey="order-full-refund-"+payment.rows[0].id'));
+ assert.ok(route.includes("idempotencyKey:refundIdempotencyKey"));
+ assert.ok(route.includes("manualReconciliationRequired:true"));
+});
+
+test("full refund does not treat a pending provider response as confirmed money return",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes('providerResult.status!=="refunded"'));
+ assert.ok(route.includes('manualReconciliationRequired:providerResult.status==="pending"'));
+});
