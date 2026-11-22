@@ -106,7 +106,29 @@ router.patch("/api/purchasing/requests/:id/status",requireAuth,requirePermission
  }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/purchasing/rfqs",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{
- const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const pr=await query("select * from purchase_requests where id=$1 and tenant_id=$2",[b.requestId,t.id]);if(!pr.rowCount||pr.rows[0].status!=="approved")return deny(res,409,"فقط درخواست تأییدشده قابل استعلام است");const suppliers=Array.isArray(b.supplierIds)?b.supplierIds:[];if(!suppliers.length)return deny(res,400,"حداقل یک تأمین‌کننده انتخاب کنید");const no=b.rfqNo||"RFQ-"+Date.now();const c=await pool.connect();try{await c.query("begin");const r=await c.query("insert into purchase_rfqs(tenant_id,rfq_no,request_id,deadline,notes,created_by,status) values($1,$2,$3,$4,$5,$6,'sent') returning *",[t.id,no,b.requestId,b.deadline||null,b.notes||null,(req as any).user.id]);for(const id of suppliers){const s=await c.query("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active'",[id,t.id]);if(!s.rowCount)throw Error("تأمین‌کننده نامعتبر است");await c.query("insert into purchase_rfq_suppliers(rfq_id,supplier_id) values($1,$2)",[r.rows[0].id,id])}await c.query("update purchase_requests set status='rfq',updated_at=now() where id=$1",[b.requestId]);await c.query("commit");res.status(201).json(r.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
+ const t=await tenantOf(req),b=req.body||{};
+ if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const suppliers=Array.isArray(b.supplierIds)?b.supplierIds:[];
+ if(!b.requestId||!suppliers.length)return deny(res,400,"درخواست خرید و حداقل یک تأمین‌کننده الزامی است");
+ if(new Set(suppliers.map(String)).size!==suppliers.length)return deny(res,400,"تأمین‌کننده تکراری در فهرست وجود دارد");
+ const no=String(b.rfqNo||"RFQ-"+Date.now()).trim();
+ if(!no||no.length>100)return deny(res,400,"شماره استعلام معتبر نیست");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const pr=await c.query("select id,status from purchase_requests where id=$1 and tenant_id=$2 for update",[b.requestId,t.id]);
+  if(!pr.rowCount||pr.rows[0].status!=="approved"){await c.query("rollback");return deny(res,409,"فقط درخواست تأییدشده قابل استعلام است");}
+  for(const id of suppliers){
+   const s=await c.query("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active' for update",[id,t.id]);
+   if(!s.rowCount){await c.query("rollback");return deny(res,400,"تأمین‌کننده نامعتبر است");}
+  }
+  const r=await c.query("insert into purchase_rfqs(tenant_id,rfq_no,request_id,deadline,notes,created_by,status) values($1,$2,$3,$4,$5,$6,'sent') returning *",[t.id,no,b.requestId,b.deadline||null,b.notes||null,(req as any).user.id]);
+  for(const id of suppliers)await c.query("insert into purchase_rfq_suppliers(rfq_id,supplier_id) values($1,$2)",[r.rows[0].id,id]);
+  const updated=await c.query("update purchase_requests set status='rfq',updated_at=now() where id=$1 and tenant_id=$2 and status='approved' returning id",[b.requestId,t.id]);
+  if(!updated.rowCount){await c.query("rollback");return deny(res,409,"درخواست خرید هنگام ایجاد استعلام تغییر کرده است");}
+  await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id) values($1,'request',$2,'approved','rfq','rfq_created',$3)",[t.id,b.requestId,(req as any).user.id]);
+  await c.query("commit");res.status(201).json(r.rows[0]);
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/purchasing/quotes",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{
  const t=await tenantOf(req),b=req.body||{},items=Array.isArray(b.items)?b.items:[];
