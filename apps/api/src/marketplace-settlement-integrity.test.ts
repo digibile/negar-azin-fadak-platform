@@ -38,6 +38,10 @@ test("costing readiness reconciles marketplace, operational inventory and financ
  assert.ok(source.includes("marketplace_inventory_reservations"));
  assert.ok(source.includes("mir.status='consumed'"));
  assert.ok(source.includes("finance_cost_layers"));
+ assert.ok(source.includes("finance_inventory_balances"));
+ assert.ok(source.includes("financial_balances as"));
+ assert.ok(source.includes("financial_inventory_balance_row_count"));
+ assert.ok(source.includes("financial_inventory_value_amount"));
  assert.ok(source.includes("fid.status='posted'"));
  assert.ok(source.includes("cost_layers_present_financial_issue_link_pending"));
  assert.ok(source.includes("marketplace_finance_warehouse_links"));
