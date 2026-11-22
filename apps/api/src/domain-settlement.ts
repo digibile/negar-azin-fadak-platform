@@ -40,6 +40,29 @@ settlementRouter.post("/api/marketplace/settlements/generate",requireAuth,requir
   await client.query("begin");
   const orders=await client.query("select o.* from marketplace_orders o where o.tenant_id=$1 and o.status='paid' and o.created_at>=$2 and o.created_at<$3 and not exists(select 1 from seller_settlement_items si where si.tenant_id=o.tenant_id and si.order_id=o.id) order by o.created_at for update",[t.id,periodStart.toISOString(),periodEnd.toISOString()]);
   if(!orders.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش تسویه‌نشده‌ای در این بازه پیدا نشد"});}
+  const itemTotals=await client.query(
+   "select order_id,sum(line_total)::text as item_gross,count(*)::int as item_count from marketplace_order_items where order_id=any($1::uuid[]) group by order_id",
+   [orders.rows.map((order:any)=>order.id)]
+  );
+  const totalsByOrder=new Map(itemTotals.rows.map((row:any)=>[row.order_id,row]));
+  const currencyBySeller=new Map<string,string>();
+  for(const order of orders.rows){
+   const items=totalsByOrder.get(order.id) as any;
+   if(!items||items.item_count<1||moneyToMinorUnits(String(items.item_gross))!==moneyToMinorUnits(String(order.subtotal))){
+    await client.query("rollback");return res.status(409).json({error:"جمع اقلام سفارش با مبلغ پایه سفارش تطبیق ندارد؛ تسویه متوقف شد",orderId:order.id,orderNo:order.order_no});
+   }
+   const expectedTotal=moneyToMinorUnits(String(order.subtotal))-moneyToMinorUnits(String(order.discount_amount))+moneyToMinorUnits(String(order.shipping_amount));
+   if(expectedTotal!==moneyToMinorUnits(String(order.total_amount))||
+      moneyToMinorUnits(String(order.commission_amount))+moneyToMinorUnits(String(order.seller_payable))!==moneyToMinorUnits(String(order.total_amount))){
+    await client.query("rollback");return res.status(409).json({error:"مبلغ نهایی، کمیسیون و سهم فروشنده سفارش با هم سازگار نیستند؛ تسویه متوقف شد",orderId:order.id,orderNo:order.order_no});
+   }
+   const currency=String(order.currency||"");
+   const existingCurrency=currencyBySeller.get(order.seller_id);
+   if(existingCurrency&&existingCurrency!==currency){
+    await client.query("rollback");return res.status(409).json({error:"سفارش‌های یک فروشنده با ارزهای متفاوت را نمی‌توان در یک سند تسویه تجمیع کرد",sellerId:order.seller_id,currencies:[existingCurrency,currency]});
+   }
+   currencyBySeller.set(order.seller_id,currency);
+  }
   const bySeller=new Map<string,any[]>();
   for(const o of orders.rows){const list=bySeller.get(o.seller_id)||[];list.push(o);bySeller.set(o.seller_id,list);}
   const created=[];
