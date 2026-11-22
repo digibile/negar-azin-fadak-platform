@@ -47,3 +47,66 @@ test("seller identifier is validated before opening a database transaction",()=>
  assert.ok(mapping.includes("شناسه فروشنده نامعتبر است"));
  assert.ok(mapping.indexOf("شناسه فروشنده نامعتبر است")<mapping.indexOf('await client.query("begin")'));
 });
+
+
+const receivableRoutes=source.slice(source.indexOf('domainMarketplaceRouter.get("/api/marketplace/seller-refund-receivable-account-options"'),source.indexOf('domainMarketplaceRouter.post("/api/marketplace/sellers"'));
+
+test("seller refund receivable options expose only active postable asset and receivable accounts in the tenant",()=>{
+ assert.ok(receivableRoutes.includes("account_type in ('asset','receivable')"));
+ assert.ok(receivableRoutes.includes("status='active' and is_active=true and is_postable=true"));
+ assert.ok(receivableRoutes.includes("tenant_id=$1"));
+});
+
+test("seller refund receivable mapping locks seller and validates tenant-owned postable asset account",()=>{
+ const start=receivableRoutes.indexOf('domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/refund-receivable-account"');
+ const end=receivableRoutes.indexOf('domainMarketplaceRouter.post("/api/marketplace/sellers/:id/refund-receivables/reclassify"',start);
+ const route=receivableRoutes.slice(start,end);
+ assert.ok(route.includes("for update"));
+ assert.ok(route.includes("id=$1 and tenant_id=$2"));
+ assert.ok(route.includes("account_type in ('asset','receivable')"));
+ assert.ok(route.includes("seller.refund_receivable_account.updated"));
+ assert.ok(route.includes('requirePermission("seller:manage")'));
+});
+
+test("seller refund receivable reclassification uses only paid settlements and posted refund ledger debits",()=>{
+ const start=receivableRoutes.indexOf('domainMarketplaceRouter.post("/api/marketplace/sellers/:id/refund-receivables/reclassify"');
+ const route=receivableRoutes.slice(start);
+ assert.ok(route.includes("ss.status='paid'"));
+ assert.ok(route.includes("mr.status='refunded'"));
+ assert.ok(route.includes("le.source_type='marketplace_refund'"));
+ assert.ok(route.includes("le.status='posted'"));
+ assert.ok(route.includes("la.code='2101'"));
+ assert.ok(route.includes("sum(ll.debit)"));
+ assert.ok(route.includes("seller.accounting_party_id"));
+ assert.ok(route.includes("seller.refund_receivable_account_id"));
+});
+
+test("seller refund receivable reclassification posts a balanced idempotent journal and receivable subledger item",()=>{
+ const start=receivableRoutes.indexOf('domainMarketplaceRouter.post("/api/marketplace/sellers/:id/refund-receivables/reclassify"');
+ const route=receivableRoutes.slice(start);
+ assert.ok(route.includes('sourceType:"marketplace_seller_refund_receivable"'));
+ assert.ok(route.includes("accountCode:seller.receivable_code"));
+ assert.ok(route.includes("accountCode:control.code"));
+ assert.ok(route.includes("source_module,source_document_id"));
+ assert.ok(route.includes("'marketplace_refund'"));
+ assert.ok(route.includes("on conflict(tenant_id,source_module,source_document_id)"));
+ assert.ok(route.includes("refund_receivables.reclassified"));
+});
+
+test("seller page requires explicit receivable account mapping before reclassification",()=>{
+ const ui=fs.readFileSync(new URL("../../web/app/marketplace/sellers/page.tsx",import.meta.url),"utf8");
+ assert.ok(ui.includes("/api/marketplace/seller-refund-receivable-account-options"));
+ assert.ok(ui.includes("/refund-receivable-account"));
+ assert.ok(ui.includes("/refund-receivables/reclassify"));
+ assert.ok(ui.includes("حساب مطالبات بازپرداخت"));
+ assert.ok(ui.includes("!item.refund_receivable_account_id"));
+});
+
+test("seller refund receivable migration keeps existing mappings null and makes source references unique",()=>{
+ const migration=fs.readFileSync(new URL("../../../database/migrations/152_marketplace_seller_refund_receivables.sql",import.meta.url),"utf8");
+ assert.ok(migration.includes("add column if not exists refund_receivable_account_id"));
+ assert.ok(migration.includes("foreign key(tenant_id,refund_receivable_account_id)"));
+ assert.ok(migration.includes("source_module,source_document_id"));
+ assert.ok(migration.includes("unique index if not exists uq_accounting_rp_source"));
+ assert.ok(migration.includes("references accounting_parties(tenant_id,id)"));
+});
