@@ -115,7 +115,7 @@ domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/accounting",requireA
     select p.id from accounting_parties p
     join ledger_accounts a on a.id=p.default_account_id and a.tenant_id=p.tenant_id
     where p.id=$1 and p.tenant_id=$2 and p.party_type='supplier' and p.status='active'
-     and a.status='active' and a.account_type='liability'
+     and a.status='active' and a.is_active=true and a.is_postable=true and a.account_type='liability'
     for update of p,a
    `,[partyId,ctx.id]);
    if(!party.rowCount){await client.query("rollback");return res.status(409).json({error:"طرف حساب باید تأمین‌کننده فعال با حساب معین بدهی فعال باشد"});}
