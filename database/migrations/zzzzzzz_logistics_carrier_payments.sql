@@ -37,7 +37,7 @@ alter table treasury_payments
 
 alter table treasury_payments
   add constraint treasury_payment_one_treasury_check
-  check ((bank_account_id is not null)::int + (cashbox_id is not null)::int = 1);
+  check ((bank_account_id is not null and cashbox_id is null) or (bank_account_id is null and cashbox_id is not null));
 
 alter table treasury_payments
   add constraint treasury_payment_bank_tenant_fk
