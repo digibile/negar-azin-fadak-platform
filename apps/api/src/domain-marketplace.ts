@@ -226,6 +226,25 @@ domainMarketplaceRouter.post("/api/marketplace/sellers/:id/refund-receivables/re
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
+domainMarketplaceRouter.get("/api/marketplace/seller-refund-receivables",requireAuth,requirePermission("seller:view"),asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query(`
+  select rp.id,rp.party_id,p.party_code,p.title party_title,
+   s.id seller_id,s.display_name seller_name,
+   rp.reference_no,rp.issue_date,rp.due_date,rp.original_amount,rp.settled_amount,
+   greatest(rp.original_amount-rp.settled_amount,0)::numeric outstanding_amount,
+   rp.currency,rp.status,rp.metadata->>'orderNo' order_no,rp.metadata->>'refundId' refund_id,
+   rp.created_at
+  from accounting_receivable_payables rp
+  join accounting_parties p on p.id=rp.party_id and p.tenant_id=rp.tenant_id
+  join sellers s on s.id::text=rp.metadata->>'sellerId' and s.tenant_id=rp.tenant_id
+  where rp.tenant_id=$1 and rp.source_module='marketplace_refund' and rp.direction='receivable'
+  order by rp.created_at desc,rp.id
+  limit 500
+ `,[ctx.id]);
+ res.json({items:r.rows,limit:500,readOnly:true});
+}));
+
 domainMarketplaceRouter.post("/api/marketplace/sellers",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
