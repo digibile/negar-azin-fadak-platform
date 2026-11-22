@@ -319,6 +319,10 @@ domainMarketplaceRouter.patch("/api/marketplace/orders/:id/status",requireAuth,r
   const current=await client.query("select * from marketplace_orders where id=$1 and tenant_id=$2 for update",[req.params.id,ctx.id]);
   if(!current.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}
   const order=current.rows[0];
+  if(next==="refunded"){
+   await client.query("rollback");
+   return res.status(409).json({error:"ثبت بازپرداخت از مسیر تغییر وضعیت سفارش مجاز نیست؛ از گردش رسمی بازپرداخت استفاده کنید",refundEndpoint:"/api/marketplace/orders/:id/refund"});
+  }
   if(!allowed[order.status]?.includes(next)){
    await client.query("rollback");
    return res.status(409).json({error:"تغییر وضعیت سفارش مجاز نیست",from:order.status,to:next});
