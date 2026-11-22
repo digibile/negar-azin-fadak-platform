@@ -159,7 +159,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
     </div>}
     {r.status==="paid"&&<small>مرجع پرداخت: {r.payout_reference||"—"} · سند دفترکل: {r.payout_ledger_entry_id||"—"}</small>}
    </article>)}</div>
-
+  </section>}
 
   {mode==="commerce"&&tab==="sellers"&&<section className="runtime-panel"><div className="panel-title"><div><h2>فروشندگان</h2><span>{sellers.length} رکورد واقعی</span></div></div><div className="record-list">{sellers.map(s=><article className="record-row" key={s.id}><div><strong>{s.display_name}</strong><small>{s.legal_name} · کمیسیون {s.commission_rate}%</small></div><span>{s.status}</span></article>)}</div></section>}
   {mode==="commerce"&&tab==="stores"&&<section className="runtime-panel"><div className="panel-title"><div><h2>فروشگاه‌ها</h2><span>{stores.length} رکورد واقعی</span></div></div><div className="record-list">{stores.map(s=><article className="record-row" key={s.id}><div><strong>{s.name}</strong><small>{s.code} · {s.slug} · {s.seller_name||s.seller_id}</small></div><span>{s.status}</span></article>)}</div></section>}
