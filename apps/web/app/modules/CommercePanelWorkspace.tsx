@@ -37,6 +37,9 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
  const [selectedDomainSeller,setSelectedDomainSeller]=useState("");
  const [domains,setDomains]=useState<Row[]>([]);
  const [settlements,setSettlements]=useState<Row[]>([]);
+ const [payoutBanks,setPayoutBanks]=useState<Row[]>([]);
+ const [payoutDrafts,setPayoutDrafts]=useState<Record<string,{bankAccountId:string;paymentRef:string}>>({});
+ const [payoutBusy,setPayoutBusy]=useState("");
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
  const [form,setForm]=useState<Row>({});
@@ -56,7 +59,9 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
    }else if(mode==="sellers"){
     const s=await get("/api/marketplace/sellers");setRows(s.items||[]);setSellers(s.items||[]);
    }else if(mode==="payments"){
-    const p=await get("/api/marketplace/settlements");setSettlements(Array.isArray(p)?p:(p.items||[]));
+    const [p,b]=await Promise.all([get("/api/marketplace/settlements"),get("/api/marketplace/settlements/payout-bank-accounts")]);
+    const list=Array.isArray(p)?p:(p.items||[]);setSettlements(list);setPayoutBanks(b.items||[]);
+    setPayoutDrafts(current=>Object.fromEntries(list.map((x:Row)=>[x.id,{bankAccountId:current[x.id]?.bankAccountId||b.items?.[0]?.id||"",paymentRef:current[x.id]?.paymentRef||""}])));
    }else{
     const [s,st,p,o]=await Promise.all([
      get("/api/marketplace/sellers"),get("/api/marketplace/stores"),get("/api/marketplace/products"),get("/api/marketplace/orders")
@@ -91,6 +96,18 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
   setError("");
   try{await mutate("/api/marketplace/domains/"+encodeURIComponent(id)+"/verify","POST",{token});await load();}
   catch(e){setError(e instanceof Error?e.message:"تأیید دامنه انجام نشد")}
+ };
+ const approveSettlement=async(id:string)=>{
+  setPayoutBusy(id);setError("");
+  try{await mutate("/api/marketplace/settlements/"+encodeURIComponent(id)+"/approve","PATCH",{});await load();}
+  catch(e){setError(e instanceof Error?e.message:"تأیید تسویه انجام نشد")}finally{setPayoutBusy("")}
+ };
+ const paySettlement=async(item:Row)=>{
+  const draft=payoutDrafts[item.id]||{bankAccountId:"",paymentRef:""};
+  if(!draft.bankAccountId||!draft.paymentRef.trim()){setError("برای پرداخت، حساب بانکی و شماره پیگیری را وارد کنید");return;}
+  setPayoutBusy(item.id);setError("");
+  try{await mutate("/api/marketplace/settlements/"+encodeURIComponent(item.id)+"/pay","POST",{bankAccountId:draft.bankAccountId,paymentRef:draft.paymentRef.trim()});await load();}
+  catch(e){setError(e instanceof Error?e.message:"پرداخت تسویه ثبت نشد")}finally{setPayoutBusy("")}
  };
  const statusSeller=async(id:string,status:string)=>{
   try{await mutate("/api/marketplace/sellers/"+encodeURIComponent(id)+"/status","PATCH",{status});await load();}
@@ -128,8 +145,21 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
 
   {mode==="payments"&&<section className="runtime-panel">
    <div className="panel-title"><div><h2>تسویه فروشندگان</h2><span>{settlements.length} رکورد واقعی · چرخه تأیید و پرداخت در API موجود است</span></div></div>
-   <div className="record-list">{settlements.map(r=><article className="record-row" key={r.id}><div><strong>{r.settlement_no}</strong><small>{r.seller_name||r.seller_id} · مبلغ خالص {money(r.net_amount)} · {r.period_start?date(r.period_start):"-"} تا {r.period_end?date(r.period_end):"-"}</small></div><span>{r.status}</span></article>)}</div>
-  </section>}
+   {payoutBanks.length===0&&<p className="muted">حساب بانکی فعال و متصل به دفترکل پیدا نشد. ابتدا حساب بانکی را در بخش خزانه تعریف و به حساب دفترکل متصل کنید.</p>}
+   <div className="record-list">{settlements.map(r=><article className="record-row" key={r.id}>
+    <div><strong>{r.settlement_no}</strong><small>{r.seller_name||r.seller_id} · مبلغ خالص {money(r.net_amount)} · {r.period_start?date(r.period_start):"-"} تا {r.period_end?date(r.period_end):"-"}</small></div>
+    <span>{({pending:"در انتظار تأیید",approved:"آماده پرداخت",paid:"پرداخت‌شده",reversed:"برگشت‌شده"} as Record<string,string>)[r.status]||r.status}</span>
+    {r.status==="pending"&&<button type="button" disabled={payoutBusy===r.id} onClick={()=>approveSettlement(r.id)}>تأیید تسویه</button>}
+    {r.status==="approved"&&<div style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center",gridColumn:"1 / -1",paddingTop:8,borderTop:"1px solid #edf1f4"}}>
+     <select aria-label="حساب بانکی پرداخت" value={payoutDrafts[r.id]?.bankAccountId||""} onChange={e=>setPayoutDrafts(v=>({...v,[r.id]:{...(v[r.id]||{paymentRef:""}),bankAccountId:e.target.value}}))} disabled={!payoutBanks.length||payoutBusy===r.id} style={{minWidth:220,padding:9,border:"1px solid #d5dee8",borderRadius:7}}>
+      <option value="">انتخاب حساب بانکی</option>{payoutBanks.map(b=><option key={b.id} value={b.id}>{b.bank_name} · {b.code} · {b.ledger_account_code}</option>)}
+     </select>
+     <input aria-label="شماره پیگیری پرداخت" placeholder="شماره پیگیری پرداخت" value={payoutDrafts[r.id]?.paymentRef||""} onChange={e=>setPayoutDrafts(v=>({...v,[r.id]:{...(v[r.id]||{bankAccountId:""}),paymentRef:e.target.value}}))} style={{minWidth:190,padding:9,border:"1px solid #d5dee8",borderRadius:7}}/>
+     <button type="button" disabled={!payoutBanks.length||!payoutDrafts[r.id]?.paymentRef?.trim()||payoutBusy===r.id} onClick={()=>paySettlement(r)}>{payoutBusy===r.id?"در حال ثبت…":"ثبت پرداخت و سند مالی"}</button>
+    </div>}
+    {r.status==="paid"&&<small>مرجع پرداخت: {r.payout_reference||"—"} · سند دفترکل: {r.payout_ledger_entry_id||"—"}</small>}
+   </article>)}</div>
+
 
   {mode==="commerce"&&tab==="sellers"&&<section className="runtime-panel"><div className="panel-title"><div><h2>فروشندگان</h2><span>{sellers.length} رکورد واقعی</span></div></div><div className="record-list">{sellers.map(s=><article className="record-row" key={s.id}><div><strong>{s.display_name}</strong><small>{s.legal_name} · کمیسیون {s.commission_rate}%</small></div><span>{s.status}</span></article>)}</div></section>}
   {mode==="commerce"&&tab==="stores"&&<section className="runtime-panel"><div className="panel-title"><div><h2>فروشگاه‌ها</h2><span>{stores.length} رکورد واقعی</span></div></div><div className="record-list">{stores.map(s=><article className="record-row" key={s.id}><div><strong>{s.name}</strong><small>{s.code} · {s.slug} · {s.seller_name||s.seller_id}</small></div><span>{s.status}</span></article>)}</div></section>}
