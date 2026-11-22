@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
 import {ensureLedgerAccount} from "./ledger.js";
 
 function clientWith(responses:Array<{rows:any[];rowCount:number}>){
@@ -57,7 +58,7 @@ test("concurrent account creation re-reads and validates the winning account",as
  assert.equal(client.calls.length,3);
 });
 
-test("ledger account guard reads the persisted status column only",async()=>{
+test("ledger account guard reads persisted active and postable state",async()=>{
  const source=fs.readFileSync(new URL("./ledger.ts",import.meta.url),"utf8");
  assert.ok(source.includes("select id,status,is_active,is_postable from ledger_accounts"));
  assert.ok(source.includes("is_active"));
