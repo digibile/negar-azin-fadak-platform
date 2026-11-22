@@ -274,7 +274,7 @@ logisticsRouter.patch("/api/logistics/routes/:id",requireAuth,requirePermission(
 logisticsRouter.get("/api/logistics/shipments",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   res.json((await query(
-    "select s.*,o.order_no,r.name route_name,v.plate_no,d.name driver_name from logistics_shipments s left join logistics_supply_orders o on o.id=s.supply_order_id left join logistics_routes r on r.id=s.route_id left join logistics_vehicles v on v.id=s.vehicle_id left join logistics_drivers d on d.id=s.driver_id where s.tenant_id=$1 order by s.created_at desc",
+    "select s.*,o.order_no,r.name route_name,v.plate_no,d.name driver_name from logistics_shipments s left join logistics_supply_orders o on o.id=s.supply_order_id and o.tenant_id=s.tenant_id left join logistics_routes r on r.id=s.route_id and r.tenant_id=s.tenant_id left join logistics_vehicles v on v.id=s.vehicle_id and v.tenant_id=s.tenant_id left join logistics_drivers d on d.id=s.driver_id and d.tenant_id=s.tenant_id where s.tenant_id=$1 order by s.created_at desc",
     [t.id]
   )).rows);
 }));
@@ -385,7 +385,7 @@ logisticsRouter.patch("/api/logistics/shipments/:id/status",requireAuth,asyncHan
 logisticsRouter.get("/api/logistics/shipments/:id/tracking",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   if(!(await can(req,"modules:12-logistics-supply:track")))return fail(res,403,"دسترسی رهگیری ندارید");
-  const s=(await query("select s.*,o.order_no from logistics_shipments s left join logistics_supply_orders o on o.id=s.supply_order_id where s.id=$1 and s.tenant_id=$2",[req.params.id,t.id])).rows[0];
+  const s=(await query("select s.*,o.order_no from logistics_shipments s left join logistics_supply_orders o on o.id=s.supply_order_id and o.tenant_id=s.tenant_id where s.id=$1 and s.tenant_id=$2",[req.params.id,t.id])).rows[0];
   if(!s)return fail(res,404,"مرسوله پیدا نشد");
   res.json({shipment:s,events:(await query("select * from logistics_delivery_events where tenant_id=$1 and shipment_id=$2 order by occurred_at",[t.id,s.id])).rows});
 }));
