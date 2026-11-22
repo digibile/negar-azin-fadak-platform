@@ -33,7 +33,7 @@ test("seller settlement payment uses tenant-scoped idempotency keys",()=>{
 
 test("marketplace mutation routes are registered once",()=>{
  const routeCounts=new Map();
- for(const match of marketplaceSource.matchAll(/domainMarketplaceRouter\\.(get|post|patch|put|delete)\\("([^"]+)"/g)){
+ for(const match of marketplaceSource.matchAll(/domainMarketplaceRouter\.(get|post|patch|put|delete)\("([^"]+)"/g)){
   const route=match[1]+" "+match[2];
   routeCounts.set(route,(routeCounts.get(route)||0)+1);
  }
@@ -45,7 +45,6 @@ test("marketplace mutation routes are registered once",()=>{
   "patch /api/marketplace/products/:id/status"
  ])assert.equal(routeCounts.get(route),1,"duplicate marketplace route: "+route);
 });
-
 test("live and persisted reference catalogs use distinct canonical routes",()=>{
  assert.equal(marketplaceSource.split('domainMarketplaceRouter.get("/api/marketplace/digikala-catalog"').length-1,1);
  assert.equal(marketplaceSource.split('domainMarketplaceRouter.get("/api/marketplace/reference-catalog"').length-1,1);
