@@ -41,3 +41,7 @@ test("link creation does not create a cost or accounting posting",()=>{
  assert.ok(source.includes("costPostingCreated:false"));
  assert.ok(source.includes("readOnlyCostingUntilAccountingApproval:true"));
 });
+
+test("financial issue link audit accepts strict ISO date validation syntax",()=>{
+ assert.ok(source.includes("/^\\d{4}-\\d{2}-\\d{2}$/"));
+});
