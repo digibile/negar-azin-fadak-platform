@@ -100,10 +100,9 @@ router.post("/api/accounting-finance/carrier-invoices/:invoiceId/payments",requi
   const invoice=(await c.query("select * from logistics_carrier_invoices where id=$1 and tenant_id=$2 for update",[String(req.params.invoiceId),t.id])).rows[0];
   if(!invoice||invoice.status!=="posted") {await c.query("rollback");return deny(res,409,"صورتحساب حمل باید قطعی شده باشد");}
   const payable=(await c.query("select * from accounting_receivable_payables where id=$1 and tenant_id=$2 and direction='payable' for update",[payableId,t.id])).rows[0];
-  if(!payable||payable.status==="cancelled"||payable.metadata?.carrierInvoiceId!==invoice.id){await c.query("rollback");return deny(res,404,"بدهی پرداختنی متناظر با این صورتحساب پیدا نشد");}
+  if(!payable||payable.status==="cancelled"||payable.metadata?.carrierInvoiceId!==invoice.id||payable.party_id!==invoice.carrier_party_id||payable.document_id!==invoice.accounting_document_id||Math.abs(Number(payable.original_amount)-Number(invoice.total_amount))>0.005){await c.query("rollback");return deny(res,404,"بدهی پرداختنی متناظر با این صورتحساب پیدا نشد");}
   const remaining=Number(payable.original_amount)-Number(payable.settled_amount);
-  if(value>remaining+0.005){await c.query("rollback");return deny(res,409,"مبلغ پرداخت از مانده بدهی بیشتر است");}
-  if(value>remaining-0.005&&value<remaining+0.005&&payable.status==="settled"){await c.query("rollback");return deny(res,409,"این بدهی قبلاً تسویه شده است");}
+  if(remaining<=0.005||value>remaining+0.005){await c.query("rollback");return deny(res,409,"مبلغ پرداخت از مانده بدهی بیشتر است یا بدهی تسویه شده است");}
   const book=(await c.query("select id,currency,status from accounting_books where id=$1 and tenant_id=$2 for share",[bookId,t.id])).rows[0];
   if(!book||book.status!=="active"||String(book.currency||"").toUpperCase()!==String(payable.currency).toUpperCase()){await c.query("rollback");return deny(res,409,"دفتر فعال با ارز بدهی انتخاب کنید");}
   const period=(await c.query("select id,book_id,starts_on,ends_on,status from accounting_fiscal_periods where id=$1 and tenant_id=$2 for share",[periodId,t.id])).rows[0];
