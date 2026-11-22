@@ -178,7 +178,7 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
    }
    const invoice=(await c.query("select * from logistics_carrier_invoices where id=$1 and tenant_id=$2 for share",[carrierPayment.carrier_invoice_id,t.id])).rows[0];
    const payable=(await c.query("select * from accounting_receivable_payables where id=$1 and tenant_id=$2 and direction='payable' for update",[carrierPayment.payable_id,t.id])).rows[0];
-   if(!invoice||invoice.status!=="posted"||!payable||payable.metadata?.carrierInvoiceId!==invoice.id||payable.status==="cancelled"){
+   if(!invoice||invoice.status!=="posted"||!payable||payable.metadata?.carrierInvoiceId!==invoice.id||payable.party_id!==invoice.carrier_party_id||payable.document_id!==invoice.accounting_document_id||Math.abs(Number(payable.original_amount)-Number(invoice.total_amount))>0.005||payable.status==="cancelled"){
     await c.query("rollback");return deny(res,409,"صورتحساب یا بدهی متناظر با پرداخت معتبر نیست");
    }
    const remaining=Number(payable.original_amount)-Number(payable.settled_amount);
