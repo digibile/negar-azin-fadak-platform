@@ -51,3 +51,11 @@ test("live and persisted reference catalogs use distinct canonical routes",()=>{
  assert.ok(marketplaceSource.includes('sourceStatus:catalog.sourceStatus'));
  assert.ok(marketplaceSource.includes('sourceStatus:r.rowCount?"stored":"empty"'));
 });
+
+test("seller settlement generation has one canonical implementation",()=>{
+ const platformOperationsSource=fs.readFileSync(new URL("./platform-operations.ts",import.meta.url),"utf8");
+ assert.equal((settlementSource.match(/settlementRouter\\.post\\("\/api\/marketplace\/settlements\/generate"/g)||[]).length,1);
+ assert.equal((platformOperationsSource.match(/platformOperationsRouter\\.post\\("\/api\/marketplace\/settlements\/generate"/g)||[]).length,0);
+ assert.ok(settlementSource.includes("o.status='paid'"));
+ assert.ok(settlementSource.includes("not exists(select 1 from seller_settlement_items"));
+});
