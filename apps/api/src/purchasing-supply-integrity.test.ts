@@ -203,3 +203,37 @@ test("credited purchase returns create a separate pending accounting event witho
  assert.match(r.body,/commit/);
  assert.match(r.body,/rollback/);
 });
+
+
+test("purchase return requests reserve invoice value under an order and invoice lock",()=>{
+ const r=route('router.post("/api/purchasing/returns"','router.patch("/api/purchasing/returns/:id/status"');
+ assert.ok(r.start>=0);
+ assert.match(r.body,/purchase_orders where id=\$1 and tenant_id=\$2 for update/);
+ assert.match(r.body,/purchase_invoices where order_id=\$1 and tenant_id=\$2 for update/);
+ assert.match(r.body,/purchase_returns where tenant_id=\$1 and order_id=\$2 and status not in \('rejected','cancelled'\)/);
+ assert.match(r.body,/amount\+already>invoiceTotal\+0\.000001/);
+ assert.match(r.body,/insert into purchase_returns/);
+ assert.match(r.body,/insert into purchase_events/);
+ assert.match(r.body,/begin/);
+ assert.match(r.body,/commit/);
+ assert.match(r.body,/rollback/);
+});
+
+test("purchase return credit requires received goods and is bounded by prior credited value",()=>{
+ const r=route('router.patch("/api/purchasing/returns/:id/status"','router.post("/api/purchasing/evaluations"');
+ assert.ok(r.start>=0);
+ assert.match(r.body,/requested:\["approved","rejected","cancelled"\]/);
+ assert.match(r.body,/approved:\["shipped","rejected"\]/);
+ assert.match(r.body,/shipped:\["received"\]/);
+ assert.match(r.body,/received:\["credited"\]/);
+ assert.match(r.body,/purchase_returns where id=\$1 and tenant_id=\$2 for update/);
+ assert.match(r.body,/purchase_orders where id=\$1 and tenant_id=\$2 for update/);
+ assert.match(r.body,/status='credited'/);
+ assert.match(r.body,/credited\+amount>total\+0\.000001/);
+ assert.match(r.body,/supplier_credit_note/);
+ assert.match(r.body,/'pending_accounting'/);
+ assert.match(r.body,/insert into purchase_events/);
+ assert.match(r.body,/begin/);
+ assert.match(r.body,/commit/);
+ assert.match(r.body,/rollback/);
+});
