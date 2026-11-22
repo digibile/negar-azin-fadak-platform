@@ -245,6 +245,21 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
    where cl.tenant_id=$1 and cl.quantity>0
    group by cl.tenant_id,cl.product_id,fid.warehouse_id
   ),
+  financial_balances as (
+   select c.tenant_id,c.marketplace_order_id,c.marketplace_product_id,
+    count(fib.id)::int financial_inventory_balance_row_count,
+    coalesce(sum(fib.quantity),0)::numeric financial_inventory_quantity,
+    coalesce(sum(fib.reserved_quantity),0)::numeric financial_inventory_reserved_quantity,
+    coalesce(sum(fib.value_amount),0)::numeric financial_inventory_value_amount
+   from consumed c
+   join marketplace_inventory_product_links mil on mil.tenant_id=c.tenant_id
+    and mil.product_id=c.marketplace_product_id and mil.status='active'
+   join marketplace_finance_product_links fpl on fpl.tenant_id=c.tenant_id
+    and fpl.inventory_product_id=mil.inventory_product_id and fpl.status='active'
+   left join finance_inventory_balances fib on fib.tenant_id=c.tenant_id
+    and fib.product_id=fpl.finance_product_id and fib.warehouse_id=any(c.mapped_finance_warehouse_ids)
+   group by c.tenant_id,c.marketplace_order_id,c.marketplace_product_id
+  ),
   matching_layers as (
    select c.tenant_id,c.marketplace_order_id,c.marketplace_product_id,
     coalesce(sum(pl.posted_layer_count),0)::int posted_layer_count,
@@ -272,6 +287,10 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
    coalesce(c.consumed_warehouse_count,0)::int consumed_warehouse_count,
    coalesce(c.mapped_operational_warehouse_count,0)::int mapped_operational_warehouse_count,
    coalesce(c.mapped_finance_warehouse_count,0)::int mapped_finance_warehouse_count,
+   coalesce(fb.financial_inventory_balance_row_count,0)::int financial_inventory_balance_row_count,
+   coalesce(fb.financial_inventory_quantity,0)::numeric financial_inventory_quantity,
+   coalesce(fb.financial_inventory_reserved_quantity,0)::numeric financial_inventory_reserved_quantity,
+   coalesce(fb.financial_inventory_value_amount,0)::numeric financial_inventory_value_amount,
    fpl.finance_product_id,fp.code finance_product_code,fp.title finance_product_title,
    coalesce(pl.posted_layer_count,0)::int posted_cost_layer_count,
    coalesce(pl.posted_layer_quantity,0)::numeric posted_cost_layer_quantity,
@@ -313,6 +332,7 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
   left join marketplace_inventory_product_links mil on mil.tenant_id=$1 and mil.product_id=oi.product_id and mil.status='active'
   left join inventory_products ip on ip.id=mil.inventory_product_id and ip.tenant_id=$1
   left join consumed c on c.tenant_id=$1 and c.marketplace_order_id=so.id and c.marketplace_product_id=oi.product_id
+  left join financial_balances fb on fb.tenant_id=$1 and fb.marketplace_order_id=so.id and fb.marketplace_product_id=oi.product_id
   left join marketplace_finance_product_links fpl on fpl.tenant_id=$1 and fpl.inventory_product_id=mil.inventory_product_id and fpl.status='active'
   left join finance_products fp on fp.id=fpl.finance_product_id and fp.tenant_id=$1
   left join matching_layers pl on pl.tenant_id=$1 and pl.marketplace_order_id=so.id and pl.marketplace_product_id=oi.product_id
