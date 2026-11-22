@@ -47,7 +47,7 @@ test("carrier invoice verification is a tenant-scoped draft-only transition",()=
 
 test("carrier invoice migration stores verification actor and timestamp",()=>{
  assert.match(migration,/verified_by uuid references users\(id\)/);
- assert.match(migration,/verified_at timestamptz/);
+ assert.match(accountingLinkMigration,/verified_at timestamptz/);
 });
 
 test("carrier invoice accounting draft requires a verified invoice and tenant-owned open period",()=>{
@@ -81,7 +81,7 @@ test("carrier invoice accounting draft creates a balanced source-linked journal 
 });
 
 test("carrier invoice accounting document link is tenant-safe and unique by source",()=>{
- assert.match(migration,/accounting_document_id uuid/);
+ assert.match(accountingLinkMigration,/accounting_document_id uuid/);
  assert.match(migration,/foreign key\(tenant_id,accounting_document_id\)\s+references accounting_documents\(tenant_id,id\)/);
- assert.match(migration,/accounting_documents_carrier_invoice_source_uq/);
+ assert.match(accountingLinkMigration,/accounting_documents_carrier_invoice_source_uq/);
 });
