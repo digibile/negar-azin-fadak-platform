@@ -50,7 +50,7 @@ test("carrier payment UI uses the accounting document lifecycle and treasury set
  assert.ok(treasury.includes("accounting_document_id)return deny(res,409"));
  assert.ok(web.includes("carrierBanks.filter(x=>x.currency===activeCarrierInvoice.currency)"));
  assert.ok(web.includes('activeCarrierInvoice.currency==="IRR"'));
- assert.ok(web.includes("Number(carrierPaymentForm.amount)>remaining"));
+ assert.ok(web.includes("Number(carrierPaymentForm.amount)>available"));
 });
 
 
