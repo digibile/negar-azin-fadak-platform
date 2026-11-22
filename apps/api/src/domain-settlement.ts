@@ -88,7 +88,7 @@ settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,require
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(bankAccountId)||!paidRef){await client.query("rollback");return res.status(400).json({error:"شناسه حساب بانکی و شماره پیگیری پرداخت معتبر و الزامی است"});}
   const mappings=await client.query(`
    select s.accounting_party_id,ap.party_type,ap.status party_status,ap.default_account_id,
-    payable.code payable_code,payable.name payable_name,payable.account_type payable_type,payable.status payable_status,
+    payable.code payable_code,payable.name payable_name,payable.account_type payable_type,payable.status payable_status,payable.is_active payable_is_active,payable.is_postable payable_is_postable,
     ba.id bank_account_id,ba.ledger_account_id bank_ledger_account_id,
     bank.code bank_code,bank.name bank_name,bank.account_type bank_type,bank.status bank_status,bank.is_active bank_is_active,bank.is_postable bank_is_postable
    from sellers s
