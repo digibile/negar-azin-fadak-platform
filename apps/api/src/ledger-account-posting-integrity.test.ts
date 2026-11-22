@@ -51,3 +51,10 @@ test("concurrent account creation re-reads and validates the winning account",as
  assert.equal(id,"winner-account");
  assert.equal(client.calls.length,3);
 });
+
+test("ledger account guard reads the persisted status column only",async()=>{
+ const source=fs.readFileSync(new URL("./ledger.ts",import.meta.url),"utf8");
+ assert.ok(source.includes("select id,status from ledger_accounts"));
+ assert.ok(!source.includes("is_active"));
+ assert.ok(!source.includes("is_postable"));
+});
