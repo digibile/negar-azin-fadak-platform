@@ -262,6 +262,12 @@ settlementRouter.get("/api/marketplace/settlements/cost-layer-allocation-preview
    from finance_cost_layer_allocations a
    where a.tenant_id=$1 and a.warehouse_id=$3
    group by a.product_id,a.warehouse_id
+  ),
+  active_policies as (
+   select p.product_id,p.warehouse_id,p.valuation_method
+   from finance_cost_valuation_policies p
+   where p.tenant_id=$1 and p.warehouse_id=$3 and p.status='active'
+    and p.effective_from<=now() and (p.effective_to is null or p.effective_to>now())
   )
   select il.issue_line_id,il.product_id,il.product_code,il.product_title,
    il.issue_quantity,coalesce(ia.allocated_quantity,0)::numeric issue_allocated_quantity,
@@ -274,11 +280,17 @@ settlementRouter.get("/api/marketplace/settlements/cost-layer-allocation-preview
    source_doc.id source_document_id,source_doc.document_no source_document_no,
    source_doc.document_type source_document_type,source_doc.document_date source_document_date,
    coalesce(wm.method_count,0)::int existing_warehouse_method_count,wm.existing_method,
+   ap.valuation_method active_policy_method,
    case when coalesce(wm.method_count,0)>1 then 'mixed_existing_allocation_methods'
     when wm.existing_method is not null and wm.existing_method<>cl.method then 'existing_method_conflict'
-    else 'method_selection_required' end as policy_decision,
-   least(greatest(il.issue_quantity-coalesce(ia.allocated_quantity,0),0),
-    greatest(cl.quantity-coalesce(la.allocated_quantity,0),0))::numeric max_allocatable_quantity
+    when ap.valuation_method is null then 'active_policy_missing'
+    when ap.valuation_method<>cl.method then 'cost_layer_method_conflicts_with_active_policy'
+    else 'eligible_under_active_policy' end as policy_decision,
+   case when ap.valuation_method=cl.method and coalesce(wm.method_count,0)<=1
+    and (wm.existing_method is null or wm.existing_method=cl.method)
+    then least(greatest(il.issue_quantity-coalesce(ia.allocated_quantity,0),0),
+     greatest(cl.quantity-coalesce(la.allocated_quantity,0),0))::numeric
+    else 0::numeric end max_allocatable_quantity
   from issue_lines il
   left join issue_allocations ia on ia.issue_document_line_id=il.issue_line_id
   left join lateral (
@@ -300,6 +312,7 @@ settlementRouter.get("/api/marketplace/settlements/cost-layer-allocation-preview
    and source_doc.tenant_id=$1
   left join layer_allocations la on la.cost_layer_id=cl.id
   left join warehouse_methods wm on wm.product_id=il.product_id and wm.warehouse_id=$3
+  left join active_policies ap on ap.product_id=il.product_id and ap.warehouse_id=$3
   order by il.product_code,il.issue_line_id,cl.created_at,cl.id
  `,[t.id,issueDocumentId,doc.warehouse_id]);
  const lines=new Map<string,any>();
@@ -317,7 +330,7 @@ settlementRouter.get("/api/marketplace/settlements/cost-layer-allocation-preview
    unitCost:row.unit_cost,totalCost:row.total_cost,createdAt:row.layer_created_at,
    sourceDocument:{id:row.source_document_id,documentNo:row.source_document_no,type:row.source_document_type,date:row.source_document_date},
    existingWarehouseMethodCount:row.existing_warehouse_method_count,existingMethod:row.existing_method,
-   policyDecision:row.policy_decision,maxAllocatableQuantity:row.max_allocatable_quantity
+   activePolicyMethod:row.active_policy_method,policyDecision:row.policy_decision,maxAllocatableQuantity:row.max_allocatable_quantity
   });
  }
  const items=Array.from(lines.values()).map(item=>({...item,
