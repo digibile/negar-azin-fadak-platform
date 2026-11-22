@@ -176,3 +176,58 @@ test("seller settlement workspace displays live order integrity warnings before 
  assert.ok(ui.includes("گزارش کنترل صحت سفارش و تسویه"));
  assert.ok(ui.includes("settlementIssues.slice(0,20)"));
 });
+
+
+test("settlement generation excludes orders with any refund record or active return request",()=>{
+ const start=source.indexOf('settlementRouter.post("/api/marketplace/settlements/generate"');
+ const end=source.indexOf('settlementRouter.patch("/api/marketplace/settlements/:id/approve"',start);
+ const route=source.slice(start,end);
+ assert.ok(route.includes("not exists(select 1 from marketplace_refunds mr where mr.tenant_id=o.tenant_id and mr.order_id=o.id)"));
+ assert.ok(route.includes("not exists(select 1 from marketplace_return_requests rr where rr.tenant_id=o.tenant_id and rr.order_id=o.id and rr.status not in ('rejected','cancelled'))"));
+});
+
+test("settlement approval locks linked orders and blocks refunds or non-rejected return cases",()=>{
+ const start=source.indexOf('settlementRouter.patch("/api/marketplace/settlements/:id/approve"');
+ const end=source.indexOf('settlementRouter.post("/api/marketplace/settlements/:id/pay"',start);
+ const route=source.slice(start,end);
+ assert.ok(route.includes("for update of o"));
+ assert.ok(route.includes("exists(select 1 from marketplace_refunds mr"));
+ assert.ok(route.includes("exists(select 1 from marketplace_return_requests rr"));
+ assert.ok(route.includes("rr.status not in ('rejected','cancelled')"));
+ assert.ok(route.includes("ابتدا تطبیق مالی مرجوعی را تکمیل کنید"));
+});
+
+test("settlement payout locks linked orders and rechecks return and refund blockers before ledger posting",()=>{
+ const start=source.indexOf('settlementRouter.post("/api/marketplace/settlements/:id/pay"');
+ const end=source.indexOf('settlementRouter.get("/api/ledger/accounts"',start);
+ const route=source.slice(start,end);
+ const lock=route.indexOf("for update of o");
+ const blockers=route.indexOf("const blockers=await client.query");
+ const ledger=route.indexOf("postLedgerEntry(client");
+ assert.ok(lock>=0&&blockers>lock&&ledger>blockers);
+ assert.ok(route.includes("marketplace_refunds"));
+ assert.ok(route.includes("marketplace_return_requests"));
+ assert.ok(route.includes("پرداخت متوقف شد؛ یکی از سفارش‌های تسویه دارای سابقه بازپرداخت یا پرونده مرجوعی است"));
+});
+
+test("return and refund exposure report is tenant-scoped and read-only, including already paid settlements",()=>{
+ const start=source.indexOf('settlementRouter.get("/api/marketplace/settlements/return-refund-exposure"');
+ const end=source.indexOf('settlementRouter.get("/api/marketplace/settlements/order-integrity-audit"',start);
+ const route=source.slice(start,end);
+ assert.ok(start>=0&&end>start);
+ assert.ok(route.includes('requirePermission("settlement:view")'));
+ assert.ok(route.includes("where ss.tenant_id=$1"));
+ assert.ok(route.includes("ss.status settlement_status"));
+ assert.ok(route.includes("mr.status='refunded'"));
+ assert.ok(route.includes("mr.status in ('pending','failed')"));
+ assert.ok(route.includes("rr.status not in ('rejected','cancelled')"));
+ assert.ok(route.includes("limit 500"));
+ assert.ok(!/\b(insert into|update\s+|delete from)\b/i.test(route));
+});
+
+test("seller settlement workspace displays return and refund exposure before payout controls",()=>{
+ const ui=fs.readFileSync(new URL("../../web/app/modules/CommercePanelWorkspace.tsx",import.meta.url),"utf8");
+ assert.ok(ui.includes("/api/marketplace/settlements/return-refund-exposure"));
+ assert.ok(ui.includes("پرونده‌های مرجوعی و بازپرداخت مرتبط با تسویه‌ها"));
+ assert.ok(ui.includes("returnRefundExposure.slice(0,20)"));
+});
