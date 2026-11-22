@@ -173,7 +173,7 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
    }
   }
   if(nextStatus==="posted"&&old.source_module==="logistics-carrier-payment"){
-   carrierPayment=(await c.query("select * from logistics_carrier_payments where id=$1 and tenant_id=$2 for update",[old.source_document_id,t.id])).rows[0];
+   carrierPayment=(await c.query("select * from treasury_payments where id=$1 and tenant_id=$2 for update",[old.source_document_id,t.id])).rows[0];
    if(!carrierPayment||carrierPayment.document_id!==old.id||carrierPayment.status!=="approved"){
     await c.query("rollback");return deny(res,409,"درخواست پرداخت با این سند تطبیق ندارد یا قبلاً قطعی شده است");
    }
@@ -182,6 +182,7 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
    if(!invoice||invoice.status!=="posted"||!payable||payable.metadata?.carrierInvoiceId!==invoice.id||payable.party_id!==invoice.carrier_party_id||payable.document_id!==invoice.accounting_document_id||Math.abs(Number(payable.original_amount)-Number(invoice.total_amount))>0.005||payable.status==="cancelled"){
     await c.query("rollback");return deny(res,409,"صورتحساب یا بدهی متناظر با پرداخت معتبر نیست");
    }
+   carrierPayment.currency=invoice.currency;
    const remaining=Number(payable.original_amount)-Number(payable.settled_amount);
    if(Number(carrierPayment.amount)>remaining+0.005){await c.query("rollback");return deny(res,409,"مبلغ پرداخت از مانده بدهی بیشتر شده است");}
    const lines=(await c.query("select account_id,debit,credit from accounting_document_lines where document_id=$1 order by line_no",[old.id])).rows;
@@ -224,6 +225,14 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
    }
   }
   const updated=(await c.query("update accounting_documents set status=$1,approved_by=case when $1='approved' then $2 else approved_by end,posted_at=case when $1='posted' then now() else posted_at end,posted_by=case when $1='posted' then $2 else posted_by end,updated_at=now() where id=$3 and tenant_id=$4 returning *",[nextStatus,(req as any).user.id,old.id,t.id])).rows[0];
+  if(nextStatus==="approved"&&old.source_module==="logistics-carrier-payment"){
+   carrierPayment=(await c.query("select * from treasury_payments where id=$1 and tenant_id=$2 for update",[old.source_document_id,t.id])).rows[0];
+   if(!carrierPayment||carrierPayment.accounting_document_id!==old.id||carrierPayment.status!=="pending"){
+    await c.query("rollback");return deny(res,409,"درخواست پرداخت با سند تأییدشده تطبیق ندارد");
+   }
+   const approvedPayment=await c.query("update treasury_payments set status='approved',approved_by=$1,updated_at=now() where id=$2 and tenant_id=$3 and status='pending' returning id",[(req as any).user.id,carrierPayment.id,t.id]);
+   if(!approvedPayment.rowCount){await c.query("rollback");return deny(res,409,"تأیید درخواست پرداخت انجام نشد");}
+  }
   if(nextStatus==="void"&&carrierPayment){
    await c.query("update treasury_payments set status='cancelled',updated_at=now() where id=$1 and tenant_id=$2 and status in ('pending','approved')",[carrierPayment.id,t.id]);
    await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'logistics.carrier_payment_voided','logistics_carrier_payment',$3,$4,$5)",[t.id,(req as any).user.id,carrierPayment.id,JSON.stringify({status:carrierPayment.status}),JSON.stringify({status:"cancelled",documentId:old.id})]);
@@ -241,11 +250,13 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
    if(carrierPayment.bank_account_id){
     const balance=await c.query("update treasury_bank_accounts set current_balance=current_balance-$1,updated_at=now() where id=$2 and tenant_id=$3 and status='active' and current_balance >= $1 returning current_balance",[amount,carrierPayment.bank_account_id,t.id]);
     if(!balance.rowCount){await c.query("rollback");return deny(res,409,"کاهش موجودی بانک انجام نشد");}
+    await c.query("insert into treasury_bank_transactions(tenant_id,bank_account_id,transaction_date,value_date,reference_no,description,amount,direction,reconciliation_status) values($1,$2,$3,$3,$4,$5,$6,'debit','unmatched')",[t.id,carrierPayment.bank_account_id,carrierPayment.payment_date,carrierPayment.reference_no,"پرداخت صورتحساب حمل "+carrierPayment.payment_no,amount]);
    }else{
     const balance=await c.query("update treasury_cashboxes set current_balance=current_balance-$1,updated_at=now() where id=$2 and tenant_id=$3 and status='active' and current_balance >= $1 returning current_balance",[amount,carrierPayment.cashbox_id,t.id]);
     if(!balance.rowCount){await c.query("rollback");return deny(res,409,"کاهش موجودی صندوق انجام نشد");}
+    await c.query("insert into treasury_cash_movements(tenant_id,cashbox_id,movement_no,movement_date,amount,direction,description,reference_no,status,created_by) values($1,$2,$3,$4,$5,'out',$6,$7,'posted',$8)",[t.id,carrierPayment.cashbox_id,carrierPayment.payment_no,carrierPayment.payment_date,amount,"پرداخت صورتحساب حمل "+carrierPayment.payment_no,carrierPayment.reference_no,(req as any).user.id]);
    }
-   const postedPayment=(await c.query("update treasury_payments set status='paid',paid_at=now(),updated_at=now() where id=$2 and tenant_id=$3 and status='approved' returning *",[(req as any).user.id,carrierPayment.id,t.id])).rows[0];
+   const postedPayment=(await c.query("update treasury_payments set status='paid',paid_at=now(),updated_at=now() where id=$2 and tenant_id=$3 and status='approved' returning *",[null,carrierPayment.id,t.id])).rows[0];
    if(!postedPayment){await c.query("rollback");return deny(res,409,"تغییر وضعیت پرداخت انجام نشد");}
    await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,actor_user_id,reason) values($1,'carrier_payment',$2,'carrier_payment_paid','approved','paid',$3,$4)",[t.id,carrierPayment.id,(req as any).user.id,"پرداخت صورتحساب حمل به مبلغ "+amount+" انجام شد"]);
    await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'logistics.carrier_payment_posted','logistics_carrier_payment',$3,$4,$5)",[t.id,(req as any).user.id,carrierPayment.id,JSON.stringify({status:"approved",payableSettledAmount:carrierPayment.payable.settled_amount}),JSON.stringify({status:"paid",payableSettledAmount:updatedPayable.settled_amount,payableStatus:updatedPayable.status,amount,treasuryBalance:carrierPayment.treasuryBalance-amount})]);
