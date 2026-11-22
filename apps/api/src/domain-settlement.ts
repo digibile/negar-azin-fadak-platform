@@ -289,17 +289,17 @@ settlementRouter.get("/api/marketplace/settlements/cost-layer-allocation-preview
   let item=lines.get(row.issue_line_id);
   if(!item){
    item={issueLineId:row.issue_line_id,productId:row.product_id,productCode:row.product_code,productTitle:row.product_title,
-    issueQuantity:Number(row.issue_quantity),allocatedQuantity:Number(row.issue_allocated_quantity),
-    unallocatedQuantity:Number(row.issue_unallocated_quantity),allocationCount:row.issue_allocation_count,candidates:[]};
+    issueQuantity:row.issue_quantity,allocatedQuantity:row.issue_allocated_quantity,
+    unallocatedQuantity:row.issue_unallocated_quantity,allocationCount:row.issue_allocation_count,candidates:[]};
    lines.set(row.issue_line_id,item);
   }
   if(row.cost_layer_id)item.candidates.push({
-   costLayerId:row.cost_layer_id,method:row.valuation_method,initialQuantity:Number(row.layer_initial_quantity),
-   allocatedQuantity:Number(row.layer_allocated_quantity),remainingQuantity:Number(row.layer_remaining_quantity),
-   unitCost:Number(row.unit_cost),totalCost:Number(row.total_cost),createdAt:row.layer_created_at,
+   costLayerId:row.cost_layer_id,method:row.valuation_method,initialQuantity:row.layer_initial_quantity,
+   allocatedQuantity:row.layer_allocated_quantity,remainingQuantity:row.layer_remaining_quantity,
+   unitCost:row.unit_cost,totalCost:row.total_cost,createdAt:row.layer_created_at,
    sourceDocument:{id:row.source_document_id,documentNo:row.source_document_no,type:row.source_document_type,date:row.source_document_date},
    existingWarehouseMethodCount:row.existing_warehouse_method_count,existingMethod:row.existing_method,
-   policyDecision:row.policy_decision,maxAllocatableQuantity:Number(row.max_allocatable_quantity)
+   policyDecision:row.policy_decision,maxAllocatableQuantity:row.max_allocatable_quantity
   });
  }
  const items=Array.from(lines.values()).map(item=>({...item,
