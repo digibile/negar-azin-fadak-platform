@@ -92,3 +92,13 @@ test("logistics eligible-order product details and supply-plan joins remain tena
  const supplyOrderList=source.slice(supplyOrderListStart,supplyOrderCreateStart);
  assert.ok(supplyOrderList.includes("p.tenant_id=o.tenant_id"));
 });
+
+
+test("a supply order cannot receive a second active shipment",()=>{
+ const start=source.indexOf('logisticsRouter.post("/api/logistics/shipments"');
+ const end=source.indexOf('logisticsRouter.patch("/api/logistics/shipments/:id/status"',start);
+ const route=source.slice(start,end);
+ assert.ok(route.includes("select id,status from logistics_shipments where tenant_id=$1 and supply_order_id=$2 and status in ('planned','assigned','picked_up','in_transit')"));
+ assert.ok(route.includes("activeShipment.rowCount"));
+ assert.ok(route.includes("logistics_shipments_one_active_per_supply_order_uq"));
+});
