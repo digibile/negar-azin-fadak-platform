@@ -12,7 +12,7 @@ const labels:Record<string,string>={
   requested_date:"تاریخ درخواست",shipment_no:"شماره مرسوله",tracking_code:"کد رهگیری",
   route_name:"مسیر",plate_no:"پلاک",driver_name:"راننده",title:"عنوان",vehicle_type:"نوع خودرو",
   capacity:"ظرفیت",name:"نام",mobile:"موبایل",license_no:"گواهینامه",license_expiry:"اعتبار گواهینامه",
-  code:"کد",distance_km:"مسافت",description:"شرح",location:"موقعیت",occurred_at:"زمان",recipient_name:"تحویل‌گیرنده",province:"استان",city:"شهر",address_line:"نشانی",total_amount:"مبلغ سفارش",currency:"ارز",supply_status:"وضعیت تأمین",invoice_no:"شماره صورتحساب",invoice_date:"تاریخ صورتحساب",carrier_title:"شرکت حمل",subtotal:"مبلغ پایه",tax_amount:"مالیات",total_amount:"مبلغ کل",settled_amount:"پرداخت‌شده",original_amount:"مبلغ بدهی",payment_no:"شماره پرداخت",payment_date:"تاریخ پرداخت",payee_name:"دریافت‌کننده",document_no:"شماره سند"
+  code:"کد",distance_km:"مسافت",description:"شرح",location:"موقعیت",occurred_at:"زمان",recipient_name:"تحویل‌گیرنده",province:"استان",city:"شهر",address_line:"نشانی",total_amount:"مبلغ سفارش",currency:"ارز",supply_status:"وضعیت تأمین",invoice_no:"شماره صورتحساب",invoice_date:"تاریخ صورتحساب",carrier_title:"شرکت حمل",subtotal:"مبلغ پایه",tax_amount:"مالیات",total_amount:"مبلغ کل",settled_amount:"پرداخت‌شده",original_amount:"مبلغ بدهی",payment_no:"شماره پرداخت",payment_date:"تاریخ پرداخت",payee_name:"دریافت‌کننده",document_no:"شماره سند",accounting_document_no:"شماره سند حسابداری",accounting_document_status:"وضعیت سند حسابداری"
 };
 const statusLabels:Record<string,string>={
   draft:"پیش‌نویس",approved:"تأییدشده",released:"آزادشده",closed:"بسته",cancelled:"لغوشده",
@@ -83,6 +83,11 @@ export default function LogisticsWorkspace(){
   };
   const patch=async(path:string,body:any)=>{
     try{await api(path,{method:"PATCH",body:JSON.stringify(body)});await load()}
+    catch(e:any){setError(e.message)}
+  };
+  const carrierDocumentStatus=async(invoice:R,status:string)=>{
+    if(!invoice.accounting_document_id)return;
+    try{await api("/api/accounting-finance/documents/"+invoice.accounting_document_id+"/status",{method:"PATCH",body:JSON.stringify({status})});await load()}
     catch(e:any){setError(e.message)}
   };
   const approvedOrders=useMemo(()=>orders.filter(x=>["approved","assigned"].includes(x.status)),[orders]);
@@ -224,6 +229,9 @@ export default function LogisticsWorkspace(){
       <Table rows={carrierInvoices} cols={["invoice_no","invoice_date","carrier_title","total_amount","currency","status"]} action={(x:R)=><div className={styles.inlineAction}>
         {x.status==="draft"&&<button onClick={()=>post("/api/logistics/carrier-invoices/"+x.id+"/verify",{})}>تأیید صورتحساب</button>}
         {x.status==="verified"&&!x.accounting_document_id&&<button onClick={()=>{setActiveCarrierInvoice(x);setCarrierAccountingForm(v=>({...v,documentNo:""}))}}>ساخت سند حسابداری</button>}
+        {x.status==="verified"&&x.accounting_document_status==="draft"&&<button onClick={()=>carrierDocumentStatus(x,"submitted")}>ارسال سند</button>}
+        {x.status==="verified"&&x.accounting_document_status==="submitted"&&<button onClick={()=>carrierDocumentStatus(x,"approved")}>تأیید سند</button>}
+        {x.status==="verified"&&x.accounting_document_status==="approved"&&<button onClick={()=>carrierDocumentStatus(x,"posted")}>قطعی‌سازی سند و ایجاد بدهی</button>}
         {x.status==="posted"&&<button onClick={async()=>{setActiveCarrierInvoice(x);try{const r=await api("/api/accounting-finance/carrier-invoices/"+x.id+"/payments");setCarrierPayments(r.items||[])}catch(e:any){setError(e.message)}}}>پرداخت و گردش</button>}
         <button onClick={async()=>{setActiveCarrierInvoice(x);if(x.status==="posted"){try{const r=await api("/api/accounting-finance/carrier-invoices/"+x.id+"/payments");setCarrierPayments(r.items||[])}catch(e:any){setError(e.message)}}}}>جزئیات</button>
       </div>}/>
