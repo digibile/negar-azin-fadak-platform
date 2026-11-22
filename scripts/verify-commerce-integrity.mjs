@@ -23,6 +23,7 @@ const orderCss=read("apps/web/app/marketplace/orders/orders-workspace.css");
 const cartActions=read("apps/web/app/store/cart-actions.tsx");
 const cartCss=read("apps/web/app/store/cart-workspace.css");
 const api=read("apps/api/src/domain-marketplace.ts");
+const settlementRoutes=read("apps/api/src/domain-settlement.ts");
 const checkoutApi=read("apps/api/src/domain-checkout.ts");
 
 if(!canonical.includes('import StorePage from "../store/page"')||!canonical.includes('<StorePage variant="marketplace-pro"/>'))throw new Error("Canonical storefront must reuse the operational StorePage marketplace variant");
@@ -35,7 +36,7 @@ for(const marker of [".commerce-metrics",".commerce-link-grid",".commerce-link-c
   if(!commerceCss.includes(marker))throw new Error("Commerce hub isolated styles are missing: "+marker);
 }
 for(const route of ["/api/public/marketplace","/api/marketplace/products","/api/marketplace/categories","/api/marketplace/stores","/api/marketplace/sellers","/api/marketplace/orders","/api/marketplace/settlements"]){
-  if(!api.includes(route))throw new Error("Marketplace API route is missing: "+route);
+  if(!(api+settlementRoutes).includes(route))throw new Error("Marketplace API route is missing: "+route);
 }
 
 if(!orderPage.includes('import "./orders-workspace.css"'))throw new Error("Order workspace must use isolated styles");
