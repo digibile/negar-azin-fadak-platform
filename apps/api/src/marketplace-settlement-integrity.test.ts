@@ -44,6 +44,10 @@ test("costing readiness reconciles marketplace, operational inventory and financ
  assert.ok(source.includes("mapped_operational_warehouse_count"));
  assert.ok(source.includes("missing_finance_warehouse_mapping"));
  assert.ok(source.includes("posted_layer_methods"));
+ assert.ok(source.includes("mapped_finance_warehouse_ids"));
+ assert.ok(source.includes("matching_layers"));
+ assert.ok(source.includes("pl.warehouse_id=any(c.mapped_finance_warehouse_ids)"));
+ assert.ok(source.includes("missing_posted_finance_cost_layers_at_consumed_warehouse"));
  assert.ok(source.includes("mixed_cost_layer_valuation_methods"));
  assert.ok(source.includes("not_calculated"));
 });
