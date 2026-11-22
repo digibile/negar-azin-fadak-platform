@@ -838,7 +838,7 @@ settlementRouter.get("/api/marketplace/settlements/financial-issue-line-link-rea
   from marketplace_inventory_reservations r
   join marketplace_orders o on o.id=r.marketplace_order_id and o.tenant_id=r.tenant_id
   left join marketplace_inventory_product_links mil on mil.tenant_id=r.tenant_id
-   and mil.product_id=r.marketplace_product_id
+   and mil.product_id=r.marketplace_product_id and mil.inventory_product_id=r.inventory_product_id
   left join marketplace_finance_product_links fpl on fpl.tenant_id=r.tenant_id
    and fpl.inventory_product_id=r.inventory_product_id and fpl.status='active'
   left join marketplace_finance_warehouse_links fwl on fwl.tenant_id=r.tenant_id
@@ -851,7 +851,7 @@ settlementRouter.get("/api/marketplace/settlements/financial-issue-line-link-rea
    join finance_inventory_lines line on line.document_id=doc.id
    where doc.tenant_id=r.tenant_id and doc.source_type='marketplace_order'
     and doc.source_id=r.marketplace_order_id and doc.document_type='issue'
-    and doc.status='posted'
+    and doc.status='posted' and (fpl.finance_product_id is null or line.product_id=fpl.finance_product_id)
    order by doc.posted_at desc nulls last,doc.created_at desc,line.id
    limit 1
   ) candidate on true
