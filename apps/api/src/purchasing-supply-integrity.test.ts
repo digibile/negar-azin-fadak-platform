@@ -162,3 +162,44 @@ test("receipt completion is driven by cumulative delivered quantity, not accepte
  assert.match(r.body,/remaining\?"partially_received":"received"/);
  assert.doesNotMatch(r.body,/accepted_qty<quantity/);
 });
+
+
+test("purchase invoice is created under an order lock and leaves accounting event pending",()=>{
+ const r=route('router.post("/api/purchasing/invoices"','router.post("/api/purchasing/invoices/:id/payments"');
+ assert.ok(r.start>=0);
+ assert.match(r.body,/purchase_orders where id=\$1 and tenant_id=\$2 for update/);
+ assert.match(r.body,/old\.status!=="received"/);
+ assert.match(r.body,/purchase_invoices where tenant_id=\$1 and order_id=\$2 limit 1/);
+ assert.match(r.body,/purchase_financial_events\(tenant_id,source_type,source_id,event_type,amount,state,reference_no\)/);
+ assert.match(r.body,/'pending_accounting'/);
+ assert.match(r.body,/update purchase_orders set status='invoiced'.*status='received' returning id/);
+ assert.match(r.body,/begin/);
+ assert.match(r.body,/commit/);
+ assert.match(r.body,/rollback/);
+});
+
+test("supplier payment is serialized on the invoice and emits a pending accounting event",()=>{
+ const r=route('router.post("/api/purchasing/invoices/:id/payments"','router.post("/api/purchasing/returns"');
+ assert.match(r.body,/purchase_invoices where id=\$1 and tenant_id=\$2 for update/);
+ assert.match(r.body,/paidBefore\+amount>total\+0\.000001/);
+ assert.match(r.body,/insert into purchase_payments/);
+ assert.match(r.body,/update purchase_invoices set paid_total=\$1,status=\$2 where id=\$3 and tenant_id=\$4/);
+ assert.match(r.body,/purchase_financial_events\(tenant_id,source_type,source_id,event_type,amount,state,reference_no\)/);
+ assert.match(r.body,/'pending_accounting'/);
+ assert.match(r.body,/update purchase_orders set status='paid'.*status='invoiced' returning id/);
+ assert.match(r.body,/begin/);
+ assert.match(r.body,/commit/);
+ assert.match(r.body,/rollback/);
+});
+
+test("credited purchase returns create a separate pending accounting event without posting a ledger entry",()=>{
+ const r=route('router.patch("/api/purchasing/returns/:id/status"','router.get("/api/purchasing/');
+ assert.ok(r.start>=0);
+ assert.match(r.body,/if\(to==="credited"\)/);
+ assert.match(r.body,/purchase_financial_events\(tenant_id,source_type,source_id,event_type,amount,state,reference_no\)/);
+ assert.match(r.body,/'purchase_return'.*'supplier_credit_note'.*'pending_accounting'/);
+ assert.match(r.body,/insert into purchase_events/);
+ assert.match(r.body,/begin/);
+ assert.match(r.body,/commit/);
+ assert.match(r.body,/rollback/);
+});
