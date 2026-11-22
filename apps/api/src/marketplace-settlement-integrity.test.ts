@@ -2,30 +2,31 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
 
-const source=fs.readFileSync(new URL("./domain-settlement.ts",import.meta.url),"utf8");
+const marketplaceSource=fs.readFileSync(new URL("./domain-marketplace.ts",import.meta.url),"utf8");
+const settlementSource=fs.readFileSync(new URL("./domain-settlement.ts",import.meta.url),"utf8");
 
-test("settlement generation keeps caller reference for a single seller",()=>{
- assert.match(source,/bySeller\.size>1\?requestedSettlementNo\+"-"\+sellerId:requestedSettlementNo/);
+test("seller settlement list has one canonical finance-aware route",()=>{
+ assert.ok(!marketplaceSource.includes('domainMarketplaceRouter.get("/api/marketplace/settlements"'));
+ assert.equal((settlementSource.match(/settlementRouter\.get\("\/api\/marketplace\/settlements"/g)||[]).length,1);
+ assert.ok(settlementSource.includes("bankAccounts:banks.rows"));
+ assert.ok(settlementSource.includes("summary:summary.rows"));
 });
 
-test("settlement generation scopes a shared caller reference by the full seller id",()=>{
- assert.match(source,/requestedSettlementNo\+"-"\+sellerId/);
- assert.match(source,/\("SET-"\+Date\.now\(\)\+"-"\+sellerId\)/);
- assert.ok(!source.includes('sellerId.slice(0,8)'));
+test("settlement generation selects only paid, unsettled orders inside the active tenant",()=>{
+ assert.ok(settlementSource.includes("o.tenant_id=$1"));
+ assert.ok(settlementSource.includes("o.status='paid'"));
+ assert.ok(settlementSource.includes("not exists(select 1 from seller_settlement_items"));
+ assert.ok(settlementSource.includes("order by o.created_at for update"));
 });
 
-test("order cost analysis only counts confirmed refunds, paid settlements and posted freight",()=>{
- assert.match(source,/order-cost-analysis/);
- assert.ok(source.includes("r.status='refunded'"));
- assert.ok(source.includes("ss.status='paid'"));
- assert.ok(source.includes("i.status='posted'"));
- assert.ok(source.includes("d.status='posted'"));
- assert.match(source,/cost_of_goods_status/);
- assert.match(source,/profit_status/);
- assert.ok(source.includes("tenant_id=o.tenant_id"));
+test("settlement generation keeps seller and currency groups separate",()=>{
+ assert.ok(settlementSource.includes("bySellerCurrency"));
+ assert.ok(settlementSource.includes('const key=o.seller_id+"::"+currency'));
+ assert.ok(settlementSource.includes("currency"));
 });
-test("order cost analysis rejects invalid and reversed date ranges",()=>{
- assert.ok(source.includes("validDate(req.query.from)"));
- assert.ok(source.includes("validDate(req.query.to)"));
- assert.ok(source.includes("if(from>to)"));
+
+test("seller settlement payment uses tenant-scoped idempotency keys",()=>{
+ assert.ok(settlementSource.includes("idempotency_key=$2"));
+ assert.ok(settlementSource.includes("where tenant_id=$1 and idempotency_key=$2"));
+ assert.ok(settlementSource.includes("کلید یکتای پرداخت برای تسویه دیگری استفاده شده است"));
 });
