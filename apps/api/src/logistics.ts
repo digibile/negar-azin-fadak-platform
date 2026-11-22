@@ -291,6 +291,14 @@ logisticsRouter.post("/api/logistics/shipments",requireAuth,requirePermission("m
       order=(await c.query("select * from logistics_supply_orders where id=$1 and tenant_id=$2 for update",[b.supplyOrderId,t.id])).rows[0];
       if(!order)throw new Error("سفارش تأمین پیدا نشد");
       if(!["approved","assigned"].includes(order.status))throw new Error("سفارش باید تأیید شده باشد");
+      const activeShipment=await c.query(
+        "select id,status from logistics_shipments where tenant_id=$1 and supply_order_id=$2 and status in ('planned','assigned','picked_up','in_transit') limit 1 for update",
+        [t.id,order.id]
+      );
+      if(activeShipment.rowCount){
+        await c.query("rollback");
+        return fail(res,409,"برای این سفارش تأمین یک مرسوله فعال وجود دارد؛ ابتدا همان مرسوله را تعیین تکلیف کنید");
+      }
     }
     let vehicle:any=null;
     if(b.vehicleId){
@@ -319,7 +327,13 @@ logisticsRouter.post("/api/logistics/shipments",requireAuth,requirePermission("m
     await c.query("commit");
     await audit(t.id,"shipment",r.id,"created",null,r.status,(req as any).user.id);
     res.status(201).json(r);
-  }catch(e:any){await c.query("rollback");res.status(400).json({error:e.message||"ثبت مرسوله ناموفق بود"});}
+  }catch(e:any){
+    await c.query("rollback");
+    if(e?.code==="23505"&&e?.constraint==="logistics_shipments_one_active_per_supply_order_uq"){
+      return fail(res,409,"برای این سفارش تأمین هم‌اکنون مرسوله فعال دیگری ثبت شده است");
+    }
+    res.status(400).json({error:e.message||"ثبت مرسوله ناموفق بود"});
+  }
   finally{c.release();}
 }));
 
