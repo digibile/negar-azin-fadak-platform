@@ -19,7 +19,7 @@ test("carrier payment draft uses tenant-owned posted invoice and matching payabl
  assert.match(paymentRoute,/accounting_receivable_payables where id=\$1 and tenant_id=\$2 and direction='payable' for update/);
  assert.match(paymentRoute,/payable\.party_id!==invoice\.carrier_party_id/);
  assert.match(paymentRoute,/payable\.document_id!==invoice\.accounting_document_id/);
- assert.match(paymentRoute,/value>remaining\+0\.005/);
+ assert.match(paymentRoute,/value>remaining\\+0\\.000001/);
 });
 
 test("carrier payment draft creates an accounting document and reuses treasury payments",()=>{
