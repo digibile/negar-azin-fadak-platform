@@ -129,3 +129,73 @@ settlementRouter.get("/api/marketplace/settlements/delivery-reconciliation",requ
  res.json({items:r.rows,limit:200,readOnly:true});
 }));
 
+
+settlementRouter.get("/api/marketplace/settlements/order-cost-analysis",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const validDate=(v:unknown)=>{
+  if(typeof v!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;
+  const d=new Date(v+"T00:00:00Z");
+  return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===v;
+ };
+ if(req.query.from&&!validDate(req.query.from))return res.status(400).json({error:"تاریخ شروع گزارش معتبر نیست"});
+ if(req.query.to&&!validDate(req.query.to))return res.status(400).json({error:"تاریخ پایان گزارش معتبر نیست"});
+ const from=req.query.from?String(req.query.from):"1900-01-01";
+ const to=req.query.to?String(req.query.to):"2999-12-31";
+ if(from>to)return res.status(400).json({error:"بازه تاریخ گزارش معتبر نیست"});
+ const params=[t.id,from,to];
+ const base=String.raw`
+  select o.id order_id,o.order_no,o.status order_status,o.currency,o.created_at,o.total_amount,o.discount_amount,o.shipping_amount,
+   o.commission_amount recorded_commission,o.seller_payable,
+   coalesce(rf.refunded_amount,0)::numeric refunded_amount,
+   coalesce(rf.refund_count,0)::int refund_count,
+   coalesce(sc.settled_commission,0)::numeric settled_commission,
+   coalesce(sc.paid_settlement_count,0)::int paid_settlement_count,
+   coalesce(fc.posted_freight_cost,0)::numeric posted_freight_cost,
+   coalesce(fc.posted_freight_invoice_count,0)::int posted_freight_invoice_count,
+   coalesce(rt.return_request_count,0)::int return_request_count,
+   coalesce(rt.received_or_inspected_quantity,0)::numeric received_or_inspected_quantity,
+   null::numeric cost_of_goods,
+   'not_linked_to_marketplace_order'::text cost_of_goods_status,
+   'incomplete'::text profit_status
+  from marketplace_orders o
+  left join lateral (
+   select sum(r.amount)::numeric refunded_amount,count(*)::int refund_count
+   from marketplace_refunds r
+   where r.tenant_id=o.tenant_id and r.order_id=o.id and r.status='refunded'
+  ) rf on true
+  left join lateral (
+   select sum(si.commission_amount)::numeric settled_commission,count(distinct ss.id)::int paid_settlement_count
+   from seller_settlement_items si
+   join seller_settlements ss on ss.id=si.settlement_id and ss.tenant_id=si.tenant_id and ss.status='paid'
+   where si.tenant_id=o.tenant_id and si.order_id=o.id
+  ) sc on true
+  left join lateral (
+   select sum(a.allocated_amount)::numeric posted_freight_cost,count(distinct i.id)::int posted_freight_invoice_count
+   from logistics_carrier_invoice_shipments a
+   join logistics_carrier_invoices i on i.id=a.invoice_id and i.tenant_id=a.tenant_id and i.status='posted'
+   join accounting_documents d on d.id=i.accounting_document_id and d.tenant_id=i.tenant_id and d.status='posted'
+   join logistics_shipments sh on sh.id=a.shipment_id and sh.tenant_id=a.tenant_id
+   join logistics_supply_orders so on so.id=sh.supply_order_id and so.tenant_id=sh.tenant_id
+   where a.tenant_id=o.tenant_id and so.marketplace_order_id=o.id and i.currency=o.currency
+  ) fc on true
+  left join lateral (
+   select count(*)::int return_request_count,
+    coalesce(sum(case when rr.status in ('received','inspected','closed') then rr.requested_quantity else 0 end),0)::numeric received_or_inspected_quantity
+   from marketplace_return_requests rr
+   where rr.tenant_id=o.tenant_id and rr.order_id=o.id and rr.status not in ('rejected','cancelled')
+  ) rt on true
+  where o.tenant_id=$1 and o.created_at >= $2::date and o.created_at < ($3::date + interval '1 day')
+ `;
+ const [items,summary]=await Promise.all([
+  query(base+` order by o.created_at desc,o.order_no limit 500`,params),
+  query(`select currency,count(*)::int order_count,sum(total_amount)::numeric order_total,
+    sum(discount_amount)::numeric discount_amount,sum(shipping_amount)::numeric shipping_amount,
+    sum(commission_amount)::numeric recorded_commission,sum(seller_payable)::numeric seller_payable
+   from marketplace_orders where tenant_id=$1 and created_at >= $2::date and created_at < ($3::date + interval '1 day')
+   group by currency order by currency`,params)
+ ]);
+ res.json({from,to,items:items.rows,summary:summary.rows,limit:500,readOnly:true,
+  basis:{refunds:"marketplace_refunds.status=refunded",settledCommission:"seller_settlements.status=paid",freight:"carrier invoice and linked accounting document both posted",costOfGoods:"not linked to marketplace order in current verified flow"},
+  limitation:"This is a component reconciliation, not a profit report. Cost of goods is unavailable because the posted financial inventory cost layer is not linked to marketplace order issue documents. Recorded order commission is shown separately from commission included in paid seller settlements. Currency groups are not combined."
+ });
+}));
