@@ -17,8 +17,6 @@ create table if not exists logistics_carrier_invoices(
   tax_amount numeric(20,2) not null default 0 check(tax_amount>=0),
   total_amount numeric(20,2) not null check(total_amount>0 and total_amount=subtotal+tax_amount),
   status text not null default 'draft' check(status in ('draft','verified','posted','void')),
-  verified_by uuid references users(id) on delete set null,
-  verified_at timestamptz,
   notes text not null default '',
   created_by uuid references users(id) on delete set null,
   created_at timestamptz not null default now(),
@@ -47,11 +45,5 @@ create index if not exists logistics_carrier_invoice_tenant_status_idx
   on logistics_carrier_invoices(tenant_id,status,invoice_date desc);
 create index if not exists logistics_carrier_invoice_shipment_idx
   on logistics_carrier_invoice_shipments(tenant_id,shipment_id);
-
-
-alter table logistics_carrier_invoices add column if not exists accounting_document_id uuid;
-create unique index if not exists accounting_documents_tenant_id_uq on accounting_documents(tenant_id,id);
-alter table logistics_carrier_invoices add constraint logistics_carrier_invoice_accounting_document_fk foreign key(tenant_id,accounting_document_id) references accounting_documents(tenant_id,id) on delete restrict;
-create unique index if not exists accounting_documents_carrier_invoice_source_uq on accounting_documents(tenant_id,source_module,source_document_id) where source_module='logistics-carrier-invoice' and source_document_id is not null;
 
 commit;
