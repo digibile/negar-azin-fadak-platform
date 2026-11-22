@@ -203,7 +203,7 @@ settlementRouter.get("/api/marketplace/settlements/order-cost-analysis",requireA
 
 settlementRouter.get("/api/marketplace/settlements/financial-issue-link-audit",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const validDate=(v:unknown)=>typeof v==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(v)&&!Number.isNaN(new Date(v+"T00:00:00Z").getTime())&&new Date(v+"T00:00:00Z").toISOString().slice(0,10)===v;
+ const validDate=(v:unknown)=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(new Date(v+"T00:00:00Z").getTime())&&new Date(v+"T00:00:00Z").toISOString().slice(0,10)===v;
  if(req.query.from&&!validDate(req.query.from))return res.status(400).json({error:"تاریخ شروع گزارش معتبر نیست"});
  if(req.query.to&&!validDate(req.query.to))return res.status(400).json({error:"تاریخ پایان گزارش معتبر نیست"});
  const from=req.query.from?String(req.query.from):"1900-01-01";
