@@ -4,6 +4,8 @@ import fs from "node:fs";
 
 const source=fs.readFileSync(new URL("./domain-settlement.ts",import.meta.url),"utf8");
 const allocationMigration=fs.readFileSync(new URL("../../../database/migrations/149_finance_cost_layer_allocation_ledger.sql",import.meta.url),"utf8");
+const valuationPolicyMigration=fs.readFileSync(new URL("../../../database/migrations/150_finance_cost_valuation_policy_governance.sql",import.meta.url),"utf8");
+const accountingFinanceSource=fs.readFileSync(new URL("./accounting-finance.ts",import.meta.url),"utf8");
 
 test("settlement generation keeps caller reference for a single seller",()=>{
  assert.match(source,/bySeller\.size>1\?requestedSettlementNo\+"-"\+sellerId:requestedSettlementNo/);
@@ -127,3 +129,34 @@ test("posted finance issue document picker is tenant-scoped and read-only",()=>{
  assert.ok(source.includes("line_count"));
  assert.ok(source.includes("readOnly:true"));
 });
+
+test("valuation policies are tenant/product/warehouse scoped, versioned and immutable after activation",()=>{
+ assert.ok(valuationPolicyMigration.includes("finance_cost_valuation_policies"));
+ assert.ok(valuationPolicyMigration.includes("foreign key(tenant_id,product_id)"));
+ assert.ok(valuationPolicyMigration.includes("foreign key(tenant_id,warehouse_id)"));
+ assert.ok(valuationPolicyMigration.includes("where status='active'"));
+ assert.ok(valuationPolicyMigration.includes("Valuation policy history is immutable"));
+ assert.ok(valuationPolicyMigration.includes("Activation may only approve an unchanged draft policy"));
+ assert.ok(valuationPolicyMigration.includes("Retirement may only close an active policy"));
+ assert.ok(valuationPolicyMigration.includes("No active valuation policy exists for this product and warehouse"));
+ assert.ok(valuationPolicyMigration.includes("Allocation valuation method does not match the active policy"));
+});
+
+test("valuation policy API uses tenant scope and explicit draft approval and retirement",()=>{
+ assert.ok(accountingFinanceSource.includes("/api/accounting-finance/cost-valuation-policies"));
+ assert.ok(accountingFinanceSource.includes("accounting-finance.write"));
+ assert.ok(accountingFinanceSource.includes("status='draft'"));
+ assert.ok(accountingFinanceSource.includes("status='active'"));
+ assert.ok(accountingFinanceSource.includes("status='retired'"));
+ assert.ok(accountingFinanceSource.includes("priorMethods"));
+ assert.ok(accountingFinanceSource.includes("سوابق تخصیص ثبت‌شده روش قبلی را قفل کرده‌اند"));
+});
+
+test("allocation preview only advertises layers allowed by the active valuation policy",()=>{
+ assert.ok(source.includes("active_policies as"));
+ assert.ok(source.includes("active_policy_missing"));
+ assert.ok(source.includes("cost_layer_method_conflicts_with_active_policy"));
+ assert.ok(source.includes("eligible_under_active_policy"));
+ assert.ok(source.includes("activePolicyMethod:row.active_policy_method"));
+});
+
