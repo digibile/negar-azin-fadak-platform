@@ -3,6 +3,7 @@ import test from "node:test";
 import fs from "node:fs";
 
 const source=fs.readFileSync(new URL("./domain-settlement.ts",import.meta.url),"utf8");
+const settlementUiSource=fs.readFileSync(new URL("../../web/app/marketplace/settlements/page.tsx",import.meta.url),"utf8");
 const allocationMigration=fs.readFileSync(new URL("../../../database/migrations/149_finance_cost_layer_allocation_ledger.sql",import.meta.url),"utf8");
 const valuationPolicyMigration=fs.readFileSync(new URL("../../../database/migrations/150_finance_cost_valuation_policy_governance.sql",import.meta.url),"utf8");
 const accountingFinanceSource=fs.readFileSync(new URL("./accounting-finance.ts",import.meta.url),"utf8");
@@ -168,5 +169,34 @@ test("accounting finance workspace exposes real valuation policy lifecycle contr
  assert.ok(financeWorkspaceSource.includes("تأیید و فعال‌سازی"));
  assert.ok(financeWorkspaceSource.includes("بازنشسته‌سازی"));
  assert.ok(financeWorkspaceSource.includes("new Date(policyDraft.effectiveFrom+\"T00:00:00\").toISOString()"));
+});
+
+test("FIFO allocation endpoint is transactional, tenant-scoped and requires the approved FIFO policy",()=>{
+ assert.ok(source.includes("/:issueDocumentId/allocate-cost"));
+ assert.ok(source.includes('requirePermission("accounting-finance.write")'));
+ assert.ok(source.includes("pg_advisory_xact_lock"));
+ assert.ok(source.includes("for share"));
+ assert.ok(source.includes("valuation_method='fifo'"));
+ assert.ok(source.includes("sd.document_type in ('receipt','return_receipt','adjustment')"));
+ assert.ok(source.includes("if(blocked.length)"));
+ assert.ok(source.includes("await client.query(\"begin\")"));
+ assert.ok(source.includes("await client.query(\"commit\")"));
+ assert.ok(source.includes("await client.query(\"rollback\")"));
+ assert.ok(source.includes("'fifo:'||$2::text"));
+ assert.ok(source.includes("finance.cost_layer_allocated"));
+});
+
+test("FIFO allocation plan preserves decimal quantities and orders cost layers by receipt chronology",()=>{
+ assert.ok(source.includes("sum(remaining_quantity) over(partition by product_id order by created_at,cost_layer_id"));
+ assert.ok(source.includes("least(i.issue_end,l.layer_end)-greatest(i.issue_start,l.layer_start)"));
+ assert.ok(source.includes("round(allocation_quantity*unit_cost,4)"));
+ assert.ok(source.includes("and sl.product_id=cl.product_id"));
+});
+
+test("settlement workspace exposes FIFO write action only when preview contains eligible active FIFO layers",()=>{
+ assert.ok(settlementUiSource.includes("/allocate-cost"));
+ assert.ok(settlementUiSource.includes('layer.activePolicyMethod==="fifo"'));
+ assert.ok(settlementUiSource.includes("ثبت تخصیص بهای تمام‌شده بر مبنای FIFO"));
+ assert.ok(settlementUiSource.includes("تخصیص خودکار در این مرحله فقط برای سیاست FIFO"));
 });
 
