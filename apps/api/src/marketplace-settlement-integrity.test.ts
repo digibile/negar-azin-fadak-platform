@@ -119,3 +119,11 @@ test("cost layer allocation preview preserves PostgreSQL numeric precision",()=>
  assert.ok(source.includes("maxAllocatableQuantity:row.max_allocatable_quantity"));
  assert.ok(!source.includes("unitCost:Number(row.unit_cost)"));
 });
+
+test("posted finance issue document picker is tenant-scoped and read-only",()=>{
+ assert.ok(source.includes("posted-issue-documents"));
+ assert.ok(source.includes("d.tenant_id=$1 and d.document_type='issue' and d.status='posted'"));
+ assert.ok(source.includes("limit 100"));
+ assert.ok(source.includes("line_count"));
+ assert.ok(source.includes("readOnly:true"));
+});
