@@ -25,6 +25,8 @@ export interface RefundStatusLookupResult {
  status:"pending"|"refunded"|"failed";
  providerCode:string;
  providerTransactionId:string;
+ /** Provider-issued refund transaction reference, distinct from the original payment transaction. */
+ refundTransactionId?:string;
  providerPayload:Record<string,unknown>;
 }
 
