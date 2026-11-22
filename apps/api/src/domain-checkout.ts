@@ -190,11 +190,13 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
    refundProviderPayload={creditFacilityId:order.credit_facility_ref,restoredAmount:Number(payment.rows[0].amount)};
   }else{
    const provider=getPaymentProvider(payment.rows[0].provider_code);
-   const providerResult=await provider.refundPayment({providerTransactionId:payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref||"",amount:Number(payment.rows[0].amount),metadata:{orderId:order.id,paymentId:payment.rows[0].id}});
-   if(providerResult.status!=="refunded"){await client.query("rollback");return res.status(409).json({error:"درگاه بازگشت وجه را تأیید نکرد",status:providerResult.status});}
+   if(provider.supportsIdempotentRefunds!==true){await client.query("rollback");return res.status(409).json({error:"بازپرداخت کامل برای این درگاه تا زمان تأیید پشتیبانی از کلید یکتای بازپرداخت مجاز نیست",manualReconciliationRequired:true});}
+   const refundIdempotencyKey="order-full-refund-"+payment.rows[0].id;
+   const providerResult=await provider.refundPayment({providerTransactionId:payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref||"",amount:Number(payment.rows[0].amount),metadata:{orderId:order.id,paymentId:payment.rows[0].id,idempotencyKey:refundIdempotencyKey}});
+   if(providerResult.status!=="refunded"){await client.query("rollback");return res.status(409).json({error:"درگاه بازگشت وجه را قطعی تأیید نکرد؛ وضعیت پرداخت باید از مسیر تطبیق درگاه بررسی شود",status:providerResult.status,manualReconciliationRequired:providerResult.status==="pending"});}
    refundProviderCode=provider.code;
    refundProviderTransactionId=providerResult.providerTransactionId;
-   refundProviderPayload=providerResult.providerPayload;
+   refundProviderPayload={...providerResult.providerPayload,idempotencyKey:refundIdempotencyKey};
   }
   const refundNo=s(req.body?.refundNo,100)||("REF-"+Date.now()+"-"+order.id.slice(0,8));
   const rr=await client.query("insert into marketplace_refunds(tenant_id,order_id,payment_id,refund_no,amount,reason,status,provider_code,provider_transaction_id,provider_refund_transaction_id,provider_payload,created_by) values($1,$2,$3,$4,$5,$6,'refunded',$7,$8,$9,$10,$11) returning *",[t.id,order.id,payment.rows[0].id,refundNo,Number(payment.rows[0].amount),s(req.body?.reason,500)||null,refundProviderCode,payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref,refundProviderTransactionId,JSON.stringify(refundProviderPayload),(req as any).user.id]);
