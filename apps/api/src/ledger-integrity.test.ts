@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {validateLedgerLines} from "./ledger.js";
+import {postLedgerEntry,validateLedgerLines} from "./ledger.js";
 
 const balanced=[
  {accountCode:"1001",accountName:"بانک",accountType:"asset",debit:1250},
@@ -46,4 +46,39 @@ test("ledger requires at least two valid lines",()=>{
   {...balanced[0],debit:0},
   {...balanced[1],credit:0}
  ]),/دقیقاً بدهکار یا بستانکار/);
+});
+
+const entryArgs={
+ tenantId:"tenant-1",entryNo:"JE-1",sourceType:"test",sourceId:"source-1",
+ description:"ثبت آزمایشی",createdBy:"user-1",currency:"IRR",lines:balanced
+};
+
+function duplicateClient(lines=balanced,headerOverrides={}){
+ return {query:async(sql:string)=>{
+  if(sql.startsWith("insert into ledger_entries"))return {rows:[],rowCount:0};
+  if(sql.startsWith("select id,entry_no,description,created_by,currency"))return {rows:[{
+   id:"entry-existing",entry_no:"JE-1",description:"ثبت آزمایشی",created_by:"user-1",currency:"IRR",...headerOverrides
+  }],rowCount:1};
+  if(sql.startsWith("select a.code as account_code"))return {rows:lines.map(line=>({
+   account_code:line.accountCode,debit:line.debit??0,credit:line.credit??0,description:line.description??null
+  })),rowCount:lines.length};
+  throw new Error("Unexpected SQL in test: "+sql);
+ }} as any;
+}
+
+test("ledger returns the existing id for an identical source replay",async()=>{
+ const id=await postLedgerEntry(duplicateClient(),entryArgs);
+ assert.equal(id,"entry-existing");
+});
+
+test("ledger rejects a source replay with different lines",async()=>{
+ const changed=[
+  {...balanced[0],debit:1200},
+  {...balanced[1],credit:1200}
+ ];
+ await assert.rejects(()=>postLedgerEntry(duplicateClient(changed),entryArgs),/محتوای متفاوت/);
+});
+
+test("ledger rejects a source replay with a different header",async()=>{
+ await assert.rejects(()=>postLedgerEntry(duplicateClient(balanced,{entryNo:"JE-OTHER"}),entryArgs),/محتوای متفاوت/);
 });
