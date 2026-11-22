@@ -73,6 +73,16 @@ test("invoice balance excludes pending and reversed supplier payments",()=>{
  assert.doesNotMatch(r.body,/n\(inv\.paid_total\)/);
 });
 
+test("supplier payment acquires order lock before invoice lock",()=>{
+ const r=route('router.post("/api/purchasing/invoices/:id/payments"','router.post("/api/purchasing/returns"');
+ const orderLock=r.body.indexOf("purchase_orders where id=$1 and tenant_id=$2 for update");
+ const invoiceLock=r.body.indexOf("purchase_invoices where id=$1 and tenant_id=$2 for update");
+ assert.ok(orderLock>=0);
+ assert.ok(invoiceLock>orderLock);
+ assert.match(r.body,/select id,order_id from purchase_invoices where id=\$1 and tenant_id=\$2/);
+ assert.match(r.body,/invoiceRef\.rows\[0\]\.order_id/);
+});
+
 test("purchase request status transitions are tenant-scoped, locked and atomic",()=>{
  const r=route('router.patch("/api/purchasing/requests/:id/status"','router.post("/api/purchasing/rfqs"');
  assert.ok(r.start>=0);
