@@ -33,7 +33,7 @@ test("carrier invoice posting creates one payable and advances invoice status at
  assert.match(route,/source_module==="logistics-carrier-invoice"/);
  assert.match(route,/accounting_document_id!==old\.id/);
  assert.match(route,/accounting_receivable_payables/);
- assert.match(route,/direction,'payable'/);
+ assert.match(route,/values\(\$1,\$2,\$3,'payable'/);
  assert.match(route,/status='posted'.*status='verified'/s);
  assert.match(route,/logistics\.carrier_invoice_posted/);
  assert.match(route,/platform_audit_events/);
