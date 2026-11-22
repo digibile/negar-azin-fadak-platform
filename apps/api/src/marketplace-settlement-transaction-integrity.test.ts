@@ -52,9 +52,9 @@ test("settlement payout uses the seller supplier account and selected tenant ban
  assert.ok(payout.includes("ap.party_type"));
  assert.ok(payout.includes("ap.default_account_id"));
  assert.ok(payout.includes("ba.id=$3 and ba.tenant_id=s.tenant_id"));
- assert.ok(payout.includes("payable.status party_status"));
+ assert.ok(payout.includes("ap.status party_status"));
  assert.ok(payout.includes("bank.code bank_code"));
- assert.ok(payout.includes("bank.code,accountName:mapping.bank_name"));
+ assert.ok(payout.includes("accountCode:mapping.bank_code,accountName:mapping.bank_name"));
  assert.ok(payout.includes("payout_bank_account_id=$3,payout_ledger_entry_id=$4,payout_reference=$5"));
  assert.doesNotMatch(payout,/accountCode:"(?:2101|1101)"/);
 });
