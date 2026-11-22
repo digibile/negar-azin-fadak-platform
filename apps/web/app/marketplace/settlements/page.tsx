@@ -129,7 +129,7 @@ export default function SettlementsPage(){
    <p className="empty">فقط اسناد خروج مالی قطعی‌شده سازمان جاری نمایش داده می‌شوند. این ابزار پیش‌نمایش خواندنی است؛ ثبت تخصیص فقط برای روش FIFO و با کنترل کامل موجودی، سیاست فعال و دفتر غیرقابل‌تغییر انجام می‌شود. این عملیات سند خروج یا سند حسابداری ایجاد نمی‌کند.</p>
    <div className="platform-form">
     <label>سند خروج مالی
-     <select value={selectedIssueDocumentId} onChange={e=>{setSelectedIssueDocumentId(e.target.value);setAllocationPreview(null);setAllocationResult(null);}}>
+     <select value={selectedIssueDocumentId} onChange={e=>{setSelectedIssueDocumentId(e.target.value);setAllocationPreview(null);setAllocationResult(null);setCogsReadiness(null);}}>
       <option value="">انتخاب سند خروج</option>
       {issueDocuments.map((d:any)=><option key={d.id} value={d.id}>{d.document_no} · {d.document_date} · {d.warehouse_code} - {d.warehouse_title} · {Number(d.line_count||0).toLocaleString("fa-IR")} قلم</option>)}
      </select>
