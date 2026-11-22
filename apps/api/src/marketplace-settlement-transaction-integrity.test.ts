@@ -168,3 +168,11 @@ test("order integrity audit is tenant-scoped, read-only and reports only verifie
  assert.ok(!route.includes("insert into"));
  assert.ok(!route.includes("update "));
 });
+
+
+test("seller settlement workspace displays live order integrity warnings before payout actions",()=>{
+ const ui=fs.readFileSync(new URL("../../web/app/modules/CommercePanelWorkspace.tsx",import.meta.url),"utf8");
+ assert.ok(ui.includes("/api/marketplace/settlements/order-integrity-audit"));
+ assert.ok(ui.includes("گزارش کنترل صحت سفارش و تسویه"));
+ assert.ok(ui.includes("settlementIssues.slice(0,20)"));
+});
