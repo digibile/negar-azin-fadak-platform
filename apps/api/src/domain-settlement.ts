@@ -199,3 +199,78 @@ settlementRouter.get("/api/marketplace/settlements/order-cost-analysis",requireA
   limitation:"This is a component reconciliation, not a profit report. Cost of goods is unavailable because the posted financial inventory cost layer is not linked to marketplace order issue documents. Recorded order commission is shown separately from commission included in paid seller settlements. Currency groups are not combined."
  });
 }));
+
+settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const validDate=(v:unknown)=>{
+  if(typeof v!=="string"||!/^\\d{4}-\\d{2}-\\d{2}$/.test(v))return false;
+  const d=new Date(v+"T00:00:00Z");
+  return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===v;
+ };
+ if(req.query.from&&!validDate(req.query.from))return res.status(400).json({error:"تاریخ شروع گزارش معتبر نیست"});
+ if(req.query.to&&!validDate(req.query.to))return res.status(400).json({error:"تاریخ پایان گزارش معتبر نیست"});
+ const from=req.query.from?String(req.query.from):"1900-01-01";
+ const to=req.query.to?String(req.query.to):"2999-12-31";
+ if(from>to)return res.status(400).json({error:"بازه تاریخ گزارش معتبر نیست"});
+ const params=[t.id,from,to];
+ const result=await query(`
+  with selected_orders as (
+   select o.id,o.order_no,o.currency,o.created_at
+   from marketplace_orders o
+   where o.tenant_id=$1 and o.created_at >= $2::date and o.created_at < ($3::date + interval '1 day')
+   order by o.created_at desc,o.order_no limit 500
+  ),
+  consumed as (
+   select mir.tenant_id,mir.marketplace_order_id,mir.marketplace_product_id,
+    sum(mir.quantity)::numeric consumed_quantity,count(*)::int consumed_reservation_count
+   from marketplace_inventory_reservations mir
+   where mir.tenant_id=$1 and mir.status='consumed'
+   group by mir.tenant_id,mir.marketplace_order_id,mir.marketplace_product_id
+  ),
+  posted_layers as (
+   select cl.tenant_id,cl.product_id,count(*)::int posted_layer_count,
+    sum(cl.quantity)::numeric posted_layer_quantity
+   from finance_cost_layers cl
+   join finance_inventory_lines fil on fil.id=cl.inventory_document_line_id
+   join finance_inventory_documents fid on fid.id=fil.document_id
+    and fid.tenant_id=cl.tenant_id and fid.status='posted'
+   where cl.tenant_id=$1 and cl.quantity>0
+   group by cl.tenant_id,cl.product_id
+  )
+  select so.id order_id,so.order_no,so.currency,so.created_at,
+   oi.id order_item_id,oi.product_id marketplace_product_id,p.sku marketplace_sku,p.title marketplace_product_title,
+   oi.quantity ordered_quantity,
+   mil.inventory_product_id,ip.sku inventory_sku,
+   coalesce(mil.quantity_factor,1)::numeric inventory_quantity_factor,
+   coalesce(c.consumed_quantity,0)::numeric consumed_inventory_quantity,
+   coalesce(c.consumed_reservation_count,0)::int consumed_reservation_count,
+   fpl.finance_product_id,fp.code finance_product_code,fp.title finance_product_title,
+   coalesce(pl.posted_layer_count,0)::int posted_cost_layer_count,
+   coalesce(pl.posted_layer_quantity,0)::numeric posted_cost_layer_quantity,
+   case when ip.id is null then 'missing_inventory_product_mapping'
+    when fpl.finance_product_id is null then 'missing_finance_product_mapping'
+    when coalesce(c.consumed_quantity,0)+0.000001 < oi.quantity*coalesce(mil.quantity_factor,1) then 'inventory_not_fully_consumed'
+    when coalesce(pl.posted_layer_count,0)=0 then 'missing_posted_finance_cost_layers'
+    else 'cost_layers_present_financial_issue_link_pending' end as costing_readiness,
+   'not_calculated'::text cost_of_goods_status
+  from selected_orders so
+  join marketplace_order_items oi on oi.order_id=so.id
+  join products p on p.id=oi.product_id and p.tenant_id=$1
+  left join marketplace_inventory_product_links mil on mil.tenant_id=$1 and mil.product_id=oi.product_id and mil.status='active'
+  left join inventory_products ip on ip.id=mil.inventory_product_id and ip.tenant_id=$1
+  left join consumed c on c.tenant_id=$1 and c.marketplace_order_id=so.id and c.marketplace_product_id=oi.product_id
+  left join marketplace_finance_product_links fpl on fpl.tenant_id=$1 and fpl.inventory_product_id=mil.inventory_product_id and fpl.status='active'
+  left join finance_products fp on fp.id=fpl.finance_product_id and fp.tenant_id=$1
+  left join posted_layers pl on pl.tenant_id=$1 and pl.product_id=fpl.finance_product_id
+  order by so.created_at desc,so.order_no,oi.id limit 2000
+ `,params);
+ const counts=new Map<string,{lineCount:number;orderIds:Set<string>}>();
+ for(const row of result.rows){
+  const item=counts.get(row.costing_readiness)||{lineCount:0,orderIds:new Set<string>()};
+  item.lineCount++;item.orderIds.add(row.order_id);counts.set(row.costing_readiness,item);
+ }
+ const summary=Array.from(counts.entries()).map(([status,value])=>({status,lineCount:value.lineCount,orderCount:value.orderIds.size}));
+ res.json({from,to,items:result.rows,summary,orderLimit:500,lineLimit:2000,readOnly:true,
+  limitation:"This report checks mapping, consumed operational reservations and the existence of cost layers linked to posted financial inventory documents. The current verified flow does not post a financial issue document linked to each marketplace order, so cost of goods is not calculated."
+ });
+}));
