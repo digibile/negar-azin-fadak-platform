@@ -80,3 +80,15 @@ test("shipment list and tracking joins enforce tenant equality on every related 
  const trackingRoute=source.slice(trackingStart,invoiceStart);
  assert.ok(trackingRoute.includes("o.tenant_id=s.tenant_id"));
 });
+
+
+test("logistics eligible-order product details and supply-plan joins remain tenant scoped",()=>{
+ const eligibleStart=source.indexOf('logisticsRouter.get("/api/logistics/marketplace-orders/eligible"');
+ const supplyListStart=source.indexOf('logisticsRouter.get("/api/logistics/supply-orders"');
+ const eligibleRoute=source.slice(eligibleStart,supplyListStart);
+ assert.ok(eligibleRoute.includes("p.tenant_id=o.tenant_id"));
+ const supplyOrderListStart=source.indexOf('logisticsRouter.get("/api/logistics/supply-orders"');
+ const supplyOrderCreateStart=source.indexOf('logisticsRouter.post("/api/logistics/supply-orders"');
+ const supplyOrderList=source.slice(supplyOrderListStart,supplyOrderCreateStart);
+ assert.ok(supplyOrderList.includes("p.tenant_id=o.tenant_id"));
+});
