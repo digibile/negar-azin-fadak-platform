@@ -203,6 +203,8 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
   providerPayload={creditFacilityId:order.credit_facility_ref,restoredAmount:Number(refund.amount)};
   const saved=await query("update marketplace_refunds set provider_refund_transaction_id=$1,provider_last_status='refunded',provider_payload=$2,updated_at=now() where id=$3 and tenant_id=$4 and status='pending' returning id",[providerRefundId,JSON.stringify(providerPayload),refund.id,t.id]);
   if(!saved.rowCount)return res.status(409).json({error:"وضعیت درخواست بازپرداخت تغییر کرده است؛ تطبیق لازم است"});
+ }else if(refund.provider_last_status==="refunded"&&providerRefundId){
+  // An authoritative provider confirmation is already persisted; continue to local finalization only.
  }else if(Number(refund.provider_attempt_count||0)>0){
   return res.status(202).json({error:"این درخواست قبلاً به درگاه ارسال شده است؛ برای جلوگیری از بازپرداخت تکراری ابتدا نتیجه را از پنل تطبیق استعلام کنید",pending:true,providerStatus:refund.provider_last_status||"unknown",refundId:refund.id,reconciliationEndpoint:"/api/marketplace/refunds/"+refund.id+"/reconcile"});
  }else{
