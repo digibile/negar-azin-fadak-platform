@@ -445,14 +445,6 @@ domainMarketplaceRouter.patch("/api/marketplace/orders/:id/status",requireAuth,r
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
-domainMarketplaceRouter.get("/api/marketplace/settlements",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
-  const ctx=await tenantContext(req,(req as any).user);
-  if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
-  const r=await query("select id,settlement_no,seller_id,period_start,period_end,gross_amount,commission_amount,adjustment_amount,net_amount,status,created_at,updated_at from seller_settlements where tenant_id=$1 order by created_at desc",[ctx.id]);
-  res.json({tenant:ctx,items:r.rows,total:r.rowCount});
-}));
-
-
 domainMarketplaceRouter.get("/api/marketplace/categories",requireAuth,requirePermission("category:view"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
