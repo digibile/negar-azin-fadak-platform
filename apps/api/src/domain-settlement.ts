@@ -67,9 +67,9 @@ settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,require
  try{
   await client.query("begin");
   const r=await client.query("select * from seller_settlements where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
-  if(!r.rowCount)return res.status(404).json({error:"تسویه پیدا نشد"});
+  if(!r.rowCount){await client.query("rollback");return res.status(404).json({error:"تسویه پیدا نشد"});}
   const settlement=r.rows[0];
-  if(settlement.status!=="approved")return res.status(409).json({error:"فقط تسویه تأییدشده قابل پرداخت است"});
+  if(settlement.status!=="approved"){await client.query("rollback");return res.status(409).json({error:"فقط تسویه تأییدشده قابل پرداخت است"});}
   const entryId=await postLedgerEntry(client,{tenantId:t.id,entryNo:"SET-"+settlement.settlement_no,sourceType:"seller_settlement",sourceId:settlement.id,description:"پرداخت تسویه فروشنده "+settlement.settlement_no,createdBy:(req as any).user.id,lines:[
    {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",debit:Number(settlement.net_amount)},
    {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:Number(settlement.net_amount)}
