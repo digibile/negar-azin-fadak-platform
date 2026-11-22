@@ -21,6 +21,8 @@ export default function SettlementsPage(){
  const [selectedIssueDocumentId,setSelectedIssueDocumentId]=useState("");
  const [allocationPreview,setAllocationPreview]=useState<any>(null);
  const [allocationPreviewBusy,setAllocationPreviewBusy]=useState(false);
+ const [allocationWriteBusy,setAllocationWriteBusy]=useState(false);
+ const [allocationResult,setAllocationResult]=useState<any>(null);
  const [periodStart,setPeriodStart]=useState(()=>{const d=new Date();d.setDate(d.getDate()-30);return d.toISOString().slice(0,10)});
  const [periodEnd,setPeriodEnd]=useState(()=>new Date().toISOString().slice(0,10));
 
@@ -55,6 +57,8 @@ export default function SettlementsPage(){
  const loadOrderCostReport=async()=>{setReportBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/order-cost-analysis?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setOrderCostReport(result);}catch(e){setError(e instanceof Error?e.message:"گزارش بهای سفارش دریافت نشد.");}finally{setReportBusy(false)}};
  const loadPostedIssueDocuments=async()=>{setIssueDocumentsBusy(true);setError("");try{const result=await api<{items:any[]}>("/api/marketplace/settlements/posted-issue-documents");const rows=result.items||[];setIssueDocuments(rows);setSelectedIssueDocumentId(current=>rows.some(x=>x.id===current)?current:rows[0]?.id||"");setAllocationPreview(null);}catch(e){setError(e instanceof Error?e.message:"فهرست اسناد خروج قطعی دریافت نشد.");}finally{setIssueDocumentsBusy(false)}};
  const loadAllocationPreview=async()=>{if(!selectedIssueDocumentId)return;setAllocationPreviewBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/cost-layer-allocation-preview?issueDocumentId="+encodeURIComponent(selectedIssueDocumentId));setAllocationPreview(result);}catch(e){setAllocationPreview(null);setError(e instanceof Error?e.message:"پیش‌نمایش تخصیص لایه‌ها دریافت نشد.");}finally{setAllocationPreviewBusy(false)}};
+ const allocateCostLayers=async()=>{if(!selectedIssueDocumentId)return;setAllocationWriteBusy(true);setError("");setAllocationResult(null);try{const result=await api<any>("/api/marketplace/settlements/"+encodeURIComponent(selectedIssueDocumentId)+"/allocate-cost",{method:"POST",body:"{}"});setAllocationResult(result);await loadAllocationPreview();}catch(e){setError(e instanceof Error?e.message:"ثبت تخصیص بهای تمام‌شده ناموفق بود.");}finally{setAllocationWriteBusy(false)}};
+ const fifoAllocationReady=Boolean(allocationPreview?.items?.some((line:any)=>Number(line.unallocatedQuantity)>0)&&allocationPreview.items.filter((line:any)=>Number(line.unallocatedQuantity)>0).every((line:any)=>line.candidates?.some((layer:any)=>layer.activePolicyMethod==="fifo"&&layer.policyDecision==="eligible_under_active_policy")));
  const money=(v:unknown)=>Number(v||0).toLocaleString("fa-IR")+" ریال";
  const costingReadinessLabel=(status:string)=>({
   missing_inventory_product_mapping:"اتصال کالای انبار ناقص است",
@@ -98,10 +102,10 @@ export default function SettlementsPage(){
 
   <section className="platform-panel">
    <div className="panel-title"><div><h2>پیش‌نمایش تخصیص لایه‌های بهای تمام‌شده</h2><span>انتخاب سند خروج مالی قطعی و مشاهده مانده قلم‌ها و لایه‌های ورودی</span></div><button type="button" disabled={issueDocumentsBusy} onClick={()=>void loadPostedIssueDocuments()}>{issueDocumentsBusy?"در حال دریافت…":"دریافت اسناد خروج"}</button></div>
-   <p className="empty">فقط اسناد خروج مالی قطعی‌شده سازمان جاری نمایش داده می‌شوند. این ابزار فقط پیش‌نمایش است و هیچ تخصیص، سند خروج یا سند حسابداری ثبت نمی‌کند.</p>
+   <p className="empty">فقط اسناد خروج مالی قطعی‌شده سازمان جاری نمایش داده می‌شوند. این ابزار پیش‌نمایش خواندنی است؛ ثبت تخصیص فقط برای روش FIFO و با کنترل کامل موجودی، سیاست فعال و دفتر غیرقابل‌تغییر انجام می‌شود. این عملیات سند خروج یا سند حسابداری ایجاد نمی‌کند.</p>
    <div className="platform-form">
     <label>سند خروج مالی
-     <select value={selectedIssueDocumentId} onChange={e=>{setSelectedIssueDocumentId(e.target.value);setAllocationPreview(null);}}>
+     <select value={selectedIssueDocumentId} onChange={e=>{setSelectedIssueDocumentId(e.target.value);setAllocationPreview(null);setAllocationResult(null);}}>
       <option value="">انتخاب سند خروج</option>
       {issueDocuments.map((d:any)=><option key={d.id} value={d.id}>{d.document_no} · {d.document_date} · {d.warehouse_code} - {d.warehouse_title} · {Number(d.line_count||0).toLocaleString("fa-IR")} قلم</option>)}
      </select>
@@ -123,9 +127,11 @@ export default function SettlementsPage(){
       {layer?<><td>{layer.costLayerId}</td><td>{layer.method}</td><td>{layer.activePolicyMethod||"—"}</td><td>{String(layer.initialQuantity)}</td><td>{String(layer.allocatedQuantity)}</td><td>{String(layer.remainingQuantity)}</td><td>{String(layer.unitCost)}</td><td>{String(layer.maxAllocatableQuantity)}</td><td>{layer.sourceDocument?.documentNo||"—"}</td><td>{layer.policyDecision}</td></>:<td colSpan={10}>لایه واجد شرایط در همین کالا و انبار پیدا نشد</td>}
      </tr>))}
     </tbody></table></div>
+    {fifoAllocationReady&&<div className="platform-form"><button type="button" disabled={allocationWriteBusy||allocationPreviewBusy} onClick={()=>void allocateCostLayers()}>{allocationWriteBusy?"در حال ثبت تخصیص FIFO…":"ثبت تخصیص بهای تمام‌شده بر مبنای FIFO"}</button></div>}
+    {allocationResult&&<article className="platform-row"><strong>تخصیص ثبت شد</strong><span>ردیف‌های جدید: {Number(allocationResult.createdCount||0).toLocaleString("fa-IR")}</span><span>کل ردیف‌ها: {Number(allocationResult.allocationCount||0).toLocaleString("fa-IR")}</span><span>جمع بهای تخصیص‌یافته: {String(allocationResult.totalCost)} ریال</span></article>}
     <p className="empty">{allocationPreview.limitation}</p>
    </>}
-   <p className="empty">فهرست اسناد به ۱۰۰ سند خروج قطعی اخیر محدود است. انتخاب لایه و ثبت تخصیص در این مرحله غیرفعال است.</p>
+   <p className="empty">فهرست اسناد به ۱۰۰ سند خروج قطعی اخیر محدود است. تخصیص خودکار در این مرحله فقط برای سیاست FIFO فعال و در صورت کفایت کامل لایه‌های ورودی قابل اجراست؛ روش‌های دیگر فقط پیش‌نمایش می‌شوند.</p>
   </section>
   <section className="platform-panel">
    <div className="panel-title"><div><h2>تحلیل اجزای مالی سفارش‌ها</h2><span>فقط داده‌های ثبت‌شده و اسناد قطعی</span></div><button type="button" disabled={reportBusy||!periodStart||!periodEnd||periodEnd<periodStart} onClick={()=>void loadOrderCostReport()}>{reportBusy?"در حال دریافت…":"دریافت گزارش"}</button></div>
