@@ -58,7 +58,7 @@ logisticsRouter.patch("/api/logistics/plans/:id/status",requireAuth,requirePermi
 logisticsRouter.get("/api/logistics/marketplace-orders/eligible",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   const r=await query(
-    "select o.id,o.order_no,o.status,o.created_at,o.total_amount,o.currency,a.recipient_name,a.mobile,a.province,a.city,a.address_line,so.id as supply_order_id,so.status as supply_status,(select coalesce(jsonb_agg(jsonb_build_object('status',ir.status,'quantity',ir.quantity,'inventoryProductId',ir.inventory_product_id) order by ir.created_at),'[]'::jsonb) from marketplace_inventory_reservations ir where ir.tenant_id=o.tenant_id and ir.marketplace_order_id=o.id) as inventory_reservations,(select coalesce(jsonb_agg(jsonb_build_object('title',p.title,'quantity',oi.quantity) order by oi.created_at),'[]'::jsonb) from marketplace_order_items oi join products p on p.id=oi.product_id where oi.order_id=o.id) as items from marketplace_orders o left join marketplace_customer_addresses a on a.id=o.delivery_address_id and a.tenant_id=o.tenant_id left join logistics_supply_orders so on so.tenant_id=o.tenant_id and so.marketplace_order_id=o.id where o.tenant_id=$1 and o.status='paid' order by o.created_at asc limit 200",
+    "select o.id,o.order_no,o.status,o.created_at,o.total_amount,o.currency,a.recipient_name,a.mobile,a.province,a.city,a.address_line,so.id as supply_order_id,so.status as supply_status,(select coalesce(jsonb_agg(jsonb_build_object('status',ir.status,'quantity',ir.quantity,'inventoryProductId',ir.inventory_product_id) order by ir.created_at),'[]'::jsonb) from marketplace_inventory_reservations ir where ir.tenant_id=o.tenant_id and ir.marketplace_order_id=o.id) as inventory_reservations,(select coalesce(jsonb_agg(jsonb_build_object('title',p.title,'quantity',oi.quantity) order by oi.created_at),'[]'::jsonb) from marketplace_order_items oi join products p on p.id=oi.product_id and p.tenant_id=o.tenant_id where oi.order_id=o.id) as items from marketplace_orders o left join marketplace_customer_addresses a on a.id=o.delivery_address_id and a.tenant_id=o.tenant_id left join logistics_supply_orders so on so.tenant_id=o.tenant_id and so.marketplace_order_id=o.id where o.tenant_id=$1 and o.status='paid' order by o.created_at asc limit 200",
     [t.id]
   );
   res.json(r.rows);
@@ -67,7 +67,7 @@ logisticsRouter.get("/api/logistics/marketplace-orders/eligible",requireAuth,asy
 logisticsRouter.get("/api/logistics/orders",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   const r=await query(
-    "select o.*,p.plan_no from logistics_supply_orders o left join logistics_supply_plans p on p.id=o.plan_id where o.tenant_id=$1 order by o.created_at desc",
+    "select o.*,p.plan_no from logistics_supply_orders o left join logistics_supply_plans p on p.id=o.plan_id and p.tenant_id=o.tenant_id where o.tenant_id=$1 order by o.created_at desc",
     [t.id]
   );
   res.json(r.rows);
@@ -85,7 +85,7 @@ logisticsRouter.post("/api/logistics/orders/from-marketplace/:orderId",requireAu
     const origin=[warehouse.name,warehouse.address].filter(Boolean).join("، ");
     if(!origin||origin.length>250){await c.query("rollback");return fail(res,400,"نشانی انبار مبدأ معتبر نیست");}
     const order=(await c.query(
-      "select o.id,o.order_no,o.status,a.province,a.city,a.address_line,(select coalesce(sum(oi.quantity),0) from marketplace_order_items oi where oi.order_id=o.id) quantity,(select string_agg(p.title||' × '||oi.quantity,', ' order by oi.created_at) from marketplace_order_items oi join products p on p.id=oi.product_id where oi.order_id=o.id) cargo from marketplace_orders o left join marketplace_customer_addresses a on a.id=o.delivery_address_id and a.tenant_id=o.tenant_id where o.id=$1 and o.tenant_id=$2 for update of o",
+      "select o.id,o.order_no,o.status,a.province,a.city,a.address_line,(select coalesce(sum(oi.quantity),0) from marketplace_order_items oi where oi.order_id=o.id) quantity,(select string_agg(p.title||' × '||oi.quantity,', ' order by oi.created_at) from marketplace_order_items oi join products p on p.id=oi.product_id and p.tenant_id=o.tenant_id where oi.order_id=o.id) cargo from marketplace_orders o left join marketplace_customer_addresses a on a.id=o.delivery_address_id and a.tenant_id=o.tenant_id where o.id=$1 and o.tenant_id=$2 for update of o",
       [req.params.orderId,t.id]
     )).rows[0];
     if(!order){await c.query("rollback");return fail(res,404,"سفارش فروشگاه پیدا نشد");}
