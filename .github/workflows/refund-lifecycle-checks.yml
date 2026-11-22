@@ -1,0 +1,43 @@
+name: Refund lifecycle checks
+
+on:
+  pull_request:
+    paths:
+      - "apps/api/src/domain-checkout.ts"
+      - "apps/api/src/payment-provider.ts"
+      - "apps/api/src/*refund*.test.ts"
+      - "apps/web/app/admin/refunds/**"
+      - "apps/web/app/admin/master-menu.ts"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      - "apps/api/package.json"
+      - "apps/web/package.json"
+      - ".github/workflows/refund-lifecycle-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  refund-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.3.4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run API tests
+        run: pnpm --filter @naf/api test
+      - name: Type-check API
+        run: pnpm --filter @naf/api lint
+      - name: Type-check web
+        run: pnpm --filter @naf/web lint
