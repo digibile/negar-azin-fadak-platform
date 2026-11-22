@@ -803,3 +803,42 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
   limitation:"This report checks mapping, consumed operational reservations and the existence of cost layers linked to posted financial inventory documents. The current verified flow does not post a financial issue document linked to each marketplace order, so cost of goods is not calculated."
  });
 }));
+
+ 
+// Persist an explicit, tenant-safe relationship between a consumed marketplace
+// reservation and the exact posted financial issue line. No cost or GL posting
+// is performed here; this is an auditable source-link operation only.
+settlementRouter.post("/api/marketplace/settlements/financial-issue-line-links",requireAuth,requirePermission("accounting-finance.write"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const reservationId=s(req.body?.reservationId,64);
+ const issueDocumentLineId=s(req.body?.issueDocumentLineId,64);
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ if(!uuid.test(reservationId)||!uuid.test(issueDocumentLineId))return res.status(400).json({error:"شناسه رزرو و قلم سند خروج باید UUID معتبر باشند"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const existing=await client.query(
+   "select id from marketplace_finance_issue_line_links where tenant_id=$1 and (reservation_id=$2 or issue_document_line_id=$3) for update",
+   [t.id,reservationId,issueDocumentLineId]
+  );
+  if(existing.rowCount){await client.query("rollback");return res.status(409).json({error:"رزرو یا قلم سند خروج قبلاً به یکدیگر یا رکورد دیگری متصل شده‌اند",existingLinkId:existing.rows[0].id});}
+  const inserted=await client.query(
+   "insert into marketplace_finance_issue_line_links (tenant_id,reservation_id,issue_document_id,issue_document_line_id,linked_quantity,inventory_to_finance_factor,created_by) " +
+   "select $1,r.id,d.id,il.id,0,1,$4 from marketplace_inventory_reservations r " +
+   "join finance_inventory_lines il on il.id=$3 join finance_inventory_documents d on d.id=il.document_id and d.tenant_id=$1 " +
+   "where r.id=$2 and r.tenant_id=$1 returning *",
+   [t.id,reservationId,issueDocumentLineId,(req as any).user.id]
+  );
+  if(!inserted.rowCount){await client.query("rollback");return res.status(404).json({error:"رزرو یا قلم سند خروج در سازمان جاری پیدا نشد"});}
+  await client.query(
+   "insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'marketplace.finance_issue_line_linked','marketplace_finance_issue_line_link',$3,$4)",
+   [t.id,(req as any).user.id,inserted.rows[0].id,JSON.stringify(inserted.rows[0])]
+  );
+  await client.query("commit");
+  res.status(201).json({link:inserted.rows[0],costPostingCreated:false,readOnlyCostingUntilAccountingApproval:true});
+ }catch(e:any){
+  await client.query("rollback");
+  if(e?.code==="23505"||e?.code==="P0001")return res.status(409).json({error:"ارتباط قابل ثبت نیست؛ یکتایی، وضعیت رزرو، کالا، انبار، مقدار یا منبع سند با هم تطبیق ندارند"});
+  throw e;
+ }finally{client.release();}
+}));
