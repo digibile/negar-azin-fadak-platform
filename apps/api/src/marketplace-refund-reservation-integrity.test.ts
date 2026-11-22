@@ -72,3 +72,38 @@ test("full refund does not treat a pending provider response as confirmed money 
  assert.ok(route.includes('providerResult.status!=="refunded"'));
  assert.ok(route.includes('manualReconciliationRequired:providerResult.status==="pending"'));
 });
+
+
+test("full refund request is durably inserted and committed before contacting the provider",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ const insert=route.indexOf("insert into marketplace_refunds");
+ const firstCommit=route.indexOf('await client.query("commit")');
+ const provider=route.indexOf("provider.refundPayment");
+ assert.ok(insert>=0&&firstCommit>insert&&provider>firstCommit);
+ assert.ok(route.includes("provider_idempotency_key"));
+ assert.ok(route.includes("'pending'"));
+});
+
+test("full refund provider confirmation is persisted before independent financial finalization",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ const persist=route.indexOf("set provider_code=$1,provider_refund_transaction_id=$2");
+ const finalize=route.indexOf("const finalize=await pool.connect()");
+ const ledger=route.indexOf("postLedgerEntry(finalize");
+ assert.ok(persist>=0&&finalize>persist&&ledger>finalize);
+ assert.ok(route.includes("provider_last_status='unknown'"));
+ assert.ok(route.includes("providerResult.status!==\"refunded\""));
+});
+
+test("repeated full-refund requests reuse the existing payment-scoped refund record",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes("const full=prior.rows.find"));
+ assert.ok(route.includes("if(full){refund=full;}"));
+ assert.ok(route.includes('if(full?.status==="refunded")'));
+ assert.ok(route.includes('const idempotencyKey=refund.provider_idempotency_key||("order-full-refund-"+payment.id)'));
+});
