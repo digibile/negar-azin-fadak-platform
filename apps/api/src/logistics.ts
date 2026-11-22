@@ -530,9 +530,15 @@ logisticsRouter.post("/api/logistics/carrier-invoices",requireAuth,requirePermis
 logisticsRouter.get("/api/logistics/carrier-cost-reports",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   if(!(await can(req,"modules:12-logistics-supply:read")))return fail(res,403,"دسترسی مشاهده گزارش هزینه حمل را ندارید");
-  const validDate=(v:any)=>typeof v==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v+"T00:00:00Z"));
-  const from=validDate(req.query.from)?String(req.query.from):"1900-01-01";
-  const to=validDate(req.query.to)?String(req.query.to):"2999-12-31";
+  const validDate=(v:any)=>{
+    if(typeof v!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;
+    const parsed=new Date(v+"T00:00:00Z");
+    return !Number.isNaN(parsed.getTime())&&parsed.toISOString().slice(0,10)===v;
+  };
+  if(req.query.from&&!validDate(req.query.from))return fail(res,400,"تاریخ شروع گزارش معتبر نیست");
+  if(req.query.to&&!validDate(req.query.to))return fail(res,400,"تاریخ پایان گزارش معتبر نیست");
+  const from=req.query.from?String(req.query.from):"1900-01-01";
+  const to=req.query.to?String(req.query.to):"2999-12-31";
   if(from>to)return fail(res,400,"بازه تاریخ گزارش معتبر نیست");
   const params=[t.id,from,to];
   const postedAllocations=`with posted_allocations as (
