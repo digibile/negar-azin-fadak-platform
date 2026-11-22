@@ -22,7 +22,7 @@ router.get("/api/accounting-finance/overview",requireAuth,async(req,res)=>{
  res.json({books:books.rows,periods:periods.rows,documents:docs.rows,costCenters:centers.rows,accounts:accounts.rows,summary:summary.rows[0]});
 });
 
-router.get("/api/accounting-finance/cost-valuation-policies",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+router.get("/api/accounting-finance/cost-valuation-policies",requireAuth,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const r=await query(`
   select p.id,p.product_id,fp.code product_code,fp.title product_title,
@@ -53,6 +53,8 @@ router.post("/api/accounting-finance/cost-valuation-policies",requireAuth,requir
   ||!Number.isFinite(from.getTime())||(to&&(!Number.isFinite(to.getTime())||to<=from))){
   return deny(res,400,"کالا، انبار، روش، دلیل و بازه اعتبار سیاست باید معتبر باشند");
  }
+ const refs=await query("select (select count(*) from finance_products where id=$1 and tenant_id=$3 and is_active=true)::int product_ok,(select count(*) from finance_warehouses where id=$2 and tenant_id=$3 and status='active')::int warehouse_ok",[b.productId,b.warehouseId,t.id]);
+ if(!refs.rows[0]?.product_ok||!refs.rows[0]?.warehouse_ok)return deny(res,400,"کالا و انبار باید فعال و متعلق به سازمان جاری باشند");
  try{
   const r=await query(`
    insert into finance_cost_valuation_policies
