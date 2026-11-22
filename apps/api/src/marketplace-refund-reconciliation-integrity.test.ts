@@ -54,3 +54,32 @@ test("order item inventory restoration uses the established order_items schema w
  assert.ok(route.includes('finalize.query("select * from marketplace_order_items where order_id=$1",[order.id])'));
  assert.ok(!route.includes('finalize.query("select * from marketplace_order_items where order_id=$1",[order.id,t.id])'));
 });
+
+
+test("manual reconciliation requires a provider refund reference, evidence reference, and explanation with audit event",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/refunds/:id/confirm-manual"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.startsWith('checkoutRouter.post("/api/marketplace/refunds/:id/confirm-manual",requireAuth,requirePermission("payment:refund"),requireCsrf'));
+ assert.ok(route.includes("providerRefundReference"));
+ assert.ok(route.includes("evidenceReference"));
+ assert.ok(route.includes("confirmationNote"));
+ assert.ok(route.includes("payment.refund.manually_reconciled"));
+ assert.ok(route.includes("provider_attempt_count"));
+});
+
+test("provider lookup rejects an empty or oversized distinct refund reference",()=>{
+ assert.ok(provider.includes('result.refundTransactionId!==undefined'));
+ assert.ok(provider.includes('!result.refundTransactionId.trim()||result.refundTransactionId.length>200'));
+});
+
+test("previously confirmed provider refund bypasses another refund call and proceeds to local finalization",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"');
+ const end=checkout.indexOf('checkoutRouter.get("/api/marketplace/refunds/reconciliation"',start);
+ const route=checkout.slice(start,end);
+ const confirmed=route.indexOf('refund.provider_last_status==="refunded"&&providerRefundId');
+ const providerCall=route.indexOf("provider.refundPayment");
+ const finalization=route.indexOf("const finalize=await pool.connect()");
+ assert.ok(confirmed>=0&&providerCall>confirmed&&finalization>providerCall);
+ assert.ok(route.includes("continue to local finalization only"));
+});
