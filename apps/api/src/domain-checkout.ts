@@ -6,7 +6,7 @@ import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
 import {randomUUID} from "node:crypto";
 import {postLedgerEntry} from "./ledger.js";
 import {emitBusinessEvent} from "./business-events.js";
-import {getPaymentProvider} from "./payment-provider.js";
+import {getPaymentProvider,lookupPaymentRefundStatus} from "./payment-provider.js";
 
 export const checkoutRouter=Router();
 const s=(v:unknown,n=200)=>typeof v==="string"?v.trim().slice(0,n):"";
@@ -203,23 +203,27 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
   providerPayload={creditFacilityId:order.credit_facility_ref,restoredAmount:Number(refund.amount)};
   const saved=await query("update marketplace_refunds set provider_refund_transaction_id=$1,provider_last_status='refunded',provider_payload=$2,updated_at=now() where id=$3 and tenant_id=$4 and status='pending' returning id",[providerRefundId,JSON.stringify(providerPayload),refund.id,t.id]);
   if(!saved.rowCount)return res.status(409).json({error:"وضعیت درخواست بازپرداخت تغییر کرده است؛ تطبیق لازم است"});
- }else if(refund.provider_last_status!=="refunded"||!providerRefundId){
+ }else if(Number(refund.provider_attempt_count||0)>0){
+  return res.status(202).json({error:"این درخواست قبلاً به درگاه ارسال شده است؛ برای جلوگیری از بازپرداخت تکراری ابتدا نتیجه را از پنل تطبیق استعلام کنید",pending:true,providerStatus:refund.provider_last_status||"unknown",refundId:refund.id,reconciliationEndpoint:"/api/marketplace/refunds/"+refund.id+"/reconcile"});
+ }else{
   let provider:any;
+  const claimToken=randomUUID();
   try{
    provider=getPaymentProvider(providerCode);
    if(provider.supportsIdempotentRefunds!==true)return res.status(409).json({error:"بازپرداخت کامل برای این درگاه تا زمان تأیید پشتیبانی از کلید یکتای بازپرداخت مجاز نیست",manualReconciliationRequired:true});
    const idempotencyKey=refund.provider_idempotency_key||("order-full-refund-"+payment.id);
-   await query("update marketplace_refunds set provider_attempt_count=provider_attempt_count+1,provider_last_attempt_at=now(),updated_at=now() where id=$1 and tenant_id=$2 and status='pending'",[refund.id,t.id]);
+   const claimed=await query("update marketplace_refunds set provider_claim_token=$1,provider_claimed_at=now(),provider_attempt_count=provider_attempt_count+1,provider_last_attempt_at=now(),updated_at=now() where id=$2 and tenant_id=$3 and status='pending' and provider_attempt_count=0 and (provider_claim_token is null or provider_claimed_at<now()-interval '5 minutes') returning id",[claimToken,refund.id,t.id]);
+   if(!claimed.rowCount)return res.status(202).json({error:"درخواست بازپرداخت هم‌اکنون توسط فرایند دیگری در حال پردازش یا تطبیق است",pending:true,refundId:refund.id});
    const providerResult=await provider.refundPayment({providerTransactionId:payment.provider_transaction_id||payment.provider_ref||"",amount:Number(refund.amount),metadata:{orderId:order.id,paymentId:payment.id,refundId:refund.id,idempotencyKey}});
    if(providerResult.status!=="refunded"){
-    await query("update marketplace_refunds set provider_last_status=$1,provider_last_error=$2,updated_at=now() where id=$3 and tenant_id=$4 and status='pending'",[providerResult.status,"درگاه هنوز بازپرداخت را قطعی تأیید نکرده است",refund.id,t.id]);
-    return res.status(202).json({error:"درخواست بازپرداخت ثبت شده اما نتیجه درگاه قطعی نیست؛ با همان شناسه قابل پیگیری است",pending:true,providerStatus:providerResult.status,refundId:refund.id});
+    await query("update marketplace_refunds set provider_last_status=$1,provider_last_error=$2,provider_claim_token=null,provider_claimed_at=null,updated_at=now() where id=$3 and tenant_id=$4 and provider_claim_token=$5 and status='pending'",[providerResult.status,"درگاه هنوز بازپرداخت را قطعی تأیید نکرده است",refund.id,t.id,claimToken]);
+    return res.status(202).json({error:"درخواست بازپرداخت ثبت شده اما نتیجه درگاه قطعی نیست؛ ابتدا استعلام معتبر انجام دهید",pending:true,providerStatus:providerResult.status,refundId:refund.id});
    }
    providerCode=provider.code;providerRefundId=providerResult.providerTransactionId;providerPayload={...providerResult.providerPayload,idempotencyKey};
-   await query("update marketplace_refunds set provider_code=$1,provider_refund_transaction_id=$2,provider_payload=$3,provider_last_status='refunded',provider_last_error=null,updated_at=now() where id=$4 and tenant_id=$5 and status='pending'",[providerCode,providerRefundId,JSON.stringify(providerPayload),refund.id,t.id]);
+   await query("update marketplace_refunds set provider_code=$1,provider_refund_transaction_id=$2,provider_payload=$3,provider_last_status='refunded',provider_last_error=null,provider_claim_token=null,provider_claimed_at=null,updated_at=now() where id=$4 and tenant_id=$5 and provider_claim_token=$6 and status='pending'",[providerCode,providerRefundId,JSON.stringify(providerPayload),refund.id,t.id,claimToken]);
   }catch(e:any){
    const message=String(e?.message||"نتیجه ارتباط با درگاه نامعلوم است").slice(0,500);
-   await query("update marketplace_refunds set provider_last_status='unknown',provider_last_error=$1,updated_at=now() where id=$2 and tenant_id=$3 and status='pending'",[message,refund.id,t.id]);
+   await query("update marketplace_refunds set provider_last_status='unknown',provider_last_error=$1,provider_claim_token=null,provider_claimed_at=null,updated_at=now() where id=$2 and tenant_id=$3 and provider_claim_token=$4 and status='pending'",[message,refund.id,t.id,claimToken]);
    return res.status(202).json({error:"نتیجه درخواست درگاه نامعلوم است؛ درخواست ثبت شد و از ایجاد بازپرداخت مستقل جدید جلوگیری می‌شود",pending:true,providerStatus:"unknown",refundId:refund.id});
   }
  }
@@ -256,7 +260,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
    {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",debit:Number(currentOrder.rows[0].commission_amount)},
    providerCode==="credit_facility"?{accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",credit:Number(currentOrder.rows[0].total_amount)}:{accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:Number(currentOrder.rows[0].total_amount)}
   ]});
-  const items=await finalize.query("select * from marketplace_order_items where order_id=$1",[order.id,t.id]);
+  const items=await finalize.query("select * from marketplace_order_items where order_id=$1",[order.id]);
   for(const item of items.rows){
    await finalize.query("update product_inventory set quantity=quantity+$1,updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[item.quantity,t.id,item.product_id,currentOrder.rows[0].store_id]);
    await finalize.query("insert into inventory_movements(tenant_id,product_id,store_id,movement_type,quantity,reference_type,reference_id,created_by) values($1,$2,$3,'refund',$4,'marketplace_refund',$5,$6)",[t.id,item.product_id,currentOrder.rows[0].store_id,Number(item.quantity),rr.rows[0].id,actorId]);
@@ -267,6 +271,46 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
   res.status(201).json({refund:rr.rows[0],order:{id:order.id,status:"refunded"}});
  }catch(e){await finalize.query("rollback");throw e;}finally{finalize.release();}
 }));
+checkoutRouter.get("/api/marketplace/refunds/reconciliation",requireAuth,requirePermission("payment:refund"),asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const limit=Math.max(1,Math.min(100,Number(req.query.limit)||50));
+ const result=await query("select r.id,r.refund_no,r.order_id,r.payment_id,r.amount,r.reason,r.status,r.provider_code,r.provider_transaction_id,r.provider_refund_transaction_id,r.provider_idempotency_key,r.provider_attempt_count,r.provider_last_attempt_at,r.provider_last_status,r.provider_last_error,r.provider_claimed_at,r.created_at,r.updated_at,o.order_no,o.status as order_status,p.payment_no,p.status as payment_status from marketplace_refunds r join marketplace_orders o on o.id=r.order_id and o.tenant_id=r.tenant_id join marketplace_payments p on p.id=r.payment_id and p.tenant_id=r.tenant_id where r.tenant_id=$1 and r.status='pending' and (r.provider_attempt_count>0 or r.provider_last_status in ('unknown','pending','failed')) order by r.updated_at asc limit $2",[t.id,limit]);
+ res.json({items:result.rows});
+}));
+
+checkoutRouter.post("/api/marketplace/refunds/:id/reconcile",requireAuth,requirePermission("payment:refund"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const token=randomUUID();
+ const claimed=await query("update marketplace_refunds set provider_claim_token=$1,provider_claimed_at=now(),updated_at=now() where id=$2 and tenant_id=$3 and status='pending' and (provider_claim_token is null or provider_claimed_at<now()-interval '5 minutes') returning *",[token,req.params.id,t.id]);
+ if(!claimed.rowCount)return res.status(409).json({error:"درخواست پیدا نشد یا هم‌اکنون در حال پردازش است"});
+ const refund=claimed.rows[0];
+ try{
+  if(refund.provider_last_status==="refunded"&&refund.provider_refund_transaction_id){
+   await query("update marketplace_refunds set provider_claim_token=null,provider_claimed_at=null where id=$1 and tenant_id=$2 and provider_claim_token=$3",[refund.id,t.id,token]);
+   return res.json({status:"refunded",refundId:refund.id,finalizationRequired:true,finalizationEndpoint:"/api/marketplace/orders/"+refund.order_id+"/refund"});
+  }
+  const provider=getPaymentProvider(refund.provider_code);
+  const lookup=await lookupPaymentRefundStatus(provider,{providerTransactionId:refund.provider_transaction_id||"",amount:Number(refund.amount),metadata:{refundId:refund.id,refundNo:refund.refund_no,idempotencyKey:refund.provider_idempotency_key}});
+  if(!lookup.supported){
+   await query("update marketplace_refunds set provider_claim_token=null,provider_claimed_at=null where id=$1 and tenant_id=$2 and provider_claim_token=$3",[refund.id,t.id,token]);
+   return res.status(409).json({error:"این درگاه استعلام مستند وضعیت بازپرداخت را پیاده‌سازی نکرده است؛ تطبیق باید با گزارش رسمی درگاه انجام شود",providerLookupSupported:false,manualReconciliationRequired:true,refundId:refund.id});
+  }
+  const result=lookup.result;
+  if(result.status==="refunded"&&!result.refundTransactionId){
+   await query("update marketplace_refunds set provider_last_status='unknown',provider_last_error=$1,provider_payload=$2,provider_claim_token=null,provider_claimed_at=null,updated_at=now() where id=$3 and tenant_id=$4 and provider_claim_token=$5",[ "درگاه وضعیت بازپرداخت را تأیید کرد اما شناسه مستقل بازپرداخت ارائه نشد",JSON.stringify(result.providerPayload),refund.id,t.id,token]);
+   return res.status(409).json({error:"درگاه بازپرداخت را تأیید کرده اما شناسه بازپرداخت مستقل برنگردانده است؛ ثبت نهایی خودکار مجاز نیست",manualReconciliationRequired:true,refundId:refund.id});
+  }
+  await query("update marketplace_refunds set provider_last_status=$1,provider_last_error=$2,provider_refund_transaction_id=case when $1='refunded' then $3 else provider_refund_transaction_id end,provider_payload=$4,provider_claim_token=null,provider_claimed_at=null,updated_at=now() where id=$5 and tenant_id=$6 and provider_claim_token=$7 and status='pending'",[result.status,result.status==="failed"?"درگاه بازپرداخت را ناموفق اعلام کرده است":null,result.refundTransactionId||null,JSON.stringify(result.providerPayload),refund.id,t.id,token]);
+  if(result.status==="refunded")return res.json({status:"refunded",refundId:refund.id,finalizationRequired:true,finalizationEndpoint:"/api/marketplace/orders/"+refund.order_id+"/refund"});
+  if(result.status==="pending")return res.status(202).json({status:"pending",refundId:refund.id,message:"درگاه هنوز نتیجه قطعی نداده است؛ بعداً دوباره استعلام کنید"});
+  return res.status(409).json({status:"failed",refundId:refund.id,manualReconciliationRequired:true,message:"درگاه بازپرداخت را ناموفق اعلام کرده است؛ درخواست جدید بدون بررسی علت مجاز نیست"});
+ }catch(error:any){
+  const message=String(error?.message||"خطای نامشخص در استعلام درگاه").slice(0,500);
+  await query("update marketplace_refunds set provider_last_status='unknown',provider_last_error=$1,provider_claim_token=null,provider_claimed_at=null,updated_at=now() where id=$2 and tenant_id=$3 and provider_claim_token=$4 and status='pending'",[message,refund.id,t.id,token]);
+  return res.status(202).json({status:"unknown",refundId:refund.id,manualReconciliationRequired:true,message:"استعلام درگاه کامل نشد؛ وضعیت نامعلوم حفظ شد و بازپرداخت جدیدی ایجاد نشد"});
+ }
+}));
+
 checkoutRouter.post("/api/marketplace/orders/:id/cancel",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const client=await pool.connect();
