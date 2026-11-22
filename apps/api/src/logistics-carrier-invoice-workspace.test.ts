@@ -35,6 +35,13 @@ test("carrier invoice accounting document can be submitted, approved and posted 
  assert.ok(accounting.includes("carrierInvoice.accounting_document_id!==old.id"));
 });
 
+test("carrier payment drafts reserve the unpaid balance until posted or voided",()=>{
+ assert.match(accounting,/reserved_amount from treasury_payments/);
+ assert.match(accounting,/availableAmount=Math\.max\(0,remaining-reservedAmount\)/);
+ assert.match(web,/const reserved=carrierPayments\.filter/);
+ assert.match(web,/قابل درخواست جدید/);
+});
+
 test("carrier payment UI uses the accounting document lifecycle and treasury settlement",()=>{
  assert.ok(web.includes('"/api/accounting-finance/carrier-invoices/"+activeCarrierInvoice.id+"/payments"'));
  assert.ok(web.includes("قطعی‌سازی و پرداخت"));
