@@ -17,6 +17,8 @@ create table if not exists logistics_carrier_invoices(
   tax_amount numeric(20,2) not null default 0 check(tax_amount>=0),
   total_amount numeric(20,2) not null check(total_amount>0 and total_amount=subtotal+tax_amount),
   status text not null default 'draft' check(status in ('draft','verified','posted','void')),
+  verified_by uuid references users(id) on delete set null,
+  verified_at timestamptz,
   notes text not null default '',
   created_by uuid references users(id) on delete set null,
   created_at timestamptz not null default now(),
