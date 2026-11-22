@@ -277,7 +277,7 @@ router.patch("/api/accounting-finance/documents/:id/status",requireAuth,requireP
   res.json({document:updated,payable,carrierInvoiceStatus:carrierInvoice&&nextStatus==="posted"?"posted":undefined,carrierPaymentStatus:carrierPayment&&nextStatus==="posted"?"paid":undefined});
  }catch(e:any){
   await c.query("rollback");
-  if(e?.code==="23505")return deny(res,409,"برای این صورتحساب بدهی قبلاً ثبت شده است");
+  if(e?.code==="23505")return deny(res,409,"شماره سند یا پرداخت تکراری است یا این منبع قبلاً ثبت شده است");
   throw e;
  }finally{c.release();}
 });
