@@ -129,3 +129,21 @@ test("reconciliation and manual confirmation can hand a confirmed refund back to
  assert.ok(manual.includes("finalizationRequired:true"));
  assert.ok(manual.includes("providerRefundReference"));
 });
+
+
+test("automatic provider reconciliation rejects a refund reference already attached to another refund",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/refunds/:id/reconcile"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/refunds/:id/confirm-manual"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes('if(result.status==="refunded"&&result.refundTransactionId)'));
+ assert.ok(route.includes("provider_refund_transaction_id=$3 and id<>$4 limit 1"));
+ assert.ok(route.includes("شناسه بازپرداخت درگاه تکراری است"));
+});
+
+test("manual reconciliation cannot override an active provider lookup claim",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/refunds/:id/confirm-manual"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"',start);
+ const route=checkout.slice(start,end);
+ assert.ok(route.includes("refund.provider_claim_token&&refund.provider_claimed_at"));
+ assert.ok(route.includes("فرایند استعلام درگاه قرار دارد"));
+});
