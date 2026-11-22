@@ -327,6 +327,7 @@ checkoutRouter.post("/api/marketplace/refunds/:id/confirm-manual",requireAuth,re
   const selected=await client.query("select * from marketplace_refunds where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
   if(!selected.rowCount){await client.query("rollback");return res.status(404).json({error:"درخواست بازپرداخت پیدا نشد"});}
   const refund=selected.rows[0];
+  if(refund.provider_claim_token&&refund.provider_claimed_at&&new Date(refund.provider_claimed_at).getTime()>Date.now()-5*60*1000){await client.query("rollback");return res.status(409).json({error:"این درخواست هم‌اکنون در فرایند استعلام درگاه قرار دارد"});}
   if(refund.status!=="pending"||Number(refund.provider_attempt_count||0)<1||refund.provider_code==="credit_facility"){
    await client.query("rollback");return res.status(409).json({error:"این درخواست واجد شرایط تطبیق دستی نیست"});
   }
