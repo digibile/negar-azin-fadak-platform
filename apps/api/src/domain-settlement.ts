@@ -335,8 +335,9 @@ settlementRouter.get("/api/marketplace/settlements/cogs-accounting-readiness",re
  const openPeriodBooks=books.rows.filter((b:any)=>b.matching_period_id&&b.period_status==="open");
  const blockedReasons:string[]=[];
  if(doc.status!=="posted")blockedReasons.push("سند خروج هنوز قطعی نشده است");
- if(!orderLinkVerified)blockedReasons.push("منبع سند خروج به‌صورت صریح و قابل تأیید به سفارش بازارگاه متصل نیست");\n blockedReasons.push("ارتباط تک‌تک اقلام سفارش با اقلام سند خروج هنوز ثبت و تأیید نشده است");
- if(!fullAllocation)blockedReasons.push("تمام اقلام سند خروج تخصیص بهای کامل و هم‌روش ندارند");
+ if(!orderLinkVerified)blockedReasons.push("منبع سند خروج به‌صورت صریح و قابل تأیید به سفارش بازارگاه متصل نیست");
+ blockedReasons.push("ارتباط تک‌تک اقلام سفارش با اقلام سند خروج هنوز ثبت و تأیید نشده است");
+ if(!fullAllocation)blockedReasons.push("تمام اقلام سند خروج تخصیص کامل بهای تمام‌شده ندارند");
  if(!openPeriodBooks.length)blockedReasons.push("برای تاریخ سند خروج، دفتر فعال با دوره مالی باز پیدا نشد");
  if(!accounts.rows.some((x:any)=>x.account_nature==="asset"))blockedReasons.push("حساب فعال و قابل ثبت با ماهیت دارایی پیدا نشد");
  if(!accounts.rows.some((x:any)=>x.account_nature==="expense"))blockedReasons.push("حساب فعال و قابل ثبت با ماهیت هزینه پیدا نشد");
