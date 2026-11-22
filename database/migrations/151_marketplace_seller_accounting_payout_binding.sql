@@ -27,11 +27,3 @@ create index if not exists idx_seller_settlements_payout_bank
  on seller_settlements(tenant_id,payout_bank_account_id) where payout_bank_account_id is not null;
 create unique index if not exists uq_seller_settlement_payout_ledger_entry
  on seller_settlements(tenant_id,payout_ledger_entry_id) where payout_ledger_entry_id is not null;
-
-do $$
-begin
- if not exists(select 1 from pg_constraint where conname='seller_settlements_paid_requires_payout_evidence') then
-  alter table seller_settlements add constraint seller_settlements_paid_requires_payout_evidence
-   check(status<>'paid' or (payout_bank_account_id is not null and payout_ledger_entry_id is not null and nullif(btrim(payout_reference),'') is not null)) not valid;
- end if;
-end $$;
