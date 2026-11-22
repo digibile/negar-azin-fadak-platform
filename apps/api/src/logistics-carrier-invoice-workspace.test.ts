@@ -52,3 +52,17 @@ test("carrier payment UI uses the accounting document lifecycle and treasury set
  assert.ok(web.includes('activeCarrierInvoice.currency==="IRR"'));
  assert.ok(web.includes("Number(carrierPaymentForm.amount)>remaining"));
 });
+
+
+test("carrier cost reports aggregate only posted invoice allocations within tenant and date range",()=>{
+ assert.ok(logistics.includes('logisticsRouter.get("/api/logistics/carrier-cost-reports"'));
+ assert.ok(logistics.includes('d.status=\'posted\''));
+ assert.ok(logistics.includes('i.status=\'posted\''));
+ assert.ok(logistics.includes('i.invoice_date between $2::date and $3::date'));
+ assert.ok(logistics.includes('group by shipment_id,shipment_no,marketplace_order_id,order_no,currency'));
+ assert.ok(logistics.includes('group by p.id,p.title,x.currency'));
+ assert.ok(logistics.includes('amount_after_freight'));
+ assert.ok(web.includes('api("/api/logistics/carrier-cost-reports")'));
+ assert.ok(web.includes("carrierCostReport.byShipment"));
+ assert.ok(web.includes("سود خالص نیست"));
+});
