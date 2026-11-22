@@ -63,3 +63,16 @@ test("supplier payment is locked, tenant-scoped and cannot exceed the invoice ba
  assert.match(r.body,/rollback/);
 });
 
+
+test("purchase request status transitions are tenant-scoped, locked and atomic",()=>{
+ const r=route('router.patch("/api/purchasing/requests/:id/status"','router.post("/api/purchasing/rfqs"');
+ assert.ok(r.start>=0);
+ assert.ok(r.body.includes('requireAuth,requirePermission("modules:21-purchasing-supply:approve")'));
+ assert.ok(r.body.includes("begin"));
+ assert.ok(r.body.includes("purchase_requests where id=$1 and tenant_id=$2 for update"));
+ assert.ok(r.body.includes("where id=$2 and tenant_id=$3 and status=$4 returning *"));
+ assert.ok(r.body.includes("insert into purchase_events"));
+ assert.ok(r.body.includes("commit"));
+ assert.ok(r.body.includes("rollback"));
+ assert.ok(r.body.includes("finally{c.release()}"));
+});
