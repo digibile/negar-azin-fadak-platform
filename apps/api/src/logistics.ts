@@ -391,6 +391,62 @@ logisticsRouter.get("/api/logistics/shipments/:id/tracking",requireAuth,asyncHan
 }));
 
 
+
+logisticsRouter.post("/api/logistics/carrier-invoices/:id/accounting-draft",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req),b=req.body||{};
+  if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const bookId=String(b.bookId||""),periodId=String(b.periodId||""),documentNo=String(b.documentNo||"").trim();
+  const expenseAccountId=String(b.expenseAccountId||""),payableAccountId=String(b.payableAccountId||""),inputTaxAccountId=String(b.inputTaxAccountId||"");
+  if(!bookId||!periodId||!documentNo||documentNo.length>120||!payableAccountId)return fail(res,400,"دفتر، دوره باز، شماره سند و حساب پرداختنی الزامی است");
+  const c=await pool.connect();
+  try{
+    await c.query("begin");
+    const invoice=(await c.query("select * from logistics_carrier_invoices where id=$1 and tenant_id=$2 for update",[req.params.id,t.id])).rows[0];
+    if(!invoice){await c.query("rollback");return fail(res,404,"صورتحساب حمل پیدا نشد");}
+    if(invoice.status!=="verified"){await c.query("rollback");return fail(res,409,"ابتدا باید صورتحساب حمل تأیید شود");}
+    if(invoice.accounting_document_id){await c.query("rollback");return fail(res,409,"برای این صورتحساب قبلاً پیش‌نویس حسابداری ساخته شده است");}
+    const book=(await c.query("select id,currency,status from accounting_books where id=$1 and tenant_id=$2 for share",[bookId,t.id])).rows[0];
+    if(!book||book.status!=="active"){await c.query("rollback");return fail(res,409,"دفتر حسابداری معتبر و فعال نیست");}
+    if(String(book.currency||"").toUpperCase()!==String(invoice.currency).toUpperCase()){await c.query("rollback");return fail(res,409,"ارز دفتر با ارز صورتحساب شرکت حمل یکسان نیست");}
+    const period=(await c.query("select id,book_id,starts_on,ends_on,status from accounting_fiscal_periods where id=$1 and tenant_id=$2 for share",[periodId,t.id])).rows[0];
+    if(!period||period.book_id!==bookId||period.status!=="open"||String(invoice.invoice_date)<String(period.starts_on).slice(0,10)||String(invoice.invoice_date)>String(period.ends_on).slice(0,10)){
+      await c.query("rollback");return fail(res,409,"دوره مالی باید باز، متعلق به دفتر انتخابی و شامل تاریخ صورتحساب باشد");
+    }
+    const accountIds=[payableAccountId,...(Number(invoice.subtotal)>0?[expenseAccountId]:[]),...(Number(invoice.tax_amount)>0?[inputTaxAccountId]:[])];
+    if(accountIds.some(x=>!x)||new Set(accountIds).size!==accountIds.length){await c.query("rollback");return fail(res,400,"برای هزینه، مالیات و پرداختنی باید حساب‌های معتبر و جداگانه انتخاب شوند");}
+    const accounts=(await c.query("select id,account_type,account_nature,book_id,is_active,is_postable,status from ledger_accounts where tenant_id=$1 and id=any($2::uuid[]) for share",[t.id,accountIds])).rows;
+    if(accounts.length!==accountIds.length||accounts.some((a:any)=>a.status!=="active"||a.is_active===false||a.is_postable===false||(a.book_id&&a.book_id!==bookId))){
+      await c.query("rollback");return fail(res,409,"یکی از حساب‌ها غیرفعال، غیرقابل ثبت یا متعلق به دفتر دیگری است");
+    }
+    const byId=new Map(accounts.map((a:any)=>[a.id,a]));
+    const payable=byId.get(payableAccountId) as any;
+    if(!(["liability"].includes(payable.account_nature)||["liability","payable","debt"].includes(payable.account_type))){
+      await c.query("rollback");return fail(res,409,"حساب انتخابی پرداختنی باید ماهیت بدهی داشته باشد");
+    }
+    if(Number(invoice.subtotal)>0){
+      const expense=byId.get(expenseAccountId) as any;
+      if(!(expense.account_nature==="expense"||["expense","cost"].includes(expense.account_type))){await c.query("rollback");return fail(res,409,"حساب هزینه حمل باید ماهیت هزینه داشته باشد");}
+    }
+    const carrier=(await c.query("select title from accounting_parties where id=$1 and tenant_id=$2 and party_type='supplier' and status='active'",[invoice.carrier_party_id,t.id])).rows[0];
+    if(!carrier){await c.query("rollback");return fail(res,409,"طرف حساب شرکت حمل معتبر یا فعال نیست");}
+    const doc=(await c.query(
+      "insert into accounting_documents(tenant_id,book_id,period_id,document_no,document_date,document_type,description,created_by,source_module,source_document_id,is_automatic) values($1,$2,$3,$4,$5,'journal',$6,$7,'logistics-carrier-invoice',$8,true) returning *",
+      [t.id,bookId,periodId,documentNo,invoice.invoice_date,"ثبت هزینه حمل صورتحساب "+invoice.invoice_no+" - "+carrier.title,(req as any).user.id,invoice.id]
+    )).rows[0];
+    let lineNo=1;
+    if(Number(invoice.subtotal)>0)await c.query("insert into accounting_document_lines(document_id,line_no,account_id,description,debit,credit,dimensions) values($1,$2,$3,$4,$5,0,$6)",[doc.id,lineNo++,expenseAccountId,"هزینه حمل صورتحساب "+invoice.invoice_no,invoice.subtotal,JSON.stringify({sourceModule:"logistics-carrier-invoice",carrierInvoiceId:invoice.id})]);
+    if(Number(invoice.tax_amount)>0)await c.query("insert into accounting_document_lines(document_id,line_no,account_id,description,debit,credit,dimensions) values($1,$2,$3,$4,$5,0,$6)",[doc.id,lineNo++,inputTaxAccountId,"مالیات صورتحساب حمل "+invoice.invoice_no,invoice.tax_amount,JSON.stringify({sourceModule:"logistics-carrier-invoice",carrierInvoiceId:invoice.id})]);
+    await c.query("insert into accounting_document_lines(document_id,line_no,account_id,description,debit,credit,dimensions) values($1,$2,$3,$4,0,$5,$6)",[doc.id,lineNo,payableAccountId,"بدهی به "+carrier.title+" بابت صورتحساب "+invoice.invoice_no,invoice.total_amount,JSON.stringify({sourceModule:"logistics-carrier-invoice",carrierInvoiceId:invoice.id,partyId:invoice.carrier_party_id})]);
+    const updated=(await c.query("update logistics_carrier_invoices set accounting_document_id=$1,updated_at=now() where id=$2 and tenant_id=$3 and accounting_document_id is null returning *",[doc.id,invoice.id,t.id])).rows[0];
+    if(!updated){await c.query("rollback");return fail(res,409,"اتصال سند حسابداری به صورتحساب انجام نشد");}
+    await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,after_data) values($1,'accounting_document',$2,'create_from_carrier_invoice',$3,$4)",[t.id,doc.id,(req as any).user.id,JSON.stringify({carrierInvoiceId:invoice.id,invoiceNo:invoice.invoice_no,sourceModule:"logistics-carrier-invoice"})]);
+    await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,from_status,to_status,actor_user_id,reason) values($1,'carrier_invoice',$2,'accounting_draft_created','verified','verified',$3,$4)",[t.id,invoice.id,(req as any).user.id,"پیش‌نویس سند حسابداری "+documentNo]);
+    await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'logistics.carrier_invoice_accounting_draft_created','logistics_carrier_invoice',$3,$4,$5)",[t.id,(req as any).user.id,invoice.id,JSON.stringify({accountingDocumentId:null}),JSON.stringify({accountingDocumentId:doc.id,documentNo,bookId,periodId,totalAmount:invoice.total_amount})]);
+    await c.query("commit");
+    res.status(201).json({invoice:updated,accountingDocument:doc,accountingStatus:"draft_not_posted",payableStatus:"not_created_until_document_posting"});
+  }catch(e:any){await c.query("rollback");if(e?.code==="23505")return fail(res,409,"شماره سند تکراری است یا برای این صورتحساب سند حسابداری ساخته شده است");throw e;}finally{c.release();}
+}));
+
 logisticsRouter.get("/api/logistics/carrier-invoices",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   if(!(await can(req,"modules:12-logistics-supply:read")))return fail(res,403,"دسترسی مشاهده صورتحساب حمل را ندارید");
