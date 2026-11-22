@@ -61,7 +61,7 @@ export default function LogisticsWorkspace(){
         api("/api/logistics/carrier-invoices"),api("/api/accounting-finance/operations-overview"),api("/api/treasury-bank/overview"),api("/api/accounting-finance/overview")
       ]);
       setO(a);setPlans(b);setOrders(c);setVehicles(d);setDrivers(e);setRoutes(f);setShips(g);setReports(h);setMarketOrders(i);setWarehouses(j.filter((x:R)=>x.status==="active"));
-      setCarrierInvoices(k.items||[]);setCarrierParties((finance.parties||[]).filter((x:R)=>x.party_type==="supplier"&&x.status==="active"));setCarrierPayables(finance.receivablesPayables||[]);
+      setCarrierInvoices(k.items||[]);setActiveCarrierInvoice(prev=>prev?(k.items||[]).find((x:R)=>x.id===prev.id)||prev:null);setCarrierParties((finance.parties||[]).filter((x:R)=>x.party_type==="supplier"&&x.status==="active"));setCarrierPayables(finance.receivablesPayables||[]);
       setCarrierBooks((accounting.books||[]).filter((x:R)=>x.status==="active"));setCarrierPeriods(accounting.periods||[]);setCarrierAccounts(accounting.accounts||[]);
       setCarrierBanks((treasury.banks||[]).filter((x:R)=>x.status==="active"));setCarrierCashboxes((treasury.cashboxes||[]).filter((x:R)=>x.status==="active"));
       setCarrierInvoiceForm(v=>({...v,carrierPartyId:v.carrierPartyId||finance.parties?.find((x:R)=>x.party_type==="supplier"&&x.status==="active")?.id||""}));
@@ -72,8 +72,9 @@ export default function LogisticsWorkspace(){
   useEffect(()=>{load()},[]);
 
   const post=async(path:string,body:any,method="POST")=>{
-    try{await api(path,{method,body:JSON.stringify(body)});setCreateOpen(false);setEditing(null);await load()}
-    catch(e:any){setError(e.message)}
+    try{await api(path,{method,body:JSON.stringify(body)});setCreateOpen(false);setEditing(null);await load();
+      if(activeCarrierInvoice){const r=await api("/api/accounting-finance/carrier-invoices/"+activeCarrierInvoice.id+"/payments").catch(()=>({items:[]}));setCarrierPayments(r.items||[]);}
+    }catch(e:any){setError(e.message)}
   };
   const linkMarketplaceOrder=async()=>{
     if(!fulfillment)return;
@@ -197,8 +198,8 @@ export default function LogisticsWorkspace(){
     {tab==="carrierInvoices"&&<section className={styles.panel}>
       <h2>صورتحساب شرکت‌های حمل</h2>
       <p>ثبت صورتحساب، تخصیص مبلغ به مرسوله‌ها، تأیید و اتصال به سند حسابداری و پرداخت خزانه</p>
-      <ManagementDialog title="ثبت صورتحساب شرکت حمل" onClose={()=>setCreateOpen(false)} dirty={Boolean(carrierInvoiceForm.invoiceNo||carrierInvoiceForm.subtotal)}>
-        {createOpen&&<div className={styles.form}>
+      {createOpen&&<ManagementDialog title="ثبت صورتحساب شرکت حمل" onClose={()=>setCreateOpen(false)} dirty={Boolean(carrierInvoiceForm.invoiceNo||carrierInvoiceForm.subtotal)}>
+        <div className={styles.form}>
           <select value={carrierInvoiceForm.carrierPartyId} onChange={e=>setCarrierInvoiceForm({...carrierInvoiceForm,carrierPartyId:e.target.value})}><option value="">شرکت حمل / طرف حساب تأمین‌کننده</option>{carrierParties.map(x=><option key={x.id} value={x.id}>{x.party_code} · {x.title}</option>)}</select>
           <input placeholder="شماره صورتحساب" value={carrierInvoiceForm.invoiceNo} onChange={e=>setCarrierInvoiceForm({...carrierInvoiceForm,invoiceNo:e.target.value})}/>
           <input type="date" value={carrierInvoiceForm.invoiceDate} onChange={e=>setCarrierInvoiceForm({...carrierInvoiceForm,invoiceDate:e.target.value})}/>
@@ -211,8 +212,8 @@ export default function LogisticsWorkspace(){
             {carrierAllocations.length>1&&<button type="button" onClick={()=>setCarrierAllocations(rows=>rows.filter((_,n)=>n!==i))}>حذف ردیف</button>}
           </div>)}<button type="button" onClick={()=>setCarrierAllocations(rows=>[...rows,{shipmentId:"",amount:""}])}>افزودن مرسوله</button></div>
           <button disabled={!carrierInvoiceForm.carrierPartyId||!carrierInvoiceForm.invoiceNo||!carrierInvoiceForm.subtotal||carrierAllocations.some(x=>!x.shipmentId||!x.amount)} onClick={()=>post("/api/logistics/carrier-invoices",{...carrierInvoiceForm,subtotal:Number(carrierInvoiceForm.subtotal),taxAmount:Number(carrierInvoiceForm.taxAmount||0),allocations:carrierAllocations.map(x=>({shipmentId:x.shipmentId,amount:Number(x.amount)}))})}>ثبت صورتحساب</button>
-        </div>}
-      </ManagementDialog>
+        </div>
+      </ManagementDialog>}
       <div className={styles.cards}>
         <article><small>کل صورتحساب‌ها</small><strong>{carrierInvoices.length}</strong></article>
         <article><small>در انتظار تأیید</small><strong>{carrierInvoices.filter(x=>x.status==="draft").length}</strong></article>
@@ -253,7 +254,7 @@ export default function LogisticsWorkspace(){
             <input placeholder="شماره مرجع" value={carrierPaymentForm.referenceNo} onChange={e=>setCarrierPaymentForm({...carrierPaymentForm,referenceNo:e.target.value})}/>
             <button disabled={!payable||!carrierPaymentForm.amount||Number(carrierPaymentForm.amount)<=0||Number(carrierPaymentForm.amount)>remaining||!carrierPaymentForm.documentNo||!carrierPaymentForm.paymentNo||!carrierPaymentForm.periodId||(!carrierPaymentForm.bankAccountId&&!carrierPaymentForm.cashboxId)} onClick={()=>post("/api/accounting-finance/carrier-invoices/"+activeCarrierInvoice.id+"/payments",{...carrierPaymentForm,payableId:payable.id,amount:Number(carrierPaymentForm.amount)})}>ثبت درخواست پرداخت</button>
           </div>}</>})()}
-          <div className={styles.recordList}>{carrierPayments.map(x=><article className={styles.card} key={x.id}><strong>{x.payment_no} · {fmt(x.status)}</strong><small>{x.payment_date} · {x.document_no||"بدون سند"}</small><b>{Number(x.amount).toLocaleString("fa-IR")}</b></article>)}</div>
+          <div className={styles.recordList}>{carrierPayments.map(x=><article className={styles.card} key={x.id}><div><strong>{x.payment_no} · {fmt(x.status)}</strong><small>{x.payment_date} · {x.document_no||"بدون سند"} · سند: {fmt(x.document_status)}</small></div><div className={styles.inlineAction}>{x.document_status==="draft"&&<button onClick={async()=>{try{await api("/api/accounting-finance/documents/"+x.accounting_document_id+"/status",{method:"PATCH",body:JSON.stringify({status:"submitted"})});const r=await api("/api/accounting-finance/carrier-invoices/"+activeCarrierInvoice.id+"/payments");setCarrierPayments(r.items||[])}catch(e:any){setError(e.message)}}}>ارسال سند</button>}{x.document_status==="submitted"&&<button onClick={async()=>{try{await api("/api/accounting-finance/documents/"+x.accounting_document_id+"/status",{method:"PATCH",body:JSON.stringify({status:"approved"})});const r=await api("/api/accounting-finance/carrier-invoices/"+activeCarrierInvoice.id+"/payments");setCarrierPayments(r.items||[])}catch(e:any){setError(e.message)}}}>تأیید سند</button>}{x.document_status==="approved"&&<button onClick={async()=>{try{await api("/api/accounting-finance/documents/"+x.accounting_document_id+"/status",{method:"PATCH",body:JSON.stringify({status:"posted"})});const r=await api("/api/accounting-finance/carrier-invoices/"+activeCarrierInvoice.id+"/payments");setCarrierPayments(r.items||[]);await load()}catch(e:any){setError(e.message)}}}>قطعی‌سازی و پرداخت</button>}</div><b>{Number(x.amount).toLocaleString("fa-IR")}</b></article>)}</div>
         </div>}
       </ManagementDialog>}
     </section>}
