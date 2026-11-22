@@ -22,6 +22,86 @@ router.get("/api/accounting-finance/overview",requireAuth,async(req,res)=>{
  res.json({books:books.rows,periods:periods.rows,documents:docs.rows,costCenters:centers.rows,accounts:accounts.rows,summary:summary.rows[0]});
 });
 
+router.get("/api/accounting-finance/cost-valuation-policies",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const r=await query(`
+  select p.id,p.product_id,fp.code product_code,fp.title product_title,
+   p.warehouse_id,fw.code warehouse_code,fw.title warehouse_title,
+   p.valuation_method,p.status,p.effective_from,p.effective_to,p.reason,
+   p.created_by,creator.full_name created_by_name,p.approved_by,approver.full_name approved_by_name,
+   p.activated_at,p.retired_at,p.created_at,p.updated_at
+  from finance_cost_valuation_policies p
+  join finance_products fp on fp.id=p.product_id and fp.tenant_id=p.tenant_id
+  join finance_warehouses fw on fw.id=p.warehouse_id and fw.tenant_id=p.tenant_id
+  left join users creator on creator.id=p.created_by
+  left join users approver on approver.id=p.approved_by
+  where p.tenant_id=$1
+  order by p.created_at desc,p.id
+  limit 500
+ `,[t.id]);
+ res.json({items:r.rows,total:r.rowCount||0,limit:500});
+});
+
+router.post("/api/accounting-finance/cost-valuation-policies",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const b=req.body||{},method=String(b.valuationMethod||""),reason=typeof b.reason==="string"?b.reason.trim():"";
+ const from=typeof b.effectiveFrom==="string"?new Date(b.effectiveFrom):new Date(Number.NaN);
+ const to=b.effectiveTo?new Date(String(b.effectiveTo)):null;
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(b.productId||""))
+  ||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(b.warehouseId||""))
+  ||!["weighted_average","fifo","standard","actual"].includes(method)||!reason
+  ||!Number.isFinite(from.getTime())||(to&&(!Number.isFinite(to.getTime())||to<=from))){
+  return deny(res,400,"کالا، انبار، روش، دلیل و بازه اعتبار سیاست باید معتبر باشند");
+ }
+ try{
+  const r=await query(`
+   insert into finance_cost_valuation_policies
+    (tenant_id,product_id,warehouse_id,valuation_method,status,effective_from,effective_to,reason,created_by)
+   values($1,$2,$3,$4,'draft',$5,$6,$7,$8)
+   returning id,product_id,warehouse_id,valuation_method,status,effective_from,effective_to,reason,created_by,created_at
+  `,[t.id,b.productId,b.warehouseId,method,from.toISOString(),to?.toISOString()||null,reason,(req as any).user.id]);
+  res.status(201).json(r.rows[0]);
+ }catch(e:any){
+  if(e?.code==="23503")return deny(res,400,"کالا یا انبار انتخاب‌شده متعلق به سازمان جاری نیست");
+  throw e;
+ }
+});
+
+router.patch("/api/accounting-finance/cost-valuation-policies/:id/activate",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const p=await c.query("select * from finance_cost_valuation_policies where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+  if(!p.rowCount){await c.query("rollback");return deny(res,404,"پیش‌نویس سیاست پیدا نشد")}
+  const policy=p.rows[0];
+  if(policy.status!=="draft"){await c.query("rollback");return deny(res,409,"فقط پیش‌نویس قابل تأیید است")}
+  if(new Date(policy.effective_from).getTime()>Date.now()){await c.query("rollback");return deny(res,409,"سیاست با تاریخ شروع آینده هنوز قابل فعال‌سازی نیست")}
+  if(policy.effective_to&&new Date(policy.effective_to).getTime()<=Date.now()){await c.query("rollback");return deny(res,409,"بازه اعتبار سیاست به پایان رسیده است")}
+  const active=await c.query("select id from finance_cost_valuation_policies where tenant_id=$1 and product_id=$2 and warehouse_id=$3 and status='active' for update",[t.id,policy.product_id,policy.warehouse_id]);
+  if(active.rowCount){await c.query("rollback");return deny(res,409,"برای این کالا و انبار سیاست فعالی وجود دارد؛ ابتدا آن را بازنشسته کنید")}
+  const r=await c.query("update finance_cost_valuation_policies set status='active',approved_by=$1,activated_at=now(),updated_at=now() where id=$2 and tenant_id=$3 returning *",[(req as any).user.id,req.params.id,t.id]);
+  await c.query("commit");res.json(r.rows[0]);
+ }catch(e:any){
+  await c.query("rollback");
+  if(e?.code==="23505")return deny(res,409,"هم‌زمان سیاست فعالی برای این کالا و انبار ثبت شده است");
+  throw e;
+ }finally{c.release()}
+});
+
+router.patch("/api/accounting-finance/cost-valuation-policies/:id/retire",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const p=await c.query("select id,status from finance_cost_valuation_policies where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+  if(!p.rowCount){await c.query("rollback");return deny(res,404,"سیاست پیدا نشد")}
+  if(p.rows[0].status!=="active"){await c.query("rollback");return deny(res,409,"فقط سیاست فعال قابل بازنشستگی است")}
+  const r=await c.query("update finance_cost_valuation_policies set status='retired',retired_at=now(),updated_at=now() where id=$1 and tenant_id=$2 returning *",[req.params.id,t.id]);
+  await c.query("commit");res.json(r.rows[0]);
+ }catch(e){await c.query("rollback");throw e;}finally{c.release()}
+});
+
 router.post("/api/accounting-finance/accounts",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
  const {code,name,accountType="general",accountMode="hybrid",bookId=null,externalCode=null,parentId=null}=req.body||{};
