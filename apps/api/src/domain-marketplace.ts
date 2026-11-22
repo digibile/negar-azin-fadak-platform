@@ -162,7 +162,7 @@ domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/refund-receivable-ac
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
-domainMarketplaceRouter.post("/api/marketplace/sellers/:id/refund-receivables/reclassify",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
+domainMarketplaceRouter.post("/api/marketplace/sellers/:id/refund-receivables/reclassify",requireAuth,requirePermission("seller:manage"),requirePermission("ledger:manage"),asyncHandler(async(req,res)=>{
  const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(req.params.id))return res.status(400).json({error:"شناسه فروشنده نامعتبر است"});
  const client=await pool.connect();
