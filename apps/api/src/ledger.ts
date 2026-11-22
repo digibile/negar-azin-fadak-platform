@@ -6,7 +6,7 @@ type Line={accountCode:string;accountName:string;accountType:string;debit?:Money
 /** Convert a monetary value to exact minor units for the platform's numeric(20,2) ledger columns. */
 export function moneyToMinorUnits(value:MoneyInput):bigint{
  const raw=typeof value==="number"?(Number.isFinite(value)?value.toFixed(2):""):String(value).trim();
- const match=/^([+-]?)(\\d+)(?:\\.(\\d{1,2}))?$/.exec(raw);
+ const match=/^([+-]?)(\d+)(?:\.(\d{1,2}))?$/.exec(raw);
  if(!match)throw new Error("مبلغ باید عدد معتبر با حداکثر دو رقم اعشار باشد");
  const fraction=(match[3]||"").padEnd(2,"0");
  const units=BigInt(match[2])*100n+BigInt(fraction||"0");
