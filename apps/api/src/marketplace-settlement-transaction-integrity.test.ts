@@ -152,3 +152,19 @@ test("settlement preflight failures roll back before creating settlement headers
   assert.ok(at<firstInsert);
  }
 });
+
+
+test("order integrity audit is tenant-scoped, read-only and reports only verified arithmetic mismatches",()=>{
+ const start=source.indexOf('settlementRouter.get("/api/marketplace/settlements/order-integrity-audit"');
+ const end=source.indexOf('settlementRouter.get("/api/marketplace/settlements/order-cost-analysis"',start);
+ const route=source.slice(start,end);
+ assert.ok(route.includes('requirePermission("settlement:view")'));
+ assert.ok(route.includes("o.tenant_id=$1"));
+ assert.ok(route.includes("sum(line_total)::numeric as item_gross"));
+ assert.ok(route.includes("o.total_amount=o.subtotal-o.discount_amount+o.shipping_amount"));
+ assert.ok(route.includes("o.commission_amount+o.seller_payable=o.total_amount"));
+ assert.ok(route.includes("settlement_item_gross<>subtotal"));
+ assert.ok(route.includes("limit 500"));
+ assert.ok(!route.includes("insert into"));
+ assert.ok(!route.includes("update "));
+});
