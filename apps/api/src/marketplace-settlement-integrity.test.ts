@@ -221,6 +221,10 @@ test("COGS accounting readiness is read-only and requires explicit order-line re
  assert.ok(source.includes("accounting_fiscal_periods"));
  assert.ok(source.includes("period_status"));
  assert.ok(source.includes("account_nature in ('asset','expense')"));
+ assert.ok(source.includes("left join accounting_books b on b.id=a.book_id and b.tenant_id=a.tenant_id"));
+ assert.ok(source.includes("bookAccountReadiness"));
+ assert.ok(source.includes("نگاشت تأییدشده حساب معین موجودی و بهای کالای فروش‌رفته هنوز تعریف نشده است"));
+ assert.ok(settlementUiSource.includes("کنترل حساب‌ها در هر دفتر دارای دوره باز"));
  assert.ok(source.includes("ارتباط تک‌تک اقلام سفارش با اقلام سند خروج هنوز ثبت و تأیید نشده است"));
  assert.ok(source.includes("draftCreationAllowed:false,postingAllowed:false"));
  assert.ok(source.includes("تولید سند خودکار مجاز نیست"));
