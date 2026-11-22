@@ -1,0 +1,45 @@
+name: Logistics lifecycle checks
+
+on:
+  pull_request:
+    paths:
+      - "apps/api/src/logistics.ts"
+      - "apps/api/src/*logistics*.test.ts"
+      - "database/migrations/105_logistics_supply_complete.sql"
+      - "database/migrations/106_logistics_supply_orders_and_lifecycle.sql"
+      - "database/migrations/106_logistics_supply_schema_fix.sql"
+      - "database/migrations/107_marketplace_logistics_order_link.sql"
+      - "database/migrations/108_logistics_source_warehouse_link.sql"
+      - "database/migrations/123_marketplace_inventory_product_links.sql"
+      - "database/migrations/124_marketplace_warehouse_reservations.sql"
+      - "database/migrations/zzzzzzzzzz_logistics_single_active_shipment_per_supply_order.sql"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      - "apps/api/package.json"
+      - ".github/workflows/logistics-lifecycle-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  logistics-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.3.4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run API tests
+        run: pnpm --filter @naf/api test
+      - name: Type-check API
+        run: pnpm --filter @naf/api lint
