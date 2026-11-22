@@ -89,16 +89,17 @@ router.get("/api/accounting-finance/documents/:id",requireAuth,async(req,res)=>{
  const l=await query("select l.*,a.code account_code,a.name account_name,c.code cost_center_code,c.title cost_center_title from accounting_document_lines l join ledger_accounts a on a.id=l.account_id left join accounting_cost_centers c on c.id=l.cost_center_id where l.document_id=$1 order by l.line_no",[String(String(req.params.id))]);res.json({document:d.rows[0],lines:l.rows});
 });
 
+
 router.post("/api/accounting-finance/carrier-invoices/:invoiceId/payments",requireAuth,requirePermission("accounting-finance.write"),async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const {payableId,amount,paymentDate,bookId,periodId,documentNo,bankAccountId=null,cashboxId=null,referenceNo=null}=req.body||{};
+ const {payableId,amount,paymentDate,bookId,periodId,documentNo,paymentNo,bankAccountId=null,cashboxId=null,referenceNo=null}=req.body||{};
  const value=Number(amount);
- if(typeof payableId!=="string"||!Number.isFinite(value)||value<=0||Math.round(value*100)!==value*100||!okDate(paymentDate)||typeof bookId!=="string"||typeof periodId!=="string"||typeof documentNo!=="string"||!documentNo.trim()||documentNo.length>120||Boolean(bankAccountId)===Boolean(cashboxId))return deny(res,400,"مبلغ، تاریخ، دفتر، دوره، شماره سند و دقیقاً یک حساب بانک یا صندوق الزامی است");
+ if(typeof payableId!=="string"||!Number.isFinite(value)||value<=0||Math.abs(value*100-Math.round(value*100))>0.000001||!okDate(paymentDate)||typeof bookId!=="string"||typeof periodId!=="string"||typeof documentNo!=="string"||!documentNo.trim()||documentNo.length>120||typeof paymentNo!=="string"||!paymentNo.trim()||paymentNo.length>120||Boolean(bankAccountId)===Boolean(cashboxId))return deny(res,400,"مبلغ، تاریخ، دفتر، دوره، شماره سند و پرداخت و دقیقاً یک حساب بانک یا صندوق الزامی است");
  const c=await pool.connect();
  try{
   await c.query("begin");
   const invoice=(await c.query("select * from logistics_carrier_invoices where id=$1 and tenant_id=$2 for update",[String(req.params.invoiceId),t.id])).rows[0];
-  if(!invoice||invoice.status!=="posted") {await c.query("rollback");return deny(res,409,"صورتحساب حمل باید قطعی شده باشد");}
+  if(!invoice||invoice.status!=="posted"){await c.query("rollback");return deny(res,409,"صورتحساب حمل باید قطعی شده باشد");}
   const payable=(await c.query("select * from accounting_receivable_payables where id=$1 and tenant_id=$2 and direction='payable' for update",[payableId,t.id])).rows[0];
   if(!payable||payable.status==="cancelled"||payable.metadata?.carrierInvoiceId!==invoice.id||payable.party_id!==invoice.carrier_party_id||payable.document_id!==invoice.accounting_document_id||Math.abs(Number(payable.original_amount)-Number(invoice.total_amount))>0.005){await c.query("rollback");return deny(res,404,"بدهی پرداختنی متناظر با این صورتحساب پیدا نشد");}
   const remaining=Number(payable.original_amount)-Number(payable.settled_amount);
@@ -111,11 +112,11 @@ router.post("/api/accounting-finance/carrier-invoices/:invoiceId/payments",requi
   if(!originalLine||!(originalLine.account_nature==="liability"||["liability","payable","debt"].includes(originalLine.account_type))){await c.query("rollback");return deny(res,409,"حساب کنترل بدهی در سند اصلی پیدا نشد یا ماهیت آن معتبر نیست");}
   let treasury:any=null,treasuryAccountId:string;
   if(bankAccountId){
-   treasury=(await c.query("select id,ledger_account_id,currency,current_balance,status from accounting_bank_accounts where id=$1 and tenant_id=$2 for update",[bankAccountId,t.id])).rows[0];
+   treasury=(await c.query("select id,ledger_account_id,currency,current_balance,status from treasury_bank_accounts where id=$1 and tenant_id=$2 for update",[bankAccountId,t.id])).rows[0];
    if(!treasury||treasury.status!=="active"||String(treasury.currency).toUpperCase()!==String(payable.currency).toUpperCase()||!treasury.ledger_account_id){await c.query("rollback");return deny(res,409,"حساب بانکی فعال با ارز و حساب معین معتبر انتخاب کنید");}
    treasuryAccountId=treasury.ledger_account_id;
   }else{
-   treasury=(await c.query("select id,ledger_account_id,current_balance,status from accounting_cashboxes where id=$1 and tenant_id=$2 for update",[cashboxId,t.id])).rows[0];
+   treasury=(await c.query("select id,ledger_account_id,current_balance,status from treasury_cashboxes where id=$1 and tenant_id=$2 for update",[cashboxId,t.id])).rows[0];
    if(!treasury||treasury.status!=="active"||!treasury.ledger_account_id||String(payable.currency).toUpperCase()!=="IRR"){await c.query("rollback");return deny(res,409,"صندوق فعال با حساب معین معتبر فقط برای پرداخت ریالی قابل استفاده است");}
    treasuryAccountId=treasury.ledger_account_id;
   }
@@ -124,21 +125,21 @@ router.post("/api/accounting-finance/carrier-invoices/:invoiceId/payments",requi
   if(accounts.length!==2||accounts.some((a:any)=>a.status!=="active"||a.is_active===false||a.is_postable===false||(a.book_id&&a.book_id!==bookId))){await c.query("rollback");return deny(res,409,"حساب بدهی یا خزانه غیرفعال، غیرقابل ثبت یا متعلق به دفتر دیگری است");}
   const treasuryAccount=accounts.find((a:any)=>a.id===treasuryAccountId);
   if(!(treasuryAccount.account_nature==="asset"||["asset","cash","bank"].includes(treasuryAccount.account_type))){await c.query("rollback");return deny(res,409,"حساب بانک یا صندوق باید ماهیت دارایی داشته باشد");}
-  const payment=(await c.query("insert into logistics_carrier_payments(tenant_id,carrier_invoice_id,payable_id,bank_account_id,cashbox_id,amount,currency,payment_date,reference_no,status,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10) returning *",[t.id,invoice.id,payable.id,bankAccountId,cashboxId,value,payable.currency,paymentDate,referenceNo,(req as any).user.id])).rows[0];
+  const payment=(await c.query("insert into treasury_payments(tenant_id,bank_account_id,cashbox_id,payment_no,payment_date,amount,payee_name,reference_no,method,description,status,created_by,carrier_invoice_id,payable_id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',$11,$12,$13) returning *",[t.id,bankAccountId,cashboxId,paymentNo.trim(),paymentDate,value,"شرکت حمل صورتحساب "+invoice.invoice_no,referenceNo,bankAccountId?"bank_transfer":"cash","پرداخت صورتحساب حمل "+invoice.invoice_no,(req as any).user.id,invoice.id,payable.id])).rows[0];
   const doc=(await c.query("insert into accounting_documents(tenant_id,book_id,period_id,document_no,document_date,document_type,description,created_by,source_module,source_document_id,is_automatic) values($1,$2,$3,$4,$5,'payment',$6,$7,'logistics-carrier-payment',$8,true) returning *",[t.id,bookId,periodId,documentNo.trim(),paymentDate,"پیش‌نویس پرداخت صورتحساب حمل "+invoice.invoice_no,(req as any).user.id,payment.id])).rows[0];
   await c.query("insert into accounting_document_lines(document_id,line_no,account_id,description,debit,credit,dimensions) values($1,1,$2,$3,$4,0,$5)",[doc.id,originalLine.account_id,"کاهش بدهی شرکت حمل بابت صورتحساب "+invoice.invoice_no,value,JSON.stringify({sourceModule:"logistics-carrier-payment",carrierPaymentId:payment.id,carrierInvoiceId:invoice.id,payableId:payable.id})]);
   await c.query("insert into accounting_document_lines(document_id,line_no,account_id,description,debit,credit,dimensions) values($1,2,$2,$3,0,$4,$5)",[doc.id,treasuryAccountId,bankAccountId?"پرداخت از حساب بانکی":"پرداخت از صندوق",value,JSON.stringify({sourceModule:"logistics-carrier-payment",carrierPaymentId:payment.id,bankAccountId:bankAccountId||null,cashboxId:cashboxId||null})]);
-  const linked=(await c.query("update logistics_carrier_payments set document_id=$1,updated_at=now() where id=$2 and tenant_id=$3 and document_id is null returning *",[doc.id,payment.id,t.id])).rows[0];
+  const linked=(await c.query("update treasury_payments set accounting_document_id=$1,updated_at=now() where id=$2 and tenant_id=$3 and accounting_document_id is null returning *",[doc.id,payment.id,t.id])).rows[0];
   if(!linked){await c.query("rollback");return deny(res,409,"اتصال سند پرداخت به درخواست پرداخت انجام نشد");}
-  await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,after_data) values($1,'carrier_payment',$2,'create_payment_draft',$3,$4)",[t.id,payment.id,(req as any).user.id,JSON.stringify({invoiceId:invoice.id,payableId:payable.id,documentId:doc.id,amount:value})]);
+  await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,after_data) values($1,'treasury_payment',$2,'create_carrier_payment_draft',$3,$4)",[t.id,payment.id,(req as any).user.id,JSON.stringify({invoiceId:invoice.id,payableId:payable.id,documentId:doc.id,amount:value})]);
   await c.query("commit");
   res.status(201).json({payment:linked,accountingDocument:doc,payableStatus:payable.status,settlementStatus:"not_updated_until_document_posting"});
- }catch(e:any){await c.query("rollback");if(e?.code==="23505")return deny(res,409,"شماره سند پرداخت تکراری است");throw e;}finally{c.release();}
+ }catch(e:any){await c.query("rollback");if(e?.code==="23505")return deny(res,409,"شماره پرداخت یا سند تکراری است");throw e;}finally{c.release();}
 });
 
 router.get("/api/accounting-finance/carrier-invoices/:invoiceId/payments",requireAuth,async(req,res)=>{
  const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
- const r=await query("select p.*,d.document_no,d.status document_status,b.bank_name,b.code bank_code,c.title cashbox_title from logistics_carrier_payments p left join accounting_documents d on d.id=p.document_id left join accounting_bank_accounts b on b.id=p.bank_account_id and b.tenant_id=p.tenant_id left join accounting_cashboxes c on c.id=p.cashbox_id and c.tenant_id=p.tenant_id where p.tenant_id=$1 and p.carrier_invoice_id=$2 order by p.payment_date desc,p.created_at desc",[t.id,String(req.params.invoiceId)]);
+ const r=await query("select p.*,d.document_no,d.status document_status,b.bank_name,b.account_title,c.title cashbox_title from treasury_payments p left join accounting_documents d on d.id=p.accounting_document_id and d.tenant_id=p.tenant_id left join treasury_bank_accounts b on b.id=p.bank_account_id and b.tenant_id=p.tenant_id left join treasury_cashboxes c on c.id=p.cashbox_id and c.tenant_id=p.tenant_id where p.tenant_id=$1 and p.carrier_invoice_id=$2 order by p.payment_date desc,p.created_at desc",[t.id,String(req.params.invoiceId)]);
  res.json({items:r.rows});
 });
 
