@@ -117,10 +117,10 @@ export default function SettlementsPage(){
      <span>اقلام: {Number(allocationPreview.lineCount||0).toLocaleString("fa-IR")}</span>
     </article>
     <p className="empty">{allocationPreview.policy?.reason}</p>
-    <div style={{overflowX:"auto"}}><table><thead><tr><th>کد کالا</th><th>عنوان کالا</th><th>مقدار خروج</th><th>تخصیص ثبت‌شده</th><th>تخصیص‌نیافته</th><th>لایه ورودی</th><th>روش</th><th>مقدار اولیه لایه</th><th>مصرف لایه</th><th>مانده لایه</th><th>بهای واحد</th><th>حداکثر قابل تخصیص</th><th>سند ورودی</th><th>وضعیت سیاست</th></tr></thead><tbody>
+    <div style={{overflowX:"auto"}}><table><thead><tr><th>کد کالا</th><th>عنوان کالا</th><th>مقدار خروج</th><th>تخصیص ثبت‌شده</th><th>تخصیص‌نیافته</th><th>لایه ورودی</th><th>روش</th><th>روش مصوب</th><th>مقدار اولیه لایه</th><th>مصرف لایه</th><th>مانده لایه</th><th>بهای واحد</th><th>حداکثر قابل تخصیص</th><th>سند ورودی</th><th>وضعیت سیاست</th></tr></thead><tbody>
      {allocationPreview.items?.map((line:any)=>(line.candidates?.length?line.candidates:[null]).map((layer:any,index:number)=><tr key={line.issueLineId+":"+(layer?.costLayerId||"none")}>
       {index===0&&<><td rowSpan={Math.max(1,line.candidates?.length||1)}>{line.productCode}</td><td rowSpan={Math.max(1,line.candidates?.length||1)}>{line.productTitle}</td><td rowSpan={Math.max(1,line.candidates?.length||1)}>{String(line.issueQuantity)}</td><td rowSpan={Math.max(1,line.candidates?.length||1)}>{String(line.allocatedQuantity)}</td><td rowSpan={Math.max(1,line.candidates?.length||1)}>{String(line.unallocatedQuantity)}</td></>}
-      {layer?<><td>{layer.costLayerId}</td><td>{layer.method}</td><td>{String(layer.initialQuantity)}</td><td>{String(layer.allocatedQuantity)}</td><td>{String(layer.remainingQuantity)}</td><td>{String(layer.unitCost)}</td><td>{String(layer.maxAllocatableQuantity)}</td><td>{layer.sourceDocument?.documentNo||"—"}</td><td>{layer.policyDecision}</td></>:<td colSpan={9}>لایه واجد شرایط در همین کالا و انبار پیدا نشد</td>}
+      {layer?<><td>{layer.costLayerId}</td><td>{layer.method}</td><td>{layer.activePolicyMethod||"—"}</td><td>{String(layer.initialQuantity)}</td><td>{String(layer.allocatedQuantity)}</td><td>{String(layer.remainingQuantity)}</td><td>{String(layer.unitCost)}</td><td>{String(layer.maxAllocatableQuantity)}</td><td>{layer.sourceDocument?.documentNo||"—"}</td><td>{layer.policyDecision}</td></>:<td colSpan={10}>لایه واجد شرایط در همین کالا و انبار پیدا نشد</td>}
      </tr>))}
     </tbody></table></div>
     <p className="empty">{allocationPreview.limitation}</p>
