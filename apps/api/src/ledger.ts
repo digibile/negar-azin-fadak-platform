@@ -1,6 +1,7 @@
 import type {PoolClient} from "pg";
 
 type Line={accountCode:string;accountName:string;accountType:string;debit?:number;credit?:number;description?:string};
+type EntryArgs={tenantId:string;entryNo:string;sourceType:string;sourceId:string;description:string;createdBy?:string|null;currency?:string;lines:Line[]};
 
 export function validateLedgerLines(lines:Line[]){
  if(!Array.isArray(lines)||lines.length<2)throw new Error("سند دفترکل باید حداقل دو ردیف داشته باشد");
@@ -20,15 +21,52 @@ export async function ensureLedgerAccount(client:PoolClient,tenantId:string,line
  return r.rows[0].id as string;
 }
 
-export async function postLedgerEntry(client:PoolClient,args:{tenantId:string;entryNo:string;sourceType:string;sourceId:string;description:string;createdBy?:string|null;currency?:string;lines:Line[]}){
+function sameAmount(a:unknown,b:unknown){
+ return Math.abs(Number(a)-Number(b))<=0.005;
+}
+
+function normalizeLine(line:{accountCode:string;debit:unknown;credit:unknown;description:string|null}){
+ return {accountCode:line.accountCode,debit:Number(line.debit),credit:Number(line.credit),description:line.description??null};
+}
+
+export async function postLedgerEntry(client:PoolClient,args:EntryArgs){
  validateLedgerLines(args.lines);
- const existing=await client.query("select id from ledger_entries where tenant_id=$1 and source_type=$2 and source_id=$3",[args.tenantId,args.sourceType,args.sourceId]);
- if(existing.rowCount) return existing.rows[0].id as string;
- const entry=await client.query("insert into ledger_entries(tenant_id,entry_no,source_type,source_id,description,status,created_by,currency) values($1,$2,$3,$4,$5,'posted',$6,$7) returning id",[args.tenantId,args.entryNo,args.sourceType,args.sourceId,args.description,args.createdBy||null,(args.currency||"IRR").toUpperCase()]);
- for(const line of args.lines){
-  const accountId=await ensureLedgerAccount(client,args.tenantId,line);
-  const debit=Number(line.debit||0),credit=Number(line.credit||0);
-  await client.query("insert into ledger_lines(entry_id,account_id,debit,credit,description) values($1,$2,$3,$4,$5)",[entry.rows[0].id,accountId,debit,credit,line.description||null]);
+ const currency=(args.currency||"IRR").toUpperCase();
+ const createdBy=args.createdBy||null;
+ const inserted=await client.query(
+  "insert into ledger_entries(tenant_id,entry_no,source_type,source_id,description,status,created_by,currency) values($1,$2,$3,$4,$5,'posted',$6,$7) on conflict(tenant_id,source_type,source_id) where source_id is not null do nothing returning id",
+  [args.tenantId,args.entryNo,args.sourceType,args.sourceId,args.description,createdBy,currency]
+ );
+ if(inserted.rowCount){
+  const entryId=inserted.rows[0].id as string;
+  for(const line of args.lines){
+   const accountId=await ensureLedgerAccount(client,args.tenantId,line);
+   const debit=Number(line.debit||0),credit=Number(line.credit||0);
+   await client.query("insert into ledger_lines(entry_id,account_id,debit,credit,description) values($1,$2,$3,$4,$5)",[entryId,accountId,debit,credit,line.description||null]);
+  }
+  return entryId;
  }
- return entry.rows[0].id as string;
+
+ const existing=await client.query(
+  "select id,entry_no,description,created_by,currency from ledger_entries where tenant_id=$1 and source_type=$2 and source_id=$3 for update",
+  [args.tenantId,args.sourceType,args.sourceId]
+ );
+ if(!existing.rowCount)throw new Error("سند دفترکل تکراری پیدا نشد؛ تراکنش باید دوباره اجرا شود");
+ const header=existing.rows[0];
+ const existingLines=await client.query(
+  "select a.code as account_code,l.debit,l.credit,l.description from ledger_lines l join ledger_accounts a on a.id=l.account_id where l.entry_id=$1",
+  [header.id]
+ );
+ const expected=args.lines.map(line=>normalizeLine({accountCode:line.accountCode,debit:line.debit??0,credit:line.credit??0,description:line.description||null}));
+ const actual=existingLines.rows.map((line:any)=>normalizeLine({accountCode:line.account_code,debit:line.debit,credit:line.credit,description:line.description}));
+ const sortKey=(line:ReturnType<typeof normalizeLine>)=>[line.accountCode,line.debit,line.credit,line.description||""].join("|");
+ expected.sort((a,b)=>sortKey(a).localeCompare(sortKey(b)));
+ actual.sort((a,b)=>sortKey(a).localeCompare(sortKey(b)));
+ const sameLines=expected.length===actual.length&&expected.every((line,index)=>{
+  const other=actual[index];
+  return line.accountCode===other.accountCode&&sameAmount(line.debit,other.debit)&&sameAmount(line.credit,other.credit)&&line.description===other.description;
+ });
+ const sameHeader=header.entry_no===args.entryNo&&header.description===args.description&&(header.created_by??null)===createdBy&&(header.currency||"IRR").toUpperCase()===currency;
+ if(!sameHeader||!sameLines)throw new Error("منبع دفترکل قبلاً با محتوای متفاوت ثبت شده است");
+ return header.id as string;
 }
