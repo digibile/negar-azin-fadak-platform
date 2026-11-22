@@ -909,7 +909,8 @@ settlementRouter.get("/api/marketplace/settlements/financial-issue-line-link-rea
     when fpl.finance_product_id is null then 'missing_finance_product_mapping'
     when fwl.finance_warehouse_id is null then 'missing_finance_warehouse_mapping'
     when link.id is not null then 'already_linked'
-    when d.id is null then 'posted_financial_issue_document_missing'
+    when d.id is null then 'financial_issue_document_missing'
+    when d.status<>'posted' then 'financial_issue_document_not_posted'
     when d.warehouse_id<>fwl.finance_warehouse_id then 'financial_issue_warehouse_mismatch'
     when il.product_id<>fpl.finance_product_id then 'financial_issue_product_mismatch'
     when il.quantity<>round(r.quantity*fpl.quantity_factor,4) then 'financial_issue_quantity_mismatch'
@@ -931,7 +932,7 @@ settlementRouter.get("/api/marketplace/settlements/financial-issue-line-link-rea
    join finance_inventory_lines line on line.document_id=doc.id
    where doc.tenant_id=r.tenant_id and doc.source_type='marketplace_order'
     and doc.source_id=r.marketplace_order_id and doc.document_type='issue'
-    and doc.status='posted' and (fpl.finance_product_id is null or line.product_id=fpl.finance_product_id)
+    and doc.status in ('draft','approved','posted') and (fpl.finance_product_id is null or line.product_id=fpl.finance_product_id)
    order by doc.posted_at desc nulls last,doc.created_at desc,line.id
    limit 1
   ) candidate on true
