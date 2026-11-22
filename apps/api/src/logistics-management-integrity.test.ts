@@ -112,3 +112,15 @@ test("database constraint allows only one active shipment per supply order",()=>
  assert.ok(migration.includes("status in ('planned','assigned','picked_up','in_transit')"));
  assert.ok(migration.includes("create unique index"));
 });
+
+
+test("shipment status locks supply order before shipment to avoid cancellation deadlocks",()=>{
+ const start=source.indexOf('logisticsRouter.patch("/api/logistics/shipments/:id/status"');
+ const end=source.indexOf('logisticsRouter.get("/api/logistics/shipments/:id/tracking"',start);
+ const route=source.slice(start,end);
+ const snapshot=route.indexOf("select id,supply_order_id from logistics_shipments");
+ const supplyLock=route.indexOf("select id from logistics_supply_orders where id=$1 and tenant_id=$2 for update");
+ const shipmentLock=route.indexOf("select * from logistics_shipments where id=$1 and tenant_id=$2 for update");
+ assert.ok(snapshot>=0&&supplyLock>snapshot&&shipmentLock>supplyLock);
+ assert.ok(route.includes("shipment.supply_order_id!==shipmentRef.supply_order_id"));
+});
