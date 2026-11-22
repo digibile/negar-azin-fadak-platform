@@ -26,3 +26,15 @@ test("refund blocks while a shipment is active before calling the payment provid
  assert.ok(route.includes("status in ('planned','assigned','picked_up','in_transit','failed')"));
  assert.ok(route.includes("پیش از بازپرداخت، مرسوله فعال باید از مسیر حمل تعیین تکلیف شود"));
 });
+
+
+test("generic marketplace order status route cannot mark an order refunded without the formal refund workflow",()=>{
+ const marketplace=fs.readFileSync(new URL("./domain-marketplace.ts",import.meta.url),"utf8");
+ const start=marketplace.indexOf('domainMarketplaceRouter.patch("/api/marketplace/orders/:id/status"');
+ const end=marketplace.indexOf('domainMarketplaceRouter.get("/api/marketplace/settlements"',start);
+ const route=marketplace.slice(start,end);
+ const guard=route.indexOf('if(next==="refunded")');
+ const transition=route.indexOf("if(!allowed[order.status]?.includes(next))");
+ assert.ok(guard>=0&&transition>guard);
+ assert.ok(route.includes('refundEndpoint:"/api/marketplace/orders/:id/refund"'));
+});
