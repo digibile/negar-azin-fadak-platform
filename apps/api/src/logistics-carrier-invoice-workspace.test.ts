@@ -34,6 +34,10 @@ test("carrier payment UI uses document lifecycle and refreshes payment records",
  assert.match(web,/status:JSON\.stringify\(\{status:"approved"\}\)/);
  assert.match(web,/status:JSON\.stringify\(\{status:"posted"\}\)/);
  assert.match(web,/قطعی‌سازی و پرداخت/);
+ assert.match(web,/accounting_document_status==="draft"/);
+ assert.match(web,/accounting_document_status==="submitted"/);
+ assert.match(web,/accounting_document_status==="approved"/);
+ assert.match(logistics,/d\\.status accounting_document_status/);
  assert.match(accounting,/carrierPayment\.accounting_document_id!==old\.id/);
  assert.doesNotMatch(accounting,/carrierPayment\.document_id!==old\.id/);
  assert.match(treasury,/accounting_document_id\)return deny\(res,409/);
