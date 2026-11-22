@@ -49,19 +49,19 @@ export default function LogisticsWorkspace(){
   const [carrierAllocations,setCarrierAllocations]=useState([{shipmentId:"",amount:""}]);
   const [carrierAccountingForm,setCarrierAccountingForm]=useState({bookId:"",periodId:"",documentNo:"",expenseAccountId:"",payableAccountId:"",inputTaxAccountId:""});
   const [carrierPaymentForm,setCarrierPaymentForm]=useState({amount:"",paymentDate:new Date().toISOString().slice(0,10),bookId:"",periodId:"",documentNo:"",paymentNo:"",bankAccountId:"",cashboxId:"",referenceNo:""});
-  const [loading,setLoading]=useState(false);
+  const [loading,setLoading]=useState(false),[carrierCostReport,setCarrierCostReport]=useState<R>({});
 
   const load=async()=>{
     setError("");setLoading(true);
     try{
-      const [a,b,c,d,e,f,g,h,i,j,k,finance,treasury,accounting]=await Promise.all([
+      const [a,b,c,d,e,f,g,h,i,j,k,costReport,finance,treasury,accounting]=await Promise.all([
         api("/api/logistics/overview"),api("/api/logistics/plans"),api("/api/logistics/orders"),
         api("/api/logistics/vehicles"),api("/api/logistics/drivers"),api("/api/logistics/routes"),
         api("/api/logistics/shipments"),api("/api/logistics/reports"),api("/api/logistics/marketplace-orders/eligible"),api("/api/inventory/warehouses"),
-        api("/api/logistics/carrier-invoices"),api("/api/accounting-finance/operations-overview"),api("/api/treasury-bank/overview"),api("/api/accounting-finance/overview")
+        api("/api/logistics/carrier-invoices"),api("/api/logistics/carrier-cost-reports"),api("/api/accounting-finance/operations-overview"),api("/api/treasury-bank/overview"),api("/api/accounting-finance/overview")
       ]);
       setO(a);setPlans(b);setOrders(c);setVehicles(d);setDrivers(e);setRoutes(f);setShips(g);setReports(h);setMarketOrders(i);setWarehouses(j.filter((x:R)=>x.status==="active"));
-      setCarrierInvoices(k.items||[]);setActiveCarrierInvoice(prev=>prev?(k.items||[]).find((x:R)=>x.id===prev.id)||prev:null);setCarrierParties((finance.parties||[]).filter((x:R)=>x.party_type==="supplier"&&x.status==="active"));setCarrierPayables(finance.receivablesPayables||[]);
+      setCarrierInvoices(k.items||[]);setCarrierCostReport(costReport||{});setActiveCarrierInvoice(prev=>prev?(k.items||[]).find((x:R)=>x.id===prev.id)||prev:null);setCarrierParties((finance.parties||[]).filter((x:R)=>x.party_type==="supplier"&&x.status==="active"));setCarrierPayables(finance.receivablesPayables||[]);
       setCarrierBooks((accounting.books||[]).filter((x:R)=>x.status==="active"));setCarrierPeriods(accounting.periods||[]);setCarrierAccounts(accounting.accounts||[]);
       setCarrierBanks((treasury.banks||[]).filter((x:R)=>x.status==="active"));setCarrierCashboxes((treasury.cashboxes||[]).filter((x:R)=>x.status==="active"));
       setCarrierInvoiceForm(v=>({...v,carrierPartyId:v.carrierPartyId||finance.parties?.find((x:R)=>x.party_type==="supplier"&&x.status==="active")?.id||""}));
@@ -309,6 +309,10 @@ export default function LogisticsWorkspace(){
       <h3>وضعیت حمل</h3><Table rows={reports.byShipment||[]} cols={["status","total"]}/>
       <h3>عملکرد ناوگان</h3><Table rows={reports.byVehicle||[]} cols={["plate_no","title","shipments","delivered"]}/>
       <h3>عملکرد مسیرها</h3><Table rows={reports.byRoute||[]} cols={["code","name","shipments","delivered"]}/>
+      <h3>هزینه حمل قطعی‌شده به تفکیک مرسوله</h3><p>فقط تخصیص صورتحساب‌هایی محاسبه می‌شود که سند حسابداری آن‌ها قطعی شده باشد.</p><Table rows={carrierCostReport.byShipment||[]} cols={["shipment_no","order_no","currency","invoice_count","freight_cost"]}/>
+      <h3>هزینه حمل و مبلغ سفارش به تفکیک سفارش</h3><p>«مبلغ پس از هزینه حمل» سود خالص نیست؛ بهای کالا، کمیسیون، مالیات و سایر هزینه‌ها از آن کسر نشده‌اند.</p><Table rows={carrierCostReport.byOrder||[]} cols={["order_no","currency","order_total","freight_cost","amount_after_freight"]}/>
+      <h3>هزینه شرکت‌های حمل</h3><Table rows={carrierCostReport.byCarrier||[]} cols={["carrier_title","currency","invoice_count","shipment_count","freight_cost"]}/>
+      <h3>روند ماهانه هزینه حمل</h3><Table rows={carrierCostReport.byPeriod||[]} cols={["period","currency","invoice_count","shipment_count","freight_cost"]}/>
     </section>}
   </main>;
 }
