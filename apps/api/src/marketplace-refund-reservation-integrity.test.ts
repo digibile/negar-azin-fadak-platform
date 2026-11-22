@@ -60,8 +60,8 @@ test("full gateway refund requires provider-declared idempotency and sends a sta
  const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"',start);
  const route=checkout.slice(start,end);
  assert.ok(route.includes("provider.supportsIdempotentRefunds!==true"));
- assert.ok(route.includes('const refundIdempotencyKey="order-full-refund-"+payment.rows[0].id'));
- assert.ok(route.includes("idempotencyKey:refundIdempotencyKey"));
+ assert.ok(route.includes('const idempotencyKey="order-full-refund-"+payment.id'));
+ assert.ok(route.includes("idempotencyKey}}"));
  assert.ok(route.includes("manualReconciliationRequired:true"));
 });
 
