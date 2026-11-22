@@ -54,6 +54,7 @@ test("supplier payment is locked, tenant-scoped and cannot exceed the invoice ba
  const r=route('router.post("/api/purchasing/invoices/:id/payments"','router.post("/api/purchasing/returns"');
  assert.match(r.body,/requireAuth,requirePermission\("modules:21-purchasing-supply:payment"\)/);
  assert.match(r.body,/purchase_invoices where id=\$1 and tenant_id=\$2 for update/);
+ assert.match(r.body,/select coalesce\(sum\(amount\),0\)::numeric total from purchase_payments where tenant_id=\$1 and invoice_id=\$2 and status='confirmed'/);
  assert.match(r.body,/paidBefore\+amount>total\+0\.000001/);
  assert.match(r.body,/purchase_payments/);
  assert.match(r.body,/purchase_financial_events/);
