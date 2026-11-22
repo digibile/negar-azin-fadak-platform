@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
 import {moneyToMinorUnits,minorUnitsToMoney} from "./ledger.js";
 
 test("money conversion preserves exact two-decimal values",()=>{
@@ -25,7 +26,6 @@ test("money conversion rejects invalid precision and non-finite numbers",()=>{
 });
 
 test("ledger source compares exact minor units and does not use a floating tolerance",()=>{
- const fs=await import("node:fs");
  const source=fs.readFileSync(new URL("./ledger.ts",import.meta.url),"utf8");
  assert.ok(source.includes("totalDebit!==totalCredit"));
  assert.ok(!source.includes("Math.abs(totalDebit-totalCredit)"));
