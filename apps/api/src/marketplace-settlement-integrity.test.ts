@@ -50,6 +50,12 @@ test("costing readiness reconciles marketplace, operational inventory and financ
  assert.ok(source.includes("missing_posted_finance_cost_layers_at_consumed_warehouse"));
  assert.ok(source.includes("mixed_cost_layer_valuation_methods"));
  assert.ok(source.includes("not_calculated"));
+ assert.ok(source.includes("logistics_supply_orders"));
+ assert.ok(source.includes("logistics_shipments"));
+ assert.ok(source.includes("supply_order_not_shipped"));
+ assert.ok(source.includes("shipment_dispatched_financial_issue_pending"));
+ assert.ok(source.includes("shipment_dispatch_timestamp_missing"));
+ assert.ok(source.includes("dispatchSummary"));
 });
 test("costing readiness is tenant scoped, date bounded and explicitly limited",()=>{
  assert.ok(source.includes("o.tenant_id=$1"));
