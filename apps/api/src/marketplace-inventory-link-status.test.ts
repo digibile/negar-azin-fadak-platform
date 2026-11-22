@@ -8,7 +8,9 @@ const migration=fs.readFileSync(new URL("../../../database/migrations/zzzzzzzz_m
 test("marketplace inventory mapping lifecycle is explicitly migrated",()=>{
  assert.match(migration,/add column if not exists status text not null default 'active'/i);
  assert.match(migration,/check\s*\(status in\s*\('active','inactive'\)\)/i);
- assert.match(migration,/marketplace_inventory_product_links_status_idx/i);\n assert.match(migration,/guard_marketplace_finance_issue_link_active_inventory_mapping/i);\n assert.match(migration,/v_status<>\x27active\x27/i);
+ assert.match(migration,/marketplace_inventory_product_links_status_idx/i);
+ assert.match(migration,/guard_marketplace_finance_issue_link_active_inventory_mapping/i);
+ assert.match(migration,/v_status<>\x27active\x27/i);
 });
 
 test("settlement readiness filters only active operational product mappings",()=>{
