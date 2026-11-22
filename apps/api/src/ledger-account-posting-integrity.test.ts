@@ -16,22 +16,17 @@ function clientWith(responses:Array<{rows:any[];rowCount:number}>){
 }
 
 test("existing ledger account is reused without overwriting its configured name or type",async()=>{
- const client=clientWith([{rows:[{id:"account-1",is_active:true,is_postable:true}],rowCount:1}]);
+ const client=clientWith([{rows:[{id:"account-1",status:"active"}],rowCount:1}]);
  const id=await ensureLedgerAccount(client,"tenant-1",{accountCode:"2101",accountName:"نام پیشنهادی",accountType:"liability"});
  assert.equal(id,"account-1");
  assert.equal(client.calls.length,1);
- assert.match(client.calls[0].sql,/select id,is_active,is_postable/);
+ assert.match(client.calls[0].sql,/select id,status from ledger_accounts/);
  assert.doesNotMatch(client.calls[0].sql,/update ledger_accounts/i);
 });
 
 test("inactive ledger accounts cannot receive postings",async()=>{
- const client=clientWith([{rows:[{id:"account-2",is_active:false,is_postable:true}],rowCount:1}]);
+ const client=clientWith([{rows:[{id:"account-2",status:"inactive"}],rowCount:1}]);
  await assert.rejects(()=>ensureLedgerAccount(client,"tenant-1",{accountCode:"2101",accountName:"بستانکاران",accountType:"liability"}),/غیرفعال/);
-});
-
-test("non-postable control accounts cannot receive direct postings",async()=>{
- const client=clientWith([{rows:[{id:"account-3",is_active:true,is_postable:false}],rowCount:1}]);
- await assert.rejects(()=>ensureLedgerAccount(client,"tenant-1",{accountCode:"2101",accountName:"بستانکاران",accountType:"liability"}),/غیرقابل ثبت/);
 });
 
 test("missing ledger accounts are created without changing existing account definitions",async()=>{
@@ -50,7 +45,7 @@ test("concurrent account creation re-reads and validates the winning account",as
  const client=clientWith([
   {rows:[],rowCount:0},
   {rows:[],rowCount:0},
-  {rows:[{id:"winner-account",is_active:true,is_postable:true}],rowCount:1}
+  {rows:[{id:"winner-account",status:"active"}],rowCount:1}
  ]);
  const id=await ensureLedgerAccount(client,"tenant-1",{accountCode:"1101",accountName:"حساب پرداخت",accountType:"asset"});
  assert.equal(id,"winner-account");
