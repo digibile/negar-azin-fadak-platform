@@ -44,6 +44,9 @@ begin
  if tg_op='DELETE' then
   raise exception 'Valuation policy history is immutable; retire a policy instead of deleting it';
  end if;
+ if tg_op='UPDATE' and (new.id is distinct from old.id or new.created_at is distinct from old.created_at) then
+  raise exception 'Valuation policy identity and creation timestamp are immutable';
+ end if;
  if tg_op='INSERT' then
   if new.status<>'draft' or new.approved_by is not null or new.activated_at is not null or new.retired_at is not null then
    raise exception 'New valuation policies must begin as drafts';
