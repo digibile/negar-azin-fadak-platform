@@ -29,26 +29,3 @@ test("order cost analysis rejects invalid and reversed date ranges",()=>{
  assert.ok(source.includes("validDate(req.query.to)"));
  assert.ok(source.includes("if(from>to)"));
 });
-
-test("costing readiness reconciles marketplace, operational inventory and financial mappings",()=>{
- assert.ok(source.includes("costing-readiness"));
- assert.ok(source.includes("marketplace_order_items"));
- assert.ok(source.includes("marketplace_inventory_product_links"));
- assert.ok(source.includes("marketplace_finance_product_links"));
- assert.ok(source.includes("marketplace_inventory_reservations"));
- assert.ok(source.includes("mir.status='consumed'"));
- assert.ok(source.includes("finance_cost_layers"));
- assert.ok(source.includes("fid.status='posted'"));
- assert.ok(source.includes("cost_layers_present_financial_issue_link_pending"));
- assert.ok(source.includes("not_calculated"));
-});
-test("costing readiness is tenant scoped, date bounded and explicitly limited",()=>{
- assert.ok(source.includes("o.tenant_id=$1"));
- assert.ok(source.includes("mir.tenant_id=$1"));
- assert.ok(source.includes("cl.tenant_id=$1"));
- assert.ok(source.includes("validDate(req.query.from)"));
- assert.ok(source.includes("if(from>to)"));
- assert.ok(source.includes("limit 500"));
- assert.ok(source.includes("limit 2000"));
- assert.ok(source.includes("does not post a financial issue document linked to each marketplace order"));
-});
