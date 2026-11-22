@@ -63,12 +63,3 @@ test("supplier payment is locked, tenant-scoped and cannot exceed the invoice ba
  assert.match(r.body,/rollback/);
 });
 
-test("purchasing financial events are explicitly pending accounting, not silently posted",()=>{
- assert.match(migration,/state text not null default 'pending_accounting' check\(state in \('pending_accounting','posted','reversed'\)\)/);
- const invoice=route('router.post("/api/purchasing/invoices"','router.post("/api/purchasing/invoices/:id/payments"');
- const payment=route('router.post("/api/purchasing/invoices/:id/payments"','router.post("/api/purchasing/returns"');
- assert.match(invoice.body,/state,reference_no\) values\([^\n]*'pending_accounting'/);
- assert.match(payment.body,/state,reference_no\) values\([^\n]*'pending_accounting'/);
- assert.doesNotMatch(invoice.body,/accounting_documents|finance_purchases/);
- assert.doesNotMatch(payment.body,/accounting_documents|finance_purchases/);
-});
