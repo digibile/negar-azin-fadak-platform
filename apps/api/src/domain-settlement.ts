@@ -284,9 +284,31 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
     when coalesce(pl.posted_layer_count,0)=0 then 'missing_posted_finance_cost_layers_at_consumed_warehouse'
     when coalesce(pl.posted_layer_method_count,0)>1 then 'mixed_cost_layer_valuation_methods'
     else 'cost_layers_present_financial_issue_link_pending' end as costing_readiness,
+   case
+    when delivery.supply_order_id is null then 'logistics_order_missing'
+    when delivery.supply_order_status not in ('shipped','delivered') then 'supply_order_not_shipped'
+    when delivery.shipment_id is null then 'shipment_missing'
+    when delivery.shipment_status in ('failed','cancelled') then 'shipment_exception'
+    when delivery.dispatch_at is null then 'shipment_dispatch_timestamp_missing'
+    else 'shipment_dispatched_financial_issue_pending'
+   end as dispatch_readiness,
+   delivery.supply_order_status,delivery.shipment_status,delivery.dispatch_at,
    'not_calculated'::text cost_of_goods_status
   from selected_orders so
   join marketplace_order_items oi on oi.order_id=so.id
+  left join lateral (
+   select supply.id supply_order_id,supply.status supply_order_status,
+    shipment.id shipment_id,shipment.status shipment_status,shipment.dispatch_at
+   from logistics_supply_orders supply
+   left join lateral (
+    select sh.id,sh.status,sh.dispatch_at
+    from logistics_shipments sh
+    where sh.tenant_id=supply.tenant_id and sh.supply_order_id=supply.id
+    order by sh.created_at desc,sh.id desc limit 1
+   ) shipment on true
+   where supply.tenant_id=$1 and supply.marketplace_order_id=so.id
+   order by supply.created_at desc,supply.id desc limit 1
+  ) delivery on true
   join products p on p.id=oi.product_id and p.tenant_id=$1
   left join marketplace_inventory_product_links mil on mil.tenant_id=$1 and mil.product_id=oi.product_id and mil.status='active'
   left join inventory_products ip on ip.id=mil.inventory_product_id and ip.tenant_id=$1
@@ -302,7 +324,13 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
   item.lineCount++;item.orderIds.add(row.order_id);counts.set(row.costing_readiness,item);
  }
  const summary=Array.from(counts.entries()).map(([status,value])=>({status,lineCount:value.lineCount,orderCount:value.orderIds.size}));
- res.json({from,to,items:result.rows,summary,orderLimit:500,lineLimit:2000,readOnly:true,
+ const dispatchCounts=new Map<string,{lineCount:number;orderIds:Set<string>}>();
+ for(const row of result.rows){
+  const item=dispatchCounts.get(row.dispatch_readiness)||{lineCount:0,orderIds:new Set<string>()};
+  item.lineCount++;item.orderIds.add(row.order_id);dispatchCounts.set(row.dispatch_readiness,item);
+ }
+ const dispatchSummary=Array.from(dispatchCounts.entries()).map(([status,value])=>({status,lineCount:value.lineCount,orderCount:value.orderIds.size}));
+ res.json({from,to,items:result.rows,summary,dispatchSummary,orderLimit:500,lineLimit:2000,readOnly:true,
   limitation:"This report checks mapping, consumed operational reservations and the existence of cost layers linked to posted financial inventory documents. The current verified flow does not post a financial issue document linked to each marketplace order, so cost of goods is not calculated."
  });
 }));
