@@ -102,3 +102,13 @@ test("a supply order cannot receive a second active shipment",()=>{
  assert.ok(route.includes("activeShipment.rowCount"));
  assert.ok(route.includes("logistics_shipments_one_active_per_supply_order_uq"));
 });
+
+
+test("database constraint allows only one active shipment per supply order",()=>{
+ const migration=fs.readFileSync(new URL("../../../database/migrations/zzzzzzzzzz_logistics_single_active_shipment_per_supply_order.sql",import.meta.url),"utf8");
+ assert.ok(migration.includes("logistics_shipments_one_active_per_supply_order_uq"));
+ assert.ok(migration.includes("group by tenant_id,supply_order_id"));
+ assert.ok(migration.includes("having count(*) > 1"));
+ assert.ok(migration.includes("status in ('planned','assigned','picked_up','in_transit')"));
+ assert.ok(migration.includes("create unique index"));
+});
