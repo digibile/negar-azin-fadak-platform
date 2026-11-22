@@ -453,8 +453,10 @@ settlementRouter.get("/api/marketplace/settlements/cost-layer-allocation-preview
     when wm.existing_method is not null and wm.existing_method<>cl.method then 'existing_method_conflict'
     when ap.valuation_method is null then 'active_policy_missing'
     when ap.valuation_method<>cl.method then 'cost_layer_method_conflicts_with_active_policy'
+    when ap.valuation_method<>'fifo' or cl.method<>'fifo' then 'allocation_method_not_implemented'
     else 'eligible_under_active_policy' end as policy_decision,
-   case when ap.valuation_method=cl.method and coalesce(wm.method_count,0)<=1
+   case when ap.valuation_method='fifo' and cl.method='fifo'
+    and ap.valuation_method=cl.method and coalesce(wm.method_count,0)<=1
     and (wm.existing_method is null or wm.existing_method=cl.method)
     then least(greatest(il.issue_quantity-coalesce(ia.allocated_quantity,0),0),
      greatest(cl.quantity-coalesce(la.allocated_quantity,0),0))::numeric
@@ -504,7 +506,7 @@ settlementRouter.get("/api/marketplace/settlements/cost-layer-allocation-preview
  const items=Array.from(lines.values()).map(item=>({...item,
   status:item.unallocatedQuantity<=0?"fully_allocated":item.candidates.length?"candidates_available":"no_eligible_cost_layers"}));
  res.json({document:doc,items,lineCount:items.length,readOnly:true,allocationEnabled:false,
-  policy:{selected:false,automaticSelection:false,reason:"روش فعال و سازگار هر کالا/انبار در وضعیت هر لایه مشخص می‌شود؛ در نبود سیاست فعال یا هنگام تعارض روش، سقف قابل تخصیص صفر است."},
+  policy:{selected:false,automaticSelection:false,reason:"در این نسخه تخصیص اجرایی فقط برای FIFO پیاده‌سازی شده است؛ روش‌های میانگین موزون، استاندارد و واقعی تا زمان پیاده‌سازی الگوریتم مستقل، حتی با سیاست فعال قابل تخصیص نیستند."},
   limitation:"این پیش‌نمایش فقط سند خروج مالی را بررسی می‌کند و آن را به سفارش بازارگاه نسبت نمی‌دهد. مقدار قابل تخصیص سقف کنترلی هر جفت قلم/لایه است، نه دستور تخصیص یا ثبت مالی."});
 }));
 
