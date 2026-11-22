@@ -81,6 +81,9 @@ test("financial cost layer allocation ledger is tenant-scoped and idempotent",()
  assert.ok(allocationMigration.includes("foreign key(tenant_id,cost_layer_id,product_id)"));
  assert.ok(allocationMigration.includes("for update of cl"));
  assert.ok(allocationMigration.includes("for update of issue_line"));
+ assert.ok(allocationMigration.includes("pg_advisory_xact_lock"));
+ assert.ok(allocationMigration.includes("source_line.product_id<>v_layer.product_id"));
+ assert.ok(allocationMigration.includes("Valuation method must remain consistent"));
 });
 
 test("financial cost layer allocation rejects over-consumption and non-posted documents",()=>{
