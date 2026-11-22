@@ -22,6 +22,7 @@ export default function RefundReconciliationPage(){
  const [active,setActive]=useState("");
  const [notice,setNotice]=useState("");
  const [error,setError]=useState("");
+ const [manual,setManual]=useState<Record<string,{providerRefundReference:string;evidenceReference:string;confirmationNote:string}>>({});
 
  const load=useCallback(async(showSpinner=true)=>{
   if(showSpinner)setLoading(true);else setRefreshing(true);
@@ -50,6 +51,23 @@ export default function RefundReconciliationPage(){
   finally{setActive("");}
  }
 
+ async function confirmManual(item:RefundItem){
+  const input=manual[item.id]||{providerRefundReference:"",evidenceReference:"",confirmationNote:""};
+  if(!input.providerRefundReference.trim()||!input.evidenceReference.trim()||!input.confirmationNote.trim()){
+   setError("برای تأیید دستی، شناسه بازپرداخت درگاه، مرجع مدرک و توضیح تأیید را کامل کنید.");return;
+  }
+  setActive(item.id);setNotice("");setError("");
+  try{
+   const result=await api<any>("/api/marketplace/refunds/"+encodeURIComponent(item.id)+"/confirm-manual",{method:"POST",body:JSON.stringify(input)});
+   if(result.finalizationRequired){
+    await api("/api/marketplace/orders/"+encodeURIComponent(item.order_id)+"/refund",{method:"POST",body:JSON.stringify({})});
+    setNotice("تطبیق دستی با ثبت ممیزی انجام شد و بازپرداخت در دفتر مالی نهایی گردید.");
+   }
+   await load(false);
+  }catch(e){setError(e instanceof Error?e.message:"تطبیق دستی بازپرداخت انجام نشد");await load(false);}
+  finally{setActive("");}
+ }
+
  return <main dir="rtl" className="refund-page">
   <div className="refund-heading">
    <div><span className="refund-kicker">پنل پرداخت و تسویه</span><h1>تطبیق بازپرداخت‌های نامعلوم</h1><p>درخواست‌هایی که به درگاه ارسال شده‌اند اما نتیجه قطعی یا ثبت نهایی آن‌ها کامل نشده است.</p></div>
@@ -74,7 +92,15 @@ export default function RefundReconciliationPage(){
      <td><span className={"refund-status status-"+(item.provider_last_status||"unknown")}>{item.provider_last_status||"نامعلوم"}</span>{item.provider_last_error&&<small className="refund-row-error">{item.provider_last_error}</small>}</td>
      <td>{Number(item.provider_attempt_count||0).toLocaleString("fa-IR")}</td>
      <td>{date(item.updated_at)}</td>
-     <td><button type="button" disabled={active===item.id||Boolean(item.provider_claimed_at&&Date.now()-new Date(item.provider_claimed_at).getTime()<5*60*1000)} onClick={()=>void reconcile(item)}>{active===item.id?"در حال تطبیق…":"استعلام و نهایی‌سازی"}</button></td>
+     <td className="refund-row-actions">
+      <button type="button" disabled={active===item.id||Boolean(item.provider_claimed_at&&Date.now()-new Date(item.provider_claimed_at).getTime()<5*60*1000)} onClick={()=>void reconcile(item)}>{active===item.id?"در حال تطبیق…":"استعلام درگاه"}</button>
+      <details><summary>ثبت تطبیق دستی</summary>
+       <input aria-label="شناسه بازپرداخت درگاه" placeholder="شناسه بازپرداخت درگاه" value={manual[item.id]?.providerRefundReference||""} onChange={e=>setManual(v=>({...v,[item.id]:{providerRefundReference:e.target.value,evidenceReference:v[item.id]?.evidenceReference||"",confirmationNote:v[item.id]?.confirmationNote||""}}))}/>
+       <input aria-label="مرجع مدرک" placeholder="مرجع گزارش / سند درگاه" value={manual[item.id]?.evidenceReference||""} onChange={e=>setManual(v=>({...v,[item.id]:{providerRefundReference:v[item.id]?.providerRefundReference||"",evidenceReference:e.target.value,confirmationNote:v[item.id]?.confirmationNote||""}}))}/>
+       <textarea aria-label="توضیح تأیید" placeholder="توضیح و مستند تصمیم" value={manual[item.id]?.confirmationNote||""} onChange={e=>setManual(v=>({...v,[item.id]:{providerRefundReference:v[item.id]?.providerRefundReference||"",evidenceReference:v[item.id]?.evidenceReference||"",confirmationNote:e.target.value}}))}/>
+       <button type="button" className="manual-confirm" disabled={active===item.id} onClick={()=>void confirmManual(item)}>تأیید مستند و نهایی‌سازی</button>
+      </details>
+     </td>
     </tr>)}
    </tbody></table></div>}
   </section>
@@ -106,6 +132,7 @@ export default function RefundReconciliationPage(){
    .status-refunded{background:#dcfce7;color:#166534}.status-failed{background:#fee2e2;color:#991b1b}.status-pending{background:#fef3c7;color:#92400e}
    .refund-row-error{color:#9f1239!important}
    .refund-table td button{background:#172f54;color:#fff;border-color:#172f54;white-space:nowrap}
+   .refund-row-actions{min-width:210px}.refund-row-actions details{margin-top:7px}.refund-row-actions summary{font-size:11px;color:#475569;cursor:pointer;padding:6px 0;font-weight:800}.refund-row-actions input,.refund-row-actions textarea{display:block;width:100%;margin:6px 0;padding:8px;border:1px solid #dbe3ee;border-radius:8px;font:inherit;font-size:11px;min-width:190px}.refund-row-actions textarea{min-height:58px;resize:vertical}.refund-row-actions .manual-confirm{background:#7c3f14;border-color:#7c3f14}
    .refund-empty{padding:35px;text-align:center;color:#64748b;font-size:13px}
    .refund-safety-note{background:#f8fafc;border:1px solid #e2e8f0;color:#475569}
    @media(max-width:800px){.refund-page{padding:16px}.refund-heading{display:block}.refund-actions{margin-top:14px}.refund-summary{grid-template-columns:1fr}.refund-table-title{align-items:flex-start;gap:10px}}
