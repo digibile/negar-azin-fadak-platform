@@ -76,3 +76,18 @@ test("purchase request status transitions are tenant-scoped, locked and atomic",
  assert.ok(r.body.includes("rollback"));
  assert.ok(r.body.includes("finally{c.release()}"));
 });
+
+test("RFQ creation locks the approved request and atomically records invitations and transition",()=>{
+ const r=route('router.post("/api/purchasing/rfqs"','router.post("/api/purchasing/quotes"');
+ assert.ok(r.start>=0);
+ assert.ok(r.body.includes("begin"));
+ assert.ok(r.body.includes("purchase_requests where id=$1 and tenant_id=$2 for update"));
+ assert.ok(r.body.includes("purchase_suppliers where id=$1 and tenant_id=$2 and status='active' for update"));
+ assert.ok(r.body.includes("new Set(suppliers.map(String))"));
+ assert.ok(r.body.includes("insert into purchase_rfq_suppliers"));
+ assert.ok(r.body.includes("status='approved' returning id"));
+ assert.ok(r.body.includes("insert into purchase_events"));
+ assert.ok(r.body.includes("commit"));
+ assert.ok(r.body.includes("rollback"));
+ assert.ok(r.body.includes("finally{c.release()}"));
+});
