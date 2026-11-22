@@ -29,3 +29,22 @@ test("carrier invoice schema enforces tenant-safe supplier and shipment referenc
  assert.match(migration,/unique\(tenant_id,invoice_id,shipment_id\)/);
  assert.match(migration,/total_amount>0 and total_amount=subtotal\+tax_amount/);
 });
+
+test("carrier invoice verification is a tenant-scoped draft-only transition",()=>{
+ const verifyStart=routeSource.indexOf('logisticsRouter.post("/api/logistics/carrier-invoices/:id/verify"');
+ const verify=verifyStart<0?"":routeSource.slice(verifyStart,routeSource.indexOf('logisticsRouter.post("/api/logistics/carrier-invoices"',verifyStart+10));
+ assert.ok(verifyStart>=0);
+ assert.match(verify,/requireAuth,requirePermission\("modules:12-logistics-supply:write"\)/);
+ assert.match(verify,/where id=\$1 and tenant_id=\$2 for update/);
+ assert.match(verify,/invoice\.status!=="draft"/);
+ assert.match(verify,/sum\(a\.allocated_amount\)/);
+ assert.match(verify,/sh\.status in \('failed','cancelled'\)/);
+ assert.match(verify,/status='verified',verified_by=\$1,verified_at=now\(\)/);
+ assert.match(verify,/logistics\.carrier_invoice_verified/);
+ assert.match(verify,/accountingStatus:"not_posted"/);
+});
+
+test("carrier invoice migration stores verification actor and timestamp",()=>{
+ assert.match(migration,/verified_by uuid references users\(id\)/);
+ assert.match(migration,/verified_at timestamptz/);
+});
