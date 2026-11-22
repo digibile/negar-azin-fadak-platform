@@ -147,3 +147,31 @@ test("manual reconciliation cannot override an active provider lookup claim",()=
  assert.ok(route.includes("refund.provider_claim_token&&refund.provider_claimed_at"));
  assert.ok(route.includes("فرایند استعلام درگاه قرار دارد"));
 });
+
+
+test("refund reconciliation endpoints are permission-gated and mutating endpoints require CSRF",()=>{
+ const list=checkout.slice(checkout.indexOf('checkoutRouter.get("/api/marketplace/refunds/reconciliation"'),checkout.indexOf('checkoutRouter.post("/api/marketplace/refunds/:id/reconcile"'));
+ const lookup=checkout.slice(checkout.indexOf('checkoutRouter.post("/api/marketplace/refunds/:id/reconcile"'),checkout.indexOf('checkoutRouter.post("/api/marketplace/refunds/:id/confirm-manual"'));
+ const manual=checkout.slice(checkout.indexOf('checkoutRouter.post("/api/marketplace/refunds/:id/confirm-manual"'),checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"'));
+ assert.ok(list.startsWith('checkoutRouter.get("/api/marketplace/refunds/reconciliation",requireAuth,requirePermission("payment:refund")'));
+ assert.ok(lookup.startsWith('checkoutRouter.post("/api/marketplace/refunds/:id/reconcile",requireAuth,requirePermission("payment:refund"),requireCsrf'));
+ assert.ok(manual.startsWith('checkoutRouter.post("/api/marketplace/refunds/:id/confirm-manual",requireAuth,requirePermission("payment:refund"),requireCsrf'));
+});
+
+test("refund reconciliation list and mutations scope records to the authenticated tenant",()=>{
+ const start=checkout.indexOf('checkoutRouter.get("/api/marketplace/refunds/reconciliation"');
+ const end=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/cancel"',start);
+ const routes=checkout.slice(start,end);
+ assert.ok(routes.includes("where r.tenant_id=$1"));
+ assert.ok(routes.includes("where id=$2 and tenant_id=$3"));
+ assert.ok(routes.includes("where id=$1 and tenant_id=$2"));
+ assert.ok(routes.includes("ctx(req)"));
+});
+
+test("admin refund workbench is linked from the central payments menu",()=>{
+ const menu=fs.readFileSync(new URL("../../web/app/admin/master-menu.ts",import.meta.url),"utf8");
+ const page=fs.readFileSync(new URL("../../web/app/admin/refunds/page.tsx",import.meta.url),"utf8");
+ assert.ok(menu.includes('"/admin/refunds"'));
+ assert.ok(page.includes("/api/marketplace/refunds/reconciliation?limit=100"));
+ assert.ok(page.includes("/confirm-manual"));
+});
