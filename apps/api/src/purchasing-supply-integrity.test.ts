@@ -124,3 +124,41 @@ test("purchase order creation rejects reused selected quotes and advances reques
  assert.match(r.body,/rollback/);
  assert.match(r.body,/finally\{c\.release\(\)\}/);
 });
+
+
+test("purchase order lifecycle allows only draft approval, supplier dispatch and cancellation before receipt",()=>{
+ const lifecycle=fs.readFileSync(new URL("./commerce-lifecycle.ts",import.meta.url),"utf8");
+ assert.match(lifecycle,/draft:\["approved","cancelled"\]/);
+ assert.match(lifecycle,/approved:\["sent","cancelled"\]/);
+ assert.match(lifecycle,/sent:\["cancelled"\]/);
+ assert.match(lifecycle,/partially_received:\[\]/);
+ assert.match(lifecycle,/received:\[\]/);
+ assert.match(lifecycle,/invoiced:\[\]/);
+ assert.match(lifecycle,/paid:\[\]/);
+});
+
+test("purchase order status changes lock the tenant-owned order and validate active supplier before approval",()=>{
+ const r=route('router.patch("/api/purchasing/orders/:id/status"','router.post("/api/purchasing/receipts"');
+ assert.ok(r.start>=0);
+ assert.match(r.body,/requireAuth,requirePermission\("modules:21-purchasing-supply:approve"\)/);
+ assert.match(r.body,/begin/);
+ assert.match(r.body,/purchase_orders where id=\$1 and tenant_id=\$2 for update/);
+ assert.match(r.body,/isAllowedLifecycleTransition\(purchaseOrderTransitions,old\.status,to\)/);
+ assert.match(r.body,/purchase_suppliers where id=\$1 and tenant_id=\$2 for update/);
+ assert.match(r.body,/supplier\.rows\[0\]\.status!=="active"/);
+ assert.match(r.body,/update purchase_orders set status=\$1,updated_at=now\(\) where id=\$2 and tenant_id=\$3 returning \*/);
+ assert.match(r.body,/insert into purchase_events/);
+ assert.match(r.body,/commit/);
+ assert.match(r.body,/rollback/);
+ assert.match(r.body,/finally\{c\.release\(\)\}/);
+});
+
+test("receipt completion is driven by cumulative delivered quantity, not accepted quantity",()=>{
+ const r=route('router.post("/api/purchasing/receipts"','router.post("/api/purchasing/invoices"');
+ assert.match(r.body,/const row=found\.rows\[0\],open=Number\(row\.quantity\)-Number\(row\.received_qty\|\|0\)/);
+ assert.match(r.body,/quantity>open\+0\.000001/);
+ assert.match(r.body,/update purchase_order_items set received_qty=received_qty\+\$1/);
+ assert.match(r.body,/count\(\*\) filter\(where received_qty<quantity\) remaining/);
+ assert.match(r.body,/remaining\?"partially_received":"received"/);
+ assert.doesNotMatch(r.body,/accepted_qty<quantity/);
+});
