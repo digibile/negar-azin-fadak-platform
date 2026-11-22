@@ -46,3 +46,24 @@ test("settlement ledger posting preserves numeric database values as strings",()
  assert.ok(route.includes('credit:String(settlement.net_amount)'));
  assert.ok(!route.includes("Number(settlement.net_amount)"));
 });
+
+test("settlement payout uses the seller supplier account and selected tenant bank account",()=>{
+ assert.ok(payout.includes("s.accounting_party_id"));
+ assert.ok(payout.includes("ap.party_type"));
+ assert.ok(payout.includes("ap.default_account_id"));
+ assert.ok(payout.includes("ba.id=$3 and ba.tenant_id=s.tenant_id"));
+ assert.ok(payout.includes("payable.status party_status"));
+ assert.ok(payout.includes("bank.code bank_code"));
+ assert.ok(payout.includes("bank.code,accountName:mapping.bank_name"));
+ assert.ok(payout.includes("payout_bank_account_id=$3,payout_ledger_entry_id=$4,payout_reference=$5"));
+ assert.doesNotMatch(payout,/accountCode:"(?:2101|1101)"/);
+});
+
+test("payout bank account choices are tenant-scoped and require an active ledger account",()=>{
+ const start=source.indexOf('settlementRouter.get("/api/marketplace/settlements/payout-bank-accounts"');
+ const end=source.indexOf('settlementRouter.get("/api/marketplace/settlements"',start);
+ const route=source.slice(start,end);
+ assert.ok(route.includes("ba.tenant_id=$1"));
+ assert.ok(route.includes("ba.status='active'"));
+ assert.ok(route.includes("la.status='active'"));
+});
