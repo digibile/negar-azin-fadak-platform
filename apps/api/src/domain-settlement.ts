@@ -200,6 +200,115 @@ settlementRouter.get("/api/marketplace/settlements/order-cost-analysis",requireA
  });
 }));
 
+settlementRouter.get("/api/marketplace/settlements/cost-layer-allocation-preview",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const issueDocumentId=typeof req.query.issueDocumentId==="string"?req.query.issueDocumentId.trim():"";
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(issueDocumentId))
+  return res.status(400).json({error:"شناسه UUID سند خروج مالی معتبر الزامی است"});
+ const document=await query(`
+  select d.id,d.document_no,d.document_date,d.document_type,d.status,d.warehouse_id,
+   w.code warehouse_code,w.title warehouse_title,d.posted_at
+  from finance_inventory_documents d
+  join finance_warehouses w on w.id=d.warehouse_id and w.tenant_id=d.tenant_id
+  where d.tenant_id=$1 and d.id=$2
+ `,[t.id,issueDocumentId]);
+ if(!document.rowCount)return res.status(404).json({error:"سند مالی در محدوده سازمانی جاری پیدا نشد"});
+ const doc=document.rows[0];
+ if(doc.document_type!=="issue"||doc.status!=="posted")
+  return res.status(409).json({error:"پیش‌نمایش فقط برای سند خروج قطعی‌شده مجاز است"});
+ const result=await query(`
+  with issue_lines as (
+   select il.id issue_line_id,il.product_id,il.quantity issue_quantity,
+    il.unit_cost issue_line_unit_cost,fp.code product_code,fp.title product_title
+   from finance_inventory_lines il
+   join finance_products fp on fp.id=il.product_id and fp.tenant_id=$1
+   where il.document_id=$2
+  ),
+  issue_allocations as (
+   select a.issue_document_line_id,sum(a.quantity)::numeric allocated_quantity,
+    count(*)::int allocation_count
+   from finance_cost_layer_allocations a
+   where a.tenant_id=$1 and a.issue_document_line_id in (select issue_line_id from issue_lines)
+   group by a.issue_document_line_id
+  ),
+  layer_allocations as (
+   select a.cost_layer_id,sum(a.quantity)::numeric allocated_quantity,
+    count(*)::int allocation_count
+   from finance_cost_layer_allocations a
+   where a.tenant_id=$1
+   group by a.cost_layer_id
+  ),
+  warehouse_methods as (
+   select a.product_id,a.warehouse_id,count(distinct a.valuation_method)::int method_count,
+    min(a.valuation_method) existing_method
+   from finance_cost_layer_allocations a
+   where a.tenant_id=$1 and a.warehouse_id=$3
+   group by a.product_id,a.warehouse_id
+  )
+  select il.issue_line_id,il.product_id,il.product_code,il.product_title,
+   il.issue_quantity,coalesce(ia.allocated_quantity,0)::numeric issue_allocated_quantity,
+   greatest(il.issue_quantity-coalesce(ia.allocated_quantity,0),0)::numeric issue_unallocated_quantity,
+   coalesce(ia.allocation_count,0)::int issue_allocation_count,
+   cl.id cost_layer_id,cl.method valuation_method,cl.quantity layer_initial_quantity,
+   coalesce(la.allocated_quantity,0)::numeric layer_allocated_quantity,
+   greatest(cl.quantity-coalesce(la.allocated_quantity,0),0)::numeric layer_remaining_quantity,
+   cl.unit_cost,cl.total_cost,cl.created_at layer_created_at,
+   source_doc.id source_document_id,source_doc.document_no source_document_no,
+   source_doc.document_type source_document_type,source_doc.document_date source_document_date,
+   coalesce(wm.method_count,0)::int existing_warehouse_method_count,wm.existing_method,
+   case when coalesce(wm.method_count,0)>1 then 'mixed_existing_allocation_methods'
+    when wm.existing_method is not null and wm.existing_method<>cl.method then 'existing_method_conflict'
+    else 'method_selection_required' end as policy_decision,
+   least(greatest(il.issue_quantity-coalesce(ia.allocated_quantity,0),0),
+    greatest(cl.quantity-coalesce(la.allocated_quantity,0),0))::numeric max_allocatable_quantity
+  from issue_lines il
+  left join issue_allocations ia on ia.issue_document_line_id=il.issue_line_id
+  left join lateral (
+   select layer.*
+   from finance_cost_layers layer
+   join finance_inventory_lines source_line on source_line.id=layer.inventory_document_line_id
+   join finance_inventory_documents source_doc on source_doc.id=source_line.document_id
+    and source_doc.tenant_id=layer.tenant_id
+   left join layer_allocations la2 on la2.cost_layer_id=layer.id
+   where layer.tenant_id=$1 and layer.product_id=il.product_id
+    and source_doc.warehouse_id=$3 and source_doc.status='posted'
+    and source_doc.document_type in ('receipt','return_receipt','adjustment')
+    and source_line.product_id=layer.product_id
+    and layer.quantity>coalesce(la2.allocated_quantity,0)
+   order by layer.created_at,layer.id
+  ) cl on true
+  left join finance_inventory_lines source_line on source_line.id=cl.inventory_document_line_id
+  left join finance_inventory_documents source_doc on source_doc.id=source_line.document_id
+   and source_doc.tenant_id=$1
+  left join layer_allocations la on la.cost_layer_id=cl.id
+  left join warehouse_methods wm on wm.product_id=il.product_id and wm.warehouse_id=$3
+  order by il.product_code,il.issue_line_id,cl.created_at,cl.id
+ `,[t.id,issueDocumentId,doc.warehouse_id]);
+ const lines=new Map<string,any>();
+ for(const row of result.rows){
+  let item=lines.get(row.issue_line_id);
+  if(!item){
+   item={issueLineId:row.issue_line_id,productId:row.product_id,productCode:row.product_code,productTitle:row.product_title,
+    issueQuantity:Number(row.issue_quantity),allocatedQuantity:Number(row.issue_allocated_quantity),
+    unallocatedQuantity:Number(row.issue_unallocated_quantity),allocationCount:row.issue_allocation_count,candidates:[]};
+   lines.set(row.issue_line_id,item);
+  }
+  if(row.cost_layer_id)item.candidates.push({
+   costLayerId:row.cost_layer_id,method:row.valuation_method,initialQuantity:Number(row.layer_initial_quantity),
+   allocatedQuantity:Number(row.layer_allocated_quantity),remainingQuantity:Number(row.layer_remaining_quantity),
+   unitCost:Number(row.unit_cost),totalCost:Number(row.total_cost),createdAt:row.layer_created_at,
+   sourceDocument:{id:row.source_document_id,documentNo:row.source_document_no,type:row.source_document_type,date:row.source_document_date},
+   existingWarehouseMethodCount:row.existing_warehouse_method_count,existingMethod:row.existing_method,
+   policyDecision:row.policy_decision,maxAllocatableQuantity:Number(row.max_allocatable_quantity)
+  });
+ }
+ const items=Array.from(lines.values()).map(item=>({...item,
+  status:item.unallocatedQuantity<=0?"fully_allocated":item.candidates.length?"candidates_available":"no_eligible_cost_layers"}));
+ res.json({document:doc,items,lineCount:items.length,readOnly:true,allocationEnabled:false,
+  policy:{selected:false,automaticSelection:false,reason:"سیاست ارزش‌گذاری معتبر در سطح کالا/انبار در ساختار تأییدشده پیدا نشد؛ انتخاب لایه و روش به‌صورت خودکار انجام نمی‌شود."},
+  limitation:"این پیش‌نمایش فقط سند خروج مالی را بررسی می‌کند و آن را به سفارش بازارگاه نسبت نمی‌دهد. مقدار قابل تخصیص سقف کنترلی هر جفت قلم/لایه است، نه دستور تخصیص یا ثبت مالی."});
+}));
+
 settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const validDate=(v:unknown)=>{
