@@ -313,6 +313,34 @@ checkoutRouter.post("/api/marketplace/refunds/:id/reconcile",requireAuth,require
  }
 }));
 
+checkoutRouter.post("/api/marketplace/refunds/:id/confirm-manual",requireAuth,requirePermission("payment:refund"),requireCsrf,asyncHandler(async(req,res)=>{
+ const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const providerRefundReference=s(req.body?.providerRefundReference,200);
+ const evidenceReference=s(req.body?.evidenceReference,300);
+ const confirmationNote=s(req.body?.confirmationNote,1000);
+ if(!providerRefundReference||!evidenceReference||!confirmationNote)return res.status(400).json({error:"شناسه بازپرداخت درگاه، مرجع مدرک و توضیح تأیید الزامی است"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const selected=await client.query("select * from marketplace_refunds where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+  if(!selected.rowCount){await client.query("rollback");return res.status(404).json({error:"درخواست بازپرداخت پیدا نشد"});}
+  const refund=selected.rows[0];
+  if(refund.status!=="pending"||Number(refund.provider_attempt_count||0)<1||refund.provider_code==="credit_facility"){
+   await client.query("rollback");return res.status(409).json({error:"این درخواست واجد شرایط تطبیق دستی نیست"});
+  }
+  if(refund.provider_last_status==="refunded"&&refund.provider_refund_transaction_id){
+   await client.query("rollback");return res.status(200).json({status:"refunded",refundId:refund.id,finalizationRequired:true,alreadyConfirmed:true});
+  }
+  const priorStatus=refund.provider_last_status||"unknown";
+  const payload={...(refund.provider_payload||{}),manualReconciliation:{confirmedBy:(req as any).user.id,confirmedAt:new Date().toISOString(),providerRefundReference,evidenceReference,confirmationNote,previousProviderStatus:priorStatus}};
+  const updated=await client.query("update marketplace_refunds set provider_refund_transaction_id=$1,provider_last_status='refunded',provider_last_error=null,provider_payload=$2,updated_at=now() where id=$3 and tenant_id=$4 and status='pending' returning id,order_id",[providerRefundReference,JSON.stringify(payload),refund.id,t.id]);
+  if(!updated.rowCount){await client.query("rollback");return res.status(409).json({error:"وضعیت درخواست تغییر کرده است؛ دوباره فهرست را دریافت کنید"});}
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'payment.refund.manually_reconciled','marketplace_refund',$3,$4)",[t.id,(req as any).user.id,refund.id,JSON.stringify({providerRefundReference,evidenceReference,confirmationNote,previousProviderStatus:priorStatus})]);
+  await client.query("commit");
+  res.json({status:"refunded",refundId:refund.id,orderId:refund.order_id,finalizationRequired:true,finalizationEndpoint:"/api/marketplace/orders/"+refund.order_id+"/refund"});
+ }catch(error){await client.query("rollback");throw error;}finally{client.release();}
+}));
+
 checkoutRouter.post("/api/marketplace/orders/:id/cancel",requireAuth,requirePermission("order:manage"),asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const client=await pool.connect();
