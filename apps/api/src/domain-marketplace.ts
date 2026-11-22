@@ -6,6 +6,7 @@ import {resolveTenant,resolvePublicTenant} from "./tenant-context.js";
 import {emitBusinessEvent} from "./business-events.js";
 import {getDigikalaCatalog, getDigikalaCategoryProducts, getDigikalaProductById, type DigikalaCatalogProduct} from "./digikala-catalog.js";
 import {randomUUID} from "node:crypto";
+import {postLedgerEntry} from "./ledger.js";
 import {mkdir,writeFile} from "node:fs/promises";
 import path from "node:path";
 
@@ -84,7 +85,7 @@ domainMarketplaceRouter.post("/api/tenancy/tenants",requireAuth,requirePermissio
 domainMarketplaceRouter.get("/api/marketplace/sellers",requireAuth,requirePermission("seller:view"),asyncHandler(async(req,res)=>{
   const ctx=await tenantContext(req,(req as any).user);
   if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
-  const r=await query("select s.id,s.legal_name,s.display_name,s.status,s.commission_rate,s.accounting_party_id,ap.party_code as accounting_party_code,ap.title as accounting_party_title,ap.default_account_id,la.code as payable_account_code,la.name as payable_account_name,la.status as payable_account_status,s.created_at,s.updated_at from sellers s left join accounting_parties ap on ap.id=s.accounting_party_id and ap.tenant_id=s.tenant_id left join ledger_accounts la on la.id=ap.default_account_id and la.tenant_id=ap.tenant_id where s.tenant_id=$1 order by s.created_at desc",[ctx.id]);
+  const r=await query("select s.id,s.legal_name,s.display_name,s.status,s.commission_rate,s.accounting_party_id,ap.party_code as accounting_party_code,ap.title as accounting_party_title,ap.default_account_id,la.code as payable_account_code,la.name as payable_account_name,la.status as payable_account_status,s.refund_receivable_account_id,ra.code as refund_receivable_account_code,ra.name as refund_receivable_account_name,s.created_at,s.updated_at from sellers s left join accounting_parties ap on ap.id=s.accounting_party_id and ap.tenant_id=s.tenant_id left join ledger_accounts la on la.id=ap.default_account_id and la.tenant_id=ap.tenant_id left join ledger_accounts ra on ra.id=s.refund_receivable_account_id and ra.tenant_id=s.tenant_id where s.tenant_id=$1 order by s.created_at desc",[ctx.id]);
   res.json({tenant:ctx,items:r.rows,total:r.rowCount});
 }));
 
@@ -125,6 +126,103 @@ domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/accounting",requireA
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'seller.accounting_mapping.updated','seller',$3,$4,$5)",[ctx.id,(req as any).user.id,req.params.id,JSON.stringify({accountingPartyId:seller.rows[0].accounting_party_id}),JSON.stringify({accountingPartyId:partyId})]);
   await client.query("commit");
   res.json({item:updated.rows[0]});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
+domainMarketplaceRouter.get("/api/marketplace/seller-refund-receivable-account-options",requireAuth,requirePermission("seller:view"),asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query(`
+  select id,code,name,account_type
+  from ledger_accounts
+  where tenant_id=$1 and status='active' and is_active=true and is_postable=true
+   and account_type in ('asset','receivable')
+  order by code
+ `,[ctx.id]);
+ res.json({items:r.rows});
+}));
+
+domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/refund-receivable-account",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(req.params.id))return res.status(400).json({error:"شناسه فروشنده نامعتبر است"});
+ const raw=req.body?.accountId;
+ const accountId=raw===null||raw===""?null:bodyString(raw,80);
+ if(raw!==null&&raw!==""&&(!accountId||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(accountId)))return res.status(400).json({error:"شناسه حساب دریافتنی نامعتبر است"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const seller=await client.query("select id,refund_receivable_account_id from sellers where id=$1 and tenant_id=$2 for update",[req.params.id,ctx.id]);
+  if(!seller.rowCount){await client.query("rollback");return res.status(404).json({error:"فروشنده پیدا نشد"});}
+  if(accountId){
+   const account=await client.query("select id from ledger_accounts where id=$1 and tenant_id=$2 and status='active' and is_active=true and is_postable=true and account_type in ('asset','receivable') for update",[accountId,ctx.id]);
+   if(!account.rowCount){await client.query("rollback");return res.status(409).json({error:"حساب باید دارایی/دریافتنی، فعال و قابل ثبت مستقیم باشد"});}
+  }
+  const updated=await client.query("update sellers set refund_receivable_account_id=$1,updated_at=now() where id=$2 and tenant_id=$3 returning id,display_name,refund_receivable_account_id",[accountId,req.params.id,ctx.id]);
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,before_data,after_data) values($1,$2,'seller.refund_receivable_account.updated','seller',$3,$4,$5)",[ctx.id,(req as any).user.id,req.params.id,JSON.stringify({accountId:seller.rows[0].refund_receivable_account_id}),JSON.stringify({accountId})]);
+  await client.query("commit");res.json({item:updated.rows[0]});
+ }catch(e){await client.query("rollback");throw e;}finally{client.release();}
+}));
+
+domainMarketplaceRouter.post("/api/marketplace/sellers/:id/refund-receivables/reclassify",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
+ const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(req.params.id))return res.status(400).json({error:"شناسه فروشنده نامعتبر است"});
+ const client=await pool.connect();
+ try{
+  await client.query("begin");
+  const seller=(await client.query(`
+   select s.id,s.display_name,s.accounting_party_id,s.refund_receivable_account_id,
+    p.party_code,p.title party_title,p.party_type,p.status party_status,
+    ra.code receivable_code,ra.name receivable_name,ra.account_type receivable_type,ra.status receivable_status,ra.is_active receivable_active,ra.is_postable receivable_postable
+   from sellers s
+   left join accounting_parties p on p.id=s.accounting_party_id and p.tenant_id=s.tenant_id
+   left join ledger_accounts ra on ra.id=s.refund_receivable_account_id and ra.tenant_id=s.tenant_id
+   where s.id=$1 and s.tenant_id=$2 for update of s
+  `,[req.params.id,ctx.id])).rows[0];
+  if(!seller){await client.query("rollback");return res.status(404).json({error:"فروشنده پیدا نشد"});}
+  if(!seller.accounting_party_id||seller.party_type!=="supplier"||seller.party_status!=="active"){await client.query("rollback");return res.status(409).json({error:"ابتدا طرف حساب تأمین‌کننده فعال فروشنده را متصل کنید"});}
+  if(!seller.refund_receivable_account_id||!["asset","receivable"].includes(seller.receivable_type)||seller.receivable_status!=="active"||seller.receivable_active!==true||seller.receivable_postable!==true){await client.query("rollback");return res.status(409).json({error:"ابتدا حساب معین دارایی/دریافتنی فعال و قابل ثبت را به فروشنده متصل کنید"});}
+  const refunds=await client.query(`
+   select mr.id refund_id,mr.refund_no,mr.amount refund_amount,o.id order_id,o.order_no,o.currency,
+    le.id refund_ledger_entry_id,coalesce(sum(ll.debit) filter(where la.code='2101'),0)::text seller_debit
+   from marketplace_refunds mr
+   join marketplace_orders o on o.id=mr.order_id and o.tenant_id=mr.tenant_id
+   join seller_settlement_items si on si.order_id=o.id and si.tenant_id=o.tenant_id
+   join seller_settlements ss on ss.id=si.settlement_id and ss.tenant_id=si.tenant_id and ss.status='paid'
+   join ledger_entries le on le.tenant_id=mr.tenant_id and le.source_type='marketplace_refund' and le.source_id=mr.id and le.status='posted'
+   join ledger_lines ll on ll.entry_id=le.id
+   join ledger_accounts la on la.id=ll.account_id and la.tenant_id=le.tenant_id
+   where mr.tenant_id=$1 and o.seller_id=$2 and mr.status='refunded'
+    and la.code='2101' and ll.debit>0
+    and not exists(select 1 from accounting_receivable_payables rp where rp.tenant_id=mr.tenant_id and rp.source_module='marketplace_refund' and rp.source_document_id=mr.id)
+   group by mr.id,mr.refund_no,mr.amount,o.id,o.order_no,o.currency,le.id
+   having sum(ll.debit)>0
+   order by mr.created_at,mr.id
+   limit 100
+  `,[ctx.id,req.params.id]);
+  const control=(await client.query("select id,code,name,account_type from ledger_accounts where tenant_id=$1 and code='2101' and status='active' and is_active=true and is_postable=true for update",[ctx.id])).rows[0];
+  if(refunds.rowCount&&!control){await client.query("rollback");return res.status(409).json({error:"حساب کنترل بستانکاران فروشندگان با کد 2101 فعال و قابل ثبت نیست"});}
+  const created:any[]=[];
+  for(const refund of refunds.rows){
+   const amount=String(refund.seller_debit);
+   const entryId=await postLedgerEntry(client,{tenantId:ctx.id,entryNo:"SRR-"+refund.refund_no,sourceType:"marketplace_seller_refund_receivable",sourceId:refund.refund_id,description:"انتقال مانده بدهکار فروشنده بابت بازپرداخت "+refund.refund_no,createdBy:(req as any).user.id,lines:[
+    {accountCode:seller.receivable_code,accountName:seller.receivable_name,accountType:seller.receivable_type,debit:amount},
+    {accountCode:control.code,accountName:control.name,accountType:control.account_type,credit:amount}
+   ]});
+   const rp=await client.query(`
+    insert into accounting_receivable_payables(tenant_id,party_id,direction,reference_no,issue_date,original_amount,currency,status,description,metadata,created_by,source_module,source_document_id)
+    values($1,$2,'receivable',$3,current_date,$4,$5,'open',$6,$7,$8,'marketplace_refund',$9)
+    on conflict(tenant_id,source_module,source_document_id) where source_module is not null and source_document_id is not null do nothing
+    returning id,original_amount,status
+   `,[ctx.id,seller.accounting_party_id,refund.refund_no,amount,refund.currency||"IRR","مطالبه از فروشنده بابت بازپرداخت سفارش "+refund.order_no,JSON.stringify({sellerId:req.params.id,refundId:refund.refund_id,orderId:refund.order_id,orderNo:refund.order_no,refundLedgerEntryId:refund.refund_ledger_entry_id,reclassificationLedgerEntryId:entryId}), (req as any).user.id,refund.refund_id]);
+   let receivable=rp.rows[0];
+   if(!receivable){
+    receivable=(await client.query("select id,original_amount,status from accounting_receivable_payables where tenant_id=$1 and source_module='marketplace_refund' and source_document_id=$2 for update",[ctx.id,refund.refund_id])).rows[0];
+    if(!receivable||Math.abs(Number(receivable.original_amount)-Number(amount))>0.005||receivable.status==="cancelled"){throw new Error("مطالبه قبلی با مبلغ یا وضعیت مورد انتظار تطبیق ندارد: "+refund.refund_no);}
+   }
+   created.push({refundId:refund.refund_id,refundNo:refund.refund_no,amount,receivableId:receivable.id,ledgerEntryId:entryId,alreadyExisted:!rp.rowCount});
+  }
+  await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'seller.refund_receivables.reclassified','seller',$3,$4)",[ctx.id,(req as any).user.id,req.params.id,JSON.stringify({count:created.length,receivables:created})]);
+  await client.query("commit");
+  res.json({sellerId:req.params.id,processed:created.length,items:created,limit:100,readOnly:false,message:"مطالبات فروشنده و اسناد انتقال مانده با موفقیت ثبت شدند"});
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
