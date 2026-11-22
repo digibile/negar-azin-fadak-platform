@@ -34,7 +34,7 @@ export async function postLedgerEntry(client:PoolClient,args:{tenantId:string;en
  for(const line of args.lines){
   const accountId=await ensureLedgerAccount(client,args.tenantId,line);
   const debit=moneyToMinorUnits(line.debit??"0"),credit=moneyToMinorUnits(line.credit??"0");
-  if((debit>0n)===(credit>0n)) throw new Error("هر ردیف دفترکل باید بدهکار یا بستانکار باشد");
+  if(debit<0n||credit<0n||(debit>0n)===(credit>0n)) throw new Error("هر ردیف دفترکل باید فقط یک مبلغ مثبت در سمت بدهکار یا بستانکار داشته باشد");
   await client.query("insert into ledger_lines(entry_id,account_id,debit,credit,description) values($1,$2,$3,$4,$5)",[entry.rows[0].id,accountId,minorUnitsToMoney(debit),minorUnitsToMoney(credit),line.description||null]);
  }
  return entry.rows[0].id as string;
