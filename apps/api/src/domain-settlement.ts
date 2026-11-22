@@ -268,6 +268,91 @@ settlementRouter.get("/api/marketplace/settlements/financial-issue-link-audit",r
   interpretation:"source_id_order_match فقط برابری شناسه منبع با شناسه سفارش را نشان می‌دهد و به‌تنهایی رابطه تجاری معتبر را اثبات نمی‌کند. تا زمانی که نوع منبع و رابطه قلم سفارش/رزرو/قلم خروج به‌صورت صریح تأیید نشوند، بهای تمام‌شده به سفارش نسبت داده نمی‌شود."});
 }));
 
+
+settlementRouter.get("/api/marketplace/settlements/cogs-accounting-readiness",requireAuth,requirePermission("accounting-finance.read"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const issueDocumentId=s(req.query.issueDocumentId,64);
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(issueDocumentId))return res.status(400).json({error:"شناسه سند خروج معتبر نیست"});
+ const doc=(await query(`
+  select d.id,d.document_no,d.document_date,d.status,d.document_type,d.source_type,d.source_id,
+   d.warehouse_id,w.code warehouse_code,w.title warehouse_title,
+   o.id matched_order_id,o.order_no matched_order_no,o.currency order_currency
+  from finance_inventory_documents d
+  join finance_warehouses w on w.id=d.warehouse_id and w.tenant_id=d.tenant_id
+  left join marketplace_orders o on o.tenant_id=d.tenant_id and o.id::text=d.source_id::text
+  where d.id=$1 and d.tenant_id=$2 and d.document_type='issue'
+ `,[issueDocumentId,t.id])).rows[0];
+ if(!doc)return res.status(404).json({error:"سند خروج مالی در سازمان جاری پیدا نشد"});
+ const [allocation,books,accounts,existing]=await Promise.all([
+  query(`
+   select count(*)::int line_count,
+    count(*) filter(where coalesce(a.allocated_quantity,0)>=il.quantity)::int fully_allocated_line_count,
+    count(*) filter(where coalesce(a.allocated_quantity,0)<il.quantity)::int incomplete_line_count,
+    coalesce(sum(il.quantity),0)::text issue_quantity,
+    coalesce(sum(coalesce(a.allocated_quantity,0)),0)::text allocated_quantity,
+    coalesce(sum(coalesce(a.allocated_cost,0)),0)::text allocated_cost,
+    count(distinct a.valuation_method)::int valuation_method_count,
+    coalesce(array_agg(distinct a.valuation_method) filter(where a.valuation_method is not null),'{}'::text[]) valuation_methods
+   from finance_inventory_lines il
+   left join lateral(
+    select sum(x.quantity)::numeric allocated_quantity,sum(x.total_cost)::numeric allocated_cost,
+     min(x.valuation_method) valuation_method
+    from finance_cost_layer_allocations x
+    where x.tenant_id=$2 and x.issue_document_line_id=il.id
+   ) a on true
+   where il.document_id=$1
+  `,[issueDocumentId,t.id]),
+  query(`
+   select b.id,b.code,b.title,b.book_mode,b.currency,b.is_default,
+    p.id matching_period_id,p.code period_code,p.title period_title,p.status period_status,
+    p.starts_on,p.ends_on
+   from accounting_books b
+   left join accounting_fiscal_periods p on p.book_id=b.id and p.tenant_id=b.tenant_id
+    and $2::date between p.starts_on and p.ends_on
+   where b.tenant_id=$1 and b.status='active'
+   order by b.is_default desc,b.code,p.starts_on desc
+   limit 100
+  `,[t.id,doc.document_date]),
+  query(`
+   select id,code,name,account_type,account_nature,normal_balance,book_id,account_mode,
+    is_active,is_postable,status
+   from ledger_accounts
+   where tenant_id=$1 and status='active' and is_active=true and is_postable=true
+    and account_nature in ('asset','expense')
+   order by account_nature,code limit 200
+  `,[t.id]),
+  query(`
+   select id,document_no,document_date,status,book_id,period_id,posted_at
+   from accounting_documents
+   where tenant_id=$1 and source_module='marketplace-cogs-issue'
+    and source_document_id=$2
+   order by created_at desc limit 10
+  `,[t.id,issueDocumentId])
+ ]);
+ const a=allocation.rows[0]||{};
+ const orderLinkVerified=doc.source_type==="marketplace_order"&&Boolean(doc.matched_order_id);
+ const fullAllocation=Number(a.line_count)>0&&Number(a.incomplete_line_count)===0&&Number(a.valuation_method_count)===1;
+ const openPeriodBooks=books.rows.filter((b:any)=>b.matching_period_id&&b.period_status==="open");
+ const blockedReasons:string[]=[];
+ if(doc.status!=="posted")blockedReasons.push("سند خروج هنوز قطعی نشده است");
+ if(!orderLinkVerified)blockedReasons.push("منبع سند خروج به‌صورت صریح و قابل تأیید به سفارش بازارگاه متصل نیست");
+ if(!fullAllocation)blockedReasons.push("تمام اقلام سند خروج تخصیص بهای کامل و هم‌روش ندارند");
+ if(!openPeriodBooks.length)blockedReasons.push("برای تاریخ سند خروج، دفتر فعال با دوره مالی باز پیدا نشد");
+ if(!accounts.rows.some((x:any)=>x.account_nature==="asset"))blockedReasons.push("حساب فعال و قابل ثبت با ماهیت دارایی پیدا نشد");
+ if(!accounts.rows.some((x:any)=>x.account_nature==="expense"))blockedReasons.push("حساب فعال و قابل ثبت با ماهیت هزینه پیدا نشد");
+ if(existing.rows.some((x:any)=>x.status==="posted"))blockedReasons.push("سند حسابداری بهای کالا قبلاً قطعی شده است");
+ res.json({document:doc,allocation:a,books:books.rows,openPeriodBookCount:openPeriodBooks.length,
+  accountCandidates:accounts.rows,existingCogsDocuments:existing.rows,
+  readiness:{orderLinkVerified,fullAllocation,openPeriodAvailable:openPeriodBooks.length>0,
+   assetAccountAvailable:accounts.rows.some((x:any)=>x.account_nature==="asset"),
+   expenseAccountAvailable:accounts.rows.some((x:any)=>x.account_nature==="expense"),
+   existingPostedDocument:existing.rows.some((x:any)=>x.status==="posted"),
+   draftCreationAllowed:false,postingAllowed:false,blockedReasons},
+  limitations:"وجود حساب‌های دارایی و هزینه به معنی تعیین حساب معین موجودی و بهای کالای فروش‌رفته نیست. تا زمان ثبت نگاشت حسابداری صریح و رابطه قلم سفارش با قلم سند خروج، تولید سند خودکار مجاز نیست.",
+  readOnly:true
+ });
+}));
+
 settlementRouter.get("/api/marketplace/settlements/posted-issue-documents",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const result=await query(`
