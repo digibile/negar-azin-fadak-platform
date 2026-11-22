@@ -76,6 +76,8 @@ test("seller refund receivable reclassification uses only paid settlements and p
  assert.ok(route.includes("le.source_type='marketplace_refund'"));
  assert.ok(route.includes("le.status='posted'"));
  assert.ok(route.includes("la.code='2101'"));
+ assert.ok(route.includes('String(item.currency||"IRR").toUpperCase()!=="IRR"'));
+ assert.ok(route.includes("account_type='liability'"));
  assert.ok(route.includes("sum(ll.debit)"));
  assert.ok(route.includes("seller.accounting_party_id"));
  assert.ok(route.includes("seller.refund_receivable_account_id"));
