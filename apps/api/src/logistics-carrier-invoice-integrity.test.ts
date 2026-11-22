@@ -4,6 +4,7 @@ import fs from "node:fs";
 
 const routeSource=fs.readFileSync(new URL("./logistics.ts",import.meta.url),"utf8");
 const migration=fs.readFileSync(new URL("../../../database/migrations/zzzzz_logistics_carrier_invoice_allocations.sql",import.meta.url),"utf8");
+const accountingLinkMigration=fs.readFileSync(new URL("../../../database/migrations/zzzzzz_logistics_carrier_invoice_accounting_link.sql",import.meta.url),"utf8");
 const start=routeSource.indexOf('logisticsRouter.post("/api/logistics/carrier-invoices"');
 const route=start<0?"":routeSource.slice(start,routeSource.indexOf('logisticsRouter.get("/api/logistics/reports"',start));
 
