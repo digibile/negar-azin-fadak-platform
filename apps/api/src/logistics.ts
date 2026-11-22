@@ -427,6 +427,10 @@ logisticsRouter.post("/api/logistics/carrier-invoices/:id/accounting-draft",requ
       const expense=byId.get(expenseAccountId) as any;
       if(!(expense.account_nature==="expense"||["expense","cost"].includes(expense.account_type))){await c.query("rollback");return fail(res,409,"حساب هزینه حمل باید ماهیت هزینه داشته باشد");}
     }
+    if(Number(invoice.tax_amount)>0){
+      const tax=byId.get(inputTaxAccountId) as any;
+      if(!(["asset","expense"].includes(tax.account_nature)||["asset","receivable","expense","cost"].includes(tax.account_type))){await c.query("rollback");return fail(res,409,"حساب مالیات ورودی باید از نوع دارایی یا هزینه باشد");}
+    }
     const carrier=(await c.query("select title from accounting_parties where id=$1 and tenant_id=$2 and party_type='supplier' and status='active'",[invoice.carrier_party_id,t.id])).rows[0];
     if(!carrier){await c.query("rollback");return fail(res,409,"طرف حساب شرکت حمل معتبر یا فعال نیست");}
     const doc=(await c.query(
