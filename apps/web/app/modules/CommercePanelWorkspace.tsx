@@ -39,6 +39,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
  const [settlements,setSettlements]=useState<Row[]>([]);
  const [payoutBanks,setPayoutBanks]=useState<Row[]>([]);
  const [settlementIssues,setSettlementIssues]=useState<Row[]>([]);
+ const [returnRefundExposure,setReturnRefundExposure]=useState<Row[]>([]);
  const [payoutDrafts,setPayoutDrafts]=useState<Record<string,{bankAccountId:string;paymentRef:string}>>({});
  const [payoutBusy,setPayoutBusy]=useState("");
  const [loading,setLoading]=useState(true);
@@ -60,8 +61,8 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
    }else if(mode==="sellers"){
     const s=await get("/api/marketplace/sellers");setRows(s.items||[]);setSellers(s.items||[]);
    }else if(mode==="payments"){
-    const [p,b,a]=await Promise.all([get("/api/marketplace/settlements"),get("/api/marketplace/settlements/payout-bank-accounts"),get("/api/marketplace/settlements/order-integrity-audit")]);
-    const list=Array.isArray(p)?p:(p.items||[]);setSettlements(list);setPayoutBanks(b.items||[]);setSettlementIssues(a.items||[]);
+    const [p,b,a,x]=await Promise.all([get("/api/marketplace/settlements"),get("/api/marketplace/settlements/payout-bank-accounts"),get("/api/marketplace/settlements/order-integrity-audit"),get("/api/marketplace/settlements/return-refund-exposure")]);
+    const list=Array.isArray(p)?p:(p.items||[]);setSettlements(list);setPayoutBanks(b.items||[]);setSettlementIssues(a.items||[]);setReturnRefundExposure(x.items||[]);
     setPayoutDrafts(current=>Object.fromEntries(list.map((x:Row)=>[x.id,{bankAccountId:current[x.id]?.bankAccountId||b.items?.[0]?.id||"",paymentRef:current[x.id]?.paymentRef||""}])));
    }else{
     const [s,st,p,o]=await Promise.all([
@@ -146,6 +147,7 @@ export default function CommercePanelWorkspace({mode}:{mode:Mode}){
 
   {mode==="payments"&&<section className="runtime-panel">
    <div className="panel-title"><div><h2>تسویه فروشندگان</h2><span>{settlements.length} رکورد واقعی · چرخه تأیید و پرداخت در API موجود است</span></div></div>
+   <div className="record-row" style={{display:"block",border:"1px solid #d7a5a5",background:"#fff7f7",marginBottom:12}}><strong>پرونده‌های مرجوعی و بازپرداخت مرتبط با تسویه‌ها</strong><p style={{margin:"6px 0"}}>{returnRefundExposure.length===0?"پرونده مرجوعی یا بازپرداخت مرتبط با تسویه‌ها ثبت نشده است.":"تعداد "+returnRefundExposure.length+" تسویه دارای سفارش مرتبط با مرجوعی یا بازپرداخت است. این موارد نیازمند تطبیق مالی هستند و پرداخت تسویه تأییدنشده در API مسدود می‌شود."}</p>{returnRefundExposure.slice(0,20).map(issue=><div key={issue.settlement_id} style={{padding:"7px 0",borderTop:"1px solid #ecdada"}}><strong>{issue.settlement_no} · {issue.seller_name}</strong><small style={{display:"block"}}>وضعیت: {issue.settlement_status} · سفارش‌های درگیر: {issue.affected_order_count} از {issue.order_count} · بازپرداخت قطعی: {money(issue.refunded_amount)} · درخواست مرجوعی: {issue.return_request_count} · بازپرداخت نامشخص/ناموفق: {issue.pending_or_failed_refund_count}</small></div>)}{returnRefundExposure.length>20&&<small>نمایش ۲۰ مورد نخست از {returnRefundExposure.length} مورد</small>}</div>
    <div className="record-row" style={{display:"block",border:"1px solid #e5b85c",background:"#fffaf0",marginBottom:12}}><strong>گزارش کنترل صحت سفارش و تسویه</strong><p style={{margin:"6px 0"}}>{settlementIssues.length===0?"در بررسی فعلی، اختلاف عددی در سفارش‌های پرداخت‌شده پیدا نشد.":"تعداد "+settlementIssues.length+" سفارش دارای اختلاف مالی یا اقلامی است؛ تسویه این سفارش‌ها باید پیش از پرداخت بررسی شود."}</p>{settlementIssues.slice(0,20).map(issue=><div key={issue.order_id} style={{padding:"7px 0",borderTop:"1px solid #f0dfbd"}}><strong>{issue.order_no}</strong><small style={{display:"block"}}>{issue.seller_name} · {issue.mismatch_codes?.join("، ")||"اختلاف مالی"} · مبلغ سفارش {money(issue.total_amount)} {issue.currency}</small></div>)}{settlementIssues.length>20&&<small>نمایش ۲۰ مورد نخست از {settlementIssues.length} مورد</small>}</div>
    {payoutBanks.length===0&&<p className="muted">حساب بانکی فعال و متصل به دفترکل پیدا نشد. ابتدا حساب بانکی را در بخش خزانه تعریف و به حساب دفترکل متصل کنید.</p>}
    <div className="record-list">{settlements.map(r=><article className="record-row" key={r.id}>
