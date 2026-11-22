@@ -18,6 +18,8 @@ test("seller accounting options expose only active supplier parties with active 
  assert.ok(options.includes("p.party_type='supplier'"));
  assert.ok(options.includes("p.status='active'"));
  assert.ok(options.includes("a.status='active'"));
+ assert.ok(options.includes("a.is_active=true"));
+ assert.ok(options.includes("a.is_postable=true"));
  assert.ok(options.includes("a.account_type='liability'"));
  assert.ok(options.includes("p.tenant_id=$1"));
 });
@@ -27,6 +29,8 @@ test("seller mapping update validates tenant ownership and locks seller and part
  assert.ok(mapping.includes("p.id=$1 and p.tenant_id=$2"));
  assert.ok(mapping.includes("p.party_type='supplier'"));
  assert.ok(mapping.includes("a.account_type='liability'"));
+ assert.ok(mapping.includes("a.is_active=true"));
+ assert.ok(mapping.includes("a.is_postable=true"));
  assert.ok(mapping.includes("seller.accounting_mapping.updated"));
  assert.ok(mapping.includes("requirePermission(\"seller:manage\")"));
 });
