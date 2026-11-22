@@ -314,12 +314,14 @@ settlementRouter.get("/api/marketplace/settlements/cogs-accounting-readiness",re
    limit 100
   `,[t.id,doc.document_date]),
   query(`
-   select id,code,name,account_type,account_nature,normal_balance,book_id,account_mode,
-    is_active,is_postable,status
-   from ledger_accounts
-   where tenant_id=$1 and status='active' and is_active=true and is_postable=true
-    and account_nature in ('asset','expense')
-   order by account_nature,code limit 200
+   select a.id,a.code,a.name,a.account_type,a.account_nature,a.normal_balance,a.book_id,
+    b.code book_code,b.title book_title,a.account_mode,a.is_active,a.is_postable,a.status
+   from ledger_accounts a
+   left join accounting_books b on b.id=a.book_id and b.tenant_id=a.tenant_id
+   where a.tenant_id=$1 and a.status='active' and a.is_active=true and a.is_postable=true
+    and a.account_nature in ('asset','expense')
+    and (a.book_id is null or b.status='active')
+   order by a.account_nature,a.book_id nulls first,a.code limit 200
   `,[t.id]),
   query(`
    select id,document_no,document_date,status,book_id,period_id,posted_at
@@ -333,6 +335,14 @@ settlementRouter.get("/api/marketplace/settlements/cogs-accounting-readiness",re
  const orderLinkVerified=doc.source_type==="marketplace_order"&&Boolean(doc.matched_order_id);
  const fullAllocation=Number(a.line_count)>0&&Number(a.incomplete_line_count)===0;
  const openPeriodBooks=books.rows.filter((b:any)=>b.matching_period_id&&b.period_status==="open");
+ const bookAccountReadiness=openPeriodBooks.map((b:any)=>{
+  const candidates=accounts.rows.filter((x:any)=>!x.book_id||x.book_id===b.id);
+  return {bookId:b.id,bookCode:b.code,bookTitle:b.title,periodId:b.matching_period_id,
+   assetAccountCandidate:candidates.some((x:any)=>x.account_nature==="asset"),
+   expenseAccountCandidate:candidates.some((x:any)=>x.account_nature==="expense"),
+   bothAccountNaturesAvailable:candidates.some((x:any)=>x.account_nature==="asset")&&candidates.some((x:any)=>x.account_nature==="expense")};
+ });
+ const completeBookAccountCandidate=bookAccountReadiness.some((x:any)=>x.bothAccountNaturesAvailable);
  const blockedReasons:string[]=[];
  if(doc.status!=="posted")blockedReasons.push("سند خروج هنوز قطعی نشده است");
  if(!orderLinkVerified)blockedReasons.push("منبع سند خروج به‌صورت صریح و قابل تأیید به سفارش بازارگاه متصل نیست");
@@ -341,9 +351,11 @@ settlementRouter.get("/api/marketplace/settlements/cogs-accounting-readiness",re
  if(!openPeriodBooks.length)blockedReasons.push("برای تاریخ سند خروج، دفتر فعال با دوره مالی باز پیدا نشد");
  if(!accounts.rows.some((x:any)=>x.account_nature==="asset"))blockedReasons.push("حساب فعال و قابل ثبت با ماهیت دارایی پیدا نشد");
  if(!accounts.rows.some((x:any)=>x.account_nature==="expense"))blockedReasons.push("حساب فعال و قابل ثبت با ماهیت هزینه پیدا نشد");
+ if(!completeBookAccountCandidate)blockedReasons.push("در هیچ دفتر دارای دوره باز، هر دو ماهیت حساب دارایی و هزینه به‌صورت هم‌زمان کاندیدا نیستند");
+ blockedReasons.push("نگاشت تأییدشده حساب معین موجودی و بهای کالای فروش‌رفته هنوز تعریف نشده است");
  if(existing.rows.some((x:any)=>x.status==="posted"))blockedReasons.push("سند حسابداری بهای کالا قبلاً قطعی شده است");
  res.json({document:doc,allocation:a,books:books.rows,openPeriodBookCount:openPeriodBooks.length,
-  accountCandidates:accounts.rows,existingCogsDocuments:existing.rows,
+  accountCandidates:accounts.rows,bookAccountReadiness,completeBookAccountCandidate,existingCogsDocuments:existing.rows,
   readiness:{orderLinkVerified,fullAllocation,openPeriodAvailable:openPeriodBooks.length>0,
    assetAccountAvailable:accounts.rows.some((x:any)=>x.account_nature==="asset"),
    expenseAccountAvailable:accounts.rows.some((x:any)=>x.account_nature==="expense"),
