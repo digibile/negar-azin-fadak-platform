@@ -168,9 +168,11 @@ export default function SettlementsPage(){
     <div style={{overflowX:"auto"}}><table><thead><tr><th>دفتر</th><th>ارز</th><th>وضعیت دفتر</th><th>دوره منطبق</th><th>وضعیت دوره</th><th>پیش‌فرض</th></tr></thead><tbody>
     {cogsReadiness.books?.map((x:any)=><tr key={x.id}><td>{x.code} · {x.title}</td><td>{x.currency}</td><td>فعال</td><td>{x.period_title||"دوره منطبق ندارد"}</td><td>{x.period_status||"—"}</td><td>{x.is_default?"بله":"خیر"}</td></tr>)}
     </tbody></table></div>
+    <h3>کنترل حساب‌ها در هر دفتر دارای دوره باز</h3>
+    {cogsReadiness.bookAccountReadiness?.map((x:any)=><article className="platform-row" key={x.bookId}><strong>{x.bookCode} · {x.bookTitle}</strong><span>حساب دارایی: {x.assetAccountCandidate?"کاندیدا دارد":"ندارد"}</span><span>حساب هزینه: {x.expenseAccountCandidate?"کاندیدا دارد":"ندارد"}</span><span>{x.bothAccountNaturesAvailable?"هر دو ماهیت موجود":"ترکیب کامل حساب موجود نیست"}</span></article>)}
     <h3>حساب‌های کاندیدا، بدون انتخاب خودکار</h3>
     <div style={{overflowX:"auto"}}><table><thead><tr><th>کد</th><th>عنوان</th><th>ماهیت</th><th>مانده عادی</th><th>دفتر</th><th>روش حساب</th></tr></thead><tbody>
-    {cogsReadiness.accountCandidates?.map((x:any)=><tr key={x.id}><td>{x.code}</td><td>{x.name}</td><td>{x.account_nature}</td><td>{x.normal_balance}</td><td>{x.book_id||"عمومی"}</td><td>{x.account_mode}</td></tr>)}
+    {cogsReadiness.accountCandidates?.map((x:any)=><tr key={x.id}><td>{x.code}</td><td>{x.name}</td><td>{x.account_nature}</td><td>{x.normal_balance}</td><td>{x.book_id?(x.book_code+" · "+x.book_title):"عمومی"}</td><td>{x.account_mode}</td></tr>)}
     </tbody></table></div>
     <h3>سندهای خودکار قبلی برای همین سند خروج</h3>
     {cogsReadiness.existingCogsDocuments?.length?cogsReadiness.existingCogsDocuments.map((x:any)=><article className="platform-row" key={x.id}><strong>{x.document_no}</strong><span>{x.document_date}</span><span>{x.status}</span><span>{x.posted_at||"قطعی نشده"}</span></article>):<p className="empty">سند خودکار ثبت‌شده‌ای با شناسه منبع مورد انتظار پیدا نشد.</p>}
