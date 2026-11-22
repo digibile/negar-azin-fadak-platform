@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
-import {ensureLedgerAccount} from "./ledger.js";
+import {ensureLedgerAccount,postLedgerEntry} from "./ledger.js";
 
 function clientWith(responses:Array<{rows:any[];rowCount:number}>){
  const calls:Array<{sql:string;params:unknown[]}>=[];
@@ -63,4 +63,40 @@ test("ledger account guard reads persisted active and postable state",async()=>{
  assert.ok(source.includes("select id,status,is_active,is_postable from ledger_accounts"));
  assert.ok(source.includes("is_active"));
  assert.ok(source.includes("is_postable"));
+});
+
+
+test("an existing ledger source entry is reused only when its posted lines exactly match",async()=>{
+ const client=clientWith([
+  {rows:[{id:"entry-1",status:"posted",account_id:"account-1",debit:"125.00",credit:"0.00"},{id:"entry-1",status:"posted",account_id:"account-2",debit:"0.00",credit:"125.00"}],rowCount:2},
+  {rows:[{id:"account-1",status:"active",is_active:true,is_postable:true}],rowCount:1},
+  {rows:[{id:"account-2",status:"active",is_active:true,is_postable:true}],rowCount:1}
+ ]);
+ const id=await postLedgerEntry(client,{tenantId:"tenant-1",entryNo:"SET-1",sourceType:"seller_settlement",sourceId:"settlement-1",description:"پرداخت",lines:[
+  {accountCode:"2101",accountName:"بستانکاران",accountType:"liability",debit:"125.00"},
+  {accountCode:"1101",accountName:"بانک",accountType:"asset",credit:"125.00"}
+ ]});
+ assert.equal(id,"entry-1");
+ assert.equal(client.calls.length,3);
+ assert.ok(client.calls[0].sql.includes("left join ledger_lines"));
+});
+
+test("an existing ledger source entry with different amounts or accounts is rejected",async()=>{
+ const client=clientWith([
+  {rows:[{id:"entry-2",status:"posted",account_id:"account-1",debit:"100.00",credit:"0.00"},{id:"entry-2",status:"posted",account_id:"account-2",debit:"0.00",credit:"100.00"}],rowCount:2},
+  {rows:[{id:"account-1",status:"active",is_active:true,is_postable:true}],rowCount:1},
+  {rows:[{id:"account-2",status:"active",is_active:true,is_postable:true}],rowCount:1}
+ ]);
+ await assert.rejects(()=>postLedgerEntry(client,{tenantId:"tenant-1",entryNo:"SET-2",sourceType:"seller_settlement",sourceId:"settlement-2",description:"پرداخت",lines:[
+  {accountCode:"2101",accountName:"بستانکاران",accountType:"liability",debit:"125.00"},
+  {accountCode:"1101",accountName:"بانک",accountType:"asset",credit:"125.00"}
+ ]}),/تطبیق ندارد/);
+});
+
+test("existing non-posted ledger source entries cannot be treated as completed idempotent postings",async()=>{
+ const client=clientWith([{rows:[{id:"entry-3",status:"draft",account_id:null,debit:null,credit:null}],rowCount:1}]);
+ await assert.rejects(()=>postLedgerEntry(client,{tenantId:"tenant-1",entryNo:"SET-3",sourceType:"seller_settlement",sourceId:"settlement-3",description:"پرداخت",lines:[
+  {accountCode:"2101",accountName:"بستانکاران",accountType:"liability",debit:"50.00"},
+  {accountCode:"1101",accountName:"بانک",accountType:"asset",credit:"50.00"}
+ ]}),/قطعی‌شده نیست/);
 });
