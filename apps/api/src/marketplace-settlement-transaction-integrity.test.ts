@@ -231,3 +231,39 @@ test("seller settlement workspace displays return and refund exposure before pay
  assert.ok(ui.includes("پرونده‌های مرجوعی و بازپرداخت مرتبط با تسویه‌ها"));
  assert.ok(ui.includes("returnRefundExposure.slice(0,20)"));
 });
+
+
+test("return refund ledger reconciliation is tenant scoped and uses persisted refund source entries",()=>{
+ const start=source.indexOf('settlementRouter.get("/api/marketplace/settlements/return-refund-ledger-reconciliation"');
+ const end=source.indexOf('settlementRouter.get("/api/marketplace/settlements/order-integrity-audit"',start);
+ const route=source.slice(start,end);
+ assert.ok(start>=0&&end>start);
+ assert.ok(route.includes('requirePermission("settlement:view")'));
+ assert.ok(route.includes("where ss.tenant_id=$1"));
+ assert.ok(route.includes("mr.tenant_id=o.tenant_id and mr.order_id=o.id"));
+ assert.ok(route.includes("le.source_type='marketplace_refund' and le.source_id=mr.id"));
+ assert.ok(route.includes("la.code='2101'"));
+ assert.ok(route.includes("la.code='4101'"));
+ assert.ok(route.includes("limit 500"));
+ assert.ok(!/\b(insert into|update\s+|delete from)\b/i.test(route));
+});
+
+test("refund ledger reconciliation derives full and partial seller reversals from existing refund posting rules",()=>{
+ const start=source.indexOf('settlementRouter.get("/api/marketplace/settlements/return-refund-ledger-reconciliation"');
+ const end=source.indexOf('settlementRouter.get("/api/marketplace/settlements/order-integrity-audit"',start);
+ const route=source.slice(start,end);
+ assert.ok(route.includes("when mr.return_request_id is null then round(o.seller_payable,2)"));
+ assert.ok(route.includes("round(mr.amount-round(mr.amount*o.commission_amount/greatest(o.subtotal,0.01),2),2)"));
+ assert.ok(route.includes("expected_commission_reversal"));
+ assert.ok(route.includes("actual_seller_recovery_debit"));
+ assert.ok(route.includes("seller_recovery_debit_mismatch"));
+ assert.ok(route.includes("refund_ledger_entry_missing"));
+});
+
+test("commerce workspace displays expected and actual seller refund ledger debits",()=>{
+ const ui=fs.readFileSync(new URL("../../web/app/modules/CommercePanelWorkspace.tsx",import.meta.url),"utf8");
+ assert.ok(ui.includes("/api/marketplace/settlements/return-refund-ledger-reconciliation"));
+ assert.ok(ui.includes("تطبیق سند دفترکل بازپرداخت با سهم فروشنده"));
+ assert.ok(ui.includes("expected_seller_recovery_debit"));
+ assert.ok(ui.includes("actual_seller_recovery_debit"));
+});
