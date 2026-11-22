@@ -135,6 +135,7 @@ export async function lookupPaymentRefundStatus(provider:PaymentProvider,input:R
  if(result.providerCode!==provider.code||result.providerTransactionId!==input.providerTransactionId){
   throw new Error("پاسخ استعلام بازپرداخت با شناسه درگاه یا تراکنش درخواست‌شده مطابقت ندارد");
  }
+ if(result.refundTransactionId!==undefined&&(!result.refundTransactionId.trim()||result.refundTransactionId.length>200))throw new Error("شناسه بازپرداخت برگشتی از درگاه نامعتبر است");
  if(!["pending","refunded","failed"].includes(result.status))throw new Error("وضعیت استعلام بازپرداخت نامعتبر است");
  return {supported:true,result};
 }
