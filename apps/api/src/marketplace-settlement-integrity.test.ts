@@ -6,6 +6,7 @@ const source=fs.readFileSync(new URL("./domain-settlement.ts",import.meta.url),"
 const allocationMigration=fs.readFileSync(new URL("../../../database/migrations/149_finance_cost_layer_allocation_ledger.sql",import.meta.url),"utf8");
 const valuationPolicyMigration=fs.readFileSync(new URL("../../../database/migrations/150_finance_cost_valuation_policy_governance.sql",import.meta.url),"utf8");
 const accountingFinanceSource=fs.readFileSync(new URL("./accounting-finance.ts",import.meta.url),"utf8");
+const financeWorkspaceSource=fs.readFileSync(new URL("../../web/app/modules/AccountingFinanceWorkspace.tsx",import.meta.url),"utf8");
 
 test("settlement generation keeps caller reference for a single seller",()=>{
  assert.match(source,/bySeller\.size>1\?requestedSettlementNo\+"-"\+sellerId:requestedSettlementNo/);
@@ -158,5 +159,14 @@ test("allocation preview only advertises layers allowed by the active valuation 
  assert.ok(source.includes("cost_layer_method_conflicts_with_active_policy"));
  assert.ok(source.includes("eligible_under_active_policy"));
  assert.ok(source.includes("activePolicyMethod:row.active_policy_method"));
+});
+
+test("accounting finance workspace exposes real valuation policy lifecycle controls",()=>{
+ assert.ok(financeWorkspaceSource.includes('["costPolicies","سیاست بهای تمام‌شده"]'));
+ assert.ok(financeWorkspaceSource.includes("/api/accounting-finance/cost-valuation-policies"));
+ assert.ok(financeWorkspaceSource.includes("ثبت پیش‌نویس سیاست"));
+ assert.ok(financeWorkspaceSource.includes("تأیید و فعال‌سازی"));
+ assert.ok(financeWorkspaceSource.includes("بازنشسته‌سازی"));
+ assert.ok(financeWorkspaceSource.includes("new Date(policyDraft.effectiveFrom+\"T00:00:00\").toISOString()"));
 });
 
