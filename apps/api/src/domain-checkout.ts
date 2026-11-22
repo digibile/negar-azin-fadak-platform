@@ -256,7 +256,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
    {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",debit:Number(currentOrder.rows[0].commission_amount)},
    providerCode==="credit_facility"?{accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",credit:Number(currentOrder.rows[0].total_amount)}:{accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",credit:Number(currentOrder.rows[0].total_amount)}
   ]});
-  const items=await finalize.query("select * from marketplace_order_items where order_id=$1 and tenant_id=$2",[order.id,t.id]);
+  const items=await finalize.query("select * from marketplace_order_items where order_id=$1",[order.id,t.id]);
   for(const item of items.rows){
    await finalize.query("update product_inventory set quantity=quantity+$1,updated_at=now() where tenant_id=$2 and product_id=$3 and store_id=$4",[item.quantity,t.id,item.product_id,currentOrder.rows[0].store_id]);
    await finalize.query("insert into inventory_movements(tenant_id,product_id,store_id,movement_type,quantity,reference_type,reference_id,created_by) values($1,$2,$3,'refund',$4,'marketplace_refund',$5,$6)",[t.id,item.product_id,currentOrder.rows[0].store_id,Number(item.quantity),rr.rows[0].id,actorId]);
