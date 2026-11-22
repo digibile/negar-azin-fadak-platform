@@ -390,6 +390,57 @@ logisticsRouter.get("/api/logistics/shipments/:id/tracking",requireAuth,asyncHan
   res.json({shipment:s,events:(await query("select * from logistics_delivery_events where tenant_id=$1 and shipment_id=$2 order by occurred_at",[t.id,s.id])).rows});
 }));
 
+
+logisticsRouter.get("/api/logistics/carrier-invoices",requireAuth,asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  if(!(await can(req,"modules:12-logistics-supply:read")))return fail(res,403,"دسترسی مشاهده صورتحساب حمل را ندارید");
+  const r=await query(
+    "select i.*,p.party_code,p.title carrier_title,coalesce(jsonb_agg(jsonb_build_object('shipmentId',a.shipment_id,'shipmentNo',s.shipment_no,'orderNo',mo.order_no,'allocatedAmount',a.allocated_amount) order by s.shipment_no) filter(where a.id is not null),'[]'::jsonb) allocations from logistics_carrier_invoices i join accounting_parties p on p.id=i.carrier_party_id and p.tenant_id=i.tenant_id left join logistics_carrier_invoice_shipments a on a.tenant_id=i.tenant_id and a.invoice_id=i.id left join logistics_shipments s on s.id=a.shipment_id and s.tenant_id=a.tenant_id left join logistics_supply_orders so on so.id=s.supply_order_id and so.tenant_id=s.tenant_id left join marketplace_orders mo on mo.id=so.marketplace_order_id and mo.tenant_id=so.tenant_id where i.tenant_id=$1 group by i.id,p.party_code,p.title order by i.invoice_date desc,i.created_at desc limit 200",
+    [t.id]
+  );
+  res.json({items:r.rows,limit:200,readOnly:true});
+}));
+
+logisticsRouter.post("/api/logistics/carrier-invoices",requireAuth,requirePermission("modules:12-logistics-supply:write"),asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req),b=req.body||{};
+  if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  const invoiceNo=String(b.invoiceNo||"").trim(),invoiceDate=String(b.invoiceDate||"");
+  const currency=String(b.currency||"IRR").trim().toUpperCase();
+  const subtotal=Number(b.subtotal),taxAmount=Number(b.taxAmount||0);
+  const allocations=Array.isArray(b.allocations)?b.allocations:[];
+  if(!b.carrierPartyId||!invoiceNo||invoiceNo.length>120||!/^\\d{4}-\\d{2}-\\d{2}$/.test(invoiceDate)||!/^[A-Z]{3}$/.test(currency)||!Number.isFinite(subtotal)||!Number.isFinite(taxAmount)||subtotal<0||taxAmount<0||!allocations.length)return fail(res,400,"مشخصات صورتحساب، ارز، مبلغ و تخصیص مرسوله‌ها الزامی و معتبر است");
+  const normalized=allocations.map((x:any)=>({shipmentId:String(x?.shipmentId||""),amount:Number(x?.amount)}));
+  if(normalized.some((x:any)=>!x.shipmentId||!Number.isFinite(x.amount)||x.amount<=0)||new Set(normalized.map((x:any)=>x.shipmentId)).size!==normalized.length)return fail(res,400,"شناسه مرسوله تکراری یا مبلغ تخصیص نامعتبر است");
+  const cents=(v:number)=>Math.round(v*100);
+  const invoiceTotal=cents(subtotal)+cents(taxAmount);
+  if(invoiceTotal<=0||normalized.some((x:any)=>Math.abs(x.amount*100-Math.round(x.amount*100))>0.000001)||normalized.reduce((sum:number,x:any)=>sum+cents(x.amount),0)!==invoiceTotal)return fail(res,400,"جمع تخصیص مرسوله‌ها باید دقیقاً برابر مبلغ کل صورتحساب و با دقت دو رقم اعشار باشد");
+  const c=await pool.connect();
+  try{
+    await c.query("begin");
+    const carrier=await c.query("select id from accounting_parties where id=$1 and tenant_id=$2 and party_type='supplier' and status='active' for share",[b.carrierPartyId,t.id]);
+    if(!carrier.rowCount){await c.query("rollback");return fail(res,400,"شرکت حمل باید طرف حساب تأمین‌کننده فعال در همین سازمان باشد");}
+    const shipmentIds=normalized.map((x:any)=>x.shipmentId);
+    const shipments=await c.query(
+      "select sh.id,sh.status,mo.currency from logistics_shipments sh join logistics_supply_orders so on so.id=sh.supply_order_id and so.tenant_id=sh.tenant_id join marketplace_orders mo on mo.id=so.marketplace_order_id and mo.tenant_id=so.tenant_id where sh.tenant_id=$1 and sh.id=any($2::uuid[]) and sh.status not in ('failed','cancelled') for update of sh",
+      [t.id,shipmentIds]
+    );
+    if(shipments.rowCount!==shipmentIds.length){await c.query("rollback");return fail(res,409,"همه مرسوله‌ها باید متعلق به همین سازمان و متصل به سفارش بازارگاه فعال باشند");}
+    if(shipments.rows.some((x:any)=>String(x.currency||"").toUpperCase()!==currency)){await c.query("rollback");return fail(res,409,"ارز صورتحساب باید با ارز سفارش‌های متصل یکسان باشد");}
+    const invoice=await c.query(
+      "insert into logistics_carrier_invoices(tenant_id,carrier_party_id,invoice_no,invoice_date,currency,subtotal,tax_amount,total_amount,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *",
+      [t.id,b.carrierPartyId,invoiceNo,invoiceDate,currency,cents(subtotal)/100,cents(taxAmount)/100,invoiceTotal/100,String(b.notes||"").trim().slice(0,2000),(req as any).user.id]
+    );
+    for(const item of normalized)await c.query(
+      "insert into logistics_carrier_invoice_shipments(tenant_id,invoice_id,shipment_id,allocated_amount) values($1,$2,$3,$4)",
+      [t.id,invoice.rows[0].id,item.shipmentId,cents(item.amount)/100]
+    );
+    await c.query("insert into logistics_events(tenant_id,entity_type,entity_id,event_type,to_status,actor_user_id,reason) values($1,'carrier_invoice',$2,'invoice_recorded','draft',$3,$4)",[t.id,invoice.rows[0].id,(req as any).user.id,"صورتحساب حمل "+invoiceNo]);
+    await c.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'logistics.carrier_invoice_recorded','logistics_carrier_invoice',$3,$4)",[t.id,(req as any).user.id,invoice.rows[0].id,JSON.stringify({invoiceNo,currency,totalAmount:invoiceTotal/100,shipmentCount:normalized.length})]);
+    await c.query("commit");
+    res.status(201).json({invoice:invoice.rows[0],allocationCount:normalized.length,accountingStatus:"not_posted"});
+  }catch(e:any){await c.query("rollback");if(e?.code==="23505")return fail(res,409,"شماره صورتحساب این شرکت حمل قبلاً ثبت شده است");throw e;}finally{c.release();}
+}));
+
 logisticsRouter.get("/api/logistics/reports",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   const [byShipment,byVehicle,byRoute]=await Promise.all([
