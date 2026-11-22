@@ -89,7 +89,21 @@ router.post("/api/purchasing/requests",requireAuth,requirePermission("modules:21
  const no=b.requestNo||"PR-"+Date.now(),c=await pool.connect();try{await c.query("begin");const r=await c.query("insert into purchase_requests(tenant_id,request_no,requester_user_id,required_date,department,notes) values($1,$2,$3,$4,$5,$6) returning *",[t.id,no,(req as any).user.id,b.requiredDate||null,b.department||null,b.notes||null]);for(const x of items)await c.query("insert into purchase_request_items(request_id,product_name,sku,quantity,unit,estimated_unit_price) values($1,$2,$3,$4,$5,$6)",[r.rows[0].id,x.productName,x.sku||null,n(x.quantity),x.unit||"عدد",n(x.estimatedUnitPrice)]);await c.query("commit");res.status(201).json(r.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
 });
 router.patch("/api/purchasing/requests/:id/status",requireAuth,requirePermission("modules:21-purchasing-supply:approve"),async(req,res)=>{
- const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const r=await query("select * from purchase_requests where id=$1 and tenant_id=$2",[req.params.id,t.id]);if(!r.rowCount)return deny(res,404,"درخواست خرید پیدا نشد");const old=r.rows[0],to=String(req.body?.status||"");if(!transitions[old.status]?.includes(to))return deny(res,409,"تغییر وضعیت درخواست خرید مجاز نیست");await query("update purchase_requests set status=$1,updated_at=now() where id=$2",[to,old.id]);await event(t.id,"request",old.id,old.status,to,"status_change",(req as any).user.id,req.body?.reason||null);res.json({...old,status:to});
+ const t=await tenantOf(req);if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");
+ const to=String(req.body?.status||""),reason=String(req.body?.reason||"").trim().slice(0,500)||null;
+ const c=await pool.connect();
+ try{
+  await c.query("begin");
+  const locked=await c.query("select * from purchase_requests where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
+  if(!locked.rowCount){await c.query("rollback");return deny(res,404,"درخواست خرید پیدا نشد");}
+  const old=locked.rows[0];
+  if(!transitions[old.status]?.includes(to)){await c.query("rollback");return deny(res,409,"تغییر وضعیت درخواست خرید مجاز نیست");}
+  const updated=await c.query("update purchase_requests set status=$1,updated_at=now() where id=$2 and tenant_id=$3 and status=$4 returning *",[to,old.id,t.id,old.status]);
+  if(!updated.rowCount){await c.query("rollback");return deny(res,409,"درخواست خرید در این فاصله تغییر کرده است");}
+  await c.query("insert into purchase_events(tenant_id,entity_type,entity_id,from_status,to_status,event_type,actor_user_id,reason) values($1,'request',$2,$3,$4,'status_change',$5,$6)",[t.id,old.id,old.status,to,(req as any).user.id,reason]);
+  await c.query("commit");
+  res.json(updated.rows[0]);
+ }catch(error){await c.query("rollback");throw error;}finally{c.release();}
 });
 router.post("/api/purchasing/rfqs",requireAuth,requirePermission("modules:21-purchasing-supply:write"),async(req,res)=>{
  const t=await tenantOf(req),b=req.body||{};if(!t)return deny(res,403,"سازمان معتبر پیدا نشد");const pr=await query("select * from purchase_requests where id=$1 and tenant_id=$2",[b.requestId,t.id]);if(!pr.rowCount||pr.rows[0].status!=="approved")return deny(res,409,"فقط درخواست تأییدشده قابل استعلام است");const suppliers=Array.isArray(b.supplierIds)?b.supplierIds:[];if(!suppliers.length)return deny(res,400,"حداقل یک تأمین‌کننده انتخاب کنید");const no=b.rfqNo||"RFQ-"+Date.now();const c=await pool.connect();try{await c.query("begin");const r=await c.query("insert into purchase_rfqs(tenant_id,rfq_no,request_id,deadline,notes,created_by,status) values($1,$2,$3,$4,$5,$6,'sent') returning *",[t.id,no,b.requestId,b.deadline||null,b.notes||null,(req as any).user.id]);for(const id of suppliers){const s=await c.query("select id from purchase_suppliers where id=$1 and tenant_id=$2 and status='active'",[id,t.id]);if(!s.rowCount)throw Error("تأمین‌کننده نامعتبر است");await c.query("insert into purchase_rfq_suppliers(rfq_id,supplier_id) values($1,$2)",[r.rows[0].id,id])}await c.query("update purchase_requests set status='rfq',updated_at=now() where id=$1",[b.requestId]);await c.query("commit");res.status(201).json(r.rows[0])}catch(e){await c.query("rollback");throw e}finally{c.release()}
