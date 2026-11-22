@@ -200,3 +200,16 @@ test("settlement workspace exposes FIFO write action only when preview contains 
  assert.ok(settlementUiSource.includes("تخصیص خودکار در این مرحله فقط برای سیاست FIFO"));
 });
 
+test("financial issue linkage audit is tenant-scoped, read-only and does not infer an order link from source id alone",()=>{
+ assert.ok(source.includes("/financial-issue-link-audit"));
+ assert.ok(source.includes('requirePermission("settlement:view")'));
+ assert.ok(source.includes("mir.status='consumed'"));
+ assert.ok(source.includes("d.document_type='issue' and d.status='posted'"));
+ assert.ok(source.includes("source_id_order_match"));
+ assert.ok(source.includes("برابری شناسه منبع با شناسه سفارش"));
+ assert.ok(source.includes("readOnly:true"));
+ assert.ok(settlementUiSource.includes("ممیزی ارتباط سفارش و سند خروج مالی"));
+ assert.ok(settlementUiSource.includes("تطبیق شناسه با سفارش"));
+ assert.ok(settlementUiSource.includes("بدون تأیید نوع منبع و ارتباط قلم‌ها"));
+});
+
