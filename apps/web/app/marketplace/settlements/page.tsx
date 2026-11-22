@@ -55,6 +55,18 @@ export default function SettlementsPage(){
   <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-settlements" onCreate={()=>setGenerateOpen(true)}/>
 
   <section className="platform-panel">
+   <div className="panel-title"><div><h2>آمادگی اتصال بهای تمام‌شده</h2><span>ردیابی اتصال کالا، مصرف انبار و لایه‌های مالی</span></div><button type="button" disabled={readinessBusy||!periodStart||!periodEnd||periodEnd<periodStart} onClick={()=>void loadCostingReadiness()}>{readinessBusy?"در حال بررسی…":"بررسی آمادگی"}</button></div>
+   {costingReadiness&&<>
+    <p className="empty">این بخش هزینه کالا را محاسبه نمی‌کند. وجود لایه مالی به‌تنهایی اثبات‌کننده ثبت خروج مالی برای همان سفارش نیست.</p>
+    {costingReadiness.summary?.map((x:any)=><article className="platform-row" key={x.status}><strong>{x.status}</strong><span>{Number(x.lineCount).toLocaleString("fa-IR")} قلم</span><span>{Number(x.orderCount).toLocaleString("fa-IR")} سفارش</span></article>)}
+    <div style={{overflowX:"auto"}}><table><thead><tr><th>سفارش</th><th>کالا</th><th>تعداد سفارش</th><th>کالای انبار</th><th>ضریب</th><th>مصرف‌شده از انبار</th><th>کالای مالی</th><th>لایه مالی قطعی</th><th>وضعیت اتصال</th><th>بهای تمام‌شده</th></tr></thead><tbody>
+    {costingReadiness.items?.map((x:any)=><tr key={x.order_item_id}><td>{x.order_no}</td><td>{x.marketplace_sku||x.marketplace_product_title}</td><td>{Number(x.ordered_quantity).toLocaleString("fa-IR")}</td><td>{x.inventory_sku||"اتصال ندارد"}</td><td>{Number(x.inventory_quantity_factor||1).toLocaleString("fa-IR")}</td><td>{Number(x.consumed_inventory_quantity||0).toLocaleString("fa-IR")}</td><td>{x.finance_product_code||"اتصال ندارد"}</td><td>{Number(x.posted_cost_layer_count||0).toLocaleString("fa-IR")}</td><td>{x.costing_readiness}</td><td>محاسبه نشده</td></tr>)}
+    </tbody></table></div>
+    <p className="empty">سقف بررسی: ۵۰۰ سفارش و ۲٬۰۰۰ قلم. وضعیت هر قلم بر اساس اتصال‌ها و اسناد قطعی موجود تعیین می‌شود.</p>
+   </>}
+  </section>
+
+  <section className="platform-panel">
    <div className="panel-title"><div><h2>تحلیل اجزای مالی سفارش‌ها</h2><span>فقط داده‌های ثبت‌شده و اسناد قطعی</span></div><button type="button" disabled={reportBusy||!periodStart||!periodEnd||periodEnd<periodStart} onClick={()=>void loadOrderCostReport()}>{reportBusy?"در حال دریافت…":"دریافت گزارش"}</button></div>
    <div className="platform-form"><label>از تاریخ<input type="date" value={periodStart} onChange={e=>setPeriodStart(e.target.value)}/></label><label>تا تاریخ<input type="date" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)}/></label></div>
    {orderCostReport&&<>
