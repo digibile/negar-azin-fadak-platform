@@ -91,6 +91,8 @@ settlementRouter.patch("/api/marketplace/settlements/:id/approve",requireAuth,re
  const client=await pool.connect();
  try{
   await client.query("begin");
+  const settlementOrders=await client.query("select o.id from seller_settlement_items si join marketplace_orders o on o.id=si.order_id and o.tenant_id=si.tenant_id where si.tenant_id=$1 and si.settlement_id=$2 order by o.id for update of o",[t.id,req.params.id]);
+  if(!settlementOrders.rowCount){await client.query("rollback");return res.status(409).json({error:"تسویه فاقد اقلام سفارش معتبر است؛ تأیید متوقف شد"});}
   const blockers=await client.query(`
    select o.order_no,o.id order_id
    from seller_settlement_items si
