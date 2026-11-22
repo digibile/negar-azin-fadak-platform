@@ -103,6 +103,7 @@ domainMarketplaceRouter.get("/api/marketplace/seller-accounting/options",require
 
 domainMarketplaceRouter.patch("/api/marketplace/sellers/:id/accounting",requireAuth,requirePermission("seller:manage"),asyncHandler(async(req,res)=>{
  const ctx=await tenantContext(req,(req as any).user);if(!ctx)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(req.params.id))return res.status(400).json({error:"شناسه فروشنده نامعتبر است"});
  const partyId=req.body?.accountingPartyId===null||req.body?.accountingPartyId===""?null:bodyString(req.body?.accountingPartyId,80);
  if(req.body?.accountingPartyId!==null&&req.body?.accountingPartyId!==""&&(!partyId||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(partyId)))return res.status(400).json({error:"شناسه طرف حساب نامعتبر است"});
  const client=await pool.connect();
