@@ -12,6 +12,8 @@ export default function SettlementsPage(){
  const [busy,setBusy]=useState("");
  const [selected,setSelected]=useState<Settlement|null>(null);
  const [generateOpen,setGenerateOpen]=useState(false);
+ const [orderCostReport,setOrderCostReport]=useState<any>(null);
+ const [reportBusy,setReportBusy]=useState(false);
  const [periodStart,setPeriodStart]=useState(()=>{const d=new Date();d.setDate(d.getDate()-30);return d.toISOString().slice(0,10)});
  const [periodEnd,setPeriodEnd]=useState(()=>new Date().toISOString().slice(0,10));
 
@@ -42,11 +44,27 @@ export default function SettlementsPage(){
   catch(e){setError(e instanceof Error?e.message:"ثبت پرداخت تسویه ناموفق بود.");}
   finally{setBusy("");}
  }
+ const loadOrderCostReport=async()=>{setReportBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/order-cost-analysis?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setOrderCostReport(result);}catch(e){setError(e instanceof Error?e.message:"گزارش بهای سفارش دریافت نشد.");}finally{setReportBusy(false)}};
  const money=(v:unknown)=>Number(v||0).toLocaleString("fa-IR")+" ریال";
  return <main className="enterprise-main" dir="rtl">
   <header className="platform-header"><div><span className="section-kicker">تسویه</span><h1>تسویه فروشندگان</h1><p>تولید دوره‌ای، تأیید، ثبت پرداخت و اتصال به دفترکل مالی</p></div><a href="/platform">مرکز عملیات</a></header>
   {error&&<p className="enterprise-loading error" role="alert">{error}</p>}
   <ManagementToolbar rows={items as unknown as Record<string,unknown>[]} filename="marketplace-settlements" onCreate={()=>setGenerateOpen(true)}/>
+
+  <section className="platform-panel">
+   <div className="panel-title"><div><h2>تحلیل اجزای مالی سفارش‌ها</h2><span>فقط داده‌های ثبت‌شده و اسناد قطعی</span></div><button type="button" disabled={reportBusy||!periodStart||!periodEnd||periodEnd<periodStart} onClick={()=>void loadOrderCostReport()}>{reportBusy?"در حال دریافت…":"دریافت گزارش"}</button></div>
+   <div className="platform-form"><label>از تاریخ<input type="date" value={periodStart} onChange={e=>setPeriodStart(e.target.value)}/></label><label>تا تاریخ<input type="date" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)}/></label></div>
+   {orderCostReport&&<>
+    <p className="empty">این گزارش سود خالص نیست. بهای تمام‌شده کالا هنوز به سند خروج مالیِ سفارش بازارگاه متصل نشده و عمداً نامشخص نمایش داده می‌شود.</p>
+    <h3>خلاصه به تفکیک ارز</h3>
+    {orderCostReport.summary?.map((x:any)=><article className="platform-row" key={x.currency}><strong>{x.currency}</strong><span>{Number(x.order_count).toLocaleString("fa-IR")} سفارش</span><span>فروش: {money(x.order_total)}</span><span>تخفیف: {money(x.discount_amount)}</span><span>کارمزد ثبت‌شده: {money(x.recorded_commission)}</span><span>سهم فروشنده: {money(x.seller_payable)}</span></article>)}
+    <h3>جزئیات سفارش‌ها</h3>
+    <div style={{overflowX:"auto"}}><table><thead><tr><th>سفارش</th><th>وضعیت</th><th>ارز</th><th>مبلغ سفارش</th><th>کارمزد ثبت‌شده</th><th>کارمزد تسویه‌شده</th><th>بازپرداخت قطعی</th><th>حمل قطعی</th><th>تعداد برگشت</th><th>بهای کالا</th><th>وضعیت سود</th></tr></thead><tbody>
+    {orderCostReport.items?.map((x:any)=><tr key={x.order_id}><td>{x.order_no}</td><td>{x.order_status}</td><td>{x.currency}</td><td>{money(x.total_amount)}</td><td>{money(x.recorded_commission)}</td><td>{money(x.settled_commission)}</td><td>{money(x.refunded_amount)}</td><td>{money(x.posted_freight_cost)}</td><td>{Number(x.return_request_count||0).toLocaleString("fa-IR")}</td><td>نامشخص</td><td>ناقص</td></tr>)}
+    </tbody></table></div>
+    <p className="empty">تعداد ردیف: {Number(orderCostReport.items?.length||0).toLocaleString("fa-IR")} از سقف {orderCostReport.limit||500} · ارزها جداگانه گزارش شده‌اند.</p>
+   </>}
+  </section>
   {generateOpen&&<ManagementDialog title="تولید تسویه فروشندگان" onClose={()=>setGenerateOpen(false)}>  <section className="platform-panel">
    <h2>تولید تسویه از سفارش‌های پرداخت‌شده</h2>
    <p>سامانه فقط سفارش‌های پرداخت‌شده و تسویه‌نشده در بازه انتخابی را پردازش می‌کند. ثبت سند مالی هنگام پرداخت نهایی در سرویس دفترکل انجام می‌شود.</p>
