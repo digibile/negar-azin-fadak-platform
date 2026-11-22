@@ -279,6 +279,42 @@ settlementRouter.get("/api/marketplace/settlements/return-refund-exposure",requi
  res.json({items:r.rows,limit:500,readOnly:true,warning:"مبلغ قابل‌بازیافت پس از مرجوعی در این گزارش محاسبه نمی‌شود؛ این فهرست فقط پرونده‌های نیازمند تطبیق مالی را مشخص می‌کند"});
 }));
 
+settlementRouter.get("/api/marketplace/settlements/return-refund-ledger-reconciliation",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query(`
+  select ss.id settlement_id,ss.settlement_no,ss.status settlement_status,ss.net_amount settlement_net_amount,
+   s.display_name seller_name,o.id order_id,o.order_no,o.subtotal,o.commission_amount,o.seller_payable,
+   mr.id refund_id,mr.refund_no,mr.return_request_id,mr.status refund_status,mr.amount refund_amount,mr.created_at refund_created_at,
+   case when mr.return_request_id is null then round(o.seller_payable,2)
+    else round(mr.amount-round(mr.amount*o.commission_amount/greatest(o.subtotal,0.01),2),2) end expected_seller_recovery_debit,
+   case when mr.return_request_id is null then round(o.commission_amount,2)
+    else round(mr.amount*o.commission_amount/greatest(o.subtotal,0.01),2) end expected_commission_reversal,
+   le.id ledger_entry_id,le.status ledger_entry_status,
+   coalesce(sum(ll.debit) filter(where la.code='2101'),0)::numeric actual_seller_recovery_debit,
+   coalesce(sum(ll.debit) filter(where la.code='4101'),0)::numeric actual_commission_reversal,
+   coalesce(array_remove(array[
+    case when mr.status='refunded' and le.id is null then 'refund_ledger_entry_missing' end,
+    case when mr.status='refunded' and le.id is not null and le.status<>'posted' then 'refund_ledger_entry_not_posted' end,
+    case when mr.status='refunded' and le.id is not null and abs(coalesce(sum(ll.debit) filter(where la.code='2101'),0)-case when mr.return_request_id is null then round(o.seller_payable,2) else round(mr.amount-round(mr.amount*o.commission_amount/greatest(o.subtotal,0.01),2),2) end)>0.005 then 'seller_recovery_debit_mismatch' end,
+    case when mr.status='refunded' and le.id is not null and abs(coalesce(sum(ll.debit) filter(where la.code='4101'),0)-case when mr.return_request_id is null then round(o.commission_amount,2) else round(mr.amount*o.commission_amount/greatest(o.subtotal,0.01),2) end)>0.005 then 'commission_reversal_mismatch' end,
+    case when mr.status in ('pending','failed') then 'provider_refund_not_final' end
+   ],null),'{}'::text[]) mismatch_codes
+  from seller_settlements ss
+  join sellers s on s.id=ss.seller_id and s.tenant_id=ss.tenant_id
+  join seller_settlement_items si on si.settlement_id=ss.id and si.tenant_id=ss.tenant_id
+  join marketplace_orders o on o.id=si.order_id and o.tenant_id=si.tenant_id
+  join marketplace_refunds mr on mr.tenant_id=o.tenant_id and mr.order_id=o.id
+  left join ledger_entries le on le.tenant_id=mr.tenant_id and le.source_type='marketplace_refund' and le.source_id=mr.id
+  left join ledger_lines ll on ll.entry_id=le.id
+  left join ledger_accounts la on la.id=ll.account_id and la.tenant_id=le.tenant_id
+  where ss.tenant_id=$1
+  group by ss.id,ss.settlement_no,ss.status,ss.net_amount,s.display_name,o.id,o.order_no,o.subtotal,o.commission_amount,o.seller_payable,mr.id,mr.refund_no,mr.return_request_id,mr.status,mr.amount,mr.created_at,le.id,le.status
+  order by ss.created_at desc,mr.created_at desc
+  limit 500
+ `,[t.id]);
+ res.json({items:r.rows,limit:500,readOnly:true,accountingBasis:{sellerPayableAccount:"2101",commissionRevenueAccount:"4101",fullRefund:"reverse original order seller payable and commission",partialReturn:"proportional commission and seller share as currently implemented"},warning:"این گزارش تطبیق و برآورد بدهکارشدن حساب بستانکاران فروشندگان است؛ وصول وجه از فروشنده یا ایجاد سند دریافت مستقل انجام نمی‌دهد"});
+}));
+
 settlementRouter.get("/api/marketplace/settlements/order-integrity-audit",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const r=await query(`
