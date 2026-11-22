@@ -112,3 +112,43 @@ test("payout bank options do not expose full bank account or IBAN values",()=>{
  assert.ok(!route.includes("ba.account_no"));
  assert.ok(!route.includes("ba.iban"));
 });
+
+
+test("settlement generation compares persisted order item totals with order subtotal",()=>{
+ const start=source.indexOf('settlementRouter.post("/api/marketplace/settlements/generate"');
+ const end=source.indexOf('settlementRouter.patch("/api/marketplace/settlements/:id/approve"',start);
+ const route=source.slice(start,end);
+ assert.ok(route.includes("sum(line_total)::text as item_gross"));
+ assert.ok(route.includes("moneyToMinorUnits(String(items.item_gross))!==moneyToMinorUnits(String(order.subtotal))"));
+ assert.ok(route.includes("if(!items||items.item_count<1"));
+});
+
+test("settlement generation validates total, discount, shipping, commission and seller payable arithmetic",()=>{
+ const start=source.indexOf('settlementRouter.post("/api/marketplace/settlements/generate"');
+ const end=source.indexOf('settlementRouter.patch("/api/marketplace/settlements/:id/approve"',start);
+ const route=source.slice(start,end);
+ assert.ok(route.includes("moneyToMinorUnits(String(order.subtotal))-moneyToMinorUnits(String(order.discount_amount))+moneyToMinorUnits(String(order.shipping_amount))"));
+ assert.ok(route.includes("moneyToMinorUnits(String(order.commission_amount))+moneyToMinorUnits(String(order.seller_payable))"));
+});
+
+test("settlement generation refuses to combine different currencies for one seller",()=>{
+ const start=source.indexOf('settlementRouter.post("/api/marketplace/settlements/generate"');
+ const end=source.indexOf('settlementRouter.patch("/api/marketplace/settlements/:id/approve"',start);
+ const route=source.slice(start,end);
+ assert.ok(route.includes("const currencyBySeller=new Map<string,string>()"));
+ assert.ok(route.includes('existingCurrency!==currency'));
+ assert.ok(route.includes("سفارش‌های یک فروشنده با ارزهای متفاوت"));
+});
+
+test("settlement preflight failures roll back before creating settlement headers",()=>{
+ const start=source.indexOf('settlementRouter.post("/api/marketplace/settlements/generate"');
+ const end=source.indexOf('settlementRouter.patch("/api/marketplace/settlements/:id/approve"',start);
+ const route=source.slice(start,end);
+ const firstInsert=route.indexOf("insert into seller_settlements");
+ const checks=["جمع اقلام سفارش با مبلغ پایه سفارش","مبلغ نهایی، کمیسیون و سهم فروشنده","سفارش‌های یک فروشنده با ارزهای متفاوت"];
+ for(const message of checks){
+  const at=route.indexOf(message);
+  assert.ok(at>=0&&route.lastIndexOf('await client.query("rollback")',at)>route.lastIndexOf("const bySeller",0));
+  assert.ok(at<firstInsert);
+ }
+});
