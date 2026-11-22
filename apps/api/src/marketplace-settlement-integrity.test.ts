@@ -213,3 +213,17 @@ test("financial issue linkage audit is tenant-scoped, read-only and does not inf
  assert.ok(settlementUiSource.includes("بدون تأیید نوع منبع و ارتباط قلم‌ها"));
 });
 
+test("COGS accounting readiness is read-only and requires explicit order-line reconciliation",()=>{
+ assert.ok(source.includes("/cogs-accounting-readiness"));
+ assert.ok(source.includes('requirePermission("accounting-finance.read")'));
+ assert.ok(source.includes("source_module='marketplace-cogs-issue'"));
+ assert.ok(source.includes("accounting_fiscal_periods"));
+ assert.ok(source.includes("period_status"));
+ assert.ok(source.includes("account_nature in ('asset','expense')"));
+ assert.ok(source.includes("ارتباط تک‌تک اقلام سفارش با اقلام سند خروج هنوز ثبت و تأیید نشده است"));
+ assert.ok(source.includes("draftCreationAllowed:false,postingAllowed:false"));
+ assert.ok(source.includes("تولید سند خودکار مجاز نیست"));
+ assert.ok(settlementUiSource.includes("کنترل آمادگی سند حسابداری بهای کالا"));
+ assert.ok(settlementUiSource.includes("حساب‌های کاندیدا، بدون انتخاب خودکار"));
+ assert.ok(settlementUiSource.includes("ایجاد پیش‌نویس مجاز نیست"));
+});
