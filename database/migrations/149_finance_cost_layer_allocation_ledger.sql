@@ -44,12 +44,17 @@ declare
  v_issue record;
  v_layer_allocated numeric(20,4);
  v_issue_allocated numeric(20,4);
+ v_existing_method text;
+ v_existing_method_count integer;
 begin
  if tg_op <> 'INSERT' then
   raise exception 'Cost layer allocations are immutable; use a separately governed reversal workflow';
  end if;
 
+ perform pg_advisory_xact_lock(hashtextextended(new.tenant_id::text||':'||new.product_id::text||':'||new.warehouse_id::text,0));
+
  select cl.id,cl.tenant_id,cl.product_id,cl.method,cl.quantity,cl.unit_cost,
+  source_line.product_id source_product_id,
   source_doc.warehouse_id source_warehouse_id,
   source_doc.status source_document_status,source_doc.document_type source_document_type
  into v_layer
@@ -63,7 +68,8 @@ begin
  if not found then
   raise exception 'Cost layer does not exist or has no source inventory document';
  end if;
- if v_layer.product_id<>new.product_id or v_layer.method<>new.valuation_method then
+ if v_layer.product_id<>new.product_id or v_layer.source_product_id<>v_layer.product_id
+  or v_layer.method<>new.valuation_method then
   raise exception 'Cost layer product or valuation method mismatch';
  end if;
  if v_layer.source_document_status<>'posted'
@@ -90,6 +96,17 @@ begin
  end if;
  if v_issue.status<>'posted' or v_issue.document_type<>'issue' then
   raise exception 'Allocations are allowed only for posted financial issue documents';
+ end if;
+
+ select count(distinct a.valuation_method)::int,min(a.valuation_method)
+ into v_existing_method_count,v_existing_method
+ from finance_cost_layer_allocations a
+ where a.tenant_id=new.tenant_id and a.product_id=new.product_id and a.warehouse_id=new.warehouse_id;
+ if v_existing_method_count>1 then
+  raise exception 'Existing allocations contain mixed valuation methods for this product and warehouse';
+ end if;
+ if v_existing_method is not null and v_existing_method<>new.valuation_method then
+  raise exception 'Valuation method must remain consistent for this product and warehouse';
  end if;
 
  if new.unit_cost<>v_layer.unit_cost
