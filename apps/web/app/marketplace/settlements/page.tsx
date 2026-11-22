@@ -59,6 +59,14 @@ export default function SettlementsPage(){
   mixed_cost_layer_valuation_methods:"روش ارزش‌گذاری لایه‌ها یکسان نیست",
   cost_layers_present_financial_issue_link_pending:"نیازمند اتصال سند خروج مالی به سفارش"
  } as Record<string,string>)[status]||status;
+ const dispatchReadinessLabel=(status:string)=>({
+  logistics_order_missing:"سفارش لجستیکی ایجاد نشده",
+  supply_order_not_shipped:"سفارش تأمین هنوز اعزام نشده",
+  shipment_missing:"مرسوله ثبت نشده",
+  shipment_exception:"مرسوله دارای خطا یا لغو است",
+  shipment_dispatch_timestamp_missing:"زمان اعزام مرسوله ثبت نشده",
+  shipment_dispatched_financial_issue_pending:"اعزام تأیید شده؛ سند خروج مالی متصل نیست"
+ } as Record<string,string>)[status]||status;
  return <main className="enterprise-main" dir="rtl">
   <header className="platform-header"><div><span className="section-kicker">تسویه</span><h1>تسویه فروشندگان</h1><p>تولید دوره‌ای، تأیید، ثبت پرداخت و اتصال به دفترکل مالی</p></div><a href="/platform">مرکز عملیات</a></header>
   {error&&<p className="enterprise-loading error" role="alert">{error}</p>}
@@ -68,9 +76,12 @@ export default function SettlementsPage(){
    <div className="panel-title"><div><h2>آمادگی اتصال بهای تمام‌شده</h2><span>ردیابی اتصال کالا، مصرف انبار و لایه‌های مالی</span></div><button type="button" disabled={readinessBusy||!periodStart||!periodEnd||periodEnd<periodStart} onClick={()=>void loadCostingReadiness()}>{readinessBusy?"در حال بررسی…":"بررسی آمادگی"}</button></div>
    {costingReadiness&&<>
     <p className="empty">این بخش هزینه کالا را محاسبه نمی‌کند. وجود لایه مالی به‌تنهایی اثبات‌کننده ثبت خروج مالی برای همان سفارش نیست.</p>
-    {costingReadiness.summary?.map((x:any)=><article className="platform-row" key={x.status}><strong>{x.status}</strong><span>{Number(x.lineCount).toLocaleString("fa-IR")} قلم</span><span>{Number(x.orderCount).toLocaleString("fa-IR")} سفارش</span></article>)}
-    <div style={{overflowX:"auto"}}><table><thead><tr><th>سفارش</th><th>کالا</th><th>تعداد سفارش</th><th>کالای انبار</th><th>ضریب</th><th>مصرف‌شده از انبار</th><th>کالای مالی</th><th>انبارهای مالی متصل</th><th>لایه مالی قطعی</th><th>روش لایه‌ها</th><th>وضعیت اتصال</th><th>بهای تمام‌شده</th></tr></thead><tbody>
-    {costingReadiness.items?.map((x:any)=><tr key={x.order_item_id}><td>{x.order_no}</td><td>{x.marketplace_sku||x.marketplace_product_title}</td><td>{Number(x.ordered_quantity).toLocaleString("fa-IR")}</td><td>{x.inventory_sku||"اتصال ندارد"}</td><td>{Number(x.inventory_quantity_factor||1).toLocaleString("fa-IR")}</td><td>{Number(x.consumed_inventory_quantity||0).toLocaleString("fa-IR")}</td><td>{x.finance_product_code||"اتصال ندارد"}</td><td>{Number(x.mapped_operational_warehouse_count||0).toLocaleString("fa-IR")} / {Number(x.consumed_warehouse_count||0).toLocaleString("fa-IR")}</td><td>{Number(x.posted_cost_layer_count||0).toLocaleString("fa-IR")}</td><td>{(x.posted_cost_layer_methods||[]).join("، ")||"ثبت نشده"}</td><td>{costingReadinessLabel(x.costing_readiness)}</td><td>محاسبه نشده</td></tr>)}
+    <h3>وضعیت آمادگی بهای تمام‌شده</h3>
+    {costingReadiness.summary?.map((x:any)=><article className="platform-row" key={x.status}><strong>{costingReadinessLabel(x.status)}</strong><span>{Number(x.lineCount).toLocaleString("fa-IR")} قلم</span><span>{Number(x.orderCount).toLocaleString("fa-IR")} سفارش</span></article>)}
+    <h3>تطبیق با اعزام واقعی</h3>
+    {costingReadiness.dispatchSummary?.map((x:any)=><article className="platform-row" key={x.status}><strong>{dispatchReadinessLabel(x.status)}</strong><span>{Number(x.lineCount).toLocaleString("fa-IR")} قلم</span><span>{Number(x.orderCount).toLocaleString("fa-IR")} سفارش</span></article>)}
+    <div style={{overflowX:"auto"}}><table><thead><tr><th>سفارش</th><th>وضعیت اعزام</th><th>زمان اعزام</th><th>کالا</th><th>تعداد سفارش</th><th>کالای انبار</th><th>ضریب</th><th>مصرف‌شده از انبار</th><th>کالای مالی</th><th>انبارهای مالی متصل</th><th>لایه مالی قطعی</th><th>روش لایه‌ها</th><th>وضعیت اتصال</th><th>بهای تمام‌شده</th></tr></thead><tbody>
+    {costingReadiness.items?.map((x:any)=><tr key={x.order_item_id}><td>{x.order_no}</td><td>{dispatchReadinessLabel(x.dispatch_readiness)}</td><td>{x.dispatch_at?new Date(x.dispatch_at).toLocaleString("fa-IR"):"ثبت نشده"}</td><td>{x.marketplace_sku||x.marketplace_product_title}</td><td>{Number(x.ordered_quantity).toLocaleString("fa-IR")}</td><td>{x.inventory_sku||"اتصال ندارد"}</td><td>{Number(x.inventory_quantity_factor||1).toLocaleString("fa-IR")}</td><td>{Number(x.consumed_inventory_quantity||0).toLocaleString("fa-IR")}</td><td>{x.finance_product_code||"اتصال ندارد"}</td><td>{Number(x.mapped_operational_warehouse_count||0).toLocaleString("fa-IR")} / {Number(x.consumed_warehouse_count||0).toLocaleString("fa-IR")}</td><td>{Number(x.posted_cost_layer_count||0).toLocaleString("fa-IR")}</td><td>{(x.posted_cost_layer_methods||[]).join("، ")||"ثبت نشده"}</td><td>{costingReadinessLabel(x.costing_readiness)}</td><td>محاسبه نشده</td></tr>)}
     </tbody></table></div>
     <p className="empty">سقف بررسی: ۵۰۰ سفارش و ۲٬۰۰۰ قلم. وضعیت هر قلم بر اساس اتصال‌ها و اسناد قطعی موجود تعیین می‌شود.</p>
    </>}
