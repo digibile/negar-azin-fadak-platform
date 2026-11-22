@@ -17,14 +17,15 @@ test("refund releases only pre-dispatch warehouse reservations and cancels linke
  assert.ok(route.includes("رزرو انبار با دفتر موجودی هم‌خوانی ندارد"));
 });
 
-test("refund blocks while a shipment is active before calling the payment provider",()=>{
+test("direct full refund is blocked for any order with a shipment before provider execution",()=>{
  const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"');
  const route=checkout.slice(start);
- const guard=route.indexOf("activeShipment");
+ const guard=route.indexOf("const shipment=");
  const provider=route.indexOf("provider.refundPayment");
  assert.ok(guard>=0&&provider>guard);
- assert.ok(route.includes("status in ('planned','assigned','picked_up','in_transit','failed')"));
- assert.ok(route.includes("پیش از بازپرداخت، مرسوله فعال باید از مسیر حمل تعیین تکلیف شود"));
+ assert.ok(route.includes("where tenant_id=$1 and supply_order_id=$2 limit 1 for update"));
+ assert.ok(route.includes("سابقه مرسوله دارد"));
+ assert.ok(route.includes('if(!["paid","processing"].includes(order.status))'));
 });
 
 
@@ -37,4 +38,18 @@ test("generic marketplace order status route cannot mark an order refunded witho
  const transition=route.indexOf("if(!allowed[order.status]?.includes(next))");
  assert.ok(guard>=0&&transition>guard);
  assert.ok(route.includes('refundEndpoint:"/api/marketplace/orders/:id/refund"'));
+});
+
+
+test("direct full refund cannot overlap any existing partial, pending, failed, or unknown refund record",()=>{
+ const start=checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"');
+ const route=checkout.slice(start);
+ assert.ok(route.includes("select count(*)::int refund_count from marketplace_refunds where tenant_id=$1 and payment_id=$2"));
+ assert.ok(route.includes("Number(existing.rows[0].refund_count)>0"));
+ assert.ok(route.includes("وضعیت آن را از گردش تطبیق بازپرداخت تعیین تکلیف کنید"));
+});
+
+test("direct full refund requires CSRF protection",()=>{
+ const route=checkout.slice(checkout.indexOf('checkoutRouter.post("/api/marketplace/orders/:id/refund"'));
+ assert.ok(route.startsWith('checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePermission("payment:refund"),requireCsrf'));
 });
