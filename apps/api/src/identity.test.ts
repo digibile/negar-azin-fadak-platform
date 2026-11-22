@@ -7,7 +7,7 @@ const source=fs.readFileSync(new URL("./identity.ts",import.meta.url),"utf8");
 test("identity overview limits user and security-event data for non-admins",()=>{
  assert.match(source,/where id=\$1.*req\.user\.id/);
  assert.match(source,/where user_id=\$1.*req\.user\.id/);
- assert.match(source,/canViewGlobalAudit:admin/);
+ assert.match(source,/canViewGlobalAudit:superAdmin/);
 });
 
 test("identity role permission replacement is transactional",()=>{

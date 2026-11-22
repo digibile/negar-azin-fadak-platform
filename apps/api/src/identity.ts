@@ -6,7 +6,7 @@ import {requireAuth,requireCsrf} from "./auth.js";
 const router=Router();
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ROLE_KEY=/^[a-z][a-z0-9_-]{1,40}$/;
-const isAdmin=(req:any)=>req.user?.role==="admin";
+const isAdmin=(req:any)=>req.user?.role==="super_admin";
 
 const guardRead=async(req:any,res:any,next:any)=>{
  if(isAdmin(req))return next();
@@ -26,13 +26,14 @@ const guardWrite=async(req:any,res:any,next:any)=>{
 };
 const guardAdmin=(req:any,res:any,next:any)=>{
  if(isAdmin(req))return next();
- return res.status(403).json({error:"این عملیات فقط برای مدیر سامانه مجاز است"});
+ return res.status(403).json({error:"این عملیات فقط برای مدیرکل مجاز است"});
 };
 
 router.get("/api/identity/overview",requireAuth,guardRead,async(req:any,res)=>{
- const admin=isAdmin(req);
+ const superAdmin=isAdmin(req);
+ const canReadAllUsers=superAdmin||req.user?.role==="admin";
  const [users,roles,groups,members,permissions,grants,sessions,logins]=await Promise.all([
-  admin
+  canReadAllUsers
    ? query("select id,email,national_id,full_name,role,status,created_at from users order by created_at desc")
    : query("select id,email,national_id,full_name,role,status,created_at from users where id=$1",[req.user.id]),
   query("select r.role_key,r.title,r.description,r.is_system,r.is_active,count(u.id)::int user_count from identity_roles r left join users u on u.role=r.role_key group by r.role_key order by r.title"),
@@ -40,24 +41,24 @@ router.get("/api/identity/overview",requireAuth,guardRead,async(req:any,res)=>{
   query("select gm.group_id,gm.user_id,u.full_name,u.email from identity_group_members gm join users u on u.id::text=gm.user_id order by gm.group_id,u.full_name"),
   query("select permission_key,title,module_key,action,description,is_active from identity_permissions order by module_key,permission_key"),
   query("select role_key,permission_key from identity_role_permissions where granted=true order by role_key,permission_key"),
-  admin
+  superAdmin
    ? query("select id,user_id,ip_address,user_agent,started_at,last_seen_at,expires_at,revoked_at from security_sessions order by last_seen_at desc limit 100")
    : query("select id,user_id,ip_address,user_agent,started_at,last_seen_at,expires_at,revoked_at from security_sessions where user_id=$1 order by last_seen_at desc limit 100",[req.user.id]),
-  admin
+  superAdmin
    ? query("select id,email,success,failure_reason,ip_address,occurred_at from security_login_events order by occurred_at desc limit 100")
    : query("select id,email,success,failure_reason,ip_address,occurred_at from security_login_events where user_id=$1 order by occurred_at desc limit 100",[req.user.id])
  ]);
- res.json({users:users.rows,roles:roles.rows,groups:groups.rows,members:members.rows,permissions:permissions.rows,grants:grants.rows,sessions:sessions.rows,logins:logins.rows,access:{canManageRoles:admin,canManageUsers:admin,canViewGlobalAudit:admin}});
+ res.json({users:users.rows,roles:roles.rows,groups:groups.rows,members:members.rows,permissions:permissions.rows,grants:grants.rows,sessions:sessions.rows,logins:logins.rows,access:{canManageRoles:superAdmin,canManageUsers:superAdmin||req.user?.role==="admin",canViewGlobalAudit:superAdmin}});
 });
 
 router.post("/api/identity/users",requireAuth,guardWrite,requireCsrf,async(req:any,res)=>{
  const email=typeof req.body?.email==="string"?req.body.email.trim().toLowerCase():"";
  const fullName=typeof req.body?.fullName==="string"?req.body.fullName.trim():"";
- const role=typeof req.body?.role==="string"?req.body.role:"viewer";
+ const role=typeof req.body?.role==="string"?req.body.role:"customer";
  const status=typeof req.body?.status==="string"?req.body.status:"active";
  if(!email.includes("@")||!fullName)return res.status(400).json({error:"ایمیل و نام کاربر الزامی است"});
  if(!["active","pending","suspended"].includes(status))return res.status(400).json({error:"وضعیت حساب معتبر نیست"});
- if(!isAdmin(req)&&(role!=="viewer"||status!=="active"))return res.status(403).json({error:"تعیین نقش و وضعیت حساب فقط برای مدیر سامانه مجاز است"});
+ if(!isAdmin(req)&&(!["customer","seller","representative"].includes(role)||status!=="active"))return res.status(403).json({error:"مدیر سامانه فقط می‌تواند نقش‌های عملیاتی غیرمدیریتی را تعیین کند"});
  const roleRow=await query("select 1 from identity_roles where role_key=$1 and is_active=true",[role]);
  if(!roleRow.rowCount)return res.status(400).json({error:"نقش انتخاب‌شده معتبر نیست"});
  const r=await query("update users set full_name=$1,role=$2,status=$3,updated_at=now() where lower(email)=lower($4) returning id,email,full_name,role,status,created_at",[fullName,role,status,email]);
@@ -72,7 +73,7 @@ router.patch("/api/identity/users/:id",requireAuth,guardWrite,requireCsrf,async(
  const nationalId=nationalIdRaw===undefined?undefined:(typeof nationalIdRaw==="string"&&nationalIdRaw.trim()?normalizeIranianDigits(nationalIdRaw.trim()):null);
  if(nationalId!==undefined&&nationalId!==null&&!isValidIranianNationalCode(nationalId))return res.status(400).json({error:"کد ملی معتبر نیست"});
  if(fullName!==undefined&&(typeof fullName!=="string"||!fullName.trim()))return res.status(400).json({error:"نام کاربر معتبر نیست"});
- if(!isAdmin(req)&&(role!==undefined||status!==undefined))return res.status(403).json({error:"تغییر نقش یا وضعیت حساب فقط برای مدیر سامانه مجاز است"});
+ if(!isAdmin(req)&&((role!==undefined&&!["customer","seller","representative"].includes(role))||(status!==undefined&&status!=="active")))return res.status(403).json({error:"تغییر به نقش‌های مدیریتی یا تعلیق حساب فقط برای مدیرکل مجاز است"});
  if(role!==undefined){if(typeof role!=="string")return res.status(400).json({error:"نقش معتبر نیست"});const x=await query("select 1 from identity_roles where role_key=$1 and is_active=true",[role]);if(!x.rowCount)return res.status(400).json({error:"نقش معتبر نیست"});}
  if(status!==undefined&&!["active","pending","suspended"].includes(status))return res.status(400).json({error:"وضعیت حساب معتبر نیست"});
  const r=await query("update users set full_name=coalesce($1,full_name),role=coalesce($2,role),status=coalesce($3,status),national_id=case when $4::boolean then $5 else national_id end,updated_at=now() where id=$6 returning id,email,national_id,full_name,role,status,created_at",[fullName?.trim()||null,role??null,status??null,nationalIdRaw!==undefined,nationalId??null,req.params.id]);
