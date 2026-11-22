@@ -93,3 +93,39 @@ settlementRouter.get("/api/ledger/entries",requireAuth,requirePermission("ledger
  const r=await query("select e.*,coalesce(json_agg(json_build_object('account_id',l.account_id,'account_code',a.code,'account_name',a.name,'debit',l.debit,'credit',l.credit,'description',l.description) order by a.code) filter(where l.id is not null),'[]') as lines from ledger_entries e left join ledger_lines l on l.entry_id=e.id left join ledger_accounts a on a.id=l.account_id where e.tenant_id=$1 group by e.id order by e.posted_at desc",[t.id]);
  res.json(r.rows);
 }));
+
+settlementRouter.get("/api/marketplace/settlements/delivery-reconciliation",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query(`
+  select
+   o.id as order_id,o.order_no,o.status as order_status,o.currency,o.total_amount,o.shipping_amount,o.commission_amount,o.seller_payable,o.created_at,
+   s.display_name as seller_name,
+   so.id as supply_order_id,so.order_no as logistics_order_no,so.status as supply_order_status,
+   sh.id as shipment_id,sh.shipment_no,sh.status as shipment_status,sh.tracking_code,sh.dispatch_at,sh.delivered_at,
+   ss.id as settlement_id,ss.settlement_no,ss.status as settlement_status,ss.net_amount as settlement_net_amount,
+   case
+    when so.id is null then 'logistics_not_created'
+    when sh.id is null then 'shipment_not_created'
+    when sh.status in ('failed','cancelled') then 'delivery_exception'
+    when sh.status='delivered' then 'delivered'
+    else 'shipment_in_progress'
+   end as delivery_reconciliation_status
+  from marketplace_orders o
+  left join sellers s on s.id=o.seller_id and s.tenant_id=o.tenant_id
+  left join logistics_supply_orders so on so.tenant_id=o.tenant_id and so.marketplace_order_id=o.id
+  left join lateral (
+   select x.id,x.shipment_no,x.status,x.tracking_code,x.dispatch_at,x.delivered_at
+   from logistics_shipments x
+   where x.tenant_id=o.tenant_id and x.supply_order_id=so.id
+   order by x.created_at desc,x.id desc
+   limit 1
+  ) sh on true
+  left join seller_settlement_items si on si.tenant_id=o.tenant_id and si.order_id=o.id
+  left join seller_settlements ss on ss.id=si.settlement_id and ss.tenant_id=o.tenant_id
+  where o.tenant_id=$1 and o.status='paid'
+  order by o.created_at desc
+  limit 200
+ `,[t.id]);
+ res.json({items:r.rows,limit:200,readOnly:true});
+}));
+
