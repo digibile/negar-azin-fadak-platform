@@ -14,13 +14,14 @@ type CostPolicy={id:string;product_id:string;product_code:string;product_title:s
 
 const api=(process.env.NEXT_PUBLIC_API_BASE_URL||process.env.NEXT_PUBLIC_API_URL||"").replace(/\/$/,"");
 const csrf=()=>document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith("naf_csrf="))?.slice(9)||"";
+const localDate=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
 async function request(path:string,options:RequestInit={}){const r=await fetch(api+path,{credentials:"include",...options,headers:{"Content-Type":"application/json","X-CSRF-Token":csrf(),...(options.headers||{})}});const b=await r.json().catch(()=>null);if(!r.ok)throw new Error(b?.error||"عملیات ناموفق بود");return b;}
 
 export default function AccountingFinanceWorkspace(){
  const [tab,setTab]=useState("accounts"),[books,setBooks]=useState<Book[]>([]),[periods,setPeriods]=useState<Period[]>([]),[docs,setDocs]=useState<Doc[]>([]),[accounts,setAccounts]=useState<Account[]>([]),[centers,setCenters]=useState<Center[]>([]),[products,setProducts]=useState<FinanceProduct[]>([]),[warehouses,setWarehouses]=useState<Warehouse[]>([]),[vaults,setVaults]=useState<Vault[]>([]);
  const [error,setError]=useState(""),[saving,setSaving]=useState(false);
  const [costPolicies,setCostPolicies]=useState<CostPolicy[]>([]);
- const [policyDraft,setPolicyDraft]=useState({productId:"",warehouseId:"",valuationMethod:"fifo",effectiveFrom:new Date().toISOString().slice(0,10),effectiveTo:"",reason:""});
+ const [policyDraft,setPolicyDraft]=useState({productId:"",warehouseId:"",valuationMethod:"fifo",effectiveFrom:localDate(),effectiveTo:"",reason:""});
  const [period,setPeriod]=useState({bookId:"",code:"",title:"",startsOn:"",endsOn:""});
  const [center,setCenter]=useState({code:"",title:"",centerType:"cost"});
  const [account,setAccount]=useState({code:"",name:"",accountType:"general",accountMode:"hybrid",bookId:""});
@@ -41,7 +42,7 @@ export default function AccountingFinanceWorkspace(){
  const status=async(id:string,s:string)=>{try{await request("/api/accounting-finance/documents/"+id+"/status",{method:"PATCH",body:JSON.stringify({status:s})});await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}};
  const periodStatus=async(id:string,s:string)=>{try{await request("/api/accounting-finance/periods/"+id+"/status",{method:"PATCH",body:JSON.stringify({status:s})});await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}};
  const runReports=async()=>{try{setReports(await request("/api/accounting-finance/reports"))}catch(e){setError(e instanceof Error?e.message:"خطا")}};
- const saveCostPolicy=async()=>{setSaving(true);try{await request("/api/accounting-finance/cost-valuation-policies",{method:"POST",body:JSON.stringify({...policyDraft,effectiveFrom:policyDraft.effectiveFrom+"T00:00:00.000Z",effectiveTo:policyDraft.effectiveTo?policyDraft.effectiveTo+"T00:00:00.000Z":null})});setPolicyDraft(x=>({...x,reason:""}));await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}finally{setSaving(false)}};
+ const saveCostPolicy=async()=>{setSaving(true);try{await request("/api/accounting-finance/cost-valuation-policies",{method:"POST",body:JSON.stringify({...policyDraft,effectiveFrom:new Date(policyDraft.effectiveFrom+"T00:00:00").toISOString(),effectiveTo:policyDraft.effectiveTo?new Date(policyDraft.effectiveTo+"T00:00:00").toISOString():null})});setPolicyDraft(x=>({...x,reason:""}));await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}finally{setSaving(false)}};
  const activateCostPolicy=async(id:string)=>{setSaving(true);try{await request("/api/accounting-finance/cost-valuation-policies/"+id+"/activate",{method:"PATCH"});await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}finally{setSaving(false)}};
  const retireCostPolicy=async(id:string)=>{setSaving(true);try{await request("/api/accounting-finance/cost-valuation-policies/"+id+"/retire",{method:"PATCH"});await load()}catch(e){setError(e instanceof Error?e.message:"خطا")}finally{setSaving(false)}};
  const addLine=()=>setLines(x=>[...x,{accountId:"",debit:"",credit:"",description:""}]);
