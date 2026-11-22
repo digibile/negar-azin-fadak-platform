@@ -66,3 +66,14 @@ test("carrier cost reports aggregate only posted invoice allocations within tena
  assert.ok(web.includes("carrierCostReport.byShipment"));
  assert.ok(web.includes("سود خالص نیست"));
 });
+
+test("carrier cost report date filters are exposed in the workspace and strictly validated by the API",()=>{
+ assert.ok(web.includes('type="date" value={carrierCostRange.from}'));
+ assert.ok(web.includes('type="date" value={carrierCostRange.to}'));
+ assert.ok(web.includes('params.set("from",range.from)'));
+ assert.ok(web.includes('params.set("to",range.to)'));
+ assert.ok(web.includes("حذف فیلتر تاریخ"));
+ assert.ok(logistics.includes("toISOString().slice(0,10)===v"));
+ assert.ok(logistics.includes("if(req.query.from&&!validDate(req.query.from))return fail(res,400"));
+ assert.ok(logistics.includes("if(req.query.to&&!validDate(req.query.to))return fail(res,400"));
+});
