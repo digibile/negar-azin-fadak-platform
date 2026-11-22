@@ -6,6 +6,7 @@ on:
       - "apps/api/src/domain-checkout.ts"
       - "apps/api/src/domain-settlement.ts"
       - "apps/api/src/domain-marketplace.ts"
+      - "database/migrations/152_marketplace_seller_refund_receivables.sql"
       - "apps/api/src/*seller*accounting*.test.ts"
       - "apps/api/src/ledger.ts"
       - "apps/api/src/*ledger*.test.ts"
