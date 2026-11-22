@@ -26,4 +26,10 @@ create unique index if not exists accounting_documents_carrier_invoice_source_uq
   on accounting_documents(tenant_id,source_module,source_document_id)
   where source_module='logistics-carrier-invoice' and source_document_id is not null;
 
+
+-- A carrier invoice can create at most one payable, even under concurrent posting attempts.
+create unique index if not exists accounting_carrier_invoice_payable_source_uq
+  on accounting_receivable_payables(tenant_id,(metadata->>'carrierInvoiceId'))
+  where direction='payable' and metadata ? 'carrierInvoiceId';
+
 commit;
