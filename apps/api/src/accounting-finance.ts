@@ -103,7 +103,10 @@ router.post("/api/accounting-finance/carrier-invoices/:invoiceId/payments",requi
   const payable=(await c.query("select * from accounting_receivable_payables where id=$1 and tenant_id=$2 and direction='payable' for update",[payableId,t.id])).rows[0];
   if(!payable||payable.status==="cancelled"||payable.metadata?.carrierInvoiceId!==invoice.id||payable.party_id!==invoice.carrier_party_id||payable.document_id!==invoice.accounting_document_id||Math.abs(Number(payable.original_amount)-Number(invoice.total_amount))>0.005){await c.query("rollback");return deny(res,404,"بدهی پرداختنی متناظر با این صورتحساب پیدا نشد");}
   const remaining=Number(payable.original_amount)-Number(payable.settled_amount);
-  if(remaining<=0.005||value>remaining+0.000001){await c.query("rollback");return deny(res,409,"مبلغ پرداخت از مانده بدهی بیشتر است یا بدهی تسویه شده است");}
+  const reservations=(await c.query("select coalesce(sum(amount),0)::numeric reserved_amount from treasury_payments where tenant_id=$1 and payable_id=$2 and status in ('pending','approved')",[t.id,payable.id])).rows[0];
+  const reservedAmount=Number(reservations?.reserved_amount||0);
+  const availableAmount=Math.max(0,remaining-reservedAmount);
+  if(remaining<=0.005||value>availableAmount+0.000001){await c.query("rollback");return deny(res,409,"مبلغ پرداخت از مانده قابل درخواست پس از کسر پیش‌نویس‌ها و پرداخت‌های در انتظار بیشتر است");}
   const book=(await c.query("select id,currency,status from accounting_books where id=$1 and tenant_id=$2 for share",[bookId,t.id])).rows[0];
   if(!book||book.status!=="active"||String(book.currency||"").toUpperCase()!==String(payable.currency).toUpperCase()){await c.query("rollback");return deny(res,409,"دفتر فعال با ارز بدهی انتخاب کنید");}
   const period=(await c.query("select id,book_id,starts_on,ends_on,status from accounting_fiscal_periods where id=$1 and tenant_id=$2 for share",[periodId,t.id])).rows[0];
@@ -133,7 +136,7 @@ router.post("/api/accounting-finance/carrier-invoices/:invoiceId/payments",requi
   if(!linked){await c.query("rollback");return deny(res,409,"اتصال سند پرداخت به درخواست پرداخت انجام نشد");}
   await c.query("insert into accounting_finance_audit(tenant_id,entity_type,entity_id,action,actor_user_id,after_data) values($1,'treasury_payment',$2,'create_carrier_payment_draft',$3,$4)",[t.id,payment.id,(req as any).user.id,JSON.stringify({invoiceId:invoice.id,payableId:payable.id,documentId:doc.id,amount:value})]);
   await c.query("commit");
-  res.status(201).json({payment:linked,accountingDocument:doc,payableStatus:payable.status,settlementStatus:"not_updated_until_document_posting"});
+  res.status(201).json({payment:linked,accountingDocument:doc,payableStatus:payable.status,remainingAmount:remaining,reservedAmount:reservedAmount+value,availableAmount:Math.max(0,availableAmount-value),settlementStatus:"not_updated_until_document_posting"});
  }catch(e:any){await c.query("rollback");if(e?.code==="23505")return deny(res,409,"شماره پرداخت یا سند تکراری است");throw e;}finally{c.release();}
 });
 
