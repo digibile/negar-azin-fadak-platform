@@ -25,6 +25,11 @@ test("money conversion rejects invalid precision and non-finite numbers",()=>{
  assert.throws(()=>moneyToMinorUnits(Number.NaN));
 });
 
+test("ledger posting rejects negative debit or credit values",()=>{
+ const source=fs.readFileSync(new URL("./ledger.ts",import.meta.url),"utf8");
+ assert.ok(source.includes("debit<0n||credit<0n"));
+});
+
 test("ledger source compares exact minor units and does not use a floating tolerance",()=>{
  const source=fs.readFileSync(new URL("./ledger.ts",import.meta.url),"utf8");
  assert.ok(source.includes("totalDebit!==totalCredit"));
