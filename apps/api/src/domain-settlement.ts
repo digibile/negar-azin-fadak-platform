@@ -85,7 +85,7 @@ settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,require
   if(settlement.status!=="approved"){await client.query("rollback");return res.status(409).json({error:"فقط تسویه تأییدشده قابل پرداخت است"});}
   const bankAccountId=s(req.body?.bankAccountId,80);
   const paidRef=s(req.body?.paymentRef,160);
-  if(!bankAccountId||!paidRef){await client.query("rollback");return res.status(400).json({error:"انتخاب حساب بانکی و شماره پیگیری پرداخت الزامی است"});}
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(bankAccountId)||!paidRef){await client.query("rollback");return res.status(400).json({error:"شناسه حساب بانکی و شماره پیگیری پرداخت معتبر و الزامی است"});}
   const mappings=await client.query(`
    select s.accounting_party_id,ap.party_type,ap.status party_status,ap.default_account_id,
     payable.code payable_code,payable.name payable_name,payable.account_type payable_type,payable.status payable_status,
@@ -107,6 +107,16 @@ settlementRouter.post("/api/marketplace/settlements/:id/pay",requireAuth,require
   if(!mapping.bank_account_id||!mapping.bank_ledger_account_id||mapping.bank_status!=="active"){
    await client.query("rollback");return res.status(409).json({error:"حساب بانکی انتخاب‌شده فعال نیست یا به حساب دفترکل متصل نشده است"});
   }
+  const locked=await client.query(`
+   select ap.id party_id,ba.id bank_account_id,payable.id payable_account_id,bank.id bank_ledger_account_id
+   from accounting_parties ap
+   join ledger_accounts payable on payable.id=ap.default_account_id and payable.tenant_id=ap.tenant_id and payable.status='active'
+   join accounting_bank_accounts ba on ba.id=$2 and ba.tenant_id=ap.tenant_id and ba.status='active'
+   join ledger_accounts bank on bank.id=ba.ledger_account_id and bank.tenant_id=ba.tenant_id and bank.status='active'
+   where ap.id=$1 and ap.tenant_id=$3 and ap.party_type='supplier' and ap.status='active'
+   for update of ap,ba,payable,bank
+  `,[mapping.accounting_party_id,bankAccountId,t.id]);
+  if(!locked.rowCount){await client.query("rollback");return res.status(409).json({error:"حساب تأمین‌کننده یا حساب بانکی هنگام پرداخت تغییر کرده یا غیرفعال شده است"});}
   if(mapping.payable_type!=="liability"||mapping.bank_type!=="asset"){
    await client.query("rollback");return res.status(409).json({error:"نوع حساب معین فروشنده یا حساب بانکی با ماهیت ثبت تسویه سازگار نیست"});
   }
