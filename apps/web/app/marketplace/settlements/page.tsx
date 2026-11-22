@@ -16,6 +16,11 @@ export default function SettlementsPage(){
  const [costingReadiness,setCostingReadiness]=useState<any>(null);
  const [readinessBusy,setReadinessBusy]=useState(false);
  const [reportBusy,setReportBusy]=useState(false);
+ const [issueDocuments,setIssueDocuments]=useState<any[]>([]);
+ const [issueDocumentsBusy,setIssueDocumentsBusy]=useState(false);
+ const [selectedIssueDocumentId,setSelectedIssueDocumentId]=useState("");
+ const [allocationPreview,setAllocationPreview]=useState<any>(null);
+ const [allocationPreviewBusy,setAllocationPreviewBusy]=useState(false);
  const [periodStart,setPeriodStart]=useState(()=>{const d=new Date();d.setDate(d.getDate()-30);return d.toISOString().slice(0,10)});
  const [periodEnd,setPeriodEnd]=useState(()=>new Date().toISOString().slice(0,10));
 
@@ -48,6 +53,8 @@ export default function SettlementsPage(){
  }
  const loadCostingReadiness=async()=>{setReadinessBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/costing-readiness?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setCostingReadiness(result);}catch(e){setError(e instanceof Error?e.message:"گزارش آمادگی بهای تمام‌شده دریافت نشد.");}finally{setReadinessBusy(false)}};
  const loadOrderCostReport=async()=>{setReportBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/order-cost-analysis?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setOrderCostReport(result);}catch(e){setError(e instanceof Error?e.message:"گزارش بهای سفارش دریافت نشد.");}finally{setReportBusy(false)}};
+ const loadPostedIssueDocuments=async()=>{setIssueDocumentsBusy(true);setError("");try{const result=await api<{items:any[]}>("/api/marketplace/settlements/posted-issue-documents");const rows=result.items||[];setIssueDocuments(rows);setSelectedIssueDocumentId(current=>rows.some(x=>x.id===current)?current:rows[0]?.id||"");setAllocationPreview(null);}catch(e){setError(e instanceof Error?e.message:"فهرست اسناد خروج قطعی دریافت نشد.");}finally{setIssueDocumentsBusy(false)}};
+ const loadAllocationPreview=async()=>{if(!selectedIssueDocumentId)return;setAllocationPreviewBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/cost-layer-allocation-preview?issueDocumentId="+encodeURIComponent(selectedIssueDocumentId));setAllocationPreview(result);}catch(e){setAllocationPreview(null);setError(e instanceof Error?e.message:"پیش‌نمایش تخصیص لایه‌ها دریافت نشد.");}finally{setAllocationPreviewBusy(false)}};
  const money=(v:unknown)=>Number(v||0).toLocaleString("fa-IR")+" ریال";
  const costingReadinessLabel=(status:string)=>({
   missing_inventory_product_mapping:"اتصال کالای انبار ناقص است",
@@ -88,6 +95,38 @@ export default function SettlementsPage(){
    </>}
   </section>
 
+
+  <section className="platform-panel">
+   <div className="panel-title"><div><h2>پیش‌نمایش تخصیص لایه‌های بهای تمام‌شده</h2><span>انتخاب سند خروج مالی قطعی و مشاهده مانده قلم‌ها و لایه‌های ورودی</span></div><button type="button" disabled={issueDocumentsBusy} onClick={()=>void loadPostedIssueDocuments()}>{issueDocumentsBusy?"در حال دریافت…":"دریافت اسناد خروج"}</button></div>
+   <p className="empty">فقط اسناد خروج مالی قطعی‌شده سازمان جاری نمایش داده می‌شوند. این ابزار فقط پیش‌نمایش است و هیچ تخصیص، سند خروج یا سند حسابداری ثبت نمی‌کند.</p>
+   <div className="platform-form">
+    <label>سند خروج مالی
+     <select value={selectedIssueDocumentId} onChange={e=>{setSelectedIssueDocumentId(e.target.value);setAllocationPreview(null);}}>
+      <option value="">انتخاب سند خروج</option>
+      {issueDocuments.map((d:any)=><option key={d.id} value={d.id}>{d.document_no} · {d.document_date} · {d.warehouse_code} - {d.warehouse_title} · {Number(d.line_count||0).toLocaleString("fa-IR")} قلم</option>)}
+     </select>
+    </label>
+    <button type="button" disabled={!selectedIssueDocumentId||allocationPreviewBusy} onClick={()=>void loadAllocationPreview()}>{allocationPreviewBusy?"در حال بررسی…":"نمایش پیش‌نمایش"}</button>
+   </div>
+   {issueDocuments.length===0&&!issueDocumentsBusy&&<p className="empty">در فهرست ۱۰۰ سند اخیر، سند خروج قطعی‌شده‌ای پیدا نشد.</p>}
+   {allocationPreview&&<>
+    <article className="platform-row">
+     <strong>{allocationPreview.document?.document_no}</strong>
+     <span>تاریخ: {allocationPreview.document?.document_date}</span>
+     <span>انبار: {allocationPreview.document?.warehouse_code} · {allocationPreview.document?.warehouse_title}</span>
+     <span>اقلام: {Number(allocationPreview.lineCount||0).toLocaleString("fa-IR")}</span>
+    </article>
+    <p className="empty">{allocationPreview.policy?.reason}</p>
+    <div style={{overflowX:"auto"}}><table><thead><tr><th>کد کالا</th><th>عنوان کالا</th><th>مقدار خروج</th><th>تخصیص ثبت‌شده</th><th>تخصیص‌نیافته</th><th>لایه ورودی</th><th>روش</th><th>مقدار اولیه لایه</th><th>مصرف لایه</th><th>مانده لایه</th><th>بهای واحد</th><th>حداکثر قابل تخصیص</th><th>سند ورودی</th><th>وضعیت سیاست</th></tr></thead><tbody>
+     {allocationPreview.items?.map((line:any)=>(line.candidates?.length?line.candidates:[null]).map((layer:any,index:number)=><tr key={line.issueLineId+":"+(layer?.costLayerId||"none")}>
+      {index===0&&<><td rowSpan={Math.max(1,line.candidates?.length||1)}>{line.productCode}</td><td rowSpan={Math.max(1,line.candidates?.length||1)}>{line.productTitle}</td><td rowSpan={Math.max(1,line.candidates?.length||1)}>{String(line.issueQuantity)}</td><td rowSpan={Math.max(1,line.candidates?.length||1)}>{String(line.allocatedQuantity)}</td><td rowSpan={Math.max(1,line.candidates?.length||1)}>{String(line.unallocatedQuantity)}</td></>}
+      {layer?<><td>{layer.costLayerId}</td><td>{layer.method}</td><td>{String(layer.initialQuantity)}</td><td>{String(layer.allocatedQuantity)}</td><td>{String(layer.remainingQuantity)}</td><td>{String(layer.unitCost)}</td><td>{String(layer.maxAllocatableQuantity)}</td><td>{layer.sourceDocument?.documentNo||"—"}</td><td>{layer.policyDecision}</td></>:<td colSpan={9}>لایه واجد شرایط در همین کالا و انبار پیدا نشد</td>}
+     </tr>))}
+    </tbody></table></div>
+    <p className="empty">{allocationPreview.limitation}</p>
+   </>}
+   <p className="empty">فهرست اسناد به ۱۰۰ سند خروج قطعی اخیر محدود است. انتخاب لایه و ثبت تخصیص در این مرحله غیرفعال است.</p>
+  </section>
   <section className="platform-panel">
    <div className="panel-title"><div><h2>تحلیل اجزای مالی سفارش‌ها</h2><span>فقط داده‌های ثبت‌شده و اسناد قطعی</span></div><button type="button" disabled={reportBusy||!periodStart||!periodEnd||periodEnd<periodStart} onClick={()=>void loadOrderCostReport()}>{reportBusy?"در حال دریافت…":"دریافت گزارش"}</button></div>
    <div className="platform-form"><label>از تاریخ<input type="date" value={periodStart} onChange={e=>setPeriodStart(e.target.value)}/></label><label>تا تاریخ<input type="date" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)}/></label></div>
