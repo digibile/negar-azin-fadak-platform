@@ -108,3 +108,19 @@ test("supplier quote selection serializes on the RFQ and permits one terminal se
  assert.match(r.body,/rollback/);
  assert.match(r.body,/finally\{c\.release\(\)\}/);
 });
+
+test("purchase order creation rejects reused selected quotes and advances request atomically",()=>{
+ const r=route('router.post("/api/purchasing/orders"','router.patch("/api/purchasing/orders/:id/status"');
+ assert.ok(r.start>=0);
+ assert.match(r.body,/for update of q,r/);
+ assert.match(r.body,/select id,order_no from purchase_orders where tenant_id=\$1 and quote_id=\$2 limit 1/);
+ assert.match(r.body,/برای این پیشنهاد قبلاً سفارش خرید ثبت شده است/);
+ assert.match(r.body,/select id,status from purchase_requests where id=\$1 and tenant_id=\$2 for update/);
+ assert.match(r.body,/update purchase_requests set status='ordered',updated_at=now\(\) where id=\$1 and tenant_id=\$2 and status=\$3 returning id/);
+ assert.match(r.body,/purchase_order_created/);
+ assert.match(r.body,/insert into purchase_order_items/);
+ assert.match(r.body,/begin/);
+ assert.match(r.body,/commit/);
+ assert.match(r.body,/rollback/);
+ assert.match(r.body,/finally\{c\.release\(\)\}/);
+});
