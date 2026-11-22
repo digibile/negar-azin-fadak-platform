@@ -65,3 +65,18 @@ test("marketplace fulfillment requires an active warehouse in the same tenant",(
  assert.ok(source.includes("source_warehouse_id,origin,destination"));
  assert.ok(source.includes("warehouse.id,origin,destination"));
 });
+
+
+test("shipment list and tracking joins enforce tenant equality on every related record",()=>{
+ const listStart=source.indexOf('logisticsRouter.get("/api/logistics/shipments"');
+ const createStart=source.indexOf('logisticsRouter.post("/api/logistics/shipments"');
+ const listRoute=source.slice(listStart,createStart);
+ assert.ok(listRoute.includes("o.tenant_id=s.tenant_id"));
+ assert.ok(listRoute.includes("r.tenant_id=s.tenant_id"));
+ assert.ok(listRoute.includes("v.tenant_id=s.tenant_id"));
+ assert.ok(listRoute.includes("d.tenant_id=s.tenant_id"));
+ const trackingStart=source.indexOf('logisticsRouter.get("/api/logistics/shipments/:id/tracking"');
+ const invoiceStart=source.indexOf('logisticsRouter.post("/api/logistics/carrier-invoices/:id/accounting-draft"',trackingStart);
+ const trackingRoute=source.slice(trackingStart,invoiceStart);
+ assert.ok(trackingRoute.includes("o.tenant_id=s.tenant_id"));
+});
