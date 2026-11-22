@@ -13,6 +13,8 @@ export default function SettlementsPage(){
  const [selected,setSelected]=useState<Settlement|null>(null);
  const [generateOpen,setGenerateOpen]=useState(false);
  const [orderCostReport,setOrderCostReport]=useState<any>(null);
+ const [costingReadiness,setCostingReadiness]=useState<any>(null);
+ const [readinessBusy,setReadinessBusy]=useState(false);
  const [reportBusy,setReportBusy]=useState(false);
  const [periodStart,setPeriodStart]=useState(()=>{const d=new Date();d.setDate(d.getDate()-30);return d.toISOString().slice(0,10)});
  const [periodEnd,setPeriodEnd]=useState(()=>new Date().toISOString().slice(0,10));
@@ -44,6 +46,7 @@ export default function SettlementsPage(){
   catch(e){setError(e instanceof Error?e.message:"ثبت پرداخت تسویه ناموفق بود.");}
   finally{setBusy("");}
  }
+ const loadCostingReadiness=async()=>{setReadinessBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/costing-readiness?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setCostingReadiness(result);}catch(e){setError(e instanceof Error?e.message:"گزارش آمادگی بهای تمام‌شده دریافت نشد.");}finally{setReadinessBusy(false)}};
  const loadOrderCostReport=async()=>{setReportBusy(true);setError("");try{const result=await api<any>("/api/marketplace/settlements/order-cost-analysis?from="+encodeURIComponent(periodStart)+"&to="+encodeURIComponent(periodEnd));setOrderCostReport(result);}catch(e){setError(e instanceof Error?e.message:"گزارش بهای سفارش دریافت نشد.");}finally{setReportBusy(false)}};
  const money=(v:unknown)=>Number(v||0).toLocaleString("fa-IR")+" ریال";
  return <main className="enterprise-main" dir="rtl">
