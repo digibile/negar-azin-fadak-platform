@@ -82,3 +82,11 @@ test("settlement schema migration preserves unmapped sellers and requires eviden
  assert.ok(!migration.includes("update seller_settlements"));
  assert.ok(migration.includes("existing sellers remain unmapped"));
 });
+
+test("seller payout workspace selects a real bank account and requires a payment reference",()=>{
+ const ui=fs.readFileSync(new URL("../../web/app/modules/CommercePanelWorkspace.tsx",import.meta.url),"utf8");
+ assert.ok(ui.includes("/api/marketplace/settlements/payout-bank-accounts"));
+ assert.ok(ui.includes('"/pay"'));
+ assert.ok(ui.includes("ثبت پرداخت و سند مالی"));
+ assert.ok(ui.includes("شماره پیگیری پرداخت"));
+});
