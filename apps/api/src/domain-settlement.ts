@@ -808,6 +808,65 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
 // Persist an explicit, tenant-safe relationship between a consumed marketplace
 // reservation and the exact posted financial issue line. No cost or GL posting
 // is performed here; this is an auditable source-link operation only.
+
+// Read-only discovery for consumed reservations and their exact posted financial issue candidates.
+// This endpoint never creates or posts inventory or accounting documents.
+settlementRouter.get("/api/marketplace/settlements/financial-issue-line-link-readiness",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const result=await query(`
+  select r.id reservation_id,r.marketplace_order_id,r.supply_order_id,r.marketplace_product_id,
+   r.inventory_product_id,r.warehouse_id operational_warehouse_id,r.quantity reservation_quantity,
+   r.status reservation_status,o.order_no,
+   mil.status operational_mapping_status,
+   fpl.finance_product_id,fpl.quantity_factor,
+   fwl.finance_warehouse_id,
+   link.id existing_link_id,
+   d.id issue_document_id,d.document_no issue_document_no,d.status issue_document_status,
+   il.id issue_document_line_id,il.quantity issue_line_quantity,il.product_id issue_finance_product_id,
+   case
+    when mil.product_id is null then 'missing_operational_product_mapping'
+    when mil.status<>'active' then 'operational_product_mapping_inactive'
+    when fpl.finance_product_id is null then 'missing_finance_product_mapping'
+    when fwl.finance_warehouse_id is null then 'missing_finance_warehouse_mapping'
+    when link.id is not null then 'already_linked'
+    when d.id is null then 'posted_financial_issue_document_missing'
+    when d.warehouse_id<>fwl.finance_warehouse_id then 'financial_issue_warehouse_mismatch'
+    when il.product_id<>fpl.finance_product_id then 'financial_issue_product_mismatch'
+    when il.quantity<>round(r.quantity*fpl.quantity_factor,4) then 'financial_issue_quantity_mismatch'
+    else 'ready_for_explicit_link'
+   end readiness_status
+  from marketplace_inventory_reservations r
+  join marketplace_orders o on o.id=r.marketplace_order_id and o.tenant_id=r.tenant_id
+  left join marketplace_inventory_product_links mil on mil.tenant_id=r.tenant_id
+   and mil.product_id=r.marketplace_product_id
+  left join marketplace_finance_product_links fpl on fpl.tenant_id=r.tenant_id
+   and fpl.inventory_product_id=r.inventory_product_id and fpl.status='active'
+  left join marketplace_finance_warehouse_links fwl on fwl.tenant_id=r.tenant_id
+   and fwl.inventory_warehouse_id=r.warehouse_id and fwl.status='active'
+  left join marketplace_finance_issue_line_links link on link.tenant_id=r.tenant_id
+   and link.reservation_id=r.id
+  left join lateral(
+   select doc.id,doc.document_no,doc.status,doc.warehouse_id,line.id line_id,line.quantity,line.product_id
+   from finance_inventory_documents doc
+   join finance_inventory_lines line on line.document_id=doc.id
+   where doc.tenant_id=r.tenant_id and doc.source_type='marketplace_order'
+    and doc.source_id=r.marketplace_order_id and doc.document_type='issue'
+    and doc.status='posted'
+   order by doc.posted_at desc nulls last,doc.created_at desc,line.id
+   limit 1
+  ) candidate on true
+  left join finance_inventory_documents d on d.id=candidate.id and d.tenant_id=r.tenant_id
+  left join finance_inventory_lines il on il.id=candidate.line_id
+  where r.tenant_id=$1 and r.status='consumed'
+  order by o.created_at desc,r.id
+  limit 500
+ `,[t.id]);
+ const summary=new Map<string,number>();
+ for(const row of result.rows)summary.set(row.readiness_status,(summary.get(row.readiness_status)||0)+1);
+ res.json({items:result.rows,summary:Array.from(summary,([status,count])=>({status,count})),limit:500,readOnly:true,
+  limitation:"This endpoint only discovers existing posted issue documents. It does not create missing documents or infer cost-of-goods values."});
+}));
+
 settlementRouter.post("/api/marketplace/settlements/financial-issue-line-links",requireAuth,requirePermission("accounting-finance.write"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const reservationId=s(req.body?.reservationId,64);
