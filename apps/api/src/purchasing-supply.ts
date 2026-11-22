@@ -325,7 +325,9 @@ router.post("/api/purchasing/invoices/:id/payments",requireAuth,requirePermissio
   await c.query("begin");
   const invoice=await c.query("select * from purchase_invoices where id=$1 and tenant_id=$2 for update",[req.params.id,t.id]);
   if(!invoice.rowCount){await c.query("rollback");return deny(res,404,"فاکتور خرید پیدا نشد");}
-  const inv=invoice.rows[0],paidBefore=n(inv.paid_total),total=n(inv.total);
+  const inv=invoice.rows[0],total=n(inv.total);
+  const confirmedPayments=await c.query("select coalesce(sum(amount),0)::numeric total from purchase_payments where tenant_id=$1 and invoice_id=$2 and status='confirmed'",[t.id,inv.id]);
+  const paidBefore=n(confirmedPayments.rows[0]?.total);
   if(!Number.isFinite(paidBefore)||!Number.isFinite(total)||paidBefore+amount>total+0.000001){await c.query("rollback");return deny(res,400,"مبلغ پرداخت از مانده فاکتور بیشتر است یا اطلاعات فاکتور معتبر نیست");}
   const payment=await c.query("insert into purchase_payments(tenant_id,invoice_id,amount,method,reference_no,created_by) values($1,$2,$3,$4,$5,$6) returning *",[t.id,inv.id,amount,req.body?.method||"bank",req.body?.referenceNo||null,(req as any).user.id]);
   const paid=paidBefore+amount,nextInvoice=paid+0.000001>=total?"paid":"partially_paid";
