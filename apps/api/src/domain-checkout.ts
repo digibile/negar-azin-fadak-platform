@@ -163,7 +163,7 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandl
  }catch(e){await client.query("rollback");throw e;}finally{client.release();}
 }));
 
-checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePermission("payment:refund"),asyncHandler(async(req,res)=>{
+checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePermission("payment:refund"),requireCsrf,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const client=await pool.connect();
  try{
@@ -173,14 +173,14 @@ checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePerm
   const order=o.rows[0];
   const linkedSupply=(await client.query("select * from logistics_supply_orders where tenant_id=$1 and marketplace_order_id=$2 for update",[t.id,order.id])).rows[0];
   if(linkedSupply){
-   const activeShipment=await client.query("select id,status from logistics_shipments where tenant_id=$1 and supply_order_id=$2 and status in ('planned','assigned','picked_up','in_transit','failed') limit 1 for update",[t.id,linkedSupply.id]);
-   if(activeShipment.rowCount){await client.query("rollback");return res.status(409).json({error:"پیش از بازپرداخت، مرسوله فعال باید از مسیر حمل تعیین تکلیف شود"});}
+   const shipment=await client.query("select id,status from logistics_shipments where tenant_id=$1 and supply_order_id=$2 limit 1 for update",[t.id,linkedSupply.id]);
+   if(shipment.rowCount){await client.query("rollback");return res.status(409).json({error:"این سفارش سابقه مرسوله دارد؛ بازپرداخت فقط پس از دریافت و بازرسی مرجوعی از گردش رسمی مرجوعی مجاز است"});}
   }
-  if(!["paid","processing","delivered","returned"].includes(order.status)){await client.query("rollback");return res.status(409).json({error:"فقط سفارش پرداخت‌شده قابل بازگشت وجه است"});}
+  if(!["paid","processing"].includes(order.status)){await client.query("rollback");return res.status(409).json({error:"بازپرداخت مستقیم فقط پیش از تحویل کالا مجاز است؛ سفارش تحویل‌شده یا مرجوع‌شده باید از گردش دریافت و بازرسی مرجوعی عبور کند"});}
   const payment=await client.query("select * from marketplace_payments where tenant_id=$1 and order_id=$2 and status='paid' order by paid_at desc nulls last,created_at desc limit 1 for update",[t.id,order.id]);
   if(!payment.rowCount){await client.query("rollback");return res.status(409).json({error:"پرداخت موفق سفارش پیدا نشد"});}
-  const existing=await client.query("select coalesce(sum(amount),0) amount from marketplace_refunds where tenant_id=$1 and payment_id=$2 and status='refunded'",[t.id,payment.rows[0].id]);
-  if(Number(existing.rows[0].amount)>0){await client.query("rollback");return res.status(409).json({error:"برای این پرداخت قبلاً بازپرداخت جزئی ثبت شده است؛ بازپرداخت کامل از این مسیر مجاز نیست"});}
+  const existing=await client.query("select count(*)::int refund_count from marketplace_refunds where tenant_id=$1 and payment_id=$2",[t.id,payment.rows[0].id]);
+  if(Number(existing.rows[0].refund_count)>0){await client.query("rollback");return res.status(409).json({error:"برای این پرداخت درخواست بازپرداخت قبلی وجود دارد؛ ابتدا وضعیت آن را از گردش تطبیق بازپرداخت تعیین تکلیف کنید"});}
   let refundProviderCode=payment.rows[0].provider_code,refundProviderTransactionId=payment.rows[0].provider_transaction_id||payment.rows[0].provider_ref||"",refundProviderPayload:any={};
   if(payment.rows[0].provider_code==="credit_facility"){
    if(!order.credit_facility_ref){await client.query("rollback");return res.status(409).json({error:"مرجع تسهیلات اعتبار خرید روی سفارش ثبت نشده است"});}
