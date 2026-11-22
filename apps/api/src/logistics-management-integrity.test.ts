@@ -59,6 +59,14 @@ test("logistics storefront fulfillment queue lists only paid tenant orders and e
 });
 
 
+test("marketplace-linked supply orders cannot bypass shipment status transitions",()=>{
+ const start=source.indexOf('logisticsRouter.patch("/api/logistics/orders/:id/status"');
+ const end=source.indexOf('logisticsRouter.get("/api/logistics/vehicles"',start);
+ const route=source.slice(start,end);
+ assert.ok(route.includes('if(o.marketplace_order_id&&["shipped","delivered"].includes(b.status))'));
+ assert.ok(route.includes("وضعیت ارسال و تحویل سفارش بازارگاه فقط از مسیر گردش وضعیت مرسوله ثبت می‌شود"));
+});
+
 test("marketplace fulfillment requires an active warehouse in the same tenant",()=>{
  assert.ok(source.includes('sourceWarehouseId=String(req.body?.sourceWarehouseId??"").trim()'));
  assert.ok(source.includes("from inventory_warehouses where id=$1 and tenant_id=$2 and status='active'"));
