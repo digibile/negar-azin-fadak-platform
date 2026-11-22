@@ -10,6 +10,19 @@ export const settlementRouter=Router();
 const s=(v:unknown,n=120)=>typeof v==="string"?v.trim().slice(0,n):"";
 const tenant=async(req:any)=>resolveTenant(req,req.user);
 
+settlementRouter.get("/api/marketplace/settlements/payout-bank-accounts",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
+ const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
+ const r=await query(`
+  select ba.id,ba.code,ba.bank_name,ba.branch_name,ba.account_no,ba.iban,ba.currency,
+   la.code as ledger_account_code,la.name as ledger_account_name
+  from accounting_bank_accounts ba
+  join ledger_accounts la on la.id=ba.ledger_account_id and la.tenant_id=ba.tenant_id and la.status='active'
+  where ba.tenant_id=$1 and ba.status='active' and ba.ledger_account_id is not null
+  order by ba.bank_name,ba.code
+ `,[t.id]);
+ res.json({items:r.rows,readOnly:true});
+}));
+
 settlementRouter.get("/api/marketplace/settlements",requireAuth,requirePermission("settlement:view"),asyncHandler(async(req,res)=>{
  const t=await tenant(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const r=await query("select ss.*,s.display_name as seller_name,(select count(*)::int from seller_settlement_items si where si.settlement_id=ss.id) as order_count from seller_settlements ss join sellers s on s.id=ss.seller_id where ss.tenant_id=$1 order by ss.created_at desc",[t.id]);
