@@ -225,7 +225,8 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
     sum(mir.quantity)::numeric consumed_quantity,count(*)::int consumed_reservation_count,
     count(distinct mir.warehouse_id)::int consumed_warehouse_count,
     count(distinct mir.warehouse_id) filter(where mfw.finance_warehouse_id is not null)::int mapped_operational_warehouse_count,
-    count(distinct mfw.finance_warehouse_id)::int mapped_finance_warehouse_count
+    count(distinct mfw.finance_warehouse_id)::int mapped_finance_warehouse_count,
+    coalesce(array_agg(distinct mfw.finance_warehouse_id) filter(where mfw.finance_warehouse_id is not null),'{}'::uuid[]) mapped_finance_warehouse_ids
    from marketplace_inventory_reservations mir
    left join marketplace_finance_warehouse_links mfw
     on mfw.tenant_id=mir.tenant_id and mfw.inventory_warehouse_id=mir.warehouse_id and mfw.status='active'
@@ -233,7 +234,7 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
    group by mir.tenant_id,mir.marketplace_order_id,mir.marketplace_product_id
   ),
   posted_layers as (
-   select cl.tenant_id,cl.product_id,count(*)::int posted_layer_count,
+   select cl.tenant_id,cl.product_id,fid.warehouse_id,count(*)::int posted_layer_count,
     sum(cl.quantity)::numeric posted_layer_quantity,
     count(distinct cl.method)::int posted_layer_method_count,
     array_agg(distinct cl.method order by cl.method) as posted_layer_methods
@@ -242,7 +243,24 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
    join finance_inventory_documents fid on fid.id=fil.document_id
     and fid.tenant_id=cl.tenant_id and fid.status='posted'
    where cl.tenant_id=$1 and cl.quantity>0
-   group by cl.tenant_id,cl.product_id
+   group by cl.tenant_id,cl.product_id,fid.warehouse_id
+  ),
+  matching_layers as (
+   select c.tenant_id,c.marketplace_order_id,c.marketplace_product_id,
+    count(pl.posted_layer_count)::int posted_layer_count,
+    coalesce(sum(pl.posted_layer_quantity),0)::numeric posted_layer_quantity,
+    count(distinct pl.posted_layer_method_count) filter(where pl.posted_layer_count is not null)::int posted_layer_method_count,
+    coalesce(array_agg(distinct method_name order by method_name) filter(where method_name is not null),'{}'::text[]) posted_layer_methods
+   from consumed c
+   left join posted_layers pl on pl.tenant_id=c.tenant_id
+    and pl.product_id=(select fpl.finance_product_id from marketplace_finance_product_links fpl
+      where fpl.tenant_id=c.tenant_id and fpl.inventory_product_id=(
+       select mil.inventory_product_id from marketplace_inventory_product_links mil
+       where mil.tenant_id=c.tenant_id and mil.product_id=c.marketplace_product_id and mil.status='active'
+      ) and fpl.status='active')
+    and pl.warehouse_id=any(c.mapped_finance_warehouse_ids)
+   left join lateral unnest(pl.posted_layer_methods) as method_name on true
+   group by c.tenant_id,c.marketplace_order_id,c.marketplace_product_id
   )
   select so.id order_id,so.order_no,so.currency,so.created_at,
    oi.id order_item_id,oi.product_id marketplace_product_id,p.sku marketplace_sku,p.title marketplace_product_title,
@@ -263,7 +281,7 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
     when fpl.finance_product_id is null then 'missing_finance_product_mapping'
     when coalesce(c.consumed_quantity,0)+0.000001 < oi.quantity*coalesce(mil.quantity_factor,1) then 'inventory_not_fully_consumed'
     when coalesce(c.mapped_operational_warehouse_count,0)<coalesce(c.consumed_warehouse_count,0) then 'missing_finance_warehouse_mapping'
-    when coalesce(pl.posted_layer_count,0)=0 then 'missing_posted_finance_cost_layers'
+    when coalesce(pl.posted_layer_count,0)=0 then 'missing_posted_finance_cost_layers_at_consumed_warehouse'
     when coalesce(pl.posted_layer_method_count,0)>1 then 'mixed_cost_layer_valuation_methods'
     else 'cost_layers_present_financial_issue_link_pending' end as costing_readiness,
    'not_calculated'::text cost_of_goods_status
@@ -275,7 +293,7 @@ settlementRouter.get("/api/marketplace/settlements/costing-readiness",requireAut
   left join consumed c on c.tenant_id=$1 and c.marketplace_order_id=so.id and c.marketplace_product_id=oi.product_id
   left join marketplace_finance_product_links fpl on fpl.tenant_id=$1 and fpl.inventory_product_id=mil.inventory_product_id and fpl.status='active'
   left join finance_products fp on fp.id=fpl.finance_product_id and fp.tenant_id=$1
-  left join posted_layers pl on pl.tenant_id=$1 and pl.product_id=fpl.finance_product_id
+  left join matching_layers pl on pl.tenant_id=$1 and pl.marketplace_order_id=so.id and pl.marketplace_product_id=oi.product_id
   order by so.created_at desc,so.order_no,oi.id limit 2000
  `,params);
  const counts=new Map<string,{lineCount:number;orderIds:Set<string>}>();
