@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {postLedgerEntry,validateLedgerLines} from "./ledger.js";
 
-const balanced=[
+type TestLine={accountCode:string;accountName:string;accountType:string;debit?:number;credit?:number;description?:string};
+const balanced:TestLine[]=[
  {accountCode:"1001",accountName:"بانک",accountType:"asset",debit:1250},
  {accountCode:"2101",accountName:"بدهی",accountType:"liability",credit:1250}
 ];
@@ -53,7 +54,7 @@ const entryArgs={
  description:"ثبت آزمایشی",createdBy:"user-1",currency:"IRR",lines:balanced
 };
 
-function duplicateClient(lines=balanced,headerOverrides={}){
+function duplicateClient(lines:TestLine[]=balanced,headerOverrides:Record<string,unknown>={}){
  return {query:async(sql:string)=>{
   if(sql.startsWith("insert into ledger_entries"))return {rows:[],rowCount:0};
   if(sql.startsWith("select id,entry_no,description,created_by,currency"))return {rows:[{
@@ -72,7 +73,7 @@ test("ledger returns the existing id for an identical source replay",async()=>{
 });
 
 test("ledger rejects a source replay with different lines",async()=>{
- const changed=[
+ const changed:TestLine[]=[
   {...balanced[0],debit:1200},
   {...balanced[1],credit:1200}
  ];
