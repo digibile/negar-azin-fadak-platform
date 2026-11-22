@@ -67,7 +67,7 @@ begin
  join finance_inventory_documents d on d.id=il.document_id and d.tenant_id=r.tenant_id
  where r.tenant_id=new.tenant_id and r.id=new.reservation_id
   and d.id=new.issue_document_id
- for update of r,il,d;
+ for update of r,o,so,mil,fpl,fwl,il,d;
 
  if not found then
   raise exception 'Reservation, supply order, product/warehouse mapping or financial issue line is missing in this tenant';
