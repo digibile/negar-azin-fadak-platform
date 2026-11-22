@@ -527,6 +527,43 @@ logisticsRouter.post("/api/logistics/carrier-invoices",requireAuth,requirePermis
   }catch(e:any){await c.query("rollback");if(e?.code==="23505")return fail(res,409,"شماره صورتحساب این شرکت حمل قبلاً ثبت شده است");throw e;}finally{c.release();}
 }));
 
+logisticsRouter.get("/api/logistics/carrier-cost-reports",requireAuth,asyncHandler(async(req,res)=>{
+  const t=await tenantOf(req);if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
+  if(!(await can(req,"modules:12-logistics-supply:read")))return fail(res,403,"دسترسی مشاهده گزارش هزینه حمل را ندارید");
+  const validDate=(v:any)=>typeof v==="string"&&/^\\d{4}-\\d{2}-\\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v+"T00:00:00Z"));
+  const from=validDate(req.query.from)?String(req.query.from):"1900-01-01";
+  const to=validDate(req.query.to)?String(req.query.to):"2999-12-31";
+  if(from>to)return fail(res,400,"بازه تاریخ گزارش معتبر نیست");
+  const params=[t.id,from,to];
+  const postedAllocations=`with posted_allocations as (
+    select i.tenant_id,i.id invoice_id,i.carrier_party_id,i.invoice_no,i.invoice_date,i.currency,
+      a.shipment_id,a.allocated_amount,s.shipment_no,so.marketplace_order_id,mo.order_no,mo.total_amount order_total,mo.created_at order_created_at
+    from logistics_carrier_invoices i
+    join accounting_documents d on d.id=i.accounting_document_id and d.tenant_id=i.tenant_id and d.status='posted'
+    join logistics_carrier_invoice_shipments a on a.tenant_id=i.tenant_id and a.invoice_id=i.id
+    join logistics_shipments s on s.id=a.shipment_id and s.tenant_id=a.tenant_id
+    left join logistics_supply_orders so on so.id=s.supply_order_id and so.tenant_id=s.tenant_id
+    left join marketplace_orders mo on mo.id=so.marketplace_order_id and mo.tenant_id=so.tenant_id
+    where i.tenant_id=$1 and i.status='posted' and i.invoice_date between $2::date and $3::date
+  )`;
+  const [byShipment,byOrder,byCarrier,byPeriod]=await Promise.all([
+    query(postedAllocations+` select shipment_id,shipment_no,marketplace_order_id,order_no,currency,count(distinct invoice_id)::int invoice_count,sum(allocated_amount)::numeric freight_cost
+      from posted_allocations group by shipment_id,shipment_no,marketplace_order_id,order_no,currency order by shipment_no,currency`,params),
+    query(postedAllocations+` select marketplace_order_id,order_no,currency,max(order_total)::numeric order_total,sum(allocated_amount)::numeric freight_cost,
+      (max(order_total)-sum(allocated_amount))::numeric amount_after_freight
+      from posted_allocations where marketplace_order_id is not null group by marketplace_order_id,order_no,currency order by order_no,currency`,params),
+    query(postedAllocations+` select p.id carrier_party_id,p.title carrier_title,x.currency,count(distinct x.invoice_id)::int invoice_count,
+      count(distinct x.shipment_id)::int shipment_count,sum(x.allocated_amount)::numeric freight_cost
+      from posted_allocations x join accounting_parties p on p.id=x.carrier_party_id and p.tenant_id=x.tenant_id
+      group by p.id,p.title,x.currency order by p.title,x.currency`,params),
+    query(postedAllocations+` select to_char(date_trunc('month',invoice_date),'YYYY-MM') period,currency,
+      count(distinct invoice_id)::int invoice_count,count(distinct shipment_id)::int shipment_count,sum(allocated_amount)::numeric freight_cost
+      from posted_allocations group by date_trunc('month',invoice_date),currency order by period,currency`,params)
+  ]);
+  res.json({from,to,basis:"posted_carrier_invoices_only",byShipment:byShipment.rows,byOrder:byOrder.rows,byCarrier:byCarrier.rows,byPeriod:byPeriod.rows,
+    limitation:"amount_after_freight is order total less posted freight allocation; it is not net profit because product cost, marketplace commission, tax and other operating costs are not deducted."});
+}));
+
 logisticsRouter.get("/api/logistics/reports",requireAuth,asyncHandler(async(req,res)=>{
   const t=await tenantOf(req); if(!t)return fail(res,403,"سازمان معتبر پیدا نشد");
   const [byShipment,byVehicle,byRoute]=await Promise.all([
