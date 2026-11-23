@@ -3,6 +3,7 @@ import test from "node:test";
 import {postLedgerEntry,validateLedgerLines} from "./ledger.js";
 
 type TestLine={accountCode:string;accountName:string;accountType:string;debit?:number;credit?:number;description?:string};
+type ExistingHeader={entry_no?:string;description?:string;created_by?:string|null;currency?:string};
 const balanced:TestLine[]=[
  {accountCode:"1001",accountName:"بانک",accountType:"asset",debit:1250},
  {accountCode:"2101",accountName:"بدهی",accountType:"liability",credit:1250}
@@ -54,7 +55,7 @@ const entryArgs={
  description:"ثبت آزمایشی",createdBy:"user-1",currency:"IRR",lines:balanced
 };
 
-function duplicateClient(lines:TestLine[]=balanced,headerOverrides:Record<string,unknown>={}){
+function duplicateClient(lines:TestLine[]=balanced,headerOverrides:ExistingHeader={}){
  return {query:async(sql:string)=>{
   if(sql.startsWith("insert into ledger_entries"))return {rows:[],rowCount:0};
   if(sql.startsWith("select id,entry_no,description,created_by,currency"))return {rows:[{
@@ -81,5 +82,5 @@ test("ledger rejects a source replay with different lines",async()=>{
 });
 
 test("ledger rejects a source replay with a different header",async()=>{
- await assert.rejects(()=>postLedgerEntry(duplicateClient(balanced,{entryNo:"JE-OTHER"}),entryArgs),/محتوای متفاوت/);
+ await assert.rejects(()=>postLedgerEntry(duplicateClient(balanced,{entry_no:"JE-OTHER"}),entryArgs),/محتوای متفاوت/);
 });
