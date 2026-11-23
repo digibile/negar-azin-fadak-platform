@@ -272,7 +272,9 @@ checkoutRouter.post("/api/marketplace/payments/:paymentId/verify",requireAuth,as
   const verifiedCarrierCost=Math.max(0,Number(payment.delivery_quote_snapshot?.carrierCost||0));
   const verifiedCustomerShipping=Math.max(0,Number(payment.shipping_amount||0));
   const verifiedLedgerLines:any[]=[
-   {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",debit:Number(payment.amount)},
+   payment.method==="credit"||payment.provider_code==="credit_facility"
+    ? {accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",debit:Number(payment.amount)}
+    : {accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",debit:Number(payment.amount)},
    {accountCode:"2101",accountName:"بستانکاران فروشندگان",accountType:"liability",credit:Number(payment.seller_payable)},
    {accountCode:"4101",accountName:"درآمد کمیسیون",accountType:"revenue",credit:Number(payment.commission_amount)}
   ];
