@@ -283,11 +283,11 @@ checkoutRouter.post("/api/marketplace/payments/:paymentId/verify",requireAuth,as
   // Phase 2: re-lock and re-check current state before applying the provider result.
   client=await pool.connect();
   await client.query("begin");
+  const currentOrder=await client.query("select id,status,reservation_expires_at from marketplace_orders where id=$1 and tenant_id=$2 for update",[payment.order_id,t.id]);
+  if(!currentOrder.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}
   const current=await client.query("select p.*,o.customer_ref,o.order_no,o.store_id,o.status as order_status,o.total_amount,o.seller_payable,o.commission_amount,o.shipping_amount,o.delivery_quote_snapshot,o.currency,o.reservation_expires_at,(o.reservation_expires_at is not null and o.reservation_expires_at<=now()) as reservation_expired from marketplace_payments p join marketplace_orders o on o.id=p.order_id and o.tenant_id=p.tenant_id where p.id=$1 and p.tenant_id=$2 for update of p",[payment.id,t.id]);
   if(!current.rowCount){await client.query("rollback");return res.status(404).json({error:"تلاش پرداخت پیدا نشد"});}
   payment=current.rows[0];
-  const currentOrder=await client.query("select id,status,reservation_expires_at from marketplace_orders where id=$1 and tenant_id=$2 for update",[payment.order_id,t.id]);
-  if(!currentOrder.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}
   if(payment.status==="paid"){await client.query("commit");return res.json({status:"paid",paymentId:payment.id,order:{id:payment.order_id,status:currentOrder.rows[0].status},idempotent:true});}
   if(["cancelled","refunded"].includes(currentOrder.rows[0].status)||(currentOrder.rows[0].reservation_expires_at&&new Date(currentOrder.rows[0].reservation_expires_at).getTime()<=Date.now())){await client.query("rollback");return res.status(409).json({error:"سفارش در فاصله تأیید درگاه بسته شده یا مهلت رزرو آن پایان یافته است"});}
   if(verified.status!=="paid"){
