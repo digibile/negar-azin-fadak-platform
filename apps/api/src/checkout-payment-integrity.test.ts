@@ -32,3 +32,11 @@ test("payment verification reacquires order lock before payment lock",()=>{
  assert.ok(orderLock>providerCall);
  assert.ok(paymentLock>orderLock);
 });
+
+
+test("tenant-scoped payment idempotency keys are serialized before lookup",()=>{
+ const lock=checkoutSource.indexOf("pg_advisory_xact_lock(hashtext($1),hashtext($2))");
+ const lookup=checkoutSource.indexOf('select * from marketplace_payments where tenant_id=$1 and idempotency_key=$2');
+ assert.ok(lock>=0);
+ assert.ok(lookup>lock);
+});
