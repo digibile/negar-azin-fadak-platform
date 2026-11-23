@@ -177,6 +177,8 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandl
   const paymentNo=s(req.body?.paymentNo,100)||("PAY-"+Date.now()+"-"+Math.random().toString(36).slice(2,7));
   const idempotencyKey=s(req.body?.idempotencyKey,160)||null;
   if(idempotencyKey){
+   // Serialize the same tenant-scoped idempotency key even when requests target different orders.
+   await client.query("select pg_advisory_xact_lock(hashtext($1),hashtext($2))",[t.id,idempotencyKey]);
    const existing=await client.query("select * from marketplace_payments where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey]);
    if(existing.rowCount){
     if(existing.rows[0].order_id!==o.rows[0].id){await client.query("rollback");return res.status(409).json({error:"کلید یکتای پرداخت قبلاً برای سفارش دیگری استفاده شده است"});}
