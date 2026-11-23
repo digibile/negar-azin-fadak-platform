@@ -256,30 +256,51 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandl
 
 checkoutRouter.post("/api/marketplace/payments/:paymentId/verify",requireAuth,asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
- const client=await pool.connect();
- let eventOrderId:string|undefined,paymentId:string|undefined;
+ let client:any;
+ let payment:any;
+ let verified:any;
  try{
+  // Phase 1: read and lock a consistent payment snapshot, then release all DB locks.
+  client=await pool.connect();
   await client.query("begin");
   const orderLock=await client.query("select id from marketplace_orders where id=(select order_id from marketplace_payments where id=$1 and tenant_id=$2) and tenant_id=$2 for update",[req.params.paymentId,t.id]);
   if(!orderLock.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پرداخت پیدا نشد"});}
   const p=await client.query("select p.*,o.customer_ref,o.order_no,o.store_id,o.status as order_status,o.total_amount,o.seller_payable,o.commission_amount,o.shipping_amount,o.delivery_quote_required,o.delivery_quote_id,o.delivery_quote_snapshot,o.currency,o.reservation_expires_at,(o.reservation_expires_at is not null and o.reservation_expires_at<=now()) as reservation_expired from marketplace_payments p join marketplace_orders o on o.id=p.order_id and o.tenant_id=p.tenant_id where p.id=$1 and p.tenant_id=$2 for update of p",[req.params.paymentId,t.id]);
   if(!p.rowCount){await client.query("rollback");return res.status(404).json({error:"تلاش پرداخت پیدا نشد"});}
-  const payment=p.rows[0];paymentId=payment.id;eventOrderId=payment.order_id;
+  payment=p.rows[0];
   if(["cancelled","refunded"].includes(payment.order_status)||(["pending","confirmed"].includes(payment.order_status)&&payment.reservation_expired)){await client.query("rollback");return res.status(409).json({error:"مهلت رزرو سفارش پایان یافته یا سفارش بسته شده است"});}
   if(!(await canAccessCustomer(req,payment.customer_ref,"payment:manage"))){await client.query("rollback");return res.status(403).json({error:"دسترسی به این پرداخت مجاز نیست"});}
   if(payment.status==="paid"){await client.query("commit");return res.json({status:"paid",paymentId:payment.id,order:{id:payment.order_id,status:payment.order_status}});}
   if(!["pending","authorized"].includes(payment.status)){await client.query("rollback");return res.status(409).json({error:"این پرداخت در وضعیت قابل تأیید نیست",status:payment.status});}
+  await client.query("commit");
+  client.release();client=undefined;
+
+  // The provider call is deliberately outside a database transaction.
   const provider=getPaymentProvider(payment.provider_code);
-  const verified=await provider.verifyPayment({providerTransactionId:payment.provider_transaction_id||payment.provider_ref||"",amount:Number(payment.amount),metadata:{orderId:payment.order_id,paymentId:payment.id,paymentNo:payment.payment_no}});
-  if(verified.providerTransactionId!==(payment.provider_transaction_id||payment.provider_ref||"")){await client.query("rollback");return res.status(409).json({error:"شناسه تراکنش تأییدشده با درخواست اولیه یکسان نیست"});}
+  verified=await provider.verifyPayment({providerTransactionId:payment.provider_transaction_id||payment.provider_ref||"",amount:Number(payment.amount),metadata:{orderId:payment.order_id,paymentId:payment.id,paymentNo:payment.payment_no}});
+  if(verified.providerTransactionId!==(payment.provider_transaction_id||payment.provider_ref||""))return res.status(409).json({error:"شناسه تراکنش تأییدشده با درخواست اولیه یکسان نیست"});
+
+  // Phase 2: re-lock and re-check current state before applying the provider result.
+  client=await pool.connect();
+  await client.query("begin");
+  const current=await client.query("select p.*,o.customer_ref,o.order_no,o.store_id,o.status as order_status,o.total_amount,o.seller_payable,o.commission_amount,o.shipping_amount,o.delivery_quote_snapshot,o.currency,o.reservation_expires_at,(o.reservation_expires_at is not null and o.reservation_expires_at<=now()) as reservation_expired from marketplace_payments p join marketplace_orders o on o.id=p.order_id and o.tenant_id=p.tenant_id where p.id=$1 and p.tenant_id=$2 for update of p",[payment.id,t.id]);
+  if(!current.rowCount){await client.query("rollback");return res.status(404).json({error:"تلاش پرداخت پیدا نشد"});}
+  payment=current.rows[0];
+  const currentOrder=await client.query("select id,status,reservation_expires_at from marketplace_orders where id=$1 and tenant_id=$2 for update",[payment.order_id,t.id]);
+  if(!currentOrder.rowCount){await client.query("rollback");return res.status(404).json({error:"سفارش پیدا نشد"});}
+  if(payment.status==="paid"){await client.query("commit");return res.json({status:"paid",paymentId:payment.id,order:{id:payment.order_id,status:currentOrder.rows[0].status},idempotent:true});}
+  if(["cancelled","refunded"].includes(currentOrder.rows[0].status)||(currentOrder.rows[0].reservation_expires_at&&new Date(currentOrder.rows[0].reservation_expires_at).getTime()<=Date.now())){await client.query("rollback");return res.status(409).json({error:"سفارش در فاصله تأیید درگاه بسته شده یا مهلت رزرو آن پایان یافته است"});}
   if(verified.status!=="paid"){
-   if(verified.status==="failed")await client.query("update marketplace_payments set status='failed',failure_reason=$2,provider_payload=$3,updated_at=now() where id=$1",[payment.id,String((verified.providerPayload as any)?.message||"پرداخت توسط درگاه ناموفق اعلام شد").slice(0,500),JSON.stringify(verified.providerPayload)]);
-   else await client.query("update marketplace_payments set status=$2,provider_payload=$3,updated_at=now() where id=$1",[payment.id,verified.status==="authorized"?"authorized":"pending",JSON.stringify(verified.providerPayload)]);
+   if(["pending","authorized"].includes(payment.status)){
+    if(verified.status==="failed")await client.query("update marketplace_payments set status='failed',failure_reason=$2,provider_payload=$3,updated_at=now() where id=$1 and status in ('pending','authorized')",[payment.id,String((verified.providerPayload as any)?.message||"پرداخت توسط درگاه ناموفق اعلام شد").slice(0,500),JSON.stringify(verified.providerPayload)]);
+    else await client.query("update marketplace_payments set status=$2,provider_payload=$3,updated_at=now() where id=$1 and status in ('pending','authorized')",[payment.id,verified.status==="authorized"?"authorized":"pending",JSON.stringify(verified.providerPayload)]);
+   }
    await client.query("commit");
-   return res.status(202).json({status:verified.status,paymentId:payment.id,order:{id:payment.order_id,status:payment.order_status}});
+   return res.status(202).json({status:verified.status,paymentId:payment.id,order:{id:payment.order_id,status:currentOrder.rows[0].status}});
   }
-  if(!["pending","confirmed"].includes(payment.order_status)){await client.query("rollback");return res.status(409).json({error:"وضعیت سفارش برای نهایی‌سازی پرداخت مجاز نیست"});}
-  await client.query("update marketplace_payments set status='paid',provider_transaction_id=$2,provider_ref=$2,provider_payload=$3,paid_at=now(),updated_at=now() where id=$1",[payment.id,verified.providerTransactionId,JSON.stringify(verified.providerPayload)]);
+  if(!["pending","confirmed"].includes(currentOrder.rows[0].status)){await client.query("rollback");return res.status(409).json({error:"وضعیت سفارش برای نهایی‌سازی پرداخت مجاز نیست"});}
+  if(!["pending","authorized","failed"].includes(payment.status)){await client.query("rollback");return res.status(409).json({error:"وضعیت تلاش پرداخت برای نهایی‌سازی مجاز نیست",status:payment.status});}
+  await client.query("update marketplace_payments set status='paid',provider_transaction_id=$2,provider_ref=$2,provider_payload=$3,paid_at=coalesce(paid_at,now()),updated_at=now() where id=$1",[payment.id,verified.providerTransactionId,JSON.stringify(verified.providerPayload)]);
   await client.query("update marketplace_orders set status='paid',paid_at=coalesce(paid_at,now()),updated_at=now() where id=$1 and tenant_id=$2",[payment.order_id,t.id]);
   const verifiedCarrierCost=Math.max(0,Number(payment.delivery_quote_snapshot?.carrierCost||0));
   const verifiedCustomerShipping=Math.max(0,Number(payment.shipping_amount||0));
@@ -302,11 +323,14 @@ checkoutRouter.post("/api/marketplace/payments/:paymentId/verify",requireAuth,as
   }
   await client.query("insert into platform_audit_events(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) values($1,$2,'payment.paid','marketplace_order',$3,$4)",[t.id,(req as any).user.id,payment.order_id,JSON.stringify({status:"paid",amount:payment.amount,provider:payment.provider_code,providerTransactionId:verified.providerTransactionId,paymentId:payment.id})]);
   await client.query("commit");
- }catch(e){await client.query("rollback");throw e;}finally{client.release();}
- if(eventOrderId&&paymentId)await emitBusinessEvent({tenantId:t.id,eventKey:"payment.paid",subjectType:"marketplace_order",subjectId:eventOrderId,userId:(req as any).user.id,input:{orderId:eventOrderId,paymentId}});
- res.json({status:"paid",paymentId,order:{id:eventOrderId,status:"paid"}});
+  client.release();client=undefined;
+  await emitBusinessEvent({tenantId:t.id,eventKey:"payment.paid",subjectType:"marketplace_order",subjectId:payment.order_id,userId:(req as any).user.id,input:{orderId:payment.order_id,paymentId:payment.id}});
+  res.json({status:"paid",paymentId:payment.id,order:{id:payment.order_id,status:"paid"}});
+ }catch(e){
+  if(client){try{await client.query("rollback");}catch{}}
+  throw e;
+ }finally{if(client)client.release();}
 }));
-
 checkoutRouter.post("/api/marketplace/orders/:id/refund",requireAuth,requirePermission("payment:refund"),asyncHandler(async(req,res)=>{
  const t=await ctx(req);if(!t)return res.status(403).json({error:"محدوده سازمانی معتبر پیدا نشد"});
  const client=await pool.connect();
