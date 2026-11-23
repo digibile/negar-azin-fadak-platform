@@ -176,7 +176,19 @@ checkoutRouter.post("/api/marketplace/orders/:id/payment",requireAuth,asyncHandl
   }
   const paymentNo=s(req.body?.paymentNo,100)||("PAY-"+Date.now()+"-"+Math.random().toString(36).slice(2,7));
   const idempotencyKey=s(req.body?.idempotencyKey,160)||null;
-  if(idempotencyKey){const existing=await client.query("select * from marketplace_payments where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey]);if(existing.rowCount){await client.query("rollback");return res.status(200).json({payment:existing.rows[0],order:{id:o.rows[0].id,status:o.rows[0].status}});}}
+  if(idempotencyKey){
+   const existing=await client.query("select * from marketplace_payments where tenant_id=$1 and idempotency_key=$2",[t.id,idempotencyKey]);
+   if(existing.rowCount){
+    if(existing.rows[0].order_id!==o.rows[0].id){await client.query("rollback");return res.status(409).json({error:"کلید یکتای پرداخت قبلاً برای سفارش دیگری استفاده شده است"});}
+    await client.query("commit");
+    return res.status(200).json({status:existing.rows[0].status,payment:existing.rows[0],order:{id:o.rows[0].id,status:o.rows[0].status},redirectUrl:existing.rows[0].redirect_url||null,providerCode:existing.rows[0].provider_code});
+   }
+  }
+  const activeAttempt=await client.query("select * from marketplace_payments where tenant_id=$1 and order_id=$2 and status in ('pending','authorized') order by created_at desc limit 1 for update",[t.id,o.rows[0].id]);
+  if(activeAttempt.rowCount){
+   await client.query("commit");
+   return res.status(200).json({status:activeAttempt.rows[0].status,payment:activeAttempt.rows[0],order:{id:o.rows[0].id,status:o.rows[0].status},redirectUrl:activeAttempt.rows[0].redirect_url||null,providerCode:activeAttempt.rows[0].provider_code,idempotent:true});
+  }
   const requestedMethod=s(req.body?.method,50)||"online";
   let providerCode=s(req.body?.providerCode,40)||"";
   let providerTransactionId=s(req.body?.providerRef,200)||"";
