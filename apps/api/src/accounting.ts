@@ -63,12 +63,12 @@ router.post("/api/accounting/accounts/transfer",requireAuth,requirePermission("l
   const target=accounts.rows.find((x:any)=>x.id===targetAccountId);
   if(!source||!target)throw Object.assign(new Error("حساب مبدأ یا مقصد پیدا نشد"),{status:404});
   const currency=String(source.book_currency||"IRR").toUpperCase();
-  const targetCurrency=String(target.book_currency||"IRR").toUpperCase();
-  if(currency!==targetCurrency)throw Object.assign(new Error("انتقال مستقیم بین حساب‌های دارای ارز متفاوت مجاز نیست؛ ابتدا عملیات تسعیر و تبدیل ارز باید ثبت شود"),{status:409});
   let numeric:number|null=null;
   if(transferType!=="copy"&&transferType!=="map"){
    numeric=Number(amount);
    if(!Number.isFinite(numeric)||numeric<=0)throw Object.assign(new Error("برای جابجایی مانده، مبلغ معتبر لازم است"),{status:400});
+   const targetCurrency=String(target.book_currency||"IRR").toUpperCase();
+   if(currency!==targetCurrency)throw Object.assign(new Error("انتقال مستقیم بین حساب‌های دارای ارز متفاوت مجاز نیست؛ ابتدا عملیات تسعیر و تبدیل ارز باید ثبت شود"),{status:409});
   }
   const transferResult=await client.query(
    "insert into accounting_account_transfers(tenant_id,source_account_id,target_account_id,source_book_id,target_book_id,transfer_type,amount,payload,reason,created_by,status,posted_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'posted',now()) returning *",
