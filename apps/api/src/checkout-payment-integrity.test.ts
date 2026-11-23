@@ -14,3 +14,21 @@ test("an order with a pending or authorized payment reuses the active attempt",(
  assert.ok(checkoutSource.includes("activeAttempt.rows[0].redirect_url||null"));
  assert.ok(checkoutSource.includes("idempotent:true"));
 });
+
+
+test("payment provider verification runs after releasing the initial database transaction",()=>{
+ const providerCall=checkoutSource.indexOf("verified=await provider.verifyPayment");
+ const initialCommit=checkoutSource.lastIndexOf('await client.query("commit")',providerCall);
+ const phaseTwoBegin=checkoutSource.indexOf('await client.query("begin")',providerCall);
+ assert.ok(providerCall>0);
+ assert.ok(initialCommit>=0&&initialCommit<providerCall);
+ assert.ok(phaseTwoBegin>providerCall);
+});
+
+test("payment verification reacquires order lock before payment lock",()=>{
+ const providerCall=checkoutSource.indexOf("verified=await provider.verifyPayment");
+ const orderLock=checkoutSource.indexOf('const currentOrder=await client.query("select id,status,reservation_expires_at',providerCall);
+ const paymentLock=checkoutSource.indexOf('const current=await client.query("select p.*',providerCall);
+ assert.ok(orderLock>providerCall);
+ assert.ok(paymentLock>orderLock);
+});
