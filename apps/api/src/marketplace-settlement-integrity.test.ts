@@ -59,3 +59,10 @@ test("seller settlement generation has one canonical implementation",()=>{
  assert.ok(settlementSource.includes("o.status='paid'"));
  assert.ok(settlementSource.includes("not exists(select 1 from seller_settlement_items"));
 });
+
+test("credit marketplace payment verification posts to receivables, not cash",()=>{
+ const checkoutSource=fs.readFileSync(new URL("./domain-checkout.ts",import.meta.url),"utf8");
+ assert.ok(checkoutSource.includes('payment.method==="credit"||payment.provider_code==="credit_facility"'));
+ assert.ok(checkoutSource.includes('{accountCode:"1201",accountName:"مطالبات اعتباری مشتریان",accountType:"asset",debit:Number(payment.amount)}'));
+ assert.ok(checkoutSource.includes('{accountCode:"1101",accountName:"حساب پرداخت‌های پلتفرم",accountType:"asset",debit:Number(payment.amount)}'));
+});
